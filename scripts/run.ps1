@@ -13,7 +13,7 @@ if (-not $javaHome -or -not (Test-Path (Join-Path $javaHome 'bin\javac.exe'))) {
 }
 
 if (-not $javaHome -or -not (Test-Path (Join-Path $javaHome 'bin\javac.exe'))) {
-    throw 'Java 21 JDK를 찾을 수 없습니다. JAVA_HOME을 Java 21 설치 폴더로 설정한 뒤 다시 실행하세요.'
+    throw 'Java 17 이상 JDK를 찾을 수 없습니다. JAVA_HOME을 Java 설치 폴더로 설정한 뒤 다시 실행하세요.'
 }
 
 $classes = Join-Path $projectRoot 'build\classes'

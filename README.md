@@ -22,7 +22,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 브라우저에서 [http://localhost:8080](http://localhost:8080)을 엽니다.
 
-Java 21이 설치되어 있어야 합니다. 이 컴퓨터에 설치된 Microsoft OpenJDK 21을 자동으로 찾도록 실행 스크립트를 구성했습니다.
+Java 17 이상이 설치되어 있어야 합니다. 실행 스크립트는 Microsoft OpenJDK 17을 사용합니다.
 
 ## 현재 구조
 

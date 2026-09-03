@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
-/** Java 21만으로 실행되는 GameStock 개발용 API 및 정적 파일 서버. */
+/** GameStock 개발용 API 및 정적 파일 서버. */
 public final class GameStockApplication {
     private static final int PORT = 8080;
     private final MarketService market = new MarketService();
@@ -33,7 +33,7 @@ public final class GameStockApplication {
         server.createContext("/api/portfolio", this::portfolio);
         server.createContext("/api/orders", this::orders);
         server.createContext("/", this::staticFile);
-        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+        server.setExecutor(Executors.newCachedThreadPool());
         server.start();
         System.out.printf("GameStock 서버가 실행되었습니다: http://localhost:%d%n", PORT);
     }
