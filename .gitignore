@@ -2,6 +2,9 @@
 build/
 out/
 target/
+node_modules/
+.expo/
+dist/
 *.class
 
 # IDE settings

@@ -1,13 +1,22 @@
 const money = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 });
+// 웹과 모바일 앱은 같은 Spring Boot 서버의 REST API와 WebSocket을 공유한다.
+const API_BASE_URL = 'http://localhost:8081';
+const MARKET_SOCKET_URL = 'ws://localhost:8081/ws/market';
 const stockContainer = document.querySelector('#stocks');
 const stockSelect = document.querySelector('#stock-code');
 const message = document.querySelector('#order-message');
 
 async function api(path, options) {
-  const response = await fetch(path, options);
+  const response = await fetch(`${API_BASE_URL}${path}`, options);
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.message || '요청 처리 중 오류가 발생했습니다.');
   return payload;
+}
+
+function applyMarketSnapshot(snapshot) {
+  renderStocks(snapshot.stocks);
+  renderPortfolio(snapshot.portfolio);
+  renderEvents(snapshot.events);
 }
 
 function renderStocks(stocks) {
@@ -30,7 +39,7 @@ function renderEvents(events) {
 
 async function refreshMarket() {
   const [stocks, portfolio, events] = await Promise.all([api('/api/stocks'), api('/api/portfolio'), api('/api/market-events')]);
-  renderStocks(stocks); renderPortfolio(portfolio); renderEvents(events);
+  applyMarketSnapshot({ stocks, portfolio, events });
 }
 
 document.querySelector('#order-form').addEventListener('submit', async event => {
@@ -47,5 +56,18 @@ document.querySelector('#order-form').addEventListener('submit', async event => 
   }
 });
 
-api('/api/health').then(() => document.querySelector('#server-status').textContent = '서버 연결됨').then(() => document.querySelector('#server-status').classList.add('ok')).catch(() => document.querySelector('#server-status').textContent = '서버 연결 실패');
+function connectRealtimeMarket() {
+  const socket = new WebSocket(MARKET_SOCKET_URL);
+  socket.addEventListener('open', () => {
+    const status = document.querySelector('#server-status');
+    status.textContent = '실시간 연결됨'; status.classList.add('ok');
+  });
+  socket.addEventListener('message', event => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'MARKET_UPDATED') applyMarketSnapshot(data.payload);
+  });
+  socket.addEventListener('close', () => setTimeout(connectRealtimeMarket, 2000));
+}
+
+api('/api/health').then(() => connectRealtimeMarket()).catch(() => document.querySelector('#server-status').textContent = '서버 연결 실패');
 refreshMarket().catch(error => { stockContainer.textContent = `시장 정보를 불러오지 못했습니다: ${error.message}`; });

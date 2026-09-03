@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: gamestock-backend
+server:
+  port: 8081
+  error:
+    include-message: always
+gamestock:
+  cors-origin: "http://localhost:8080"
