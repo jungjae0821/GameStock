@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GameStock | 게임 모의주식</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#">GameStock</a>
+    <span>게임 산업 가상 주식시장</span>
+    <span id="server-status" class="status">서버 확인 중</span>
+  </header>
+  <main>
+    <section class="hero">
+      <p class="eyebrow">DEMO MARKET</p>
+      <h1>게임의 이야기가<br />시장의 움직임이 됩니다.</h1>
+      <p>게임 이벤트와 이용자 반응을 바탕으로 거래하는 가상 주식시장입니다.</p>
+    </section>
+    <section class="summary-grid" aria-label="내 자산 요약">
+      <article><span>보유 현금</span><strong id="cash">-</strong></article>
+      <article><span>주식 평가액</span><strong id="asset-value">-</strong></article>
+      <article><span>총 자산</span><strong id="total-asset">-</strong></article>
+    </section>
+    <section class="layout">
+      <div>
+        <div class="section-heading"><div><p class="eyebrow">MARKET</p><h2>오늘의 게임 종목</h2></div></div>
+        <div id="stocks" class="stock-grid" aria-live="polite"></div>
+      </div>
+      <aside class="order-panel">
+        <p class="eyebrow">ORDER</p><h2>간편 주문</h2>
+        <form id="order-form">
+          <label>종목<select id="stock-code" name="stockCode"></select></label>
+          <label>주문 구분<select name="side"><option value="BUY">매수</option><option value="SELL">매도</option></select></label>
+          <label>수량<input name="quantity" type="number" min="1" max="1000" value="1" required /></label>
+          <button type="submit">주문 체결하기</button>
+          <p id="order-message" class="message" role="status"></p>
+        </form>
+      </aside>
+    </section>
+    <section class="events"><p class="eyebrow">MARKET EVENTS</p><h2>시장에 영향을 주는 사건</h2><div id="event-list"></div></section>
+  </main>
+  <footer>GameStock MVP · 데이터는 데모용이며 서버를 재시작하면 초기화됩니다.</footer>
+  <script src="app.js"></script>
+</body>
+</html>
