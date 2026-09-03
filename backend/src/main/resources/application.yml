@@ -6,4 +6,4 @@ server:
   error:
     include-message: always
 gamestock:
-  cors-origin: "http://localhost:8080"
+  cors-origin: ${GAMESTOCK_CORS_ORIGIN:http://localhost:8080}

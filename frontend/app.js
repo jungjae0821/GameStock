@@ -1,7 +1,10 @@
 const money = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 });
-// 웹과 모바일 앱은 같은 Spring Boot 서버의 REST API와 WebSocket을 공유한다.
-const API_BASE_URL = 'http://localhost:8081';
-const MARKET_SOCKET_URL = 'ws://localhost:8081/ws/market';
+// 로컬 웹 서버는 8081 백엔드를 사용하고, 배포 환경은 현재 공개 도메인을 사용한다.
+const API_BASE_URL = window.GAMESTOCK_API_BASE_URL ||
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8081'
+    : window.location.origin);
+const MARKET_SOCKET_URL = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/market`;
 const stockContainer = document.querySelector('#stocks');
 const stockSelect = document.querySelector('#stock-code');
 const message = document.querySelector('#order-message');
