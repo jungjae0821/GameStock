@@ -38,8 +38,8 @@ public class MarketService {
                 INSERT IGNORE INTO games (name, developer, genre)
                 VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)
                 """, "우마무스메 프리티더비", "Cygames", "RPG",
-                "블루 아카이브", "Nexon", "액션",
-                "승리의 여신: 니케", "ShiftUp", "캐주얼");
+                "블루 아카이브", "Nexon", "RPG",
+                "승리의 여신: 니케", "ShiftUp", "RPG");
 
         renameExistingStock("NEXA", "UMA", "네사: 크로니클", "우마무스메 프리티더비");
         renameExistingStock("STAR", "BA", "스타라이트 아레나", "블루 아카이브");
@@ -50,9 +50,7 @@ public class MarketService {
         insertStock("BA", "블루 아카이브", 8_230L);
         insertStock("GOV", "승리의 여신: 니케", 21_430L);
 
-        insertEvent("UMA", "대규모 시즌 업데이트 적용", 8.0);
-        insertEvent("BA", "경쟁작 출시 예고", -4.0);
-        insertEvent("GOV", "글로벌 누적 이용자 1,000만 달성", 6.0);
+        removeDefaultEvents();
 
         demoUserId = jdbc.queryForObject(
                 "SELECT id FROM users WHERE username = ?", Long.class, DEMO_USERNAME);
@@ -78,13 +76,12 @@ public class MarketService {
         jdbc.update("DELETE FROM games WHERE name = ? AND NOT EXISTS (SELECT 1 FROM stocks WHERE game_id = games.id)", gameName);
     }
 
-    private void insertEvent(String code, String title, double impact) {
+    private void removeDefaultEvents() {
         jdbc.update("""
-            INSERT INTO market_events (stock_id, event_type, title, description, impact)
-            SELECT s.id, 'NEWS', ?, ?, ? FROM stocks s
-                WHERE s.stock_code = ?
-                  AND NOT EXISTS (SELECT 1 FROM market_events e WHERE e.title = ?)
-            """, title, title, impact, code, title);
+                DELETE FROM market_events
+                WHERE title IN (?, ?, ?)
+                """, "대규모 시즌 업데이트 적용", "경쟁작 출시 예고",
+                "글로벌 누적 이용자 1,000만 달성");
     }
 
     public synchronized List<Stock> stocks() {
@@ -105,7 +102,8 @@ public class MarketService {
         return jdbc.query("""
                 SELECT s.stock_code, e.title, e.impact
                 FROM market_events e LEFT JOIN stocks s ON s.id = e.stock_id
-                ORDER BY e.id
+            ORDER BY e.created_at DESC, e.id DESC
+            LIMIT 10
                 """, (rs, row) -> {
             double impact = rs.getDouble("impact");
             return new MarketEvent(rs.getString("stock_code"), rs.getString("title"),

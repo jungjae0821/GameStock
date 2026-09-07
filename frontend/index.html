@@ -28,18 +28,29 @@
         <div class="section-heading"><div><p class="eyebrow">MARKET</p><h2>오늘의 게임 종목</h2></div></div>
         <div id="stocks" class="stock-grid" aria-live="polite"></div>
       </div>
+    </section>
+    <section class="events"><p class="eyebrow">MARKET EVENTS</p><h2>시장에 영향을 주는 사건</h2><div id="event-list"></div></section>
+  </main>
+  <main id="stock-detail" class="detail-page" hidden>
+    <button id="back-to-market" class="back-button" type="button">← 시장으로 돌아가기</button>
+    <section class="detail-header">
+      <div><p id="detail-code" class="eyebrow"></p><h1 id="detail-name"></h1><p id="detail-genre" class="detail-subtitle"></p></div>
+      <div class="detail-price"><strong id="detail-price">-</strong><span id="detail-change">-</span></div>
+    </section>
+    <section class="detail-layout">
+      <div class="chart-panel"><div class="panel-heading"><div><p class="eyebrow">PRICE HISTORY</p><h2>가격 흐름</h2></div><span id="chart-range">실시간</span></div><canvas id="price-chart" aria-label="종목 가격 등락 그래프"></canvas></div>
       <aside class="order-panel">
-        <p class="eyebrow">ORDER</p><h2>간편 주문</h2>
+        <p class="eyebrow">ORDER</p><h2>이 종목 거래</h2>
         <form id="order-form">
-          <label>종목<select id="stock-code" name="stockCode"></select></label>
-          <label>주문 구분<select name="side"><option value="BUY">매수</option><option value="SELL">매도</option></select></label>
+          <input id="stock-code" name="stockCode" type="hidden" />
+          <div class="side-switch"><label><input type="radio" name="side" value="BUY" checked /><span>매수</span></label><label><input type="radio" name="side" value="SELL" /><span>매도</span></label></div>
           <label>수량<input name="quantity" type="number" min="1" max="1000" value="1" required /></label>
           <button type="submit">주문 체결하기</button>
           <p id="order-message" class="message" role="status"></p>
         </form>
       </aside>
     </section>
-    <section class="events"><p class="eyebrow">MARKET EVENTS</p><h2>시장에 영향을 주는 사건</h2><div id="event-list"></div></section>
+    <section class="events detail-events"><p class="eyebrow">RELATED NEWS</p><h2>관련 소식</h2><div id="detail-events"></div></section>
   </main>
   <footer>GameStock MVP · 데이터는 데모용이며 서버를 재시작하면 초기화됩니다.</footer>
   <script src="app.js"></script>

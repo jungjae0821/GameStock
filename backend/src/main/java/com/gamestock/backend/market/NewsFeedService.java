@@ -1,11 +1,13 @@
 package com.gamestock.backend.market;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -23,21 +25,30 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@ConfigurationProperties(prefix = "gamestock.news")
 public class NewsFeedService {
+    private static final Logger log = LoggerFactory.getLogger(NewsFeedService.class);
+
     private final JdbcTemplate jdbc;
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
-    @Value("${gamestock.news.enabled:true}")
     private boolean enabled;
 
-    @Value("${gamestock.news.feeds:}")
-    private String[] feedDefinitions;
+    private List<String> feeds = List.of();
 
     public NewsFeedService(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public void setFeeds(List<String> feeds) {
+        this.feeds = feeds == null ? List.of() : feeds;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -51,12 +62,16 @@ public class NewsFeedService {
     }
 
     private void fetchAllFeeds() {
-        if (!enabled || feedDefinitions == null) return;
-        for (String definition : feedDefinitions) {
+        if (!enabled) {
+            log.info("뉴스 수집이 비활성화되어 있습니다.");
+            return;
+        }
+        log.info("뉴스 피드 {}개 수집 시작", feeds.size());
+        for (String definition : feeds) {
             try {
                 fetchFeed(definition);
-            } catch (Exception ignored) {
-                // 한 피드의 장애가 시장 API에 영향을 주지 않도록 다음 피드를 계속 처리한다.
+            } catch (Exception error) {
+                log.warn("뉴스 피드 수집 실패: {}", definition, error);
             }
         }
     }
@@ -73,9 +88,14 @@ public class NewsFeedService {
                 .build();
         HttpResponse<String> response = httpClient.send(request,
                 HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        if (response.statusCode() / 100 != 2) return;
+        if (response.statusCode() / 100 != 2) {
+            log.warn("뉴스 피드가 HTTP {}을 반환했습니다: 종목={}", response.statusCode(), stockCode);
+            return;
+        }
 
-        for (NewsItem item : parseItems(response.body())) {
+        List<NewsItem> items = parseItems(response.body());
+        log.info("뉴스 피드 조회 완료: 종목={}, 제목 {}개", stockCode, items.size());
+        for (NewsItem item : items) {
             saveNews(stockCode, item);
         }
     }

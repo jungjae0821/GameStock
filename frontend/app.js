@@ -12,8 +12,12 @@ const API_BASE_URL =
     : window.location.origin);
 const MARKET_SOCKET_URL = `${API_BASE_URL.replace(/^http/, "ws")}/ws/market`;
 const stockContainer = document.querySelector("#stocks");
-const stockSelect = document.querySelector("#stock-code");
+const marketPage = document.querySelector("body > main:not(#stock-detail)");
+const detailPage = document.querySelector("#stock-detail");
 const message = document.querySelector("#order-message");
+const priceHistory = new Map();
+let currentStocks = [];
+let currentEvents = [];
 
 async function api(path, options) {
   const response = await fetch(`${API_BASE_URL}${path}`, options);
@@ -24,23 +28,25 @@ async function api(path, options) {
 }
 
 function applyMarketSnapshot(snapshot) {
+  currentStocks = snapshot.stocks;
+  currentEvents = snapshot.events;
+  snapshot.stocks.forEach((stock) => {
+    const history = priceHistory.get(stock.code) || [];
+    history.push(stock.price);
+    priceHistory.set(stock.code, history.slice(-40));
+  });
   renderStocks(snapshot.stocks);
   renderPortfolio(snapshot.portfolio);
   renderEvents(snapshot.events);
+  renderDetail();
 }
 
 function renderStocks(stocks) {
   stockContainer.innerHTML = stocks
     .map((stock) => {
       const up = stock.changePercent >= 0;
-      return `<article class="stock-card"><span class="code">${stock.code} · ${stock.genre}</span><h3>${stock.name}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · 거래량 ${stock.volume.toLocaleString()}</span></article>`;
+      return `<a class="stock-card" href="#stock/${stock.code}" aria-label="${stock.name} 상세 보기"><span class="code">${stock.code} · ${stock.genre}</span><h3>${stock.name}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · 거래량 ${stock.volume.toLocaleString()}</span><span class="card-link">상세 보기 →</span></a>`;
     })
-    .join("");
-  stockSelect.innerHTML = stocks
-    .map(
-      (stock) =>
-        `<option value="${stock.code}">${stock.code} · ${stock.name}</option>`,
-    )
     .join("");
 }
 
@@ -56,11 +62,71 @@ function renderPortfolio(portfolio) {
 
 function renderEvents(events) {
   document.querySelector("#event-list").innerHTML = events
-    .map(
-      (event) =>
-        `<div class="event"><div><strong>${event.title}</strong><small>${event.stockCode} 종목에 반영 중</small></div><span class="impact ${event.sentiment}">${event.impact > 0 ? "+" : ""}${event.impact}</span></div>`,
-    )
+    .map((event) => {
+      const stock = currentStocks.find((item) => item.code === event.stockCode);
+      const stockLabel = stock
+        ? `${stock.code} · ${stock.name}`
+        : "시장 전체";
+      return `<div class="event"><div><strong>${event.title}</strong><small>${stockLabel}</small></div></div>`;
+    })
     .join("");
+}
+
+function renderDetail() {
+  const code = location.hash.startsWith("#stock/") ? location.hash.slice(7) : null;
+  const stock = currentStocks.find((item) => item.code === code);
+  if (!stock) {
+    marketPage.hidden = false;
+    detailPage.hidden = true;
+    return;
+  }
+  marketPage.hidden = true;
+  detailPage.hidden = false;
+  const up = stock.changePercent >= 0;
+  document.querySelector("#detail-code").textContent = `${stock.code} · ${stock.genre}`;
+  document.querySelector("#detail-name").textContent = stock.name;
+  document.querySelector("#detail-genre").textContent = `거래량 ${stock.volume.toLocaleString()}`;
+  document.querySelector("#detail-price").textContent = money.format(stock.price);
+  const change = document.querySelector("#detail-change");
+  change.className = `detail-change ${up ? "up" : "down"}`;
+  change.textContent = `${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%`;
+  document.querySelector("#stock-code").value = stock.code;
+  document.querySelector("#detail-events").innerHTML = currentEvents
+    .filter((event) => event.stockCode === stock.code)
+    .map((event) => `<div class="event"><strong>${event.title}</strong></div>`)
+    .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
+  drawChart(priceHistory.get(stock.code) || [stock.price]);
+}
+
+function drawChart(values) {
+  const canvas = document.querySelector("#price-chart");
+  const context = canvas.getContext("2d");
+  const width = canvas.clientWidth * window.devicePixelRatio;
+  const height = canvas.clientHeight * window.devicePixelRatio;
+  canvas.width = width;
+  canvas.height = height;
+  context.scale(window.devicePixelRatio, window.devicePixelRatio);
+  const displayWidth = canvas.clientWidth;
+  const displayHeight = canvas.clientHeight;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  context.clearRect(0, 0, displayWidth, displayHeight);
+  context.strokeStyle = "#e5e9ef";
+  context.lineWidth = 1;
+  for (let index = 1; index < 4; index += 1) {
+    const y = (displayHeight / 4) * index;
+    context.beginPath(); context.moveTo(0, y); context.lineTo(displayWidth, y); context.stroke();
+  }
+  context.strokeStyle = values.at(-1) >= values[0] ? "#e04f5f" : "#2379ba";
+  context.lineWidth = 3;
+  context.beginPath();
+  values.forEach((value, index) => {
+    const x = values.length === 1 ? displayWidth / 2 : (displayWidth / (values.length - 1)) * index;
+    const y = displayHeight - ((value - min) / range) * (displayHeight - 24) - 12;
+    index === 0 ? context.moveTo(x, y) : context.lineTo(x, y);
+  });
+  context.stroke();
 }
 
 async function refreshMarket() {
@@ -72,8 +138,7 @@ async function refreshMarket() {
   applyMarketSnapshot({ stocks, portfolio, events });
 }
 
-document
-  .querySelector("#order-form")
+document.querySelector("#order-form")
   .addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
@@ -88,12 +153,20 @@ document
       message.className = "message success";
       message.textContent = `${result.stockCode} ${result.quantity}주 주문이 체결되었습니다.`;
       await refreshMarket();
-      stockSelect.value = result.stockCode;
+      renderDetail();
     } catch (error) {
       message.className = "message error";
       message.textContent = error.message;
     }
   });
+
+window.addEventListener("hashchange", renderDetail);
+document.querySelector("#back-to-market").addEventListener("click", () => {
+  location.hash = "";
+});
+window.addEventListener("resize", () => {
+  if (!detailPage.hidden) renderDetail();
+});
 
 function connectRealtimeMarket() {
   const socket = new WebSocket(MARKET_SOCKET_URL);
