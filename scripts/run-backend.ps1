@@ -1,5 +1,15 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+
+$mysqlService = Get-Service -Name MySQL80 -ErrorAction SilentlyContinue
+if (-not $mysqlService) {
+	throw 'MySQL80 서비스가 등록되어 있지 않습니다. README.md의 MySQL 서비스 등록 명령을 관리자 권한 PowerShell에서 한 번 실행하세요.'
+}
+if ($mysqlService.Status -ne 'Running') {
+	Start-Service -Name MySQL80
+	$mysqlService.WaitForStatus('Running', [TimeSpan]::FromSeconds(15))
+}
+
 $maven = 'C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2025.2.6.2\plugins\maven\lib\maven3\bin\mvn.cmd'
 if (-not (Test-Path $maven)) { throw 'IntelliJ에 포함된 Maven을 찾을 수 없습니다.' }
 

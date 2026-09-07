@@ -22,6 +22,7 @@ let currentEvents = [];
 let loadedHistoryCode = null;
 let orderHistoryTimer = null;
 let loadedPriceHistoryCode = null;
+let loadedNewsCode = null;
 
 async function api(path, options) {
   const response = await fetch(`${API_BASE_URL}${path}`, options);
@@ -83,6 +84,7 @@ function renderDetail() {
     clearOrderHistoryRefresh();
     loadedHistoryCode = null;
     loadedPriceHistoryCode = null;
+    loadedNewsCode = null;
     marketPage.hidden = false;
     detailPage.hidden = true;
     return;
@@ -112,14 +114,31 @@ function renderDetail() {
     loadedHistoryCode = stock.code;
     startOrderHistoryRefresh(stock.code);
   }
-  document.querySelector("#detail-events").innerHTML =
-    currentEvents
-      .filter((event) => event.stockCode === stock.code)
-      .map(
-        (event) => `<div class="event"><strong>${event.title}</strong></div>`,
-      )
-      .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
+  if (loadedNewsCode !== stock.code) {
+    loadedNewsCode = stock.code;
+    loadStockNews(stock.code);
+  }
   drawChart(priceHistory.get(stock.code) || [stock.price]);
+}
+
+async function loadStockNews(stockCode) {
+  const newsContainer = document.querySelector("#detail-events");
+  newsContainer.innerHTML =
+    '<p class="empty-state">관련 소식을 불러오는 중입니다.</p>';
+  try {
+    const news = await api(`/api/stocks/${encodeURIComponent(stockCode)}/news`);
+    if (location.hash !== `#stock/${stockCode}`) return;
+    newsContainer.innerHTML =
+      news
+        .map(
+          (event) => `<div class="event"><strong>${event.title}</strong></div>`,
+        )
+        .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
+  } catch (error) {
+    loadedNewsCode = null;
+    newsContainer.innerHTML =
+      '<p class="empty-state">관련 소식을 불러오지 못했습니다.</p>';
+  }
 }
 
 async function loadPriceHistory(stockCode) {

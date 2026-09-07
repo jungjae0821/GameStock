@@ -8,23 +8,48 @@
 
 PowerShell에서 프로젝트 폴더를 연 뒤 다음을 실행합니다.
 
-먼저 새 Spring Boot 실시간 서버를 실행하고, 별도 PowerShell 창에서 웹 화면을 실행합니다.
+프로젝트 루트에서 다음 명령 하나만 실행하면 백엔드와 웹 화면이 각각 새 PowerShell 창에서 시작됩니다.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\run-backend.ps1
+.\scripts\start.ps1
 ```
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\run.ps1
-```
+PowerShell 실행 정책을 직접 설정하고 싶지 않다면 `scripts\start.cmd`를 더블클릭해도 됩니다. 이 파일이 실행 정책 우회와 `start.ps1` 호출을 자동으로 처리합니다.
 
 브라우저에서 [http://localhost:8080](http://localhost:8080)을 엽니다.
 
 Java 17 이상이 설치되어 있어야 합니다. 실행 스크립트는 Microsoft OpenJDK 17을 사용합니다.
 
 백엔드 실행 전에 프로젝트 루트의 `.env.example`을 복사해 `.env`를 만들고 `DB_PASSWORD`에 MySQL 비밀번호를 한 번 입력합니다. `.env`는 Git에 포함되지 않으며, 이후에는 비밀번호를 다시 입력하지 않아도 됩니다.
+
+### 컴퓨터 재부팅 후 MySQL 설정
+
+MySQL이 설치되어 있어도 서버 서비스가 실행 중이 아니면 백엔드가 `localhost:3306`에 연결하지 못합니다. 처음 한 번 관리자 권한 PowerShell에서 MySQL을 Windows 서비스로 등록하고 자동 시작으로 설정합니다.
+
+```powershell
+& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld.exe" `
+	--install MySQL80 `
+	--defaults-file="C:\ProgramData\MySQL\MySQL Server 8.0\my.ini"
+
+Set-Service MySQL80 -StartupType Automatic
+Start-Service MySQL80
+```
+
+정상 설정 여부는 다음 명령으로 확인할 수 있습니다.
+
+```powershell
+Get-Service MySQL80
+```
+
+`Status`가 `Running`이고 `StartType`이 `Automatic`이면 컴퓨터를 재부팅해도 MySQL이 자동으로 실행됩니다. 서비스 등록 후에는 `start.ps1`이 백엔드 실행 전에 MySQL 서비스 상태를 확인하고, 중지되어 있으면 자동으로 시작합니다.
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\start.ps1
+```
+
+MySQL과 백엔드의 로컬 연결에는 인터넷이 필요하지 않습니다. 단, RSS에서 최신 뉴스를 수집하려면 인터넷 연결이 필요합니다.
 
 ## 현재 구조
 
@@ -36,6 +61,8 @@ server/src/.../           기존 단독 실행 데모 서버
 database/schema.sql       MySQL 전환용 초기 테이블 구조
 scripts/run-backend.ps1   Spring Boot 서버 실행 스크립트
 scripts/run.ps1           웹 화면용 기존 데모 서버 실행 스크립트
+scripts/start.ps1         백엔드와 웹 화면을 한 번에 실행하는 시작 스크립트
+scripts/start.cmd         실행 정책 우회 후 start.ps1을 호출하는 바로가기
 ```
 
 ## 다음 단계

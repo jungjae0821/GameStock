@@ -19,6 +19,10 @@ public class MarketController {
     @GetMapping("/health") public Map<String, String> health() { return Map.of("status", "ok"); }
     @GetMapping("/stocks") public java.util.List<Stock> stocks() { return market.stocks(); }
     @GetMapping("/market-events") public java.util.List<MarketEvent> events() { return market.marketEvents(); }
+    @GetMapping("/stocks/{stockCode}/news")
+    public java.util.List<MarketEvent> stockNews(@PathVariable String stockCode) {
+        return market.stockNews(stockCode);
+    }
     @GetMapping("/portfolio") public Portfolio portfolio() { return market.portfolio(); }
     @GetMapping("/orders/{stockCode}")
     public java.util.List<OrderHistory> orderHistory(@PathVariable String stockCode) {

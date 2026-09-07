@@ -128,6 +128,7 @@ public class MarketService {
         return jdbc.query("""
                 SELECT s.stock_code, e.title, e.impact
                 FROM market_events e LEFT JOIN stocks s ON s.id = e.stock_id
+                WHERE e.event_type = 'NEWS'
             ORDER BY e.created_at DESC, e.id DESC
             LIMIT 10
                 """, (rs, row) -> {
@@ -135,6 +136,20 @@ public class MarketService {
             return new MarketEvent(rs.getString("stock_code"), rs.getString("title"),
                     (int) Math.round(impact), impact >= 0 ? "positive" : "negative");
         });
+    }
+
+    public synchronized List<MarketEvent> stockNews(String code) {
+        return jdbc.query("""
+                SELECT s.stock_code, e.title, e.impact
+                FROM market_events e JOIN stocks s ON s.id = e.stock_id
+                WHERE e.event_type = 'NEWS' AND s.stock_code = ?
+                ORDER BY e.created_at DESC, e.id DESC
+                LIMIT 5
+                """, (rs, row) -> {
+            double impact = rs.getDouble("impact");
+            return new MarketEvent(rs.getString("stock_code"), rs.getString("title"),
+                    (int) Math.round(impact), impact >= 0 ? "positive" : "negative");
+        }, code.toUpperCase(Locale.ROOT));
     }
 
     public synchronized Portfolio portfolio() {
