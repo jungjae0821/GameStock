@@ -36,11 +36,10 @@ public class MarketService {
 
         jdbc.update("""
                 INSERT IGNORE INTO games (name, developer, genre)
-                VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?)
-            """, "우마무스메 프리티더비", "GameStock Studio", "RPG",
-            "블루 아카이브", "GameStock Studio", "액션",
-            "승리의 여신: 니케", "GameStock Studio", "캐주얼",
-                "보이드 러너", "GameStock Studio", "슈팅");
+                VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)
+                """, "우마무스메 프리티더비", "Cygames", "RPG",
+                "블루 아카이브", "Nexon", "액션",
+                "승리의 여신: 니케", "ShiftUp", "캐주얼");
 
         renameExistingStock("NEXA", "UMA", "네사: 크로니클", "우마무스메 프리티더비");
         renameExistingStock("STAR", "BA", "스타라이트 아레나", "블루 아카이브");
@@ -51,9 +50,9 @@ public class MarketService {
         insertStock("BA", "블루 아카이브", 8_230L);
         insertStock("GOV", "승리의 여신: 니케", 21_430L);
 
-        insertEvent("NEXA", "대규모 시즌 업데이트 적용", "positive", 8.0);
-        insertEvent("STAR", "경쟁작 출시 예고", "negative", -4.0);
-        insertEvent("MOMO", "글로벌 누적 이용자 1,000만 달성", "positive", 6.0);
+        insertEvent("UMA", "대규모 시즌 업데이트 적용", 8.0);
+        insertEvent("BA", "경쟁작 출시 예고", -4.0);
+        insertEvent("GOV", "글로벌 누적 이용자 1,000만 달성", 6.0);
 
         demoUserId = jdbc.queryForObject(
                 "SELECT id FROM users WHERE username = ?", Long.class, DEMO_USERNAME);
@@ -79,13 +78,13 @@ public class MarketService {
         jdbc.update("DELETE FROM games WHERE name = ? AND NOT EXISTS (SELECT 1 FROM stocks WHERE game_id = games.id)", gameName);
     }
 
-    private void insertEvent(String code, String title, String type, double impact) {
+    private void insertEvent(String code, String title, double impact) {
         jdbc.update("""
-                INSERT INTO market_events (stock_id, event_type, title, description, impact)
-                SELECT s.id, ?, ?, ?, ? FROM stocks s
+            INSERT INTO market_events (stock_id, event_type, title, description, impact)
+            SELECT s.id, 'NEWS', ?, ?, ? FROM stocks s
                 WHERE s.stock_code = ?
                   AND NOT EXISTS (SELECT 1 FROM market_events e WHERE e.title = ?)
-                """, "NEWS", title, title, impact, code, title);
+            """, title, title, impact, code, title);
     }
 
     public synchronized List<Stock> stocks() {

@@ -24,6 +24,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Java 17 이상이 설치되어 있어야 합니다. 실행 스크립트는 Microsoft OpenJDK 17을 사용합니다.
 
+백엔드 실행 전에 프로젝트 루트의 `.env.example`을 복사해 `.env`를 만들고 `DB_PASSWORD`에 MySQL 비밀번호를 한 번 입력합니다. `.env`는 Git에 포함되지 않으며, 이후에는 비밀번호를 다시 입력하지 않아도 됩니다.
+
 ## 현재 구조
 
 ```text

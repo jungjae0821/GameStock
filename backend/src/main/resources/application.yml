@@ -3,7 +3,7 @@ spring:
     name: gamestock-backend
   datasource:
     url: jdbc:mysql://localhost:3306/gamestock?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
-    username: ${DB_USERNAME:root}
+    username: ${DB_USERNAME:jungjae0821}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 server:
