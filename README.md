@@ -8,14 +8,14 @@
 
 PowerShell에서 프로젝트 폴더를 연 뒤 다음을 실행합니다.
 
-프로젝트 루트에서 다음 명령 하나만 실행하면 백엔드와 웹 화면이 각각 새 PowerShell 창에서 시작됩니다.
+프로젝트 루트의 `scripts\start.cmd`를 더블클릭하면 백엔드와 웹 화면이 창 없이 실행됩니다. 실행한 창을 닫아도 서버는 계속 유지됩니다.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\start.ps1
 ```
 
-PowerShell 실행 정책을 직접 설정하고 싶지 않다면 `scripts\start.cmd`를 더블클릭해도 됩니다. 이 파일이 실행 정책 우회와 `start.ps1` 호출을 자동으로 처리합니다.
+PowerShell에서 직접 실행할 때는 위 명령을 사용하세요. 서버를 종료하려면 `scripts\stop.cmd`를 더블클릭하면 됩니다.
 
 브라우저에서 [http://localhost:8080](http://localhost:8080)을 엽니다.
 
@@ -63,6 +63,8 @@ scripts/run-backend.ps1   Spring Boot 서버 실행 스크립트
 scripts/run.ps1           웹 화면용 기존 데모 서버 실행 스크립트
 scripts/start.ps1         백엔드와 웹 화면을 한 번에 실행하는 시작 스크립트
 scripts/start.cmd         실행 정책 우회 후 start.ps1을 호출하는 바로가기
+scripts/stop.ps1          실행 중인 백엔드와 웹 화면 종료 스크립트
+scripts/stop.cmd          stop.ps1을 호출하는 종료 바로가기
 ```
 
 ## 다음 단계
