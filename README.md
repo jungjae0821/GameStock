@@ -48,3 +48,15 @@ scripts/run.ps1           웹 화면용 기존 데모 서버 실행 스크립트
 1. 로그인·회원가입 추가
 2. 봇 주문과 주문장/체결 엔진 고도화
 3. 모바일 앱에 매수·매도 화면 추가
+
+## 게임 뉴스 수집
+
+백엔드는 `backend/src/main/resources/application.yml`에 설정된 종목별 RSS 피드를 서버 시작 후와 10분 간격으로 조회합니다. 새 뉴스는 `market_events` 테이블에 중복 없이 저장되고, 기존 웹 화면의 시장 이벤트 영역에 표시됩니다.
+
+RSS 수집을 끄려면 실행 전에 다음 환경변수를 설정합니다.
+
+```powershell
+$env:GAMESTOCK_NEWS_ENABLED = "false"
+```
+
+피드 주소나 검색어를 바꾸려면 같은 `application.yml`의 `gamestock.news.feeds` 항목을 수정합니다. 형식은 `종목코드|RSS주소`입니다. 외부 RSS 서버가 응답하지 않아도 기존 시장 API와 거래 기능은 계속 작동합니다.
