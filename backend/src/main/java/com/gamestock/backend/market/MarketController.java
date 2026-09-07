@@ -20,6 +20,14 @@ public class MarketController {
     @GetMapping("/stocks") public java.util.List<Stock> stocks() { return market.stocks(); }
     @GetMapping("/market-events") public java.util.List<MarketEvent> events() { return market.marketEvents(); }
     @GetMapping("/portfolio") public Portfolio portfolio() { return market.portfolio(); }
+    @GetMapping("/orders/{stockCode}")
+    public java.util.List<OrderHistory> orderHistory(@PathVariable String stockCode) {
+        return market.orderHistory(stockCode);
+    }
+    @GetMapping("/stocks/{stockCode}/history")
+    public java.util.List<PricePoint> priceHistory(@PathVariable String stockCode) {
+        return market.priceHistory(stockCode);
+    }
 
     @PostMapping("/orders")
     @ResponseStatus(HttpStatus.CREATED)

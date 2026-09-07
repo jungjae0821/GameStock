@@ -359,6 +359,36 @@ footer {
 .detail-events {
   margin-top: 22px;
 }
+.order-history {
+  display: grid;
+  gap: 0;
+}
+.history-row {
+  display: grid;
+  grid-template-columns: 54px 1fr 120px 190px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.history-row:first-child {
+  border-top: 0;
+}
+.history-side {
+  font-weight: 800;
+}
+.history-side.buy {
+  color: var(--up);
+}
+.history-side.sell {
+  color: var(--down);
+}
+.history-row time {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: right;
+}
 .empty-state {
   color: var(--muted);
 }
@@ -396,5 +426,12 @@ footer {
   }
   .chart-panel canvas {
     height: 230px;
+  }
+  .history-row {
+    grid-template-columns: 48px 1fr 100px;
+  }
+  .history-row time {
+    grid-column: 2 / -1;
+    text-align: left;
   }
 }

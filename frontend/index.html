@@ -70,8 +70,16 @@
             <span id="chart-range">실시간</span>
           </div>
           <div class="chart-wrap">
-            <canvas id="price-chart" aria-label="종목 가격 등락 그래프"></canvas>
-            <div id="chart-tooltip" class="chart-tooltip" role="status" hidden></div>
+            <canvas
+              id="price-chart"
+              aria-label="종목 가격 등락 그래프"
+            ></canvas>
+            <div
+              id="chart-tooltip"
+              class="chart-tooltip"
+              role="status"
+              hidden
+            ></div>
           </div>
         </div>
         <aside class="order-panel">
@@ -103,6 +111,11 @@
             <p id="order-message" class="message" role="status"></p>
           </form>
         </aside>
+      </section>
+      <section class="events detail-events">
+        <p class="eyebrow">TRADE HISTORY</p>
+        <h2>매수·매도 내역</h2>
+        <div id="order-history" class="order-history"></div>
       </section>
       <section class="events detail-events">
         <p class="eyebrow">RELATED NEWS</p>

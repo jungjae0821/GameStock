@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Collections;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.gamestock.backend.market.MarketModels.*;
@@ -29,6 +30,7 @@ public class MarketService {
     @PostConstruct
     @Transactional
     public void initializeData() {
+        ensurePriceHistoryTable();
         jdbc.update("""
                 INSERT IGNORE INTO users (username, password_hash, nickname, cash)
                 VALUES (?, ?, ?, ?)
@@ -49,6 +51,7 @@ public class MarketService {
         insertStock("UMA", "우마무스메 프리티더비", 12_450L);
         insertStock("BA", "블루 아카이브", 8_230L);
         insertStock("GOV", "승리의 여신: 니케", 21_430L);
+        seedPriceHistory();
 
         removeDefaultEvents();
 
@@ -84,6 +87,29 @@ public class MarketService {
                 "글로벌 누적 이용자 1,000만 달성");
     }
 
+    private void ensurePriceHistoryTable() {
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS stock_price_history (
+                  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                  stock_id BIGINT NOT NULL,
+                  price BIGINT NOT NULL,
+                  recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  CONSTRAINT fk_price_history_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+                  INDEX ix_price_history_stock_time (stock_id, recorded_at)
+                )
+                """);
+    }
+
+    private void seedPriceHistory() {
+        jdbc.update("""
+                INSERT INTO stock_price_history (stock_id, price)
+                SELECT s.id, s.current_price FROM stocks s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM stock_price_history h WHERE h.stock_id = s.id
+                )
+                """);
+    }
+
     public synchronized List<Stock> stocks() {
         return jdbc.query("""
                 SELECT stock_code, g.name, g.genre, current_price, previous_price, total_volume
@@ -113,6 +139,37 @@ public class MarketService {
 
     public synchronized Portfolio portfolio() {
         return portfolioUnsafe();
+    }
+
+    public synchronized List<OrderHistory> orderHistory(String code) {
+        return jdbc.query("""
+                SELECT o.side, o.quantity, o.price, o.status, o.created_at
+                FROM orders o JOIN stocks s ON s.id = o.stock_id
+                WHERE o.user_id = ? AND s.stock_code = ?
+                ORDER BY o.created_at DESC, o.id DESC
+                LIMIT 20
+                """, (rs, row) -> new OrderHistory(
+                rs.getString("side"),
+                rs.getInt("quantity"),
+                rs.getLong("price"),
+                rs.getString("status"),
+                rs.getTimestamp("created_at").toInstant().toString()),
+                demoUserId, code.toUpperCase(Locale.ROOT));
+    }
+
+    public synchronized List<PricePoint> priceHistory(String code) {
+        List<PricePoint> points = jdbc.query("""
+                SELECT h.price, h.recorded_at
+                FROM stock_price_history h JOIN stocks s ON s.id = h.stock_id
+                WHERE s.stock_code = ?
+                ORDER BY h.recorded_at DESC, h.id DESC
+                LIMIT 200
+                """, (rs, row) -> new PricePoint(
+                rs.getLong("price"),
+                rs.getTimestamp("recorded_at").toInstant().toString()),
+                code.toUpperCase(Locale.ROOT));
+            Collections.reverse(points);
+            return points;
     }
 
     public synchronized MarketSnapshot snapshot() {
@@ -201,6 +258,10 @@ public class MarketService {
                 SET previous_price = current_price, current_price = ?, total_volume = total_volume + ?
                 WHERE stock_code = ?
                 """, next, volume, code);
+            jdbc.update("""
+                INSERT INTO stock_price_history (stock_id, price)
+                SELECT id, ? FROM stocks WHERE stock_code = ?
+                """, next, code);
     }
 
     private Portfolio portfolioUnsafe() {

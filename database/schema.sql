@@ -29,6 +29,15 @@ CREATE TABLE stocks (
   CONSTRAINT fk_stocks_game FOREIGN KEY (game_id) REFERENCES games(id)
 );
 
+CREATE TABLE stock_price_history (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_id BIGINT NOT NULL,
+  price BIGINT NOT NULL,
+  recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_price_history_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  INDEX ix_price_history_stock_time (stock_id, recorded_at)
+);
+
 CREATE TABLE portfolios (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
