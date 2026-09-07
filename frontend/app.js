@@ -64,16 +64,16 @@ function renderEvents(events) {
   document.querySelector("#event-list").innerHTML = events
     .map((event) => {
       const stock = currentStocks.find((item) => item.code === event.stockCode);
-      const stockLabel = stock
-        ? `${stock.code} · ${stock.name}`
-        : "시장 전체";
+      const stockLabel = stock ? `${stock.code} · ${stock.name}` : "시장 전체";
       return `<div class="event"><div><strong>${event.title}</strong><small>${stockLabel}</small></div></div>`;
     })
     .join("");
 }
 
 function renderDetail() {
-  const code = location.hash.startsWith("#stock/") ? location.hash.slice(7) : null;
+  const code = location.hash.startsWith("#stock/")
+    ? location.hash.slice(7)
+    : null;
   const stock = currentStocks.find((item) => item.code === code);
   if (!stock) {
     marketPage.hidden = false;
@@ -83,18 +83,25 @@ function renderDetail() {
   marketPage.hidden = true;
   detailPage.hidden = false;
   const up = stock.changePercent >= 0;
-  document.querySelector("#detail-code").textContent = `${stock.code} · ${stock.genre}`;
+  document.querySelector("#detail-code").textContent =
+    `${stock.code} · ${stock.genre}`;
   document.querySelector("#detail-name").textContent = stock.name;
-  document.querySelector("#detail-genre").textContent = `거래량 ${stock.volume.toLocaleString()}`;
-  document.querySelector("#detail-price").textContent = money.format(stock.price);
+  document.querySelector("#detail-genre").textContent =
+    `거래량 ${stock.volume.toLocaleString()}`;
+  document.querySelector("#detail-price").textContent = money.format(
+    stock.price,
+  );
   const change = document.querySelector("#detail-change");
   change.className = `detail-change ${up ? "up" : "down"}`;
   change.textContent = `${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%`;
   document.querySelector("#stock-code").value = stock.code;
-  document.querySelector("#detail-events").innerHTML = currentEvents
-    .filter((event) => event.stockCode === stock.code)
-    .map((event) => `<div class="event"><strong>${event.title}</strong></div>`)
-    .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
+  document.querySelector("#detail-events").innerHTML =
+    currentEvents
+      .filter((event) => event.stockCode === stock.code)
+      .map(
+        (event) => `<div class="event"><strong>${event.title}</strong></div>`,
+      )
+      .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
   drawChart(priceHistory.get(stock.code) || [stock.price]);
 }
 
@@ -116,14 +123,21 @@ function drawChart(values) {
   context.lineWidth = 1;
   for (let index = 1; index < 4; index += 1) {
     const y = (displayHeight / 4) * index;
-    context.beginPath(); context.moveTo(0, y); context.lineTo(displayWidth, y); context.stroke();
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(displayWidth, y);
+    context.stroke();
   }
   context.strokeStyle = values.at(-1) >= values[0] ? "#e04f5f" : "#2379ba";
   context.lineWidth = 3;
   context.beginPath();
   values.forEach((value, index) => {
-    const x = values.length === 1 ? displayWidth / 2 : (displayWidth / (values.length - 1)) * index;
-    const y = displayHeight - ((value - min) / range) * (displayHeight - 24) - 12;
+    const x =
+      values.length === 1
+        ? displayWidth / 2
+        : (displayWidth / (values.length - 1)) * index;
+    const y =
+      displayHeight - ((value - min) / range) * (displayHeight - 24) - 12;
     index === 0 ? context.moveTo(x, y) : context.lineTo(x, y);
   });
   context.stroke();
@@ -138,7 +152,8 @@ async function refreshMarket() {
   applyMarketSnapshot({ stocks, portfolio, events });
 }
 
-document.querySelector("#order-form")
+document
+  .querySelector("#order-form")
   .addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
