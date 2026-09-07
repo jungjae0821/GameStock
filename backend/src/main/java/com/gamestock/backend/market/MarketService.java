@@ -37,15 +37,19 @@ public class MarketService {
         jdbc.update("""
                 INSERT IGNORE INTO games (name, developer, genre)
                 VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?)
-                """, "네사: 크로니클", "GameStock Studio", "RPG",
-                "스타라이트 아레나", "GameStock Studio", "액션",
-                "모모 팜", "GameStock Studio", "캐주얼",
+            """, "우마무스메 프리티더비", "GameStock Studio", "RPG",
+            "블루 아카이브", "GameStock Studio", "액션",
+            "승리의 여신: 니케", "GameStock Studio", "캐주얼",
                 "보이드 러너", "GameStock Studio", "슈팅");
 
-        insertStock("NEXA", "네사: 크로니클", 12_450L);
-        insertStock("STAR", "스타라이트 아레나", 8_230L);
-        insertStock("MOMO", "모모 팜", 21_430L);
-        insertStock("VOID", "보이드 러너", 5_920L);
+        renameExistingStock("NEXA", "UMA", "네사: 크로니클", "우마무스메 프리티더비");
+        renameExistingStock("STAR", "BA", "스타라이트 아레나", "블루 아카이브");
+        renameExistingStock("MOMO", "GOV", "모모 팜", "승리의 여신: 니케");
+        removeExistingStock("VOID", "보이드 러너");
+
+        insertStock("UMA", "우마무스메 프리티더비", 12_450L);
+        insertStock("BA", "블루 아카이브", 8_230L);
+        insertStock("GOV", "승리의 여신: 니케", 21_430L);
 
         insertEvent("NEXA", "대규모 시즌 업데이트 적용", "positive", 8.0);
         insertEvent("STAR", "경쟁작 출시 예고", "negative", -4.0);
@@ -60,6 +64,19 @@ public class MarketService {
                 INSERT IGNORE INTO stocks (game_id, stock_code, current_price, previous_price, total_volume)
                 SELECT id, ?, ?, ?, ? FROM games WHERE name = ?
                 """, code, price, price, 120_000L, name);
+    }
+
+    private void renameExistingStock(String oldCode, String newCode, String oldName, String newName) {
+        jdbc.update("UPDATE games SET name = ? WHERE name = ?", newName, oldName);
+        jdbc.update("UPDATE stocks SET stock_code = ? WHERE stock_code = ?", newCode, oldCode);
+    }
+
+    private void removeExistingStock(String code, String gameName) {
+        jdbc.update("DELETE FROM market_events WHERE stock_id IN (SELECT id FROM stocks WHERE stock_code = ?)", code);
+        jdbc.update("DELETE FROM orders WHERE stock_id IN (SELECT id FROM stocks WHERE stock_code = ?)", code);
+        jdbc.update("DELETE FROM portfolios WHERE stock_id IN (SELECT id FROM stocks WHERE stock_code = ?)", code);
+        jdbc.update("DELETE FROM stocks WHERE stock_code = ?", code);
+        jdbc.update("DELETE FROM games WHERE name = ? AND NOT EXISTS (SELECT 1 FROM stocks WHERE game_id = games.id)", gameName);
     }
 
     private void insertEvent(String code, String title, String type, double impact) {
