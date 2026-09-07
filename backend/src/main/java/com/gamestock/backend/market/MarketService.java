@@ -131,18 +131,19 @@ public class MarketService {
         if (stock == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
         long amount = stock.price() * request.quantity();
         long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ? FOR UPDATE", Long.class, demoUserId);
-        Integer currentQuantity = jdbc.queryForObject(
-                "SELECT quantity FROM portfolios WHERE user_id = ? AND stock_id = ?", Integer.class,
-                demoUserId, stockId(code));
-        int quantity = currentQuantity == null ? 0 : currentQuantity;
+        Integer currentQuantity = jdbc.query(
+            "SELECT quantity FROM portfolios WHERE user_id = ? AND stock_id = ?",
+            (rs, row) -> rs.getInt("quantity"), demoUserId, stockId(code))
+            .stream().findFirst().orElse(0);
+        int quantity = currentQuantity;
 
         if ("BUY".equals(side)) {
             if (cash < amount) throw new IllegalArgumentException("보유 현금이 부족합니다.");
-            savePortfolio(code, quantity + request.quantity(), stock.price(), quantity);
+            savePortfolio(code, quantity + request.quantity(), stock.price());
             cash -= amount;
         } else {
             if (quantity < request.quantity()) throw new IllegalArgumentException("보유 수량이 부족합니다.");
-            savePortfolio(code, quantity - request.quantity(), stock.price(), quantity);
+            savePortfolio(code, quantity - request.quantity(), stock.price());
             cash += amount;
         }
 
@@ -177,17 +178,19 @@ public class MarketService {
         return jdbc.queryForObject("SELECT id FROM stocks WHERE stock_code = ?", Long.class, code);
     }
 
-    private void savePortfolio(String code, int nextQuantity, long price, int oldQuantity) {
+    private void savePortfolio(String code, int nextQuantity, long price) {
         long id = stockId(code);
-        if (oldQuantity == 0 && nextQuantity > 0) {
+        int updated = jdbc.update("""
+                UPDATE portfolios
+                SET quantity = ?, average_price = ?
+                WHERE user_id = ? AND stock_id = ?
+                """, nextQuantity, price, demoUserId, id);
+        if (updated == 0) {
             jdbc.update("""
                     INSERT INTO portfolios (user_id, stock_id, quantity, average_price)
                     VALUES (?, ?, ?, ?)
                     """, demoUserId, id, nextQuantity, price);
-            return;
         }
-        jdbc.update("UPDATE portfolios SET quantity = ? WHERE user_id = ? AND stock_id = ?",
-                nextQuantity, demoUserId, id);
     }
 
     private void move(String code, double movement, int volume) {

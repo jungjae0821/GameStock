@@ -16,6 +16,7 @@ const marketPage = document.querySelector("body > main:not(#stock-detail)");
 const detailPage = document.querySelector("#stock-detail");
 const message = document.querySelector("#order-message");
 const priceHistory = new Map();
+const chartState = { points: [], width: 0, height: 0 };
 let currentStocks = [];
 let currentEvents = [];
 
@@ -32,7 +33,7 @@ function applyMarketSnapshot(snapshot) {
   currentEvents = snapshot.events;
   snapshot.stocks.forEach((stock) => {
     const history = priceHistory.get(stock.code) || [];
-    history.push(stock.price);
+    history.push({ price: stock.price, time: new Date() });
     priceHistory.set(stock.code, history.slice(-40));
   });
   renderStocks(snapshot.stocks);
@@ -82,6 +83,8 @@ function renderDetail() {
   }
   marketPage.hidden = true;
   detailPage.hidden = false;
+  message.className = "message";
+  message.textContent = "";
   const up = stock.changePercent >= 0;
   document.querySelector("#detail-code").textContent =
     `${stock.code} · ${stock.genre}`;
@@ -115,8 +118,12 @@ function drawChart(values) {
   context.scale(window.devicePixelRatio, window.devicePixelRatio);
   const displayWidth = canvas.clientWidth;
   const displayHeight = canvas.clientHeight;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const points = values.map((point) =>
+    typeof point === "number" ? { price: point, time: new Date() } : point,
+  );
+  const prices = points.map((point) => point.price);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
   const range = max - min || 1;
   context.clearRect(0, 0, displayWidth, displayHeight);
   context.strokeStyle = "#e5e9ef";
@@ -128,20 +135,44 @@ function drawChart(values) {
     context.lineTo(displayWidth, y);
     context.stroke();
   }
-  context.strokeStyle = values.at(-1) >= values[0] ? "#e04f5f" : "#2379ba";
+  context.strokeStyle = prices.at(-1) >= prices[0] ? "#e04f5f" : "#2379ba";
   context.lineWidth = 3;
   context.beginPath();
-  values.forEach((value, index) => {
+  const chartPoints = points.map((point, index) => {
     const x =
-      values.length === 1
+      points.length === 1
         ? displayWidth / 2
-        : (displayWidth / (values.length - 1)) * index;
+        : (displayWidth / (points.length - 1)) * index;
     const y =
-      displayHeight - ((value - min) / range) * (displayHeight - 24) - 12;
+      displayHeight - ((point.price - min) / range) * (displayHeight - 24) - 12;
     index === 0 ? context.moveTo(x, y) : context.lineTo(x, y);
+    return { ...point, x, y };
   });
   context.stroke();
+  chartState.points = chartPoints;
+  chartState.width = displayWidth;
+  chartState.height = displayHeight;
 }
+
+document
+  .querySelector("#price-chart")
+  .addEventListener("mousemove", (event) => {
+    if (!chartState.points.length) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - bounds.left;
+    const point = chartState.points.reduce((closest, candidate) =>
+      Math.abs(candidate.x - x) < Math.abs(closest.x - x) ? candidate : closest,
+    );
+    const tooltip = document.querySelector("#chart-tooltip");
+    tooltip.hidden = false;
+    tooltip.textContent = `${point.time.toLocaleTimeString("ko-KR")} · ${money.format(point.price)}`;
+    tooltip.style.left = `${Math.min(Math.max(point.x, 70), chartState.width - 70)}px`;
+    tooltip.style.top = `${Math.max(point.y - 48, 4)}px`;
+  });
+
+document.querySelector("#price-chart").addEventListener("mouseleave", () => {
+  document.querySelector("#chart-tooltip").hidden = true;
+});
 
 async function refreshMarket() {
   const [stocks, portfolio, events] = await Promise.all([

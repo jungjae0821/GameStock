@@ -310,10 +310,24 @@ footer {
   color: var(--muted);
   font-size: 0.82rem;
 }
+.chart-wrap {
+  position: relative;
+}
 .chart-panel canvas {
   display: block;
   width: 100%;
   height: 300px;
+}
+.chart-tooltip {
+  position: absolute;
+  transform: translateX(-50%);
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: white;
+  font-size: 0.76rem;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .side-switch {
   display: grid;

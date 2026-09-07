@@ -69,7 +69,10 @@
             </div>
             <span id="chart-range">실시간</span>
           </div>
-          <canvas id="price-chart" aria-label="종목 가격 등락 그래프"></canvas>
+          <div class="chart-wrap">
+            <canvas id="price-chart" aria-label="종목 가격 등락 그래프"></canvas>
+            <div id="chart-tooltip" class="chart-tooltip" role="status" hidden></div>
+          </div>
         </div>
         <aside class="order-panel">
           <p class="eyebrow">ORDER</p>
