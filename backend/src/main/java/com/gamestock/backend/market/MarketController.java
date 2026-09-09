@@ -30,6 +30,10 @@ public class MarketController {
     public java.util.List<OrderHistory> orderHistory(@PathVariable String stockCode, @RequestHeader(value = "Authorization", required = false) String authorization) {
         return market.orderHistory(stockCode, auth.requireUser(authorization).id());
     }
+    @GetMapping("/stocks/{stockCode}/trades")
+    public java.util.List<PublicTrade> publicTrades(@PathVariable String stockCode) { return market.publicTrades(stockCode); }
+    @GetMapping({"/orderbook/{stockCode}", "/stocks/{stockCode}/orderbook"})
+    public OrderBook orderBook(@PathVariable String stockCode) { return market.orderBook(stockCode); }
     @GetMapping("/stocks/{stockCode}/history")
     public java.util.List<PricePoint> priceHistory(@PathVariable String stockCode) {
         return market.priceHistory(stockCode);

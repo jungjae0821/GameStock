@@ -130,6 +130,10 @@ main {
   margin: 0 0 4px;
   font-size: 1rem;
 }
+.stock-card-heading { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.sparkline { width: 84px; height: 34px; overflow: visible; }
+.sparkline polyline { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.sparkline.up { color: var(--up); }.sparkline.down { color: var(--down); }
 .stock-card .code,
 .stock-card .meta {
   color: var(--muted);
@@ -399,6 +403,8 @@ footer {
 .empty-state {
   color: var(--muted);
 }
+.order-book { display: grid; gap: 10px; }.depth-legend { display: flex; justify-content: space-between; font-size: .8rem; font-weight: 750; }.book-buy { color: var(--up); }.book-sell { color: var(--down); }
+.depth-chart { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; min-height: 220px; background: var(--line); border-radius: 10px; overflow: hidden; }.depth-column { display: flex; flex-direction: column; justify-content: end; gap: 2px; padding: 8px; background: #fff; }.depth-column.asks { flex-direction: column-reverse; justify-content: start; }.depth-level { position: relative; display: grid; grid-template-columns: 76px 1fr 48px; align-items: center; gap: 5px; min-height: 19px; font-size: .73rem; }.depth-level small { color: var(--muted); text-align: right; }.depth-bar { position: absolute; inset: 2px 0 2px 76px; z-index: 0; overflow: hidden; border-radius: 3px; }.depth-bar i { display: block; height: 100%; opacity: .22; border-radius: inherit; }.depth-level.buy .depth-bar { direction: rtl; }.depth-level.buy .depth-bar i { background: var(--up); }.depth-level.sell .depth-bar i { background: var(--down); }.depth-level > :not(.depth-bar) { position: relative; z-index: 1; }.depth-price { font-variant-numeric: tabular-nums; }.depth-level strong { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) {
   .stock-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

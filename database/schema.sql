@@ -82,6 +82,7 @@ CREATE TABLE orders (
   order_type ENUM('MARKET', 'LIMIT') NOT NULL DEFAULT 'MARKET',
   price BIGINT NULL,
   quantity INT NOT NULL,
+  remaining_quantity INT NOT NULL,
   status ENUM('OPEN', 'FILLED', 'CANCELLED') NOT NULL DEFAULT 'OPEN',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id),

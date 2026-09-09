@@ -5,6 +5,7 @@ target/
 node_modules/
 .m2-repository/
 .expo/
+.expo-export/
 dist/
 *.class
 

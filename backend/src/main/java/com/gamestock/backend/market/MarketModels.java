@@ -14,8 +14,11 @@ public final class MarketModels {
     public record Position(String stockCode, int quantity, long marketValue) { }
     public record MarketEvent(String stockCode, String title, int impact, String sentiment) { }
     public record MarketSnapshot(List<Stock> stocks, Portfolio portfolio, List<MarketEvent> events) { }
-    public record OrderRequest(@NotBlank String stockCode, @NotBlank String side, @Min(1) @Max(1000) int quantity) { }
-    public record OrderResult(String message, String stockCode, String side, int quantity, long price, Portfolio portfolio) { }
-    public record OrderHistory(String side, int quantity, long price, String status, String createdAt) { }
+    public record OrderRequest(@NotBlank String stockCode, @NotBlank String side, @Min(1) @Max(1000) int quantity, String orderType, Long price) { }
+    public record OrderResult(String message, String stockCode, String side, int quantity, long price, String status, Portfolio portfolio) { }
+    public record OrderHistory(String side, int quantity, long price, String status, String orderType, int remainingQuantity, String createdAt) { }
+    public record PublicTrade(String side, int quantity, long price, String orderType, String createdAt) { }
+    public record OrderBookLevel(long price, int quantity, int orderCount) { }
+    public record OrderBook(String stockCode, List<OrderBookLevel> bids, List<OrderBookLevel> asks) { }
     public record PricePoint(long price, String recordedAt) { }
 }

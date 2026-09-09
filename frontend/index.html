@@ -105,16 +105,23 @@
                 max="1000"
                 value="1"
                 required
-            /></label>
+              /></label>
+            <label>주문 유형<select name="orderType" id="order-type"><option value="MARKET">시장가 (즉시 체결)</option><option value="LIMIT">지정가 (호가 대기)</option></select></label>
+            <label id="limit-price-field" hidden>지정가<input name="price" id="limit-price" type="number" min="100" step="1" placeholder="희망 가격" /></label>
             <button type="submit">주문 체결하기</button>
             <p id="order-message" class="message" role="status"></p>
           </form>
         </aside>
       </section>
       <section class="events detail-events">
-        <p class="eyebrow">TRADE HISTORY</p>
-        <h2>매수·매도 내역</h2>
-        <div id="order-history" class="order-history"></div>
+        <p class="eyebrow">ORDER BOOK</p><h2>호가창</h2>
+        <div id="order-book" class="order-book"><p class="empty-state">호가를 불러오는 중입니다.</p></div>
+      </section>
+      <section class="events detail-events">
+        <p class="eyebrow">PUBLIC TRADES</p>
+        <h2>전체 체결 내역</h2>
+        <p class="detail-subtitle">다른 투자자의 체결도 익명으로 표시됩니다.</p>
+        <div id="public-trades" class="order-history"></div>
       </section>
       <section class="events detail-events">
         <p class="eyebrow">RELATED NEWS</p>

@@ -19,10 +19,11 @@ const priceHistory = new Map();
 const chartState = { points: [], width: 0, height: 0 };
 let currentStocks = [];
 let currentEvents = [];
-let loadedHistoryCode = null;
-let orderHistoryTimer = null;
+let tradeRefreshTimer = null;
 let loadedPriceHistoryCode = null;
 let loadedNewsCode = null;
+let loadedOrderBookCode = null;
+let loadedTradeCode = null;
 let currentUser = null;
 let firebaseAuth = null;
 
@@ -54,9 +55,21 @@ function renderStocks(stocks) {
   stockContainer.innerHTML = stocks
     .map((stock) => {
       const up = stock.changePercent >= 0;
-      return `<a class="stock-card" href="#stock/${stock.code}" aria-label="${stock.name} 상세 보기"><span class="code">${stock.code} · ${stock.genre}</span><h3>${stock.name}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · 거래량 ${stock.volume.toLocaleString()}</span><span class="card-link">상세 보기 →</span></a>`;
+      return `<a class="stock-card" href="#stock/${stock.code}" aria-label="${stock.name} 상세 보기"><div class="stock-card-heading"><span class="code">${stock.code} · ${stock.genre}</span>${sparklineSvg(stock.code, up)}</div><h3>${stock.name}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · 거래량 ${stock.volume.toLocaleString()}</span><span class="card-link">상세 보기 →</span></a>`;
     })
     .join("");
+}
+
+function sparklineSvg(stockCode, up) {
+  const points = (priceHistory.get(stockCode) || []).map((point) => point.price);
+  if (!points.length) points.push(currentStocks.find((stock) => stock.code === stockCode)?.price || 0);
+  const min = Math.min(...points), max = Math.max(...points), range = max - min || 1;
+  const coordinates = points.map((price, index) => {
+    const x = points.length === 1 ? 2 : (index / (points.length - 1)) * 76 + 2;
+    const y = 28 - ((price - min) / range) * 24;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return `<svg class="sparkline ${up ? "up" : "down"}" viewBox="0 0 80 32" role="img" aria-label="최근 가격 흐름"><polyline points="${coordinates}" /></svg>`;
 }
 
 function renderPortfolio(portfolio) {
@@ -85,10 +98,10 @@ function renderDetail() {
     : null;
   const stock = currentStocks.find((item) => item.code === code);
   if (!stock) {
-    clearOrderHistoryRefresh();
-    loadedHistoryCode = null;
+    clearTradeRefresh();
     loadedPriceHistoryCode = null;
     loadedNewsCode = null;
+    loadedTradeCode = null;
     marketPage.hidden = false;
     detailPage.hidden = true;
     return;
@@ -114,15 +127,42 @@ function renderDetail() {
     loadedPriceHistoryCode = stock.code;
     loadPriceHistory(stock.code);
   }
-  if (loadedHistoryCode !== stock.code) {
-    loadedHistoryCode = stock.code;
-    startOrderHistoryRefresh(stock.code);
+  if (loadedTradeCode !== stock.code) {
+    loadedTradeCode = stock.code;
+    startTradeRefresh(stock.code);
   }
   if (loadedNewsCode !== stock.code) {
     loadedNewsCode = stock.code;
     loadStockNews(stock.code);
   }
+  if (loadedOrderBookCode !== stock.code) { loadedOrderBookCode = stock.code; loadOrderBook(stock.code); }
   drawChart(priceHistory.get(stock.code) || [stock.price]);
+}
+
+async function loadOrderBook(stockCode) {
+  const container = document.querySelector("#order-book");
+  try {
+    const book = await api(`/api/orderbook/${encodeURIComponent(stockCode)}`);
+    if (location.hash !== `#stock/${stockCode}`) return;
+    const bids = book.bids || [], asks = book.asks || [];
+    const maxQuantity = Math.max(1, ...bids.map(level => level.quantity), ...asks.map(level => level.quantity));
+    const levelMarkup = (level, side) => `<div class="depth-level ${side}"><span class="depth-price">${level.price.toLocaleString()}원</span><span class="depth-bar"><i style="width:${Math.max(5, level.quantity / maxQuantity * 100)}%"></i></span><strong>${level.quantity.toLocaleString()}주</strong><small>${level.orderCount}건</small></div>`;
+    container.innerHTML = bids.length || asks.length ? `<div class="depth-legend"><span class="book-buy">매수 잔량</span><span class="book-sell">매도 잔량</span></div><div class="depth-chart"><div class="depth-column asks">${asks.map(level => levelMarkup(level, "sell")).join("") || '<p class="empty-state">매도 대기 없음</p>'}</div><div class="depth-column bids">${bids.map(level => levelMarkup(level, "buy")).join("") || '<p class="empty-state">매수 대기 없음</p>'}</div></div>` : '<p class="empty-state">대기 중인 지정가 주문이 없습니다.</p>';
+  } catch { container.innerHTML = '<p class="empty-state">호가를 불러오지 못했습니다.</p>'; }
+}
+
+async function loadPublicTrades(stockCode) {
+  const container = document.querySelector("#public-trades");
+  container.innerHTML = '<p class="empty-state">전체 체결 내역을 불러오는 중입니다.</p>';
+  try {
+    const trades = await api(`/api/stocks/${encodeURIComponent(stockCode)}/trades`);
+    if (location.hash !== `#stock/${stockCode}`) return;
+    container.innerHTML = trades.length ? trades.map((trade) => {
+      const isBuy = trade.side === "BUY";
+      const date = new Date(trade.createdAt).toLocaleString("ko-KR");
+      return `<div class="history-row"><span class="history-side ${isBuy ? "buy" : "sell"}">${isBuy ? "매수" : "매도"}</span><strong>${trade.quantity.toLocaleString()}주</strong><span>${money.format(trade.price)}</span><time>${date}</time></div>`;
+    }).join("") : '<p class="empty-state">아직 체결된 거래가 없습니다.</p>';
+  } catch { loadedTradeCode = null; container.innerHTML = '<p class="empty-state">전체 체결 내역을 불러오지 못했습니다.</p>'; }
 }
 
 async function loadStockNews(stockCode) {
@@ -167,18 +207,18 @@ async function loadPriceHistory(stockCode) {
   }
 }
 
-function startOrderHistoryRefresh(stockCode) {
-  clearOrderHistoryRefresh();
-  loadOrderHistory(stockCode);
-  orderHistoryTimer = setInterval(() => {
-    if (location.hash === `#stock/${stockCode}`) loadOrderHistory(stockCode);
-  }, 5000);
+function startTradeRefresh(stockCode) {
+  clearTradeRefresh();
+  loadPublicTrades(stockCode);
+  tradeRefreshTimer = setInterval(() => {
+    if (location.hash === `#stock/${stockCode}`) loadPublicTrades(stockCode);
+  }, 10000);
 }
 
-function clearOrderHistoryRefresh() {
-  if (orderHistoryTimer !== null) {
-    clearInterval(orderHistoryTimer);
-    orderHistoryTimer = null;
+function clearTradeRefresh() {
+  if (tradeRefreshTimer !== null) {
+    clearInterval(tradeRefreshTimer);
+    tradeRefreshTimer = null;
   }
 }
 
@@ -285,6 +325,7 @@ document
     event.preventDefault();
     if (!currentUser) { openLogin(); return; }
     const data = Object.fromEntries(new FormData(event.currentTarget));
+    if (data.orderType === "MARKET") delete data.price;
     message.className = "message";
     message.textContent = "주문을 처리하고 있습니다…";
     try {
@@ -296,7 +337,6 @@ document
       message.className = "message success";
       message.textContent = `${result.stockCode} ${result.quantity}주 주문이 체결되었습니다.`;
       await refreshMarket();
-      loadOrderHistory(data.stockCode);
     } catch (error) {
       message.className = "message error";
       message.textContent = error.message;
@@ -304,6 +344,7 @@ document
   });
 
 window.addEventListener("hashchange", renderDetail);
+document.querySelector("#order-type").addEventListener("change", (event) => { document.querySelector("#limit-price-field").hidden = event.target.value !== "LIMIT"; });
 document.querySelector("#back-to-market").addEventListener("click", () => {
   location.hash = "";
 });

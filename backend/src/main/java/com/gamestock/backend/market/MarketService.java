@@ -61,6 +61,7 @@ public class MarketService {
     }
 
     private void ensureAuthenticationTables() {
+        addOrderColumnIfMissing();
         addUserColumnIfMissing("google_uid", "VARCHAR(128) NULL UNIQUE");
         addUserColumnIfMissing("email", "VARCHAR(255) NULL");
         addUserColumnIfMissing("profile_image_url", "VARCHAR(500) NULL");
@@ -72,6 +73,12 @@ public class MarketService {
                   CONSTRAINT fk_attendance_user FOREIGN KEY (user_id) REFERENCES users(id)
                 )
                 """);
+    }
+
+    private void addOrderColumnIfMissing() {
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'orders' AND column_name = 'remaining_quantity'", Integer.class);
+        if (count != null && count == 0) jdbc.execute("ALTER TABLE orders ADD COLUMN remaining_quantity INT NOT NULL DEFAULT 0");
+        jdbc.update("UPDATE orders SET remaining_quantity = quantity WHERE remaining_quantity = 0 AND status = 'OPEN'");
     }
 
     private void addUserColumnIfMissing(String name, String definition) {
@@ -178,7 +185,7 @@ public class MarketService {
 
     public synchronized List<OrderHistory> orderHistory(String code, long userId) {
         return jdbc.query("""
-                SELECT o.side, o.quantity, o.price, o.status, o.created_at
+                SELECT o.side, o.quantity, o.price, o.status, o.order_type, o.remaining_quantity, o.created_at
                 FROM orders o JOIN stocks s ON s.id = o.stock_id
                 WHERE o.user_id = ? AND s.stock_code = ?
                 ORDER BY o.created_at DESC, o.id DESC
@@ -188,8 +195,22 @@ public class MarketService {
                 rs.getInt("quantity"),
                 rs.getLong("price"),
                 rs.getString("status"),
+                rs.getString("order_type"),
+                rs.getInt("remaining_quantity"),
                 rs.getTimestamp("created_at").toInstant().toString()),
                 userId, code.toUpperCase(Locale.ROOT));
+    }
+
+    /** 모든 사용자의 익명 체결 내역. 개인별 주문 API와 분리해 공개한다. */
+    public synchronized List<PublicTrade> publicTrades(String code) {
+        return jdbc.query("""
+                SELECT o.side, o.quantity, o.price, o.order_type, o.created_at
+                FROM orders o JOIN stocks s ON s.id = o.stock_id
+                WHERE o.status = 'FILLED' AND s.stock_code = ?
+                ORDER BY o.created_at DESC, o.id DESC LIMIT 10
+                """, (rs, row) -> new PublicTrade(rs.getString("side"), rs.getInt("quantity"),
+                rs.getLong("price"), rs.getString("order_type"), rs.getTimestamp("created_at").toInstant().toString()),
+                code.toUpperCase(Locale.ROOT));
     }
 
     public synchronized List<PricePoint> priceHistory(String code) {
@@ -207,6 +228,21 @@ public class MarketService {
             return points;
     }
 
+    public synchronized OrderBook orderBook(String code) {
+        String normalized = code.toUpperCase(Locale.ROOT);
+        if (findStock(normalized) == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
+        long id = stockId(normalized);
+        List<OrderBookLevel> bids = jdbc.query("""
+                SELECT price, SUM(remaining_quantity) quantity, COUNT(*) order_count FROM orders
+                WHERE stock_id = ? AND side = 'BUY' AND status = 'OPEN' GROUP BY price ORDER BY price DESC LIMIT 10
+                """, (rs, row) -> new OrderBookLevel(rs.getLong("price"), rs.getInt("quantity"), rs.getInt("order_count")), id);
+        List<OrderBookLevel> asks = jdbc.query("""
+                SELECT price, SUM(remaining_quantity) quantity, COUNT(*) order_count FROM orders
+                WHERE stock_id = ? AND side = 'SELL' AND status = 'OPEN' GROUP BY price ORDER BY price ASC LIMIT 10
+                """, (rs, row) -> new OrderBookLevel(rs.getLong("price"), rs.getInt("quantity"), rs.getInt("order_count")), id);
+        return new OrderBook(normalized, bids, asks);
+    }
+
     public synchronized MarketSnapshot snapshot() {
         return new MarketSnapshot(stocks(), portfolioUnsafe(demoUserId), marketEvents());
     }
@@ -221,7 +257,11 @@ public class MarketService {
 
         Stock stock = findStock(code);
         if (stock == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
-        long amount = stock.price() * request.quantity();
+        String orderType = request.orderType() == null || request.orderType().isBlank() ? "MARKET" : request.orderType().toUpperCase(Locale.ROOT);
+        if (!"MARKET".equals(orderType) && !"LIMIT".equals(orderType)) throw new IllegalArgumentException("주문 유형은 MARKET 또는 LIMIT이어야 합니다.");
+        long orderPrice = "LIMIT".equals(orderType) ? (request.price() == null ? 0 : request.price()) : stock.price();
+        if (orderPrice <= 0) throw new IllegalArgumentException("지정가를 입력해 주세요.");
+        long amount = orderPrice * request.quantity();
         long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ? FOR UPDATE", Long.class, userId);
         Integer currentQuantity = jdbc.query(
             "SELECT quantity FROM portfolios WHERE user_id = ? AND stock_id = ?",
@@ -229,26 +269,34 @@ public class MarketService {
             .stream().findFirst().orElse(0);
         int quantity = currentQuantity;
 
-        if ("BUY".equals(side)) {
+        if ("BUY".equals(side) && "MARKET".equals(orderType)) {
             if (cash < amount) throw new IllegalArgumentException("보유 현금이 부족합니다.");
             savePortfolio(code, quantity + request.quantity(), stock.price(), userId);
             cash -= amount;
-        } else {
+            jdbc.update("UPDATE users SET cash = ? WHERE id = ?", cash, userId);
+        } else if ("SELL".equals(side) && "MARKET".equals(orderType)) {
             if (quantity < request.quantity()) throw new IllegalArgumentException("보유 수량이 부족합니다.");
             savePortfolio(code, quantity - request.quantity(), stock.price(), userId);
             cash += amount;
+            jdbc.update("UPDATE users SET cash = ? WHERE id = ?", cash, userId);
+        } else if ("BUY".equals(side) && cash < amount) {
+            throw new IllegalArgumentException("지정가 주문에 필요한 현금이 부족합니다.");
+        } else if ("SELL".equals(side) && quantity < request.quantity()) {
+            throw new IllegalArgumentException("지정가 주문에 필요한 보유 수량이 부족합니다.");
         }
-
-        jdbc.update("UPDATE users SET cash = ? WHERE id = ?", cash, userId);
         jdbc.update("""
-                INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, status)
-                VALUES (?, ?, ?, 'MARKET', ?, ?, 'FILLED')
-                """, userId, stockId(code), side, stock.price(), request.quantity());
-        move(code, "BUY".equals(side) ? 0.12 : -0.12, request.quantity());
+                INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, userId, stockId(code), side, orderType, orderPrice, request.quantity(),
+                "MARKET".equals(orderType) ? 0 : request.quantity(), "MARKET".equals(orderType) ? "FILLED" : "OPEN");
+        long matchedPrice = "LIMIT".equals(orderType) ? matchOrders(code) : 0;
+        if (matchedPrice > 0) moveToPrice(code, matchedPrice, request.quantity());
+        if ("MARKET".equals(orderType)) move(code, "BUY".equals(side) ? 0.12 : -0.12, request.quantity());
 
         MarketSnapshot snapshot = snapshot();
         events.publishEvent(new MarketChangedEvent(snapshot));
-        return new OrderResult("주문이 체결되었습니다.", code, side, request.quantity(), stock.price(), portfolioUnsafe(userId));
+        boolean filled = "MARKET".equals(orderType) || jdbc.queryForObject("SELECT status FROM orders WHERE user_id = ? AND stock_id = ? ORDER BY id DESC LIMIT 1", String.class, userId, stockId(code)).equals("FILLED");
+        return new OrderResult(filled ? "주문이 체결되었습니다." : "지정가 주문이 호가창에 접수되었습니다.", code, side, request.quantity(), orderPrice, filled ? "FILLED" : "OPEN", portfolioUnsafe(userId));
     }
 
     @Scheduled(fixedRate = 5_000)
@@ -257,10 +305,69 @@ public class MarketService {
         List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
         if (codes.isEmpty()) return;
         String code = codes.get(ThreadLocalRandom.current().nextInt(codes.size()));
-        double movement = ThreadLocalRandom.current().nextDouble(-0.18, 0.19);
-        move(code, movement, ThreadLocalRandom.current().nextInt(20, 121));
+        // 현재가를 중심으로 매수·매도 봇을 동시에 배치해 사용자 없이도 계속 체결되게 한다.
+        createBotOrder(code, "BUY");
+        createBotOrder(code, "SELL");
+        long tradePrice = matchOrders(code);
+        if (tradePrice > 0) moveToPrice(code, tradePrice, ThreadLocalRandom.current().nextInt(10, 61));
         events.publishEvent(new MarketChangedEvent(snapshot()));
     }
+
+    private void createBotOrder(String code, String side) {
+        long id = ensureBot(code, side);
+        Stock stock = findStock(code);
+        double offset = ThreadLocalRandom.current().nextDouble(0.001, 0.006);
+        long price = Math.max(100, Math.round(stock.price() * ("BUY".equals(side) ? 1 + offset : 1 - offset)));
+        int quantity = ThreadLocalRandom.current().nextInt(5, 31);
+        if ("SELL".equals(side)) savePortfolio(code, quantity + 100, stock.price(), id);
+        jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, status) VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, 'OPEN')", id, stockId(code), side, price, quantity, quantity);
+    }
+
+    private long ensureBot(String code, String side) {
+        String username = "bot_" + code + "_" + side.toLowerCase(Locale.ROOT);
+        jdbc.update("INSERT IGNORE INTO users (username, password_hash, nickname, cash) VALUES (?, 'BOT', ?, 1000000000)", username, "봇 " + code + " " + side);
+        return jdbc.queryForObject("SELECT id FROM users WHERE username = ?", Long.class, username);
+    }
+
+    private long matchOrders(String code) {
+        long id = stockId(code);
+        long lastTradePrice = 0;
+        while (true) {
+            List<MatchRow> buys = jdbc.query("SELECT id, user_id, price, remaining_quantity FROM orders WHERE stock_id = ? AND side = 'BUY' AND status = 'OPEN' ORDER BY price DESC, created_at ASC, id ASC LIMIT 1", (rs, row) -> new MatchRow(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4)), id);
+            List<MatchRow> sells = jdbc.query("SELECT id, user_id, price, remaining_quantity FROM orders WHERE stock_id = ? AND side = 'SELL' AND status = 'OPEN' ORDER BY price ASC, created_at ASC, id ASC LIMIT 1", (rs, row) -> new MatchRow(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4)), id);
+            if (buys.isEmpty() || sells.isEmpty() || buys.get(0).price < sells.get(0).price) return lastTradePrice;
+            MatchRow buy = buys.get(0), sell = sells.get(0);
+            int quantity = Math.min(buy.remaining, sell.remaining);
+            long tradePrice = sell.price;
+            long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ? FOR UPDATE", Long.class, buy.userId);
+            int owned = jdbc.query("SELECT quantity FROM portfolios WHERE user_id = ? AND stock_id = ?", (rs, row) -> rs.getInt(1), sell.userId, id).stream().findFirst().orElse(0);
+            if (cash < tradePrice * quantity || owned < quantity) {
+                if (cash < tradePrice * quantity) jdbc.update("UPDATE orders SET status = 'CANCELLED' WHERE id = ?", buy.id);
+                if (owned < quantity) jdbc.update("UPDATE orders SET status = 'CANCELLED' WHERE id = ?", sell.id);
+                continue;
+            }
+            jdbc.update("UPDATE users SET cash = cash - ? WHERE id = ?", tradePrice * quantity, buy.userId);
+            jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", tradePrice * quantity, sell.userId);
+            adjustQuantity(id, buy.userId, quantity, tradePrice, true);
+            adjustQuantity(id, sell.userId, quantity, tradePrice, false);
+            updateMatchedOrder(buy.id, buy.remaining - quantity);
+            updateMatchedOrder(sell.id, sell.remaining - quantity);
+            lastTradePrice = tradePrice;
+        }
+    }
+
+    private void updateMatchedOrder(long orderId, int remaining) { jdbc.update("UPDATE orders SET remaining_quantity = ?, status = ? WHERE id = ?", remaining, remaining == 0 ? "FILLED" : "OPEN", orderId); }
+    private void adjustQuantity(long stockId, long userId, int amount, long price, boolean buy) {
+        List<int[]> current = jdbc.query("SELECT quantity, average_price FROM portfolios WHERE user_id = ? AND stock_id = ?", (rs, row) -> new int[]{rs.getInt(1), rs.getInt(2)}, userId, stockId);
+        int quantity = current.isEmpty() ? 0 : current.get(0)[0];
+        long average = current.isEmpty() ? price : current.get(0)[1];
+        int next = buy ? quantity + amount : quantity - amount;
+        long nextAverage = buy && next > 0 ? ((average * quantity) + (price * amount)) / next : (next == 0 ? 0 : average);
+        if (current.isEmpty()) jdbc.update("INSERT INTO portfolios (user_id, stock_id, quantity, average_price) VALUES (?, ?, ?, ?)", userId, stockId, next, nextAverage);
+        else jdbc.update("UPDATE portfolios SET quantity = ?, average_price = ? WHERE user_id = ? AND stock_id = ?", next, nextAverage, userId, stockId);
+    }
+
+    private record MatchRow(long id, long userId, long price, int remaining) { }
 
     private Stock findStock(String code) {
         return stocks().stream().filter(stock -> stock.code().equals(code)).findFirst().orElse(null);
@@ -297,6 +404,12 @@ public class MarketService {
                 INSERT INTO stock_price_history (stock_id, price)
                 SELECT id, ? FROM stocks WHERE stock_code = ?
                 """, next, code);
+    }
+
+    private void moveToPrice(String code, long price, int volume) {
+        long next = Math.max(100, price);
+        jdbc.update("UPDATE stocks SET previous_price = current_price, current_price = ?, total_volume = total_volume + ? WHERE stock_code = ?", next, volume, code);
+        jdbc.update("INSERT INTO stock_price_history (stock_id, price) SELECT id, ? FROM stocks WHERE stock_code = ?", next, code);
     }
 
     private Portfolio portfolioUnsafe(long userId) {
