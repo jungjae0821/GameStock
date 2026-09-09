@@ -43,6 +43,7 @@ body {
 .login-button { margin: 0 0 0 6px; padding: 0 14px; min-height: 36px; white-space: nowrap; }
 .login-button.logged-in { background: #18794e; }
 .login-modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgba(23, 32, 47, .48); }
+.login-modal[hidden] { display: none; }
 .login-dialog { position: relative; width: min(100%, 390px); padding: 30px; border-radius: 18px; background: white; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
 .login-dialog h2 { margin: 0 0 12px; }.login-dialog > p:not(.eyebrow):not(.message) { color: var(--muted); line-height: 1.55; }
 .login-dialog #google-login { width: 100%; }.close-login { position: absolute; top: 12px; right: 14px; min-height: 30px; background: transparent; color: var(--muted); font-size: 24px; }
