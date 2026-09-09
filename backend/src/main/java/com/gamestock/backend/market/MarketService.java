@@ -31,6 +31,7 @@ public class MarketService {
     @Transactional
     public void initializeData() {
         ensurePriceHistoryTable();
+        ensureAuthenticationTables();
         jdbc.update("""
                 INSERT IGNORE INTO users (username, password_hash, nickname, cash)
                 VALUES (?, ?, ?, ?)
@@ -57,6 +58,25 @@ public class MarketService {
 
         demoUserId = jdbc.queryForObject(
                 "SELECT id FROM users WHERE username = ?", Long.class, DEMO_USERNAME);
+    }
+
+    private void ensureAuthenticationTables() {
+        addUserColumnIfMissing("google_uid", "VARCHAR(128) NULL UNIQUE");
+        addUserColumnIfMissing("email", "VARCHAR(255) NULL");
+        addUserColumnIfMissing("profile_image_url", "VARCHAR(500) NULL");
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS attendance_rewards (
+                  id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT NOT NULL, rewarded_on DATE NOT NULL,
+                  streak_day INT NOT NULL, reward_cash BIGINT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  UNIQUE KEY uq_attendance_user_day (user_id, rewarded_on),
+                  CONSTRAINT fk_attendance_user FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """);
+    }
+
+    private void addUserColumnIfMissing(String name, String definition) {
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = ?", Integer.class, name);
+        if (count != null && count == 0) jdbc.execute("ALTER TABLE users ADD COLUMN " + name + " " + definition);
     }
 
     private void insertStock(String code, String name, long price) {
@@ -152,11 +172,11 @@ public class MarketService {
         }, code.toUpperCase(Locale.ROOT));
     }
 
-    public synchronized Portfolio portfolio() {
-        return portfolioUnsafe();
+    public synchronized Portfolio portfolio(long userId) {
+        return portfolioUnsafe(userId);
     }
 
-    public synchronized List<OrderHistory> orderHistory(String code) {
+    public synchronized List<OrderHistory> orderHistory(String code, long userId) {
         return jdbc.query("""
                 SELECT o.side, o.quantity, o.price, o.status, o.created_at
                 FROM orders o JOIN stocks s ON s.id = o.stock_id
@@ -169,7 +189,7 @@ public class MarketService {
                 rs.getLong("price"),
                 rs.getString("status"),
                 rs.getTimestamp("created_at").toInstant().toString()),
-                demoUserId, code.toUpperCase(Locale.ROOT));
+                userId, code.toUpperCase(Locale.ROOT));
     }
 
     public synchronized List<PricePoint> priceHistory(String code) {
@@ -188,11 +208,11 @@ public class MarketService {
     }
 
     public synchronized MarketSnapshot snapshot() {
-        return new MarketSnapshot(stocks(), portfolioUnsafe(), marketEvents());
+        return new MarketSnapshot(stocks(), portfolioUnsafe(demoUserId), marketEvents());
     }
 
     @Transactional
-    public synchronized OrderResult order(OrderRequest request) {
+    public synchronized OrderResult order(OrderRequest request, long userId) {
         String code = request.stockCode().toUpperCase(Locale.ROOT);
         String side = request.side().toUpperCase(Locale.ROOT);
         if (!"BUY".equals(side) && !"SELL".equals(side)) {
@@ -202,33 +222,33 @@ public class MarketService {
         Stock stock = findStock(code);
         if (stock == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
         long amount = stock.price() * request.quantity();
-        long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ? FOR UPDATE", Long.class, demoUserId);
+        long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ? FOR UPDATE", Long.class, userId);
         Integer currentQuantity = jdbc.query(
             "SELECT quantity FROM portfolios WHERE user_id = ? AND stock_id = ?",
-            (rs, row) -> rs.getInt("quantity"), demoUserId, stockId(code))
+            (rs, row) -> rs.getInt("quantity"), userId, stockId(code))
             .stream().findFirst().orElse(0);
         int quantity = currentQuantity;
 
         if ("BUY".equals(side)) {
             if (cash < amount) throw new IllegalArgumentException("보유 현금이 부족합니다.");
-            savePortfolio(code, quantity + request.quantity(), stock.price());
+            savePortfolio(code, quantity + request.quantity(), stock.price(), userId);
             cash -= amount;
         } else {
             if (quantity < request.quantity()) throw new IllegalArgumentException("보유 수량이 부족합니다.");
-            savePortfolio(code, quantity - request.quantity(), stock.price());
+            savePortfolio(code, quantity - request.quantity(), stock.price(), userId);
             cash += amount;
         }
 
-        jdbc.update("UPDATE users SET cash = ? WHERE id = ?", cash, demoUserId);
+        jdbc.update("UPDATE users SET cash = ? WHERE id = ?", cash, userId);
         jdbc.update("""
                 INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, status)
                 VALUES (?, ?, ?, 'MARKET', ?, ?, 'FILLED')
-                """, demoUserId, stockId(code), side, stock.price(), request.quantity());
+                """, userId, stockId(code), side, stock.price(), request.quantity());
         move(code, "BUY".equals(side) ? 0.12 : -0.12, request.quantity());
 
         MarketSnapshot snapshot = snapshot();
         events.publishEvent(new MarketChangedEvent(snapshot));
-        return new OrderResult("주문이 체결되었습니다.", code, side, request.quantity(), stock.price(), snapshot.portfolio());
+        return new OrderResult("주문이 체결되었습니다.", code, side, request.quantity(), stock.price(), portfolioUnsafe(userId));
     }
 
     @Scheduled(fixedRate = 5_000)
@@ -250,18 +270,18 @@ public class MarketService {
         return jdbc.queryForObject("SELECT id FROM stocks WHERE stock_code = ?", Long.class, code);
     }
 
-    private void savePortfolio(String code, int nextQuantity, long price) {
+    private void savePortfolio(String code, int nextQuantity, long price, long userId) {
         long id = stockId(code);
         int updated = jdbc.update("""
                 UPDATE portfolios
                 SET quantity = ?, average_price = ?
                 WHERE user_id = ? AND stock_id = ?
-                """, nextQuantity, price, demoUserId, id);
+                """, nextQuantity, price, userId, id);
         if (updated == 0) {
             jdbc.update("""
                     INSERT INTO portfolios (user_id, stock_id, quantity, average_price)
                     VALUES (?, ?, ?, ?)
-                    """, demoUserId, id, nextQuantity, price);
+                    """, userId, id, nextQuantity, price);
         }
     }
 
@@ -279,15 +299,15 @@ public class MarketService {
                 """, next, code);
     }
 
-    private Portfolio portfolioUnsafe() {
-        long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ?", Long.class, demoUserId);
+    private Portfolio portfolioUnsafe(long userId) {
+        long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ?", Long.class, userId);
         List<Position> positions = jdbc.query("""
                 SELECT s.stock_code, p.quantity, p.quantity * s.current_price AS market_value
                 FROM portfolios p JOIN stocks s ON s.id = p.stock_id
                 WHERE p.user_id = ? AND p.quantity > 0
                 ORDER BY p.id
                 """, (rs, row) -> new Position(rs.getString("stock_code"),
-                rs.getInt("quantity"), rs.getLong("market_value")), demoUserId);
+                rs.getInt("quantity"), rs.getLong("market_value")), userId);
         long assetValue = positions.stream().mapToLong(Position::marketValue).sum();
         return new Portfolio(cash, assetValue, cash + assetValue, positions);
     }

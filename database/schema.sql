@@ -4,11 +4,25 @@ USE gamestock;
 
 CREATE TABLE users (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(50) NOT NULL UNIQUE,
+  username VARCHAR(128) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   nickname VARCHAR(50) NOT NULL UNIQUE,
+  google_uid VARCHAR(128) NULL UNIQUE,
+  email VARCHAR(255) NULL,
+  profile_image_url VARCHAR(500) NULL,
   cash BIGINT NOT NULL DEFAULT 1000000,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE attendance_rewards (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  rewarded_on DATE NOT NULL,
+  streak_day INT NOT NULL,
+  reward_cash BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_attendance_user_day (user_id, rewarded_on),
+  CONSTRAINT fk_attendance_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE games (

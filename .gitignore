@@ -3,6 +3,7 @@ build/
 out/
 target/
 node_modules/
+.m2-repository/
 .expo/
 dist/
 *.class

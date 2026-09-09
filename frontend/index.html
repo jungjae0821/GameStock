@@ -11,6 +11,7 @@
       <a class="brand" href="#">GameStock</a>
       <span>서브컬처 게임 모의주식</span>
       <span id="server-status" class="status">서버 확인 중</span>
+      <button id="login-button" class="login-button" type="button">Google로 로그인</button>
     </header>
     <main>
       <section class="hero">
@@ -124,6 +125,19 @@
     <footer>
       GameStock MVP · 데이터는 데모용이며 서버를 재시작하면 초기화됩니다.
     </footer>
+    <div id="login-modal" class="login-modal" hidden>
+      <div class="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title">
+        <button id="close-login" class="close-login" type="button" aria-label="닫기">×</button>
+        <p class="eyebrow">GAMESTOCK</p>
+        <h2 id="login-title">거래하려면 로그인하세요</h2>
+        <p>Google 계정으로 로그인하면 나만의 모의 투자 자산과 출석 보상을 받을 수 있습니다.</p>
+        <button id="google-login" type="button">Google로 계속하기</button>
+        <p id="login-message" class="message" role="status"></p>
+      </div>
+    </div>
+    <script src="firebase-config.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

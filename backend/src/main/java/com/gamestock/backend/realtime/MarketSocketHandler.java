@@ -43,7 +43,10 @@ public class MarketSocketHandler extends TextWebSocketHandler {
     }
 
     private void send(WebSocketSession session, MarketChangedEvent event) throws IOException {
-        String payload = json.writeValueAsString(java.util.Map.of("type", "MARKET_UPDATED", "payload", event.snapshot()));
+        // 웹소켓은 공개 시장 정보만 전송한다. 사용자별 자산은 인증된 REST API로만 조회한다.
+        var snapshot = event.snapshot();
+        String payload = json.writeValueAsString(java.util.Map.of("type", "MARKET_UPDATED",
+                "payload", java.util.Map.of("stocks", snapshot.stocks(), "events", snapshot.events())));
         session.sendMessage(new TextMessage(payload));
     }
 }

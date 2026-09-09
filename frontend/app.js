@@ -23,9 +23,13 @@ let loadedHistoryCode = null;
 let orderHistoryTimer = null;
 let loadedPriceHistoryCode = null;
 let loadedNewsCode = null;
+let currentUser = null;
+let firebaseAuth = null;
 
 async function api(path, options) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  const token = firebaseAuth?.currentUser ? await firebaseAuth.currentUser.getIdToken() : null;
+  const headers = { ...(options?.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   const payload = await response.json();
   if (!response.ok)
     throw new Error(payload.message || "요청 처리 중 오류가 발생했습니다.");
@@ -41,7 +45,7 @@ function applyMarketSnapshot(snapshot) {
     priceHistory.set(stock.code, history.slice(-40));
   });
   renderStocks(snapshot.stocks);
-  renderPortfolio(snapshot.portfolio);
+  if (currentUser && snapshot.portfolio) renderPortfolio(snapshot.portfolio);
   renderEvents(snapshot.events);
   renderDetail();
 }
@@ -182,6 +186,7 @@ async function loadOrderHistory(stockCode) {
   const historyContainer = document.querySelector("#order-history");
   historyContainer.innerHTML =
     '<p class="empty-state">거래 내역을 불러오는 중입니다.</p>';
+  if (!currentUser) { historyContainer.innerHTML = '<p class="empty-state">로그인 후 내 거래 내역을 확인할 수 있습니다.</p>'; return; }
   try {
     const orders = await api(`/api/orders/${encodeURIComponent(stockCode)}`);
     if (!location.hash.endsWith(stockCode)) return;
@@ -266,11 +271,11 @@ document.querySelector("#price-chart").addEventListener("mouseleave", () => {
 });
 
 async function refreshMarket() {
-  const [stocks, portfolio, events] = await Promise.all([
+  const [stocks, events] = await Promise.all([
     api("/api/stocks"),
-    api("/api/portfolio"),
     api("/api/market-events"),
   ]);
+  const portfolio = currentUser ? await api("/api/portfolio") : null;
   applyMarketSnapshot({ stocks, portfolio, events });
 }
 
@@ -278,6 +283,7 @@ document
   .querySelector("#order-form")
   .addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!currentUser) { openLogin(); return; }
     const data = Object.fromEntries(new FormData(event.currentTarget));
     message.className = "message";
     message.textContent = "주문을 처리하고 있습니다…";
@@ -319,6 +325,51 @@ function connectRealtimeMarket() {
   socket.addEventListener("close", () =>
     setTimeout(connectRealtimeMarket, 2000),
   );
+}
+
+const loginModal = document.querySelector("#login-modal");
+const loginMessage = document.querySelector("#login-message");
+function openLogin() { loginModal.hidden = false; }
+function closeLogin() { loginModal.hidden = true; loginMessage.textContent = ""; }
+function updateLoginButton() {
+  const button = document.querySelector("#login-button");
+  button.textContent = currentUser ? `${currentUser.nickname}님` : "Google로 로그인";
+  button.classList.toggle("logged-in", Boolean(currentUser));
+}
+async function signInWithGoogle() {
+  if (!window.GAMESTOCK_FIREBASE_CONFIG) {
+    loginMessage.className = "message error";
+    loginMessage.textContent = "Firebase 설정이 아직 완료되지 않았습니다. firebase-config.js를 설정하세요.";
+    return;
+  }
+  try {
+    loginMessage.textContent = "Google 로그인 창을 여는 중입니다…";
+    const result = await firebaseAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    const token = await result.user.getIdToken();
+    const response = await fetch(`${API_BASE_URL}/api/auth/google`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    const user = await response.json();
+    if (!response.ok) throw new Error(user.message || "로그인 처리에 실패했습니다.");
+    currentUser = user;
+    updateLoginButton(); closeLogin(); await refreshMarket();
+    if (user.attendanceReward) alert(`${user.attendanceStreak}일차 출석 보상 ${money.format(user.attendanceReward)}을 받았습니다.`);
+  } catch (error) { loginMessage.className = "message error"; loginMessage.textContent = error.message; }
+}
+document.querySelector("#login-button").addEventListener("click", () => currentUser ? firebaseAuth.signOut().then(() => { currentUser = null; updateLoginButton(); refreshMarket(); }) : openLogin());
+document.querySelector("#google-login").addEventListener("click", signInWithGoogle);
+document.querySelector("#close-login").addEventListener("click", closeLogin);
+if (window.GAMESTOCK_FIREBASE_CONFIG && window.firebase) {
+  firebase.initializeApp(window.GAMESTOCK_FIREBASE_CONFIG);
+  firebaseAuth = firebase.auth();
+  firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
+    if (!firebaseUser) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/google`, { method: "POST", headers: { Authorization: `Bearer ${await firebaseUser.getIdToken()}` } });
+      if (!response.ok) throw new Error();
+      currentUser = await response.json();
+      updateLoginButton();
+      await refreshMarket();
+    } catch { /* 서버 설정 전에는 공개 시장 화면만 표시한다. */ }
+  });
 }
 
 api("/api/health")
