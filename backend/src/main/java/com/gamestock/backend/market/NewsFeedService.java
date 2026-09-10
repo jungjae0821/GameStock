@@ -20,14 +20,27 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @ConfigurationProperties(prefix = "gamestock.news")
 public class NewsFeedService {
     private static final Logger log = LoggerFactory.getLogger(NewsFeedService.class);
+    private static final List<String> POSITIVE_KEYWORDS = List.of(
+            "출시", "성공", "흥행", "증가", "성장", "호평", "기대", "달성", "수상", "업데이트", "신작",
+            "revenue", "growth", "success", "award", "launch", "popular", "profit");
+    private static final List<String> NEGATIVE_KEYWORDS = List.of(
+            "서비스 종료", "중단", "논란", "하락", "감소", "실패", "지연", "버그", "장애", "해킹", "매출 감소",
+            "shutdown", "decline", "delay", "bug", "outage", "hack", "lawsuit", "loss");
 
     private final JdbcTemplate jdbc;
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -113,26 +126,52 @@ public class NewsFeedService {
                 new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
         NodeList items = document.getElementsByTagName("item");
         List<NewsItem> result = new ArrayList<>();
-        for (int index = 0; index < Math.min(items.getLength(), 10); index++) {
+        for (int index = 0; index < items.getLength(); index++) {
             Element item = (Element) items.item(index);
             String title = text(item, "title");
             String link = text(item, "link");
             String description = text(item, "description");
-            if (!title.isBlank()) result.add(new NewsItem(trim(title, 150), trim(description, 500), link));
+            String published = firstNonBlank(text(item, "pubDate"), text(item, "published"),
+                    text(item, "updated"), text(item, "dc:date"));
+            if (!title.isBlank()) {
+                result.add(new NewsItem(trim(title, 150), trim(description, 500), link, parsePublishedAt(published)));
+            }
         }
-        return result;
+        return result.stream()
+                .sorted(Comparator.comparing(NewsItem::publishedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(10)
+                .toList();
     }
 
     private void saveNews(String stockCode, NewsItem item) {
+        double impact = newsImpact(item.title(), item.description());
+        Timestamp publishedAt = item.publishedAt() == null ? null : Timestamp.from(item.publishedAt());
+        if (publishedAt != null) {
+            jdbc.update("""
+                    UPDATE market_events e JOIN stocks s ON s.id = e.stock_id
+                    SET e.published_at = ?
+                    WHERE e.event_type = 'NEWS' AND s.stock_code = ? AND e.title = ?
+                    """, publishedAt, stockCode, item.title());
+        }
         jdbc.update("""
-                INSERT INTO market_events (stock_id, event_type, title, description, impact)
-                SELECT s.id, 'NEWS', ?, ?, 0.00 FROM stocks s
+                INSERT INTO market_events (stock_id, event_type, title, description, impact, published_at)
+                SELECT s.id, 'NEWS', ?, ?, ?, ? FROM stocks s
                 WHERE s.stock_code = ?
                   AND NOT EXISTS (
                       SELECT 1 FROM market_events e
                       WHERE e.stock_id = s.id AND e.title = ?
                   )
-                """, item.title(), item.description() + "\n출처: " + item.link(), stockCode, item.title());
+                """, item.title(), item.description() + "\n출처: " + item.link(), impact, publishedAt, stockCode, item.title());
+    }
+
+    /** Convert headline language into a bounded, explainable market impulse. */
+    private double newsImpact(String title, String description) {
+        String text = (title + " " + description).toLowerCase(Locale.ROOT);
+        int score = 0;
+        for (String keyword : POSITIVE_KEYWORDS) if (text.contains(keyword)) score++;
+        for (String keyword : NEGATIVE_KEYWORDS) if (text.contains(keyword)) score--;
+        return Math.max(-10.0, Math.min(10.0, score * 1.5));
     }
 
     private String text(Element parent, String tagName) {
@@ -140,9 +179,25 @@ public class NewsFeedService {
         return nodes.getLength() == 0 ? "" : nodes.item(0).getTextContent().trim();
     }
 
+    private String firstNonBlank(String... values) {
+        for (String value : values) if (value != null && !value.isBlank()) return value;
+        return "";
+    }
+
+    private Instant parsePublishedAt(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
+        } catch (DateTimeParseException ignored) { }
+        try {
+            return Instant.parse(value);
+        } catch (DateTimeParseException ignored) { }
+        return null;
+    }
+
     private String trim(String value, int maxLength) {
         return value == null ? "" : value.substring(0, Math.min(value.length(), maxLength));
     }
 
-    private record NewsItem(String title, String description, String link) { }
+    private record NewsItem(String title, String description, String link, Instant publishedAt) { }
 }

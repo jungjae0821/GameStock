@@ -27,6 +27,7 @@
         <div id="menu-panel" class="menu-panel" hidden>
           <button id="profile-button" type="button">마이페이지</button>
           <button id="ranking-button" type="button">랭킹</button>
+          <div id="han-river-temperature" class="menu-river-temperature" title="한강 수온 사이트의 선유 측정소 자료를 30분마다 갱신합니다.">한강 수온(선유) 조회 중…</div>
           <button id="logout-button" type="button">로그아웃</button>
         </div>
       </div>
@@ -129,17 +130,11 @@
                 <option value="LIMIT">지정가 (호가 대기)</option>
               </select></label
             >
-            <label id="market-price-field"
-              >시장가 예상 체결가<input
-                id="market-price"
-                type="text"
-                value="-"
-                readonly
-                aria-live="polite"
-              /><small id="market-price-help" class="detail-subtitle"
-                >현재 호가를 기준으로 계산한 평균 예상가입니다.</small
-              ></label
-            >
+            <div id="market-price-field" class="market-price-display" hidden>
+              <span>시장가 예상 체결금액</span>
+              <strong id="market-amount" aria-live="polite">-</strong>
+              <small id="market-price-help" class="detail-subtitle">현재 호가와 수량을 기준으로 계산합니다.</small>
+            </div>
             <label id="limit-price-field" hidden
               >희망 가격<input
                 name="price"
@@ -153,6 +148,12 @@
             <p id="order-message" class="message" role="status"></p>
           </form>
         </aside>
+      </section>
+      <section class="events detail-events">
+        <p class="eyebrow">DAILY MARKET</p>
+        <h2>일별 시세</h2>
+        <p class="detail-subtitle">체결 기준 시가·종가·거래량입니다. (고가·저가는 집계하지 않습니다.)</p>
+        <div id="daily-summaries" class="daily-summaries"></div>
       </section>
       <section class="events detail-events">
         <p class="eyebrow">ORDER BOOK</p>
@@ -239,6 +240,19 @@
           <p class="eyebrow">OPEN ORDERS</p>
           <h3>미체결 주문</h3>
           <div id="profile-orders"><p class="empty-state">미체결 주문을 불러오는 중입니다.</p></div>
+        </section>
+        <section class="profile-settlements">
+          <p class="eyebrow">EXECUTED TRADES</p>
+          <h3>체결 완료</h3>
+          <p class="detail-subtitle">체결 즉시 현금과 주식에 반영됩니다.</p>
+          <div id="profile-settlements"><p class="empty-state">체결 내역을 불러오는 중입니다.</p></div>
+        </section>
+        <section class="profile-reset">
+          <p class="eyebrow">ONE-TIME RESET</p>
+          <h3>인생 리셋</h3>
+          <p class="detail-subtitle">모든 보유 자산·미체결 주문·출석 기록을 초기화하고 처음부터 다시 시작합니다. Google 계정당 한 번만 사용할 수 있습니다.</p>
+          <button id="reset-account" class="reset-account" type="button">인생 리셋 사용</button>
+          <p id="reset-account-message" class="message" role="status"></p>
         </section>
       </section>
     </main>

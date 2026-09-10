@@ -30,6 +30,7 @@ if ([string]::IsNullOrWhiteSpace($env:DB_PASSWORD)) {
 Set-Location (Join-Path $projectRoot 'backend')
 # 일부 Windows 환경에서 Maven이 루트 C:\.m2를 기본 저장소로 선택하므로
 # 프로젝트 내부 저장소를 명시해 일반 사용자 권한으로도 실행되게 한다.
-$mavenRepository = Join-Path (Join-Path $projectRoot 'backend') '.m2-repository'
+$mavenRepository = Join-Path $projectRoot '.m2-repository'
 New-Item -ItemType Directory -Force -Path $mavenRepository | Out-Null
-& $maven "-Dmaven.repo.local=$mavenRepository" spring-boot:run
+# 실행 시에는 이미 내려받은 프로젝트 내부 캐시만 사용해 Maven 네트워크 오류를 막는다.
+& $maven "-o" "-Dmaven.repo.local=$mavenRepository" "-Dmaven.test.skip=true" spring-boot:run

@@ -3,6 +3,11 @@ const money = new Intl.NumberFormat("ko-KR", {
   currency: "KRW",
   maximumFractionDigits: 0,
 });
+function signedMoney(value) {
+  const amount = Number(value || 0);
+  const sign = amount > 0 ? "+" : amount < 0 ? "-" : "";
+  return `${sign}${money.format(Math.abs(amount))}`;
+}
 // 로컬 웹 서버는 8081 백엔드를 사용하고, 배포 환경은 현재 공개 도메인을 사용한다.
 const API_BASE_URL =
   window.GAMESTOCK_API_BASE_URL ||
@@ -14,6 +19,9 @@ const MARKET_SOCKET_URL = `${API_BASE_URL.replace(/^http/, "ws")}/ws/market`;
 const stockContainer = document.querySelector("#stocks");
 const marketPage = document.querySelector("body > main:not(#stock-detail)");
 const detailPage = document.querySelector("#stock-detail");
+// A fresh web launch always starts on the market home screen. Profile is
+// opened only after the user explicitly selects it from the menu.
+if (location.hash === "#profile") history.replaceState(null, "", `${location.pathname}${location.search}`);
 const message = document.querySelector("#order-message");
 const priceHistory = new Map();
 const chartState = { points: [], width: 0, height: 0 };
@@ -23,12 +31,14 @@ let currentEvents = [];
 let currentPortfolio = null;
 let tradeRefreshTimer = null;
 let loadedPriceHistoryCode = null;
+let loadedDailyCode = null;
 let loadedNewsCode = null;
 let loadedOrderBookCode = null;
 let loadedTradeCode = null;
 let currentUser = null;
 let currentProfile = null;
 let currentOpenOrders = [];
+let currentSettlements = [];
 let firebaseAuth = null;
 
 function escapeHtml(value) {
@@ -102,10 +112,13 @@ function renderPortfolio(portfolio) {
 
 async function refreshPortfolio() {
   if (!currentUser) { renderPortfolio(null); return; }
-  const portfolio = await api("/api/portfolio");
+  const [portfolio, settlements] = await Promise.all([
+    api("/api/portfolio"),
+    currentProfile ? api("/api/settlements") : Promise.resolve(currentSettlements),
+  ]);
   renderPortfolio(portfolio);
   // 실시간 가격 갱신으로 보유 종목만 다시 그릴 때 입력 중인 닉네임/사진을 덮어쓰지 않는다.
-  if (currentProfile) renderProfile(currentProfile, portfolio, { preserveForm: true });
+  if (currentProfile) renderProfile(currentProfile, portfolio, { preserveForm: true, settlements });
 }
 
 function renderEvents(events) {
@@ -134,6 +147,7 @@ function renderDetail() {
   if (!stock) {
     clearTradeRefresh();
     loadedPriceHistoryCode = null;
+    loadedDailyCode = null;
     loadedNewsCode = null;
     loadedTradeCode = null;
     marketPage.hidden = false;
@@ -153,8 +167,6 @@ function renderDetail() {
   document.querySelector("#detail-price").textContent = money.format(
     stock.price,
   );
-  const marketPrice = document.querySelector("#market-price");
-  if (marketPrice) marketPrice.value = money.format(stock.price);
   updateMarketPriceEstimate(stock.code);
   const change = document.querySelector("#detail-change");
   change.className = `detail-change ${up ? "up" : "down"}`;
@@ -163,6 +175,10 @@ function renderDetail() {
   if (loadedPriceHistoryCode !== stock.code) {
     loadedPriceHistoryCode = stock.code;
     loadPriceHistory(stock.code);
+  }
+  if (loadedDailyCode !== stock.code) {
+    loadedDailyCode = stock.code;
+    loadDailySummaries(stock.code);
   }
   if (loadedTradeCode !== stock.code) {
     loadedTradeCode = stock.code;
@@ -191,8 +207,8 @@ async function loadOrderBook(stockCode) {
 }
 
 function updateMarketPriceEstimate(stockCode = loadedOrderBookCode, book = orderBookCache.get(stockCode)) {
-  const input = document.querySelector("#market-price");
-  if (!input || !stockCode) return;
+  const amountDisplay = document.querySelector("#market-amount");
+  if (!amountDisplay || !stockCode) return;
   const stock = currentStocks.find((item) => item.code === stockCode);
   if (!stock) return;
   const side = document.querySelector('input[name="side"]:checked')?.value || "BUY";
@@ -209,12 +225,19 @@ function updateMarketPriceEstimate(stockCode = loadedOrderBookCode, book = order
     remaining -= matched;
     if (remaining <= 0) break;
   }
-  const estimated = filled > 0 ? Math.round(total / filled) : stock.price;
-  input.value = money.format(estimated);
+  const fallbackGross = Number(stock.price || 0) * quantity;
+  const grossAmount = filled > 0 ? Math.round(total) : fallbackGross;
+  const fee = grossAmount > 0 ? Math.max(1, Math.round(grossAmount * 0.001)) : 0;
+  const cashAmount = side === "BUY" ? grossAmount + fee : Math.max(0, grossAmount - fee);
+  amountDisplay.textContent = money.format(grossAmount);
   const help = document.querySelector("#market-price-help");
-  if (help) help.textContent = remaining > 0
-    ? `현재 호가 ${filled.toLocaleString()}주 기준 · 잔량은 체결되지 않을 수 있습니다.`
-    : "현재 호가를 기준으로 계산한 평균 예상가입니다.";
+  if (help) {
+    const amountLabel = side === "BUY" ? "수수료 포함 예상 출금액" : "수수료 차감 예상 입금액";
+    const depthText = filled > 0
+      ? `현재 호가 ${filled.toLocaleString()}주 기준`
+      : "반대 호가가 없어 현재가 기준";
+    help.textContent = `${depthText} · ${amountLabel} ${money.format(cashAmount)}${remaining > 0 && filled > 0 ? ` · ${remaining.toLocaleString()}주 미체결 가능` : ""}`;
+  }
 }
 
 async function loadPublicTrades(stockCode) {
@@ -273,6 +296,22 @@ async function loadPriceHistory(stockCode) {
   }
 }
 
+async function loadDailySummaries(stockCode) {
+  const container = document.querySelector("#daily-summaries");
+  if (!container) return;
+  container.innerHTML = '<p class="empty-state">일별 시세를 불러오는 중입니다.</p>';
+  try {
+    const rows = await api(`/api/stocks/${encodeURIComponent(stockCode)}/daily`);
+    if (location.hash !== `#stock/${stockCode}`) return;
+    container.innerHTML = rows.length
+      ? `<table class="daily-table"><thead><tr><th>날짜</th><th>시가</th><th>종가</th><th>거래량</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.tradingDate)}</td><td>${money.format(row.openPrice)}</td><td>${money.format(row.closePrice)}</td><td>${Number(row.volume || 0).toLocaleString()}주</td></tr>`).join("")}</tbody></table>`
+      : '<p class="empty-state">아직 집계된 일별 체결이 없습니다.</p>';
+  } catch (error) {
+    loadedDailyCode = null;
+    container.innerHTML = '<p class="empty-state">일별 시세를 불러오지 못했습니다.</p>';
+  }
+}
+
 function startTradeRefresh(stockCode) {
   clearTradeRefresh();
   loadPublicTrades(stockCode);
@@ -280,6 +319,7 @@ function startTradeRefresh(stockCode) {
     if (location.hash === `#stock/${stockCode}`) {
       loadPublicTrades(stockCode);
       loadOrderBook(stockCode);
+      loadDailySummaries(stockCode);
     }
   }, 10000);
 }
@@ -404,7 +444,9 @@ document
         body: JSON.stringify(data),
       });
       message.className = "message success";
-      message.textContent = `${result.stockCode} ${result.quantity}주 주문이 체결되었습니다.`;
+      const feeText = result.fee ? ` · 수수료 ${money.format(result.fee)}` : "";
+      const settlementText = result.settlementStatus === "SETTLED" ? " · 즉시 결제 완료" : "";
+      message.textContent = `${result.message} ${result.stockCode} ${result.quantity}주${feeText}${settlementText}`;
       await refreshMarket();
     } catch (error) {
       message.className = "message error";
@@ -414,10 +456,23 @@ document
 
 window.addEventListener("hashchange", renderDetail);
 function syncOrderPriceFields(orderType = document.querySelector("#order-type").value) {
-  document.querySelector("#market-price-field").hidden = orderType !== "MARKET";
-  document.querySelector("#limit-price-field").hidden = orderType !== "LIMIT";
+  const marketPriceField = document.querySelector("#market-price-field");
+  const limitPriceField = document.querySelector("#limit-price-field");
+  const isMarket = orderType === "MARKET";
+  if (marketPriceField) {
+    marketPriceField.hidden = !isMarket;
+    marketPriceField.style.display = isMarket ? "" : "none";
+  }
+  if (limitPriceField) {
+    const isLimit = orderType === "LIMIT";
+    limitPriceField.hidden = !isLimit;
+    limitPriceField.style.display = isLimit ? "" : "none";
+  }
 }
-document.querySelector("#order-type").addEventListener("change", (event) => syncOrderPriceFields(event.target.value));
+document.querySelector("#order-type").addEventListener("change", (event) => {
+  syncOrderPriceFields(event.target.value);
+  updateMarketPriceEstimate();
+});
 syncOrderPriceFields();
 document.querySelectorAll('input[name="side"]').forEach((input) => input.addEventListener("change", () => updateMarketPriceEstimate()));
 document.querySelector('#order-form [name="quantity"]').addEventListener("input", () => updateMarketPriceEstimate());
@@ -456,6 +511,8 @@ const profileClose = document.querySelector("#close-profile");
 const rankingModal = document.querySelector("#ranking-modal");
 const menuButton = document.querySelector("#menu-button");
 const menuPanel = document.querySelector("#menu-panel");
+const resetAccountButton = document.querySelector("#reset-account");
+const resetAccountMessage = document.querySelector("#reset-account-message");
 let profileRequired = false;
 
 function openLogin() { loginModal.hidden = false; }
@@ -475,24 +532,29 @@ function avatarMarkup(name, className) {
   return `<div class="${className}">${initial}</div>`;
 }
 
-function renderProfile(profile, portfolio = null, { preserveForm = false, orders = currentOpenOrders } = {}) {
+function renderProfile(profile, portfolio = null, { preserveForm = false, orders = currentOpenOrders, settlements = currentSettlements } = {}) {
   currentProfile = profile;
   currentOpenOrders = orders || [];
-  if (!preserveForm) document.querySelector("#profile-nickname").value = profile.nickname || "";
+  currentSettlements = settlements || [];
+  const resetPlaceholder = profileRequired && String(profile.nickname || "").startsWith("reset_");
+  if (!preserveForm) document.querySelector("#profile-nickname").value = resetPlaceholder ? "" : (profile.nickname || "");
   document.querySelector("#profile-email").textContent = profile.email || "Google 계정";
   const avatar = document.querySelector("#profile-avatar");
   if (avatar) {
     avatar.className = "profile-avatar";
-    avatar.textContent = (profile.nickname || "G").trim().charAt(0).toUpperCase() || "G";
+    avatar.textContent = (resetPlaceholder ? "G" : profile.nickname || "G").trim().charAt(0).toUpperCase() || "G";
   }
   const positions = portfolio?.positions || [];
   document.querySelector("#profile-positions").innerHTML = positions.length ? positions.map((position) => {
     const profitClass = position.profitLoss >= 0 ? "profit-up" : "profit-down";
     const sign = position.profitLoss >= 0 ? "+" : "";
-    return `<div class="holding-row"><div><strong>${escapeHtml(position.stockCode)}</strong><div class="holding-meta">${position.quantity.toLocaleString()}주 · 평균 ${money.format(position.averagePrice)} · 평가 ${money.format(position.marketValue)}</div></div><span class="${profitClass}">${sign}${money.format(position.profitLoss)}<br /><small>${sign}${Number(position.profitLossPercent || 0).toFixed(2)}%</small></span></div>`;
+    const settled = Number(position.settledQuantity ?? position.quantity);
+    const unsettled = Number(position.unsettledQuantity ?? Math.max(0, position.quantity - settled));
+    const realized = Number(position.realizedProfitLoss || 0);
+    return `<div class="holding-row"><div><strong>${escapeHtml(position.stockCode)}</strong><div class="holding-meta">${position.quantity.toLocaleString()}주 · 평균 ${money.format(position.averagePrice)} · 평가액 ${money.format(position.marketValue)}</div><div class="holding-meta">결제 완료 ${settled.toLocaleString()}주${unsettled ? ` · 미결제 ${unsettled.toLocaleString()}주` : ""} · 실현손익 ${signedMoney(realized)}</div></div><span class="${profitClass}">${sign}${money.format(position.profitLoss)}<br /><small>평가손익 ${sign}${Number(position.profitLossPercent || 0).toFixed(2)}%</small></span></div>`;
   }).join("") : '<p class="empty-state">보유 중인 종목이 없습니다.</p>';
   const ordersContainer = document.querySelector("#profile-orders");
-  ordersContainer.innerHTML = currentOpenOrders.length ? currentOpenOrders.map((order) => {
+  ordersContainer.innerHTML = currentOpenOrders.length ? currentOpenOrders.slice(0, 5).map((order) => {
     const isBuy = order.side === "BUY";
     const sideLabel = isBuy ? "매수" : "매도";
     const sideClass = isBuy ? "buy" : "sell";
@@ -500,6 +562,28 @@ function renderProfile(profile, portfolio = null, { preserveForm = false, orders
     const reservation = isBuy ? `예약금 ${money.format(order.reservedCash)}` : `예약수량 ${Number(order.reservedQuantity || order.remainingQuantity).toLocaleString()}주`;
     return `<div class="open-order-row"><div><strong class="order-side ${sideClass}">${sideLabel} · ${escapeHtml(order.stockCode)}</strong><div class="holding-meta">${order.remainingQuantity.toLocaleString()}주 · 지정가 ${money.format(order.price)} · ${reservation}</div><small class="holding-meta">만료 예정 ${expiry}</small></div><button type="button" class="cancel-order" data-cancel-order="${order.id}">주문 취소</button></div>`;
   }).join("") : '<p class="empty-state">미체결 주문이 없습니다.</p>';
+  const settlementsContainer = document.querySelector("#profile-settlements");
+  settlementsContainer.innerHTML = currentSettlements.length ? currentSettlements.slice(0, 5).map((settlement) => {
+    const isBuy = settlement.side === "BUY";
+    const completedAt = settlement.settlementAt ? new Date(settlement.settlementAt).toLocaleString("ko-KR") : "-";
+    const amountLabel = isBuy ? `출금 ${money.format(settlement.netAmount)}` : `입금 ${money.format(settlement.netAmount)}`;
+    return `<div class="settlement-row"><div><strong class="order-side ${isBuy ? "buy" : "sell"}">${isBuy ? "매수" : "매도"} · ${escapeHtml(settlement.stockCode)}</strong><div class="holding-meta">${Number(settlement.quantity).toLocaleString()}주 · ${amountLabel} · 수수료 ${money.format(settlement.fee)}</div><small class="holding-meta">체결 완료 ${completedAt}</small></div><span class="settlement-status">체결 완료</span></div>`;
+  }).join("") : '<p class="empty-state">체결 완료된 거래가 없습니다.</p>';
+  const resetButton = document.querySelector("#reset-account");
+  const resetMessage = document.querySelector("#reset-account-message");
+  if (resetButton) {
+    const available = profile.resetAvailable !== false;
+    resetButton.hidden = profileRequired;
+    resetButton.disabled = !available || profileRequired;
+    resetButton.textContent = available ? "인생 리셋 사용" : "인생 리셋 사용 완료";
+  }
+  if (resetMessage && profile.resetAvailable === false) {
+    resetMessage.className = "message";
+    resetMessage.textContent = "이 Google 계정은 인생 리셋을 이미 사용했습니다.";
+  } else if (resetMessage) {
+    resetMessage.className = "message";
+    resetMessage.textContent = "";
+  }
 }
 
 async function openProfile(required = false) {
@@ -513,8 +597,8 @@ async function openProfile(required = false) {
   document.querySelector("#profile-help").textContent = required ? "첫 로그인 기념으로 닉네임을 정해 주세요." : "프로필과 보유 자산을 관리할 수 있습니다.";
   profileMessage.textContent = "불러오는 중입니다…";
   try {
-    const [profile, portfolio, orders] = await Promise.all([api("/api/profile"), api("/api/portfolio"), api("/api/orders")]);
-    renderProfile(profile, portfolio, { orders });
+    const [profile, portfolio, orders, settlements] = await Promise.all([api("/api/profile"), api("/api/portfolio"), api("/api/orders"), api("/api/settlements")]);
+    renderProfile(profile, portfolio, { orders, settlements });
     profileMessage.textContent = "";
   } catch (error) { profileMessage.className = "message error"; profileMessage.textContent = error.message; }
 }
@@ -545,7 +629,6 @@ async function handleAuthenticatedUser(user) {
   updateLoginButton();
   await refreshMarket();
   if (location.hash === "#profile") await openProfile(Boolean(user.requiresNickname));
-  else if (user.requiresNickname) await openProfile(true);
   if (user.attendanceReward) alert(`${user.attendanceStreak}일차 출석 보상 ${money.format(user.attendanceReward)}을 받았습니다.`);
 }
 async function signInWithGoogle() {
@@ -566,7 +649,7 @@ document.querySelector("#close-login").addEventListener("click", closeLogin);
 menuButton.addEventListener("click", () => { const expanded = menuButton.getAttribute("aria-expanded") === "true"; menuButton.setAttribute("aria-expanded", String(!expanded)); menuPanel.hidden = expanded; });
 document.querySelector("#profile-button").addEventListener("click", () => openProfile(false));
 document.querySelector("#ranking-button").addEventListener("click", openRanking);
-document.querySelector("#logout-button").addEventListener("click", async () => { closeMenu(); await firebaseAuth.signOut(); currentUser = null; currentProfile = null; currentOpenOrders = []; profileRequired = false; if (location.hash === "#profile") location.hash = ""; updateLoginButton(); renderPortfolio(null); await refreshMarket(); });
+document.querySelector("#logout-button").addEventListener("click", async () => { closeMenu(); await firebaseAuth.signOut(); currentUser = null; currentProfile = null; currentOpenOrders = []; currentSettlements = []; profileRequired = false; if (location.hash === "#profile") location.hash = ""; updateLoginButton(); renderPortfolio(null); await refreshMarket(); });
 profileClose.addEventListener("click", closeProfile);
 document.querySelector("#close-ranking").addEventListener("click", closeRanking);
 document.querySelector("#profile-orders").addEventListener("click", async (event) => {
@@ -606,6 +689,27 @@ profileForm.addEventListener("submit", async (event) => {
     refreshPortfolio().catch(() => {});
   } catch (error) { profileMessage.className = "message error"; profileMessage.textContent = error.message; }
 });
+resetAccountButton?.addEventListener("click", async () => {
+  if (!currentUser || currentProfile?.resetAvailable === false) return;
+  if (!window.confirm("보유 주식, 주문, 출석 기록이 모두 초기화됩니다. 이 기능은 Google 계정당 한 번만 사용할 수 있습니다. 정말 진행할까요?")) return;
+  resetAccountButton.disabled = true;
+  resetAccountMessage.className = "message";
+  resetAccountMessage.textContent = "계정을 초기화하는 중입니다…";
+  try {
+    await api("/api/account/reset", { method: "DELETE" });
+    currentUser = { ...currentUser, nickname: "", requiresNickname: true };
+    currentProfile = null;
+    currentOpenOrders = [];
+    currentSettlements = [];
+    profileRequired = true;
+    await refreshMarket();
+    await openProfile(true);
+  } catch (error) {
+    resetAccountButton.disabled = false;
+    resetAccountMessage.className = "message error";
+    resetAccountMessage.textContent = error.message;
+  }
+});
 if (window.GAMESTOCK_FIREBASE_CONFIG && window.firebase) {
   firebase.initializeApp(window.GAMESTOCK_FIREBASE_CONFIG);
   firebaseAuth = firebase.auth();
@@ -628,3 +732,27 @@ api("/api/health")
 refreshMarket().catch((error) => {
   stockContainer.textContent = `시장 정보를 불러오지 못했습니다: ${error.message}`;
 });
+
+async function loadHanRiverTemperature() {
+  const element = document.querySelector("#han-river-temperature");
+  if (!element) return;
+  try {
+    const reading = await api("/api/han-river-temperature");
+    if (reading.available && reading.temperature != null) {
+      const stale = String(reading.message || "").includes("최근 조회값");
+      element.className = `menu-river-temperature ${stale ? "stale" : "ok"}`;
+      element.textContent = `한강 수온(선유) ${Number(reading.temperature).toFixed(1)}℃`;
+      element.title = `${reading.location || "한강"} · 측정 ${reading.measuredAt || "시간 미상"} · ${reading.message || "조회 완료"}`;
+    } else {
+      element.className = "menu-river-temperature";
+      element.textContent = "한강 수온(선유) 조회 불가";
+      element.title = reading.message || "한강 수온 사이트를 확인할 수 없습니다.";
+    }
+  } catch (error) {
+    element.className = "menu-river-temperature";
+    element.textContent = "한강 수온(선유) 조회 불가";
+    element.title = "한강 수온 사이트를 확인할 수 없습니다.";
+  }
+}
+loadHanRiverTemperature();
+setInterval(loadHanRiverTemperature, 30 * 60 * 1000);

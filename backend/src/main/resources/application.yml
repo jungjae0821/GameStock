@@ -12,6 +12,14 @@ server:
     include-message: always
 gamestock:
   cors-origin: ${GAMESTOCK_CORS_ORIGIN:http://localhost:8080}
+  simulation:
+    # 같은 시드와 DB 스냅샷을 사용하면 봇 틱을 재현할 수 있다.
+    seed: ${GAMESTOCK_SIMULATION_SEED:20260910}
+  hangang:
+    enabled: ${GAMESTOCK_HANGANG_ENABLED:true}
+    site-url: ${GAMESTOCK_HANGANG_SITE_URL:https://xn--939at9l4tgt7l6ps.com/ko}
+    refresh-ms: ${GAMESTOCK_HANGANG_REFRESH_MS:1800000}
+    initial-delay-ms: ${GAMESTOCK_HANGANG_INITIAL_DELAY_MS:60000}
   news:
     enabled: ${GAMESTOCK_NEWS_ENABLED:true}
     refresh-ms: ${GAMESTOCK_NEWS_REFRESH_MS:600000}

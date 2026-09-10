@@ -11,6 +11,9 @@ CREATE TABLE users (
   email VARCHAR(255) NULL,
   profile_image_url VARCHAR(500) NULL,
   profile_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  role VARCHAR(20) NOT NULL DEFAULT 'USER',
+  account_reset_at TIMESTAMP NULL,
+  reset_used_at TIMESTAMP NULL,
   cash BIGINT NOT NULL DEFAULT 1000000,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -58,7 +61,9 @@ CREATE TABLE portfolios (
   user_id BIGINT NOT NULL,
   stock_id BIGINT NOT NULL,
   quantity INT NOT NULL DEFAULT 0,
+  settled_quantity INT NOT NULL DEFAULT 0,
   average_price BIGINT NOT NULL DEFAULT 0,
+  realized_profit_loss BIGINT NOT NULL DEFAULT 0,
   UNIQUE KEY uq_portfolio_user_stock (user_id, stock_id),
   CONSTRAINT fk_portfolios_user FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_portfolios_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
@@ -71,6 +76,7 @@ CREATE TABLE market_events (
   title VARCHAR(150) NOT NULL,
   description TEXT,
   impact DECIMAL(6,2) NOT NULL,
+  published_at TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_events_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
 );
@@ -105,6 +111,9 @@ CREATE TABLE trades (
   aggressor_side ENUM('BUY', 'SELL') NOT NULL,
   quantity INT NOT NULL,
   price BIGINT NOT NULL,
+  buyer_fee BIGINT NOT NULL DEFAULT 0,
+  seller_fee BIGINT NOT NULL DEFAULT 0,
+  fee BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_trades_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
   CONSTRAINT fk_trades_buy_order FOREIGN KEY (buy_order_id) REFERENCES orders(id),
@@ -114,4 +123,62 @@ CREATE TABLE trades (
   INDEX ix_trades_stock_time (stock_id, created_at),
   INDEX ix_trades_taker (taker_order_id),
   INDEX ix_trades_maker (maker_order_id)
+);
+
+-- 체결 원장. 현재는 체결 즉시 SETTLED로 반영하며, 이전 버전의 PENDING 행도
+-- 서버 시작 시 즉시 정산한다.
+CREATE TABLE settlements (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  trade_id BIGINT NOT NULL UNIQUE,
+  buyer_id BIGINT NOT NULL,
+  seller_id BIGINT NOT NULL,
+  stock_id BIGINT NOT NULL,
+  quantity INT NOT NULL,
+  gross_amount BIGINT NOT NULL,
+  buyer_fee BIGINT NOT NULL DEFAULT 0,
+  seller_fee BIGINT NOT NULL DEFAULT 0,
+  buyer_quantity_before INT NULL,
+  buyer_settled_quantity_before INT NULL,
+  buyer_average_price_before BIGINT NULL,
+  buyer_realized_profit_loss_before BIGINT NULL,
+  seller_quantity_before INT NULL,
+  seller_settled_quantity_before INT NULL,
+  seller_average_price_before BIGINT NULL,
+  seller_realized_profit_loss_before BIGINT NULL,
+  settlement_at TIMESTAMP NOT NULL,
+  status ENUM('PENDING', 'SETTLED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+  settled_at TIMESTAMP NULL,
+  cancelled_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_settlements_trade FOREIGN KEY (trade_id) REFERENCES trades(id),
+  CONSTRAINT fk_settlements_buyer FOREIGN KEY (buyer_id) REFERENCES users(id),
+  CONSTRAINT fk_settlements_seller FOREIGN KEY (seller_id) REFERENCES users(id),
+  CONSTRAINT fk_settlements_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  INDEX ix_settlements_pending (status, settlement_at),
+  INDEX ix_settlements_buyer (buyer_id, status),
+  INDEX ix_settlements_seller (seller_id, status)
+);
+
+-- 체결이 발생한 날짜별 시가(자정 기준), 종가(마지막 체결가), 거래량 집계
+CREATE TABLE daily_market_summaries (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_id BIGINT NOT NULL,
+  trading_date DATE NOT NULL,
+  open_price BIGINT NOT NULL,
+  close_price BIGINT NOT NULL,
+  total_volume BIGINT NOT NULL DEFAULT 0,
+  UNIQUE KEY uq_daily_summary_stock_date (stock_id, trading_date),
+  CONSTRAINT fk_daily_summary_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  INDEX ix_daily_summary_date (trading_date)
+);
+
+-- 시뮬레이션 시드를 고정해 동일한 DB 상태에서 봇 흐름을 재현할 수 있도록 한다.
+CREATE TABLE simulation_state (
+  id TINYINT PRIMARY KEY,
+  tick BIGINT NOT NULL DEFAULT 0
+);
+
+-- 여러 백엔드 인스턴스가 떠도 주문 매칭 순서를 하나씩 처리하기 위한 DB 행 잠금
+CREATE TABLE market_locks (
+  id TINYINT PRIMARY KEY
 );

@@ -32,6 +32,16 @@ public class MarketController {
     public java.util.List<ActiveOrder> activeOrders(@RequestHeader(value = "Authorization", required = false) String authorization) {
         return market.activeOrders(auth.requireUser(authorization).id());
     }
+    @GetMapping("/settlements")
+    public java.util.List<SettlementEntry> settlements(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return market.settlements(auth.requireUser(authorization).id());
+    }
+    @DeleteMapping("/settlements/{settlementId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelSettlement(@PathVariable long settlementId,
+                                  @RequestHeader(value = "Authorization", required = false) String authorization) {
+        market.cancelSettlement(settlementId, auth.requireUser(authorization).id());
+    }
     @GetMapping("/orders/{stockCode}")
     public java.util.List<OrderHistory> orderHistory(@PathVariable String stockCode, @RequestHeader(value = "Authorization", required = false) String authorization) {
         return market.orderHistory(stockCode, auth.requireUser(authorization).id());
@@ -43,6 +53,10 @@ public class MarketController {
     @GetMapping("/stocks/{stockCode}/history")
     public java.util.List<PricePoint> priceHistory(@PathVariable String stockCode) {
         return market.priceHistory(stockCode);
+    }
+    @GetMapping({"/stocks/{stockCode}/daily", "/stocks/{stockCode}/ohlcv"})
+    public java.util.List<DailyCandle> dailySummaries(@PathVariable String stockCode) {
+        return market.dailySummaries(stockCode);
     }
 
     @GetMapping("/profile")
