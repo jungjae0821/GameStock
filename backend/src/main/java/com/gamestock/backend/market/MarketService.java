@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.gamestock.backend.market.MarketModels.*;
@@ -37,12 +38,9 @@ public class MarketService {
                 VALUES (?, ?, ?, ?)
                 """, DEMO_USERNAME, "demo", "Demo User", 1_000_000L);
 
-        jdbc.update("""
-                INSERT IGNORE INTO games (name, developer, genre)
-                VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)
-                """, "우마무스메 프리티더비", "Cygames", "RPG",
-                "블루 아카이브", "Nexon", "RPG",
-                "승리의 여신: 니케", "ShiftUp", "RPG");
+        insertGameIfMissing("우마무스메 프리티더비", "Cygames", "RPG");
+        insertGameIfMissing("블루 아카이브", "Nexon", "RPG");
+        insertGameIfMissing("승리의 여신: 니케", "ShiftUp", "RPG");
 
         renameExistingStock("NEXA", "UMA", "네사: 크로니클", "우마무스메 프리티더비");
         renameExistingStock("STAR", "BA", "스타라이트 아레나", "블루 아카이브");
@@ -65,6 +63,7 @@ public class MarketService {
         addUserColumnIfMissing("google_uid", "VARCHAR(128) NULL UNIQUE");
         addUserColumnIfMissing("email", "VARCHAR(255) NULL");
         addUserColumnIfMissing("profile_image_url", "VARCHAR(500) NULL");
+        addUserColumnIfMissing("profile_completed", "BOOLEAN NOT NULL DEFAULT FALSE");
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS attendance_rewards (
                   id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT NOT NULL, rewarded_on DATE NOT NULL,
@@ -91,6 +90,14 @@ public class MarketService {
                 INSERT IGNORE INTO stocks (game_id, stock_code, current_price, previous_price, total_volume)
                 SELECT id, ?, ?, ?, ? FROM games WHERE name = ?
                 """, code, price, price, 120_000L, name);
+    }
+
+    private void insertGameIfMissing(String name, String developer, String genre) {
+        jdbc.update("""
+                INSERT INTO games (name, developer, genre)
+                SELECT ?, ?, ?
+                WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = ?)
+                """, name, developer, genre, name);
     }
 
     private void renameExistingStock(String oldCode, String newCode, String oldName, String newName) {
@@ -177,6 +184,30 @@ public class MarketService {
             return new MarketEvent(rs.getString("stock_code"), rs.getString("title"),
                     (int) Math.round(impact), impact >= 0 ? "positive" : "negative");
         }, code.toUpperCase(Locale.ROOT));
+    }
+
+    public synchronized List<RankingEntry> ranking() {
+        List<RankingEntry> entries = jdbc.query("""
+                SELECT u.nickname, u.profile_image_url, u.cash,
+                       COALESCE(SUM(CASE WHEN p.quantity > 0 THEN p.quantity * s.current_price ELSE 0 END), 0) AS asset_value
+                FROM users u
+                LEFT JOIN portfolios p ON p.user_id = u.id
+                LEFT JOIN stocks s ON s.id = p.stock_id
+                WHERE u.password_hash <> 'BOT' AND u.username <> 'demo'
+                GROUP BY u.id, u.nickname, u.profile_image_url, u.cash
+                ORDER BY (u.cash + asset_value) DESC, u.id ASC
+                LIMIT 100
+                """, (rs, row) -> {
+            long assetValue = rs.getLong("asset_value");
+            long cash = rs.getLong("cash");
+            return new RankingEntry(0, rs.getString("nickname"), rs.getString("profile_image_url"), cash + assetValue, assetValue, cash);
+        });
+        List<RankingEntry> ranked = new ArrayList<>(entries.size());
+        for (int index = 0; index < entries.size(); index++) {
+            RankingEntry entry = entries.get(index);
+            ranked.add(new RankingEntry(index + 1, entry.nickname(), entry.profileImageUrl(), entry.totalAsset(), entry.assetValue(), entry.cash()));
+        }
+        return ranked;
     }
 
     public synchronized Portfolio portfolio(long userId) {
@@ -415,12 +446,17 @@ public class MarketService {
     private Portfolio portfolioUnsafe(long userId) {
         long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ?", Long.class, userId);
         List<Position> positions = jdbc.query("""
-                SELECT s.stock_code, p.quantity, p.quantity * s.current_price AS market_value
+                SELECT s.stock_code, p.quantity, p.average_price,
+                       p.quantity * s.current_price AS market_value,
+                       p.quantity * (s.current_price - p.average_price) AS profit_loss
                 FROM portfolios p JOIN stocks s ON s.id = p.stock_id
                 WHERE p.user_id = ? AND p.quantity > 0
                 ORDER BY p.id
                 """, (rs, row) -> new Position(rs.getString("stock_code"),
-                rs.getInt("quantity"), rs.getLong("market_value")), userId);
+                rs.getInt("quantity"), rs.getLong("average_price"), rs.getLong("market_value"),
+                rs.getLong("profit_loss"), rs.getLong("average_price") == 0 ? 0 :
+                        Math.round(rs.getLong("profit_loss") * 10000.0 /
+                                (rs.getInt("quantity") * rs.getLong("average_price"))) / 100.0), userId);
         long assetValue = positions.stream().mapToLong(Position::marketValue).sum();
         return new Portfolio(cash, assetValue, cash + assetValue, positions);
     }

@@ -40,13 +40,38 @@ body {
 .status.ok {
   color: #18794e;
 }
-.login-button { margin: 0 0 0 6px; padding: 0 14px; min-height: 36px; white-space: nowrap; }
+.account-actions { position: relative; display: flex; align-items: center; gap: 8px; margin-left: 6px; }
+.login-button { margin: 0; padding: 0 14px; min-height: 36px; white-space: nowrap; }
 .login-button.logged-in { background: #18794e; }
+.menu-button { min-height: 36px; padding: 0 12px; white-space: nowrap; background: #fff; color: var(--brand); border: 1px solid #cfc6e8; }
+.menu-panel { position: absolute; z-index: 12; top: calc(100% + 8px); right: 0; width: 160px; padding: 7px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 12px 30px rgba(31, 24, 55, .16); }
+.menu-panel[hidden] { display: none; }
+.menu-panel button { width: 100%; margin: 0; min-height: 38px; background: transparent; color: var(--ink); text-align: left; padding: 0 10px; }
+.menu-panel button:hover { background: #f2effa; color: var(--brand); }
 .login-modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgba(23, 32, 47, .48); }
 .login-modal[hidden] { display: none; }
 .login-dialog { position: relative; width: min(100%, 390px); padding: 30px; border-radius: 18px; background: white; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
 .login-dialog h2 { margin: 0 0 12px; }.login-dialog > p:not(.eyebrow):not(.message) { color: var(--muted); line-height: 1.55; }
 .login-dialog #google-login { width: 100%; }.close-login { position: absolute; top: 12px; right: 14px; min-height: 30px; background: transparent; color: var(--muted); font-size: 24px; }
+.profile-page { padding: 42px 0 64px; }
+.profile-screen { width: min(100%, 720px); margin: 28px auto 0; padding: 34px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 14px 34px rgba(31, 24, 55, .07); }
+.profile-screen h2 { margin: 0 0 12px; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+.profile-heading { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
+.profile-heading strong { display: block; overflow-wrap: anywhere; }
+.profile-avatar { width: 54px; height: 54px; flex: 0 0 54px; display: grid; place-items: center; border-radius: 50%; background: #ede8fb; color: var(--brand); font-size: 1.35rem; font-weight: 800; overflow: hidden; }
+.profile-form { display: grid; gap: 12px; }
+.profile-form label { display: grid; gap: 6px; color: var(--muted); font-size: .86rem; font-weight: 650; }
+.profile-holdings { margin-top: 25px; padding-top: 18px; border-top: 1px solid var(--line); }
+.profile-holdings h3 { margin: 0 0 8px; }
+.holding-row, .ranking-row { display: grid; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
+.holding-row { grid-template-columns: 1fr auto; }
+.holding-meta { color: var(--muted); font-size: .8rem; margin-top: 3px; }
+.profit-up { color: var(--up); font-weight: 750; }.profit-down { color: var(--down); font-weight: 750; }
+.ranking-list { display: grid; gap: 0; margin-top: 14px; max-height: 55vh; overflow: auto; }
+.ranking-row { grid-template-columns: 34px 1fr auto; }
+.ranking-rank { color: var(--brand); font-weight: 800; text-align: center; }
+.ranking-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: #ede8fb; color: var(--brand); font-size: .8rem; font-weight: 800; overflow: hidden; }
+.ranking-user { display: flex; align-items: center; gap: 8px; min-width: 0; }.ranking-user strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.ranking-asset { font-weight: 750; white-space: nowrap; }
 main {
   width: min(1180px, calc(100% - 40px));
   margin: auto;
@@ -440,6 +465,13 @@ footer {
   }
   .chart-panel canvas {
     height: 230px;
+  }
+  .profile-page {
+    padding: 28px 0 42px;
+  }
+  .profile-screen {
+    margin-top: 20px;
+    padding: 24px 20px;
   }
   .history-row {
     grid-template-columns: 48px 1fr 100px;

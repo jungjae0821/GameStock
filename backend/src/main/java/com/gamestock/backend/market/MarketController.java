@@ -21,6 +21,7 @@ public class MarketController {
     @GetMapping("/health") public Map<String, String> health() { return Map.of("status", "ok"); }
     @GetMapping("/stocks") public java.util.List<Stock> stocks() { return market.stocks(); }
     @GetMapping("/market-events") public java.util.List<MarketEvent> events() { return market.marketEvents(); }
+    @GetMapping("/ranking") public java.util.List<RankingEntry> ranking() { return market.ranking(); }
     @GetMapping("/stocks/{stockCode}/news")
     public java.util.List<MarketEvent> stockNews(@PathVariable String stockCode) {
         return market.stockNews(stockCode);
@@ -37,6 +38,17 @@ public class MarketController {
     @GetMapping("/stocks/{stockCode}/history")
     public java.util.List<PricePoint> priceHistory(@PathVariable String stockCode) {
         return market.priceHistory(stockCode);
+    }
+
+    @GetMapping("/profile")
+    public AuthService.Profile profile(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return auth.profile(auth.requireUser(authorization).id());
+    }
+
+    @PatchMapping("/profile")
+    public AuthService.Profile updateProfile(@RequestBody AuthService.ProfileUpdate update,
+                                             @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return auth.updateProfile(auth.requireUser(authorization).id(), update);
     }
 
     @PostMapping("/orders")

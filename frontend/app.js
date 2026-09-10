@@ -19,13 +19,21 @@ const priceHistory = new Map();
 const chartState = { points: [], width: 0, height: 0 };
 let currentStocks = [];
 let currentEvents = [];
+let currentPortfolio = null;
 let tradeRefreshTimer = null;
 let loadedPriceHistoryCode = null;
 let loadedNewsCode = null;
 let loadedOrderBookCode = null;
 let loadedTradeCode = null;
 let currentUser = null;
+let currentProfile = null;
 let firebaseAuth = null;
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  }[character]));
+}
 
 async function api(path, options) {
   const token = firebaseAuth?.currentUser ? await firebaseAuth.currentUser.getIdToken() : null;
@@ -37,7 +45,7 @@ async function api(path, options) {
   return payload;
 }
 
-function applyMarketSnapshot(snapshot) {
+function applyMarketSnapshot(snapshot, useSnapshotPortfolio = false) {
   currentStocks = snapshot.stocks;
   currentEvents = snapshot.events;
   snapshot.stocks.forEach((stock) => {
@@ -46,7 +54,8 @@ function applyMarketSnapshot(snapshot) {
     priceHistory.set(stock.code, history.slice(-40));
   });
   renderStocks(snapshot.stocks);
-  if (currentUser && snapshot.portfolio) renderPortfolio(snapshot.portfolio);
+  if (useSnapshotPortfolio && currentUser && snapshot.portfolio) renderPortfolio(snapshot.portfolio);
+  if (!currentUser) renderPortfolio(null);
   renderEvents(snapshot.events);
   renderDetail();
 }
@@ -73,6 +82,13 @@ function sparklineSvg(stockCode, up) {
 }
 
 function renderPortfolio(portfolio) {
+  currentPortfolio = portfolio;
+  if (!portfolio) {
+    document.querySelector("#cash").textContent = "-";
+    document.querySelector("#asset-value").textContent = "-";
+    document.querySelector("#total-asset").textContent = "-";
+    return;
+  }
   document.querySelector("#cash").textContent = money.format(portfolio.cash);
   document.querySelector("#asset-value").textContent = money.format(
     portfolio.assetValue,
@@ -80,6 +96,14 @@ function renderPortfolio(portfolio) {
   document.querySelector("#total-asset").textContent = money.format(
     portfolio.totalAsset,
   );
+}
+
+async function refreshPortfolio() {
+  if (!currentUser) { renderPortfolio(null); return; }
+  const portfolio = await api("/api/portfolio");
+  renderPortfolio(portfolio);
+  // 실시간 가격 갱신으로 보유 종목만 다시 그릴 때 입력 중인 닉네임/사진을 덮어쓰지 않는다.
+  if (currentProfile) renderProfile(currentProfile, portfolio, { preserveForm: true });
 }
 
 function renderEvents(events) {
@@ -93,6 +117,14 @@ function renderEvents(events) {
 }
 
 function renderDetail() {
+  if (location.hash === "#profile" && currentUser) {
+    clearTradeRefresh();
+    marketPage.hidden = true;
+    detailPage.hidden = true;
+    profilePage.hidden = false;
+    return;
+  }
+  profilePage.hidden = true;
   const code = location.hash.startsWith("#stock/")
     ? location.hash.slice(7)
     : null;
@@ -316,7 +348,7 @@ async function refreshMarket() {
     api("/api/market-events"),
   ]);
   const portfolio = currentUser ? await api("/api/portfolio") : null;
-  applyMarketSnapshot({ stocks, portfolio, events });
+  applyMarketSnapshot({ stocks, portfolio, events }, true);
 }
 
 document
@@ -361,7 +393,10 @@ function connectRealtimeMarket() {
   });
   socket.addEventListener("message", (event) => {
     const data = JSON.parse(event.data);
-    if (data.type === "MARKET_UPDATED") applyMarketSnapshot(data.payload);
+    if (data.type === "MARKET_UPDATED") {
+      applyMarketSnapshot(data.payload);
+      if (currentUser) refreshPortfolio().catch(() => {});
+    }
   });
   socket.addEventListener("close", () =>
     setTimeout(connectRealtimeMarket, 2000),
@@ -370,12 +405,94 @@ function connectRealtimeMarket() {
 
 const loginModal = document.querySelector("#login-modal");
 const loginMessage = document.querySelector("#login-message");
+const profilePage = document.querySelector("#profile-page");
+const profileForm = document.querySelector("#profile-form");
+const profileMessage = document.querySelector("#profile-message");
+const profileClose = document.querySelector("#close-profile");
+const rankingModal = document.querySelector("#ranking-modal");
+const menuButton = document.querySelector("#menu-button");
+const menuPanel = document.querySelector("#menu-panel");
+let profileRequired = false;
+
 function openLogin() { loginModal.hidden = false; }
 function closeLogin() { loginModal.hidden = true; loginMessage.textContent = ""; }
+function closeMenu() { menuPanel.hidden = true; menuButton.setAttribute("aria-expanded", "false"); }
 function updateLoginButton() {
   const button = document.querySelector("#login-button");
-  button.textContent = currentUser ? `${currentUser.nickname}님` : "Google로 로그인";
+  button.hidden = Boolean(currentUser);
+  button.textContent = "Google로 로그인";
   button.classList.toggle("logged-in", Boolean(currentUser));
+  menuButton.hidden = !currentUser;
+  menuButton.textContent = currentUser ? `${currentUser.nickname || "내 계정"} ▾` : "☰ 메뉴";
+}
+
+function avatarMarkup(name, className) {
+  const initial = escapeHtml((name || "G").trim().charAt(0).toUpperCase() || "G");
+  return `<div class="${className}">${initial}</div>`;
+}
+
+function renderProfile(profile, portfolio = null, { preserveForm = false } = {}) {
+  currentProfile = profile;
+  if (!preserveForm) document.querySelector("#profile-nickname").value = profile.nickname || "";
+  document.querySelector("#profile-email").textContent = profile.email || "Google 계정";
+  const avatar = document.querySelector("#profile-avatar");
+  if (avatar) {
+    avatar.className = "profile-avatar";
+    avatar.textContent = (profile.nickname || "G").trim().charAt(0).toUpperCase() || "G";
+  }
+  const positions = portfolio?.positions || [];
+  document.querySelector("#profile-positions").innerHTML = positions.length ? positions.map((position) => {
+    const profitClass = position.profitLoss >= 0 ? "profit-up" : "profit-down";
+    const sign = position.profitLoss >= 0 ? "+" : "";
+    return `<div class="holding-row"><div><strong>${escapeHtml(position.stockCode)}</strong><div class="holding-meta">${position.quantity.toLocaleString()}주 · 평균 ${money.format(position.averagePrice)} · 평가 ${money.format(position.marketValue)}</div></div><span class="${profitClass}">${sign}${money.format(position.profitLoss)}<br /><small>${sign}${Number(position.profitLossPercent || 0).toFixed(2)}%</small></span></div>`;
+  }).join("") : '<p class="empty-state">보유 중인 종목이 없습니다.</p>';
+}
+
+async function openProfile(required = false) {
+  profileRequired = required;
+  closeMenu();
+  if (location.hash !== "#profile") location.hash = "#profile";
+  else renderDetail();
+  profilePage.hidden = false;
+  profileClose.hidden = required;
+  document.querySelector("#profile-title").textContent = required ? "닉네임 설정" : "마이페이지";
+  document.querySelector("#profile-help").textContent = required ? "첫 로그인 기념으로 닉네임을 정해 주세요." : "프로필과 보유 자산을 관리할 수 있습니다.";
+  profileMessage.textContent = "불러오는 중입니다…";
+  try {
+    const [profile, portfolio] = await Promise.all([api("/api/profile"), api("/api/portfolio")]);
+    renderProfile(profile, portfolio);
+    profileMessage.textContent = "";
+  } catch (error) { profileMessage.className = "message error"; profileMessage.textContent = error.message; }
+}
+
+function closeProfile() {
+  if (profileRequired) return;
+  profileMessage.className = "message";
+  profileMessage.textContent = "";
+  if (location.hash === "#profile") location.hash = "";
+  else profilePage.hidden = true;
+}
+
+function closeRanking() { rankingModal.hidden = true; }
+
+async function openRanking() {
+  closeMenu();
+  rankingModal.hidden = false;
+  const container = document.querySelector("#ranking-list");
+  container.innerHTML = '<p class="empty-state">랭킹을 불러오는 중입니다.</p>';
+  try {
+    const ranking = await api("/api/ranking");
+    container.innerHTML = ranking.length ? ranking.map((entry) => `<div class="ranking-row"><span class="ranking-rank">${entry.rank}</span><div class="ranking-user">${avatarMarkup(entry.nickname, "ranking-avatar")}<strong>${escapeHtml(entry.nickname)}</strong></div><span class="ranking-asset">${money.format(entry.totalAsset)}</span></div>`).join("") : '<p class="empty-state">아직 랭킹에 참여한 사용자가 없습니다.</p>';
+  } catch (error) { container.innerHTML = `<p class="empty-state">랭킹을 불러오지 못했습니다: ${escapeHtml(error.message)}</p>`; }
+}
+
+async function handleAuthenticatedUser(user) {
+  currentUser = user;
+  updateLoginButton();
+  await refreshMarket();
+  if (location.hash === "#profile") await openProfile(Boolean(user.requiresNickname));
+  else if (user.requiresNickname) await openProfile(true);
+  if (user.attendanceReward) alert(`${user.attendanceStreak}일차 출석 보상 ${money.format(user.attendanceReward)}을 받았습니다.`);
 }
 async function signInWithGoogle() {
   if (!window.GAMESTOCK_FIREBASE_CONFIG) {
@@ -385,19 +502,41 @@ async function signInWithGoogle() {
   }
   try {
     loginMessage.textContent = "Google 로그인 창을 여는 중입니다…";
-    const result = await firebaseAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-    const token = await result.user.getIdToken();
-    const response = await fetch(`${API_BASE_URL}/api/auth/google`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-    const user = await response.json();
-    if (!response.ok) throw new Error(user.message || "로그인 처리에 실패했습니다.");
-    currentUser = user;
-    updateLoginButton(); closeLogin(); await refreshMarket();
-    if (user.attendanceReward) alert(`${user.attendanceStreak}일차 출석 보상 ${money.format(user.attendanceReward)}을 받았습니다.`);
+    await firebaseAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    closeLogin();
   } catch (error) { loginMessage.className = "message error"; loginMessage.textContent = error.message; }
 }
-document.querySelector("#login-button").addEventListener("click", () => currentUser ? firebaseAuth.signOut().then(() => { currentUser = null; updateLoginButton(); refreshMarket(); }) : openLogin());
+document.querySelector("#login-button").addEventListener("click", openLogin);
 document.querySelector("#google-login").addEventListener("click", signInWithGoogle);
 document.querySelector("#close-login").addEventListener("click", closeLogin);
+menuButton.addEventListener("click", () => { const expanded = menuButton.getAttribute("aria-expanded") === "true"; menuButton.setAttribute("aria-expanded", String(!expanded)); menuPanel.hidden = expanded; });
+document.querySelector("#profile-button").addEventListener("click", () => openProfile(false));
+document.querySelector("#ranking-button").addEventListener("click", openRanking);
+document.querySelector("#logout-button").addEventListener("click", async () => { closeMenu(); await firebaseAuth.signOut(); currentUser = null; currentProfile = null; profileRequired = false; if (location.hash === "#profile") location.hash = ""; updateLoginButton(); renderPortfolio(null); await refreshMarket(); });
+profileClose.addEventListener("click", closeProfile);
+document.querySelector("#close-ranking").addEventListener("click", closeRanking);
+profileForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  profileMessage.className = "message";
+  profileMessage.textContent = "저장 중입니다…";
+  try {
+    const data = {
+      nickname: document.querySelector("#profile-nickname").value.trim(),
+    };
+    profileMessage.textContent = "프로필 정보 저장 중…";
+    const profile = await api("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    currentProfile = profile;
+    currentUser = { ...currentUser, nickname: profile.nickname, requiresNickname: false };
+    profileRequired = false;
+    updateLoginButton();
+    // 프로필 저장 완료를 자산 조회에 종속시키지 않고, 현재 화면의 자산을 우선 표시한다.
+    renderProfile(profile, currentPortfolio);
+    profileMessage.className = "message success";
+    profileMessage.textContent = "프로필이 저장되었습니다.";
+    setTimeout(() => { profileMessage.textContent = ""; if (location.hash === "#profile") location.hash = ""; }, 500);
+    refreshPortfolio().catch(() => {});
+  } catch (error) { profileMessage.className = "message error"; profileMessage.textContent = error.message; }
+});
 if (window.GAMESTOCK_FIREBASE_CONFIG && window.firebase) {
   firebase.initializeApp(window.GAMESTOCK_FIREBASE_CONFIG);
   firebaseAuth = firebase.auth();
@@ -406,10 +545,8 @@ if (window.GAMESTOCK_FIREBASE_CONFIG && window.firebase) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/google`, { method: "POST", headers: { Authorization: `Bearer ${await firebaseUser.getIdToken()}` } });
       if (!response.ok) throw new Error();
-      currentUser = await response.json();
-      updateLoginButton();
-      await refreshMarket();
-    } catch { /* 서버 설정 전에는 공개 시장 화면만 표시한다. */ }
+      await handleAuthenticatedUser(await response.json());
+    } catch (error) { currentUser = null; updateLoginButton(); document.querySelector("#server-status").textContent = error.message || "로그인 처리 실패"; }
   });
 }
 
