@@ -84,8 +84,34 @@ CREATE TABLE orders (
   price BIGINT NULL,
   quantity INT NOT NULL,
   remaining_quantity INT NOT NULL,
-  status ENUM('OPEN', 'FILLED', 'CANCELLED') NOT NULL DEFAULT 'OPEN',
+  status ENUM('OPEN', 'FILLED', 'PARTIAL', 'CANCELLED') NOT NULL DEFAULT 'OPEN',
+  reserved_cash BIGINT NOT NULL DEFAULT 0,
+  reserved_quantity INT NOT NULL DEFAULT 0,
+  expires_at TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_orders_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
+);
+
+CREATE TABLE trades (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_id BIGINT NOT NULL,
+  buy_order_id BIGINT NOT NULL,
+  sell_order_id BIGINT NOT NULL,
+  buyer_id BIGINT NOT NULL,
+  seller_id BIGINT NOT NULL,
+  maker_order_id BIGINT NOT NULL,
+  taker_order_id BIGINT NOT NULL,
+  aggressor_side ENUM('BUY', 'SELL') NOT NULL,
+  quantity INT NOT NULL,
+  price BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_trades_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  CONSTRAINT fk_trades_buy_order FOREIGN KEY (buy_order_id) REFERENCES orders(id),
+  CONSTRAINT fk_trades_sell_order FOREIGN KEY (sell_order_id) REFERENCES orders(id),
+  CONSTRAINT fk_trades_buyer FOREIGN KEY (buyer_id) REFERENCES users(id),
+  CONSTRAINT fk_trades_seller FOREIGN KEY (seller_id) REFERENCES users(id),
+  INDEX ix_trades_stock_time (stock_id, created_at),
+  INDEX ix_trades_taker (taker_order_id),
+  INDEX ix_trades_maker (maker_order_id)
 );

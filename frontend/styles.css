@@ -63,15 +63,22 @@ body {
 .profile-form label { display: grid; gap: 6px; color: var(--muted); font-size: .86rem; font-weight: 650; }
 .profile-holdings { margin-top: 25px; padding-top: 18px; border-top: 1px solid var(--line); }
 .profile-holdings h3 { margin: 0 0 8px; }
+.profile-orders { margin-top: 25px; padding-top: 18px; border-top: 1px solid var(--line); }
+.profile-orders h3 { margin: 0 0 8px; }
 .holding-row, .ranking-row { display: grid; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
 .holding-row { grid-template-columns: 1fr auto; }
+.open-order-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
+.open-order-row .order-side { font-weight: 800; }
+.order-side.buy { color: var(--up); }.order-side.sell { color: var(--down); }
+.cancel-order { min-height: 34px; padding: 0 10px; background: #fff; color: var(--muted); border: 1px solid #cdd3dd; font-size: .8rem; white-space: nowrap; }
+.cancel-order:hover { color: var(--down); border-color: var(--down); }
 .holding-meta { color: var(--muted); font-size: .8rem; margin-top: 3px; }
 .profit-up { color: var(--up); font-weight: 750; }.profit-down { color: var(--down); font-weight: 750; }
 .ranking-list { display: grid; gap: 0; margin-top: 14px; max-height: 55vh; overflow: auto; }
-.ranking-row { grid-template-columns: 34px 1fr auto; }
+.ranking-row { grid-template-columns: 34px 1fr auto auto; }
 .ranking-rank { color: var(--brand); font-weight: 800; text-align: center; }
 .ranking-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: #ede8fb; color: var(--brand); font-size: .8rem; font-weight: 800; overflow: hidden; }
-.ranking-user { display: flex; align-items: center; gap: 8px; min-width: 0; }.ranking-user strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.ranking-asset { font-weight: 750; white-space: nowrap; }
+.ranking-user { display: flex; align-items: center; gap: 8px; min-width: 0; }.ranking-user strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.ranking-change { font-weight: 750; white-space: nowrap; font-variant-numeric: tabular-nums; }.ranking-asset { font-weight: 750; white-space: nowrap; }
 main {
   width: min(1180px, calc(100% - 40px));
   margin: auto;
@@ -216,6 +223,16 @@ input {
   border: 1px solid #cdd3dd;
   padding: 0 11px;
   background: white;
+}
+input[readonly] {
+  background: #f5f3fb;
+  color: var(--brand);
+  font-weight: 750;
+}
+.order-panel label small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
 }
 button {
   cursor: pointer;
@@ -387,9 +404,24 @@ footer {
   cursor: pointer;
   color: var(--muted);
 }
-.side-switch input:checked + span {
-  background: var(--brand);
-  border-color: var(--brand);
+.side-switch input[name="side"][value="BUY"] + span {
+  background: #fff5f6;
+  border-color: #f1bdc5;
+  color: var(--up);
+}
+.side-switch input[name="side"][value="SELL"] + span {
+  background: #f4f9fd;
+  border-color: #b9d5e9;
+  color: var(--down);
+}
+.side-switch input[name="side"][value="BUY"]:checked + span {
+  background: var(--up);
+  border-color: var(--up);
+  color: #fff;
+}
+.side-switch input[name="side"][value="SELL"]:checked + span {
+  background: var(--down);
+  border-color: var(--down);
   color: #fff;
 }
 .detail-events {

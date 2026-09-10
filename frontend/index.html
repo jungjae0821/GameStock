@@ -129,8 +129,19 @@
                 <option value="LIMIT">지정가 (호가 대기)</option>
               </select></label
             >
+            <label id="market-price-field"
+              >시장가 예상 체결가<input
+                id="market-price"
+                type="text"
+                value="-"
+                readonly
+                aria-live="polite"
+              /><small id="market-price-help" class="detail-subtitle"
+                >현재 호가를 기준으로 계산한 평균 예상가입니다.</small
+              ></label
+            >
             <label id="limit-price-field" hidden
-              >지정가<input
+              >희망 가격<input
                 name="price"
                 id="limit-price"
                 type="number"
@@ -224,6 +235,11 @@
           <h3>보유 종목</h3>
           <div id="profile-positions"></div>
         </section>
+        <section class="profile-orders">
+          <p class="eyebrow">OPEN ORDERS</p>
+          <h3>미체결 주문</h3>
+          <div id="profile-orders"><p class="empty-state">미체결 주문을 불러오는 중입니다.</p></div>
+        </section>
       </section>
     </main>
     <div id="ranking-modal" class="login-modal" hidden>
@@ -243,7 +259,7 @@
         </button>
         <p class="eyebrow">RANKING</p>
         <h2 id="ranking-title">투자 랭킹</h2>
-        <p class="detail-subtitle">봇을 제외한 사용자만 표시됩니다.</p>
+        <p class="detail-subtitle">기본 지급금 100만원 대비 총자산 등락률을 함께 보여줍니다.</p>
         <div id="ranking-list" class="ranking-list">
           <p class="empty-state">랭킹을 불러오는 중입니다.</p>
         </div>

@@ -17,6 +17,7 @@ const detailPage = document.querySelector("#stock-detail");
 const message = document.querySelector("#order-message");
 const priceHistory = new Map();
 const chartState = { points: [], width: 0, height: 0 };
+const orderBookCache = new Map();
 let currentStocks = [];
 let currentEvents = [];
 let currentPortfolio = null;
@@ -27,6 +28,7 @@ let loadedOrderBookCode = null;
 let loadedTradeCode = null;
 let currentUser = null;
 let currentProfile = null;
+let currentOpenOrders = [];
 let firebaseAuth = null;
 
 function escapeHtml(value) {
@@ -39,7 +41,7 @@ async function api(path, options) {
   const token = firebaseAuth?.currentUser ? await firebaseAuth.currentUser.getIdToken() : null;
   const headers = { ...(options?.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
-  const payload = await response.json();
+  const payload = response.status === 204 ? null : await response.json();
   if (!response.ok)
     throw new Error(payload.message || "요청 처리 중 오류가 발생했습니다.");
   return payload;
@@ -151,6 +153,9 @@ function renderDetail() {
   document.querySelector("#detail-price").textContent = money.format(
     stock.price,
   );
+  const marketPrice = document.querySelector("#market-price");
+  if (marketPrice) marketPrice.value = money.format(stock.price);
+  updateMarketPriceEstimate(stock.code);
   const change = document.querySelector("#detail-change");
   change.className = `detail-change ${up ? "up" : "down"}`;
   change.textContent = `${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%`;
@@ -176,11 +181,40 @@ async function loadOrderBook(stockCode) {
   try {
     const book = await api(`/api/orderbook/${encodeURIComponent(stockCode)}`);
     if (location.hash !== `#stock/${stockCode}`) return;
+    orderBookCache.set(stockCode, book);
+    updateMarketPriceEstimate(stockCode, book);
     const bids = book.bids || [], asks = book.asks || [];
     const maxQuantity = Math.max(1, ...bids.map(level => level.quantity), ...asks.map(level => level.quantity));
     const levelMarkup = (level, side) => `<div class="depth-level ${side}"><span class="depth-price">${level.price.toLocaleString()}원</span><span class="depth-bar"><i style="width:${Math.max(5, level.quantity / maxQuantity * 100)}%"></i></span><strong>${level.quantity.toLocaleString()}주</strong><small>${level.orderCount}건</small></div>`;
     container.innerHTML = bids.length || asks.length ? `<div class="depth-legend"><span class="book-buy">매수 잔량</span><span class="book-sell">매도 잔량</span></div><div class="depth-chart"><div class="depth-column asks">${asks.map(level => levelMarkup(level, "sell")).join("") || '<p class="empty-state">매도 대기 없음</p>'}</div><div class="depth-column bids">${bids.map(level => levelMarkup(level, "buy")).join("") || '<p class="empty-state">매수 대기 없음</p>'}</div></div>` : '<p class="empty-state">대기 중인 지정가 주문이 없습니다.</p>';
   } catch { container.innerHTML = '<p class="empty-state">호가를 불러오지 못했습니다.</p>'; }
+}
+
+function updateMarketPriceEstimate(stockCode = loadedOrderBookCode, book = orderBookCache.get(stockCode)) {
+  const input = document.querySelector("#market-price");
+  if (!input || !stockCode) return;
+  const stock = currentStocks.find((item) => item.code === stockCode);
+  if (!stock) return;
+  const side = document.querySelector('input[name="side"]:checked')?.value || "BUY";
+  const quantity = Math.max(1, Number(document.querySelector('#order-form [name="quantity"]')?.value || 1));
+  const levels = side === "BUY" ? (book?.asks || []) : (book?.bids || []);
+  let remaining = quantity;
+  let filled = 0;
+  let total = 0;
+  for (const level of levels) {
+    const levelQuantity = Math.max(0, Number(level.quantity || 0));
+    const matched = Math.min(remaining, levelQuantity);
+    total += matched * Number(level.price || 0);
+    filled += matched;
+    remaining -= matched;
+    if (remaining <= 0) break;
+  }
+  const estimated = filled > 0 ? Math.round(total / filled) : stock.price;
+  input.value = money.format(estimated);
+  const help = document.querySelector("#market-price-help");
+  if (help) help.textContent = remaining > 0
+    ? `현재 호가 ${filled.toLocaleString()}주 기준 · 잔량은 체결되지 않을 수 있습니다.`
+    : "현재 호가를 기준으로 계산한 평균 예상가입니다.";
 }
 
 async function loadPublicTrades(stockCode) {
@@ -243,7 +277,10 @@ function startTradeRefresh(stockCode) {
   clearTradeRefresh();
   loadPublicTrades(stockCode);
   tradeRefreshTimer = setInterval(() => {
-    if (location.hash === `#stock/${stockCode}`) loadPublicTrades(stockCode);
+    if (location.hash === `#stock/${stockCode}`) {
+      loadPublicTrades(stockCode);
+      loadOrderBook(stockCode);
+    }
   }, 10000);
 }
 
@@ -376,7 +413,14 @@ document
   });
 
 window.addEventListener("hashchange", renderDetail);
-document.querySelector("#order-type").addEventListener("change", (event) => { document.querySelector("#limit-price-field").hidden = event.target.value !== "LIMIT"; });
+function syncOrderPriceFields(orderType = document.querySelector("#order-type").value) {
+  document.querySelector("#market-price-field").hidden = orderType !== "MARKET";
+  document.querySelector("#limit-price-field").hidden = orderType !== "LIMIT";
+}
+document.querySelector("#order-type").addEventListener("change", (event) => syncOrderPriceFields(event.target.value));
+syncOrderPriceFields();
+document.querySelectorAll('input[name="side"]').forEach((input) => input.addEventListener("change", () => updateMarketPriceEstimate()));
+document.querySelector('#order-form [name="quantity"]').addEventListener("input", () => updateMarketPriceEstimate());
 document.querySelector("#back-to-market").addEventListener("click", () => {
   location.hash = "";
 });
@@ -431,8 +475,9 @@ function avatarMarkup(name, className) {
   return `<div class="${className}">${initial}</div>`;
 }
 
-function renderProfile(profile, portfolio = null, { preserveForm = false } = {}) {
+function renderProfile(profile, portfolio = null, { preserveForm = false, orders = currentOpenOrders } = {}) {
   currentProfile = profile;
+  currentOpenOrders = orders || [];
   if (!preserveForm) document.querySelector("#profile-nickname").value = profile.nickname || "";
   document.querySelector("#profile-email").textContent = profile.email || "Google 계정";
   const avatar = document.querySelector("#profile-avatar");
@@ -446,6 +491,15 @@ function renderProfile(profile, portfolio = null, { preserveForm = false } = {})
     const sign = position.profitLoss >= 0 ? "+" : "";
     return `<div class="holding-row"><div><strong>${escapeHtml(position.stockCode)}</strong><div class="holding-meta">${position.quantity.toLocaleString()}주 · 평균 ${money.format(position.averagePrice)} · 평가 ${money.format(position.marketValue)}</div></div><span class="${profitClass}">${sign}${money.format(position.profitLoss)}<br /><small>${sign}${Number(position.profitLossPercent || 0).toFixed(2)}%</small></span></div>`;
   }).join("") : '<p class="empty-state">보유 중인 종목이 없습니다.</p>';
+  const ordersContainer = document.querySelector("#profile-orders");
+  ordersContainer.innerHTML = currentOpenOrders.length ? currentOpenOrders.map((order) => {
+    const isBuy = order.side === "BUY";
+    const sideLabel = isBuy ? "매수" : "매도";
+    const sideClass = isBuy ? "buy" : "sell";
+    const expiry = order.expiresAt ? new Date(order.expiresAt).toLocaleString("ko-KR") : "-";
+    const reservation = isBuy ? `예약금 ${money.format(order.reservedCash)}` : `예약수량 ${Number(order.reservedQuantity || order.remainingQuantity).toLocaleString()}주`;
+    return `<div class="open-order-row"><div><strong class="order-side ${sideClass}">${sideLabel} · ${escapeHtml(order.stockCode)}</strong><div class="holding-meta">${order.remainingQuantity.toLocaleString()}주 · 지정가 ${money.format(order.price)} · ${reservation}</div><small class="holding-meta">만료 예정 ${expiry}</small></div><button type="button" class="cancel-order" data-cancel-order="${order.id}">주문 취소</button></div>`;
+  }).join("") : '<p class="empty-state">미체결 주문이 없습니다.</p>';
 }
 
 async function openProfile(required = false) {
@@ -459,8 +513,8 @@ async function openProfile(required = false) {
   document.querySelector("#profile-help").textContent = required ? "첫 로그인 기념으로 닉네임을 정해 주세요." : "프로필과 보유 자산을 관리할 수 있습니다.";
   profileMessage.textContent = "불러오는 중입니다…";
   try {
-    const [profile, portfolio] = await Promise.all([api("/api/profile"), api("/api/portfolio")]);
-    renderProfile(profile, portfolio);
+    const [profile, portfolio, orders] = await Promise.all([api("/api/profile"), api("/api/portfolio"), api("/api/orders")]);
+    renderProfile(profile, portfolio, { orders });
     profileMessage.textContent = "";
   } catch (error) { profileMessage.className = "message error"; profileMessage.textContent = error.message; }
 }
@@ -482,7 +536,7 @@ async function openRanking() {
   container.innerHTML = '<p class="empty-state">랭킹을 불러오는 중입니다.</p>';
   try {
     const ranking = await api("/api/ranking");
-    container.innerHTML = ranking.length ? ranking.map((entry) => `<div class="ranking-row"><span class="ranking-rank">${entry.rank}</span><div class="ranking-user">${avatarMarkup(entry.nickname, "ranking-avatar")}<strong>${escapeHtml(entry.nickname)}</strong></div><span class="ranking-asset">${money.format(entry.totalAsset)}</span></div>`).join("") : '<p class="empty-state">아직 랭킹에 참여한 사용자가 없습니다.</p>';
+    container.innerHTML = ranking.length ? ranking.map((entry) => { const change = Number(entry.changePercent || 0); const sign = change >= 0 ? "+" : ""; const changeClass = change >= 0 ? "profit-up" : "profit-down"; return `<div class="ranking-row"><span class="ranking-rank">${entry.rank}</span><div class="ranking-user">${avatarMarkup(entry.nickname, "ranking-avatar")}<strong>${escapeHtml(entry.nickname)}</strong></div><span class="ranking-change ${changeClass}">${sign}${change.toFixed(2)}%</span><span class="ranking-asset">${money.format(entry.totalAsset)}</span></div>`; }).join("") : '<p class="empty-state">아직 랭킹에 참여한 사용자가 없습니다.</p>';
   } catch (error) { container.innerHTML = `<p class="empty-state">랭킹을 불러오지 못했습니다: ${escapeHtml(error.message)}</p>`; }
 }
 
@@ -512,9 +566,24 @@ document.querySelector("#close-login").addEventListener("click", closeLogin);
 menuButton.addEventListener("click", () => { const expanded = menuButton.getAttribute("aria-expanded") === "true"; menuButton.setAttribute("aria-expanded", String(!expanded)); menuPanel.hidden = expanded; });
 document.querySelector("#profile-button").addEventListener("click", () => openProfile(false));
 document.querySelector("#ranking-button").addEventListener("click", openRanking);
-document.querySelector("#logout-button").addEventListener("click", async () => { closeMenu(); await firebaseAuth.signOut(); currentUser = null; currentProfile = null; profileRequired = false; if (location.hash === "#profile") location.hash = ""; updateLoginButton(); renderPortfolio(null); await refreshMarket(); });
+document.querySelector("#logout-button").addEventListener("click", async () => { closeMenu(); await firebaseAuth.signOut(); currentUser = null; currentProfile = null; currentOpenOrders = []; profileRequired = false; if (location.hash === "#profile") location.hash = ""; updateLoginButton(); renderPortfolio(null); await refreshMarket(); });
 profileClose.addEventListener("click", closeProfile);
 document.querySelector("#close-ranking").addEventListener("click", closeRanking);
+document.querySelector("#profile-orders").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-cancel-order]");
+  if (!button) return;
+  button.disabled = true;
+  profileMessage.className = "message";
+  profileMessage.textContent = "주문을 취소하는 중입니다…";
+  try {
+    await api(`/api/orders/${encodeURIComponent(button.dataset.cancelOrder)}`, { method: "DELETE" });
+    await openProfile(false);
+  } catch (error) {
+    button.disabled = false;
+    profileMessage.className = "message error";
+    profileMessage.textContent = error.message;
+  }
+});
 profileForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   profileMessage.className = "message";

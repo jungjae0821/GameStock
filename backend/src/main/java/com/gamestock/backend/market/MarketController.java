@@ -21,12 +21,17 @@ public class MarketController {
     @GetMapping("/health") public Map<String, String> health() { return Map.of("status", "ok"); }
     @GetMapping("/stocks") public java.util.List<Stock> stocks() { return market.stocks(); }
     @GetMapping("/market-events") public java.util.List<MarketEvent> events() { return market.marketEvents(); }
+    @GetMapping("/market-status") public MarketStatus marketStatus() { return market.marketStatus(); }
     @GetMapping("/ranking") public java.util.List<RankingEntry> ranking() { return market.ranking(); }
     @GetMapping("/stocks/{stockCode}/news")
     public java.util.List<MarketEvent> stockNews(@PathVariable String stockCode) {
         return market.stockNews(stockCode);
     }
     @GetMapping("/portfolio") public Portfolio portfolio(@RequestHeader(value = "Authorization", required = false) String authorization) { return market.portfolio(auth.requireUser(authorization).id()); }
+    @GetMapping("/orders")
+    public java.util.List<ActiveOrder> activeOrders(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return market.activeOrders(auth.requireUser(authorization).id());
+    }
     @GetMapping("/orders/{stockCode}")
     public java.util.List<OrderHistory> orderHistory(@PathVariable String stockCode, @RequestHeader(value = "Authorization", required = false) String authorization) {
         return market.orderHistory(stockCode, auth.requireUser(authorization).id());
@@ -54,6 +59,12 @@ public class MarketController {
     @PostMapping("/orders")
     @ResponseStatus(HttpStatus.CREATED)
     public OrderResult order(@Valid @RequestBody OrderRequest request, @RequestHeader(value = "Authorization", required = false) String authorization) { return market.order(request, auth.requireUser(authorization).id()); }
+
+    @DeleteMapping("/orders/{orderId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelOrder(@PathVariable long orderId, @RequestHeader(value = "Authorization", required = false) String authorization) {
+        market.cancelOrder(orderId, auth.requireUser(authorization).id());
+    }
 
     @ExceptionHandler({IllegalArgumentException.class})
     ResponseEntity<Map<String, String>> invalidOrder(IllegalArgumentException error) {
