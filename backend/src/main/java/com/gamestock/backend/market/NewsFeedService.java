@@ -35,12 +35,45 @@ import java.util.Locale;
 @ConfigurationProperties(prefix = "gamestock.news")
 public class NewsFeedService {
     private static final Logger log = LoggerFactory.getLogger(NewsFeedService.class);
-    private static final List<String> POSITIVE_KEYWORDS = List.of(
-            "출시", "성공", "흥행", "증가", "성장", "호평", "기대", "달성", "수상", "업데이트", "신작",
-            "revenue", "growth", "success", "award", "launch", "popular", "profit");
-    private static final List<String> NEGATIVE_KEYWORDS = List.of(
-            "서비스 종료", "중단", "논란", "하락", "감소", "실패", "지연", "버그", "장애", "해킹", "매출 감소",
-            "shutdown", "decline", "delay", "bug", "outage", "hack", "lawsuit", "loss");
+    /** Longer phrases come first so a phrase such as "출시 지연" is not
+     * double-counted as both a negative phrase and a positive "출시" token. */
+    private static final List<WeightedSignal> POSITIVE_SIGNALS = List.of(
+            new WeightedSignal("대규모 업데이트", 3), new WeightedSignal("정식 출시", 3),
+            new WeightedSignal("신규 업데이트", 2), new WeightedSignal("매출 증가", 3),
+            new WeightedSignal("매출 호조", 3), new WeightedSignal("실적 개선", 3),
+            new WeightedSignal("이용자 증가", 3), new WeightedSignal("예약자 증가", 2),
+            new WeightedSignal("다운로드 증가", 2),
+            new WeightedSignal("신규 이벤트", 2), new WeightedSignal("신규 캐릭터", 2),
+            new WeightedSignal("콜라보", 2), new WeightedSignal("첫 시연", 2), new WeightedSignal("합류", 2),
+            new WeightedSignal("흥행", 2), new WeightedSignal("성공", 2), new WeightedSignal("성장", 2),
+            new WeightedSignal("호평", 2), new WeightedSignal("호재", 2), new WeightedSignal("긍정적", 2),
+            new WeightedSignal("기대작", 2), new WeightedSignal("수상", 2),
+            new WeightedSignal("출시", 2), new WeightedSignal("업데이트", 1), new WeightedSignal("신작", 1),
+            new WeightedSignal("증가", 1), new WeightedSignal("달성", 1), new WeightedSignal("캠페인", 1),
+            new WeightedSignal("무료", 1), new WeightedSignal("픽업", 1), new WeightedSignal("시연", 1),
+            new WeightedSignal("revenue", 2), new WeightedSignal("growth", 2), new WeightedSignal("success", 2),
+            new WeightedSignal("award", 2), new WeightedSignal("launch", 2), new WeightedSignal("popular", 2),
+            new WeightedSignal("profit", 2));
+    private static final List<WeightedSignal> NEGATIVE_SIGNALS = List.of(
+            new WeightedSignal("서비스 종료", 4), new WeightedSignal("서비스 중단", 4),
+            new WeightedSignal("출시 실패", 4), new WeightedSignal("출시 취소", 4),
+            new WeightedSignal("업데이트 취소", 3), new WeightedSignal("성공하지 못", 3),
+            new WeightedSignal("출시하지 못", 3), new WeightedSignal("성장 둔화", 3),
+            new WeightedSignal("실적 악화", 3), new WeightedSignal("기대 이하", 3),
+            new WeightedSignal("예상 하회", 3), new WeightedSignal("매출 하락", 3),
+            new WeightedSignal("매출 감소", 3), new WeightedSignal("이용자 감소", 3),
+            new WeightedSignal("이용자 이탈", 3), new WeightedSignal("예약 취소", 2),
+            new WeightedSignal("접속 장애", 3), new WeightedSignal("접속 불가", 3), new WeightedSignal("긴급 점검", 3),
+            new WeightedSignal("개인정보 유출", 4),
+            new WeightedSignal("해킹", 4), new WeightedSignal("환불", 2), new WeightedSignal("논란", 2),
+            new WeightedSignal("악재", 2), new WeightedSignal("부정적", 2), new WeightedSignal("우려", 2),
+            new WeightedSignal("비판", 2), new WeightedSignal("실패", 2), new WeightedSignal("지연", 2),
+            new WeightedSignal("장애", 2), new WeightedSignal("점검", 1), new WeightedSignal("삭제", 2),
+            new WeightedSignal("취소", 2), new WeightedSignal("중단", 2), new WeightedSignal("하락", 1),
+            new WeightedSignal("감소", 1),
+            new WeightedSignal("shutdown", 4), new WeightedSignal("decline", 2), new WeightedSignal("delay", 2),
+            new WeightedSignal("bug", 2), new WeightedSignal("outage", 3), new WeightedSignal("hack", 4),
+            new WeightedSignal("lawsuit", 3), new WeightedSignal("loss", 2));
 
     private final JdbcTemplate jdbc;
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -107,10 +140,16 @@ public class NewsFeedService {
         }
 
         List<NewsItem> items = parseItems(response.body());
-        log.info("뉴스 피드 조회 완료: 종목={}, 제목 {}개", stockCode, items.size());
+        int saved = 0;
         for (NewsItem item : items) {
+            if (!NewsRelevance.isRelevant(stockCode, item.title(), item.description(), item.sourceName())) {
+                log.debug("관련성 낮은 뉴스 제외: 종목={}, 제목={}", stockCode, item.title());
+                continue;
+            }
             saveNews(stockCode, item);
+            saved++;
         }
+        log.info("뉴스 피드 조회 완료: 종목={}, 전체 {}개 중 관련 {}개", stockCode, items.size(), saved);
     }
 
     private List<NewsItem> parseItems(String xml) throws Exception {
@@ -131,29 +170,34 @@ public class NewsFeedService {
             String title = text(item, "title");
             String link = text(item, "link");
             String description = text(item, "description");
+            String sourceName = text(item, "source");
             String published = firstNonBlank(text(item, "pubDate"), text(item, "published"),
                     text(item, "updated"), text(item, "dc:date"));
             if (!title.isBlank()) {
-                result.add(new NewsItem(trim(title, 150), trim(description, 500), link, parsePublishedAt(published)));
+                result.add(new NewsItem(trim(title, 150), trim(description, 500), link,
+                        trim(sourceName, 120), parsePublishedAt(published)));
             }
         }
         return result.stream()
                 .sorted(Comparator.comparing(NewsItem::publishedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
-                .limit(10)
+                // Fetch more candidates before relevance filtering so an
+                // unrelated headline does not push a useful item out.
+                .limit(20)
                 .toList();
     }
 
     private void saveNews(String stockCode, NewsItem item) {
         double impact = newsImpact(item.title(), item.description());
         Timestamp publishedAt = item.publishedAt() == null ? null : Timestamp.from(item.publishedAt());
-        if (publishedAt != null) {
-            jdbc.update("""
-                    UPDATE market_events e JOIN stocks s ON s.id = e.stock_id
-                    SET e.published_at = ?
-                    WHERE e.event_type = 'NEWS' AND s.stock_code = ? AND e.title = ?
-                    """, publishedAt, stockCode, item.title());
-        }
+        String storedDescription = item.description() + "\n출처: " + item.link();
+        // Recalculate existing rows as the classifier evolves, while keeping
+        // the original publication time when an RSS item omits it.
+        jdbc.update("""
+                UPDATE market_events e JOIN stocks s ON s.id = e.stock_id
+                SET e.description = ?, e.impact = ?, e.published_at = COALESCE(?, e.published_at)
+                WHERE e.event_type = 'NEWS' AND s.stock_code = ? AND e.title = ?
+                """, storedDescription, impact, publishedAt, stockCode, item.title());
         jdbc.update("""
                 INSERT INTO market_events (stock_id, event_type, title, description, impact, published_at)
                 SELECT s.id, 'NEWS', ?, ?, ?, ? FROM stocks s
@@ -162,16 +206,62 @@ public class NewsFeedService {
                       SELECT 1 FROM market_events e
                       WHERE e.stock_id = s.id AND e.title = ?
                   )
-                """, item.title(), item.description() + "\n출처: " + item.link(), impact, publishedAt, stockCode, item.title());
+                """, item.title(), storedDescription, impact, publishedAt, stockCode, item.title());
     }
 
-    /** Convert headline language into a bounded, explainable market impulse. */
+    /**
+     * Convert headline language into a bounded, explainable market impulse.
+     * Title signals count twice as strongly as body signals. Negative phrases
+     * are scored first and removed from the text, preventing "출시 지연" from
+     * being incorrectly rewarded by the positive "출시" keyword. The net
+     * score is clamped to -10..10 and zero means the signals cancel out.
+     */
     private double newsImpact(String title, String description) {
-        String text = (title + " " + description).toLowerCase(Locale.ROOT);
+        String normalizedTitle = normalizeNewsText(title);
+        String normalizedDescription = normalizeNewsText(description)
+                .replaceAll("출처:\\s*https?://\\S+", " ");
+        // Google News often repeats the headline inside the RSS description;
+        // remove that copy so the title weight is not accidentally tripled.
+        if (!normalizedTitle.isBlank()) normalizedDescription = normalizedDescription.replace(normalizedTitle, " ");
+        SignalScore negative = scoreSignals(normalizedTitle, normalizedDescription, NEGATIVE_SIGNALS);
+        SignalScore positive = scoreSignals(negative.titleRemainder(), negative.bodyRemainder(), POSITIVE_SIGNALS);
+        int net = positive.score() - negative.score();
+        return Math.max(-10.0, Math.min(10.0, net));
+    }
+
+    private SignalScore scoreSignals(String title, String body, List<WeightedSignal> signals) {
         int score = 0;
-        for (String keyword : POSITIVE_KEYWORDS) if (text.contains(keyword)) score++;
-        for (String keyword : NEGATIVE_KEYWORDS) if (text.contains(keyword)) score--;
-        return Math.max(-10.0, Math.min(10.0, score * 1.5));
+        String titleRemainder = title;
+        String bodyRemainder = body;
+        for (WeightedSignal signal : signals) {
+            int titleHits = countOccurrences(titleRemainder, signal.phrase());
+            int bodyHits = countOccurrences(bodyRemainder, signal.phrase());
+            score += Math.min(2, titleHits) * signal.weight() * 2;
+            score += Math.min(2, bodyHits) * signal.weight();
+            titleRemainder = titleRemainder.replace(signal.phrase(), " ");
+            bodyRemainder = bodyRemainder.replace(signal.phrase(), " ");
+        }
+        return new SignalScore(score, titleRemainder, bodyRemainder);
+    }
+
+    private int countOccurrences(String text, String phrase) {
+        int count = 0;
+        int from = 0;
+        while (true) {
+            int found = text.indexOf(phrase, from);
+            if (found < 0) return count;
+            count++;
+            from = found + phrase.length();
+        }
+    }
+
+    private String normalizeNewsText(String value) {
+        return (value == null ? "" : value)
+                .replaceAll("<[^>]*>", " ")
+                .replaceAll("(?i)&nbsp;", " ")
+                .replaceAll("\\s+", " ")
+                .trim()
+                .toLowerCase(Locale.ROOT);
     }
 
     private String text(Element parent, String tagName) {
@@ -199,5 +289,7 @@ public class NewsFeedService {
         return value == null ? "" : value.substring(0, Math.min(value.length(), maxLength));
     }
 
-    private record NewsItem(String title, String description, String link, Instant publishedAt) { }
+    private record WeightedSignal(String phrase, int weight) { }
+    private record SignalScore(int score, String titleRemainder, String bodyRemainder) { }
+    private record NewsItem(String title, String description, String link, String sourceName, Instant publishedAt) { }
 }

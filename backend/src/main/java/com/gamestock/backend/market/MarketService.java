@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.time.Instant;
 import java.util.Random;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 import static com.gamestock.backend.market.MarketModels.*;
 
@@ -210,16 +212,16 @@ public class MarketService {
 
     public synchronized List<MarketEvent> marketEvents() {
         return jdbc.query("""
-                SELECT s.stock_code, e.title, e.impact
+                SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
+                       s.current_price, s.previous_price
                 FROM market_events e LEFT JOIN stocks s ON s.id = e.stock_id
                 WHERE e.event_type = 'NEWS'
             ORDER BY COALESCE(e.published_at, e.created_at) DESC, e.id DESC
-            LIMIT 10
-                """, (rs, row) -> {
-            double impact = rs.getDouble("impact");
-            return new MarketEvent(rs.getString("stock_code"), rs.getString("title"),
-                    (int) Math.round(impact), impact >= 0 ? "positive" : "negative");
-        });
+            LIMIT 50
+                """, this::toMarketEvent).stream()
+                .filter(this::isRelevantNews)
+                .limit(10)
+                .toList();
     }
 
     /** GameStock은 장 마감 없이 24시간 주문을 접수하는 게임형 시장이다. */
@@ -229,16 +231,55 @@ public class MarketService {
 
     public synchronized List<MarketEvent> stockNews(String code) {
         return jdbc.query("""
-                SELECT s.stock_code, e.title, e.impact
+                SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
+                       s.current_price, s.previous_price
                 FROM market_events e JOIN stocks s ON s.id = e.stock_id
                 WHERE e.event_type = 'NEWS' AND s.stock_code = ?
                 ORDER BY COALESCE(e.published_at, e.created_at) DESC, e.id DESC
-                LIMIT 5
-                """, (rs, row) -> {
-            double impact = rs.getDouble("impact");
-            return new MarketEvent(rs.getString("stock_code"), rs.getString("title"),
-                    (int) Math.round(impact), impact >= 0 ? "positive" : "negative");
-        }, code.toUpperCase(Locale.ROOT));
+                LIMIT 20
+                """, this::toMarketEvent, code.toUpperCase(Locale.ROOT)).stream()
+                .filter(this::isRelevantNews)
+                .limit(5)
+                .toList();
+    }
+
+    private boolean isRelevantNews(MarketEvent event) {
+        return event.stockCode() == null
+                || NewsRelevance.isRelevant(event.stockCode(), event.title(), event.description());
+    }
+
+    private MarketEvent toMarketEvent(ResultSet rs, int rowNumber) throws SQLException {
+        double rawImpact = rs.getDouble("impact");
+        int impact = (int) Math.round(rawImpact);
+        String sentiment = impact > 0 ? "positive" : impact < 0 ? "negative" : "neutral";
+        long currentPrice = rs.getLong("current_price");
+        long previousPrice = rs.getLong("previous_price");
+        double priceChangePercent = changePercent(currentPrice, previousPrice);
+        String priceDirection = priceChangePercent > 0 ? "up" : priceChangePercent < 0 ? "down" : "flat";
+        String reason = priceReason(priceChangePercent, impact);
+        var publishedAt = rs.getTimestamp("published_at");
+        String published = publishedAt == null ? null : publishedAt.toInstant().toString();
+        return new MarketEvent(rs.getString("stock_code"), rs.getString("title"), impact,
+                sentiment, rs.getString("description"), published, priceChangePercent,
+                priceDirection, reason);
+    }
+
+    private String priceReason(double priceChangePercent, int impact) {
+        if (priceChangePercent > 0 && impact > 0)
+            return "뉴스 영향과 최근 상승 흐름이 함께 나타나 가격이 오르고 있습니다.";
+        if (priceChangePercent < 0 && impact < 0)
+            return "뉴스 영향과 최근 하락 흐름이 함께 나타나 가격이 내리고 있습니다.";
+        if (priceChangePercent > 0 && impact < 0)
+            return "하락 요인으로 해석되는 뉴스가 있지만 최근 거래 흐름은 상승세입니다.";
+        if (priceChangePercent < 0 && impact > 0)
+            return "상승 요인으로 해석되는 뉴스가 있지만 최근 거래 흐름은 하락세입니다.";
+        if (priceChangePercent > 0)
+            return "최근 거래 흐름을 따라 가격이 상승하고 있습니다.";
+        if (priceChangePercent < 0)
+            return "최근 거래 흐름을 따라 가격이 하락하고 있습니다.";
+        if (impact > 0) return "상승 요인으로 해석되는 뉴스가 등록됐지만 가격은 보합입니다.";
+        if (impact < 0) return "하락 요인으로 해석되는 뉴스가 등록됐지만 가격은 보합입니다.";
+        return "최근 가격과 뉴스 영향도가 보합 상태입니다.";
     }
 
     public synchronized List<RankingEntry> ranking() {

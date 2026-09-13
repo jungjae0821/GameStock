@@ -38,7 +38,18 @@ public final class MarketModels {
         }
     }
     public record RankingEntry(int rank, String nickname, String profileImageUrl, long totalAsset, long assetValue, long cash, double changePercent) { }
-    public record MarketEvent(String stockCode, String title, int impact, String sentiment) { }
+    /**
+     * A news event plus enough context for the clients to explain the current
+     * price move without pretending that a headline is a guaranteed cause.
+     */
+    public record MarketEvent(String stockCode, String title, int impact, String sentiment,
+                              String description, String publishedAt, double priceChangePercent,
+                              String priceDirection, String priceReason) {
+        /** Backward-compatible constructor for older callers. */
+        public MarketEvent(String stockCode, String title, int impact, String sentiment) {
+            this(stockCode, title, impact, sentiment, "", null, 0, "flat", "가격 변동 정보가 없습니다.");
+        }
+    }
     public record MarketSnapshot(List<Stock> stocks, Portfolio portfolio, List<MarketEvent> events) { }
     public record OrderRequest(@NotBlank String stockCode, @NotBlank String side, @Min(1) @Max(1000) int quantity, String orderType, Long price) { }
     public record OrderResult(String message, String stockCode, String side, int quantity, long price,

@@ -39,6 +39,7 @@ let currentUser = null;
 let currentProfile = null;
 let currentOpenOrders = [];
 let currentSettlements = [];
+let currentDetailNews = [];
 let firebaseAuth = null;
 
 function escapeHtml(value) {
@@ -76,7 +77,10 @@ function renderStocks(stocks) {
   stockContainer.innerHTML = stocks
     .map((stock) => {
       const up = stock.changePercent >= 0;
-      return `<a class="stock-card" href="#stock/${stock.code}" aria-label="${stock.name} 상세 보기"><div class="stock-card-heading"><span class="code">${stock.code} · ${stock.genre}</span>${sparklineSvg(stock.code, up)}</div><h3>${stock.name}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · 거래량 ${stock.volume.toLocaleString()}</span><span class="card-link">상세 보기 →</span></a>`;
+      const relatedNews = currentEvents.find((event) => event.stockCode === stock.code);
+      const reason = relatedNews?.priceReason || fallbackPriceReason(stock.changePercent);
+      const reasonClass = stock.changePercent > 0 ? "up" : stock.changePercent < 0 ? "down" : "flat";
+      return `<a class="stock-card" href="#stock/${encodeURIComponent(stock.code)}" aria-label="${escapeHtml(stock.name)} 상세 보기"><div class="stock-card-heading"><span class="code">${escapeHtml(stock.code)} · ${escapeHtml(stock.genre)}</span>${sparklineSvg(stock.code, up)}</div><h3>${escapeHtml(stock.name)}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · 거래량 ${stock.volume.toLocaleString()}</span><div class="stock-reason ${reasonClass}"><span>가격 변동 이유</span><small>${escapeHtml(reason)}</small></div><span class="card-link">상세 보기 →</span></a>`;
     })
     .join("");
 }
@@ -122,13 +126,42 @@ async function refreshPortfolio() {
 }
 
 function renderEvents(events) {
-  document.querySelector("#event-list").innerHTML = events
-    .map((event) => {
+  const container = document.querySelector("#event-list");
+  if (!events.length) {
+    container.innerHTML = '<p class="empty-state">아직 수집된 뉴스가 없습니다.</p>';
+    return;
+  }
+  container.innerHTML = events
+    .map((event, index) => {
       const stock = currentStocks.find((item) => item.code === event.stockCode);
       const stockLabel = stock ? `${stock.code} · ${stock.name}` : "시장 전체";
-      return `<div class="event"><div><strong>${event.title}</strong><small>${stockLabel}</small></div></div>`;
+      const priceChange = stock ? Number(stock.changePercent || 0) : Number(event.priceChangePercent || 0);
+      const priceClass = priceChange > 0 ? "up" : priceChange < 0 ? "down" : "flat";
+      const priceLabel = priceChange > 0 ? `▲ ${priceChange.toFixed(2)}%` : priceChange < 0 ? `▼ ${Math.abs(priceChange).toFixed(2)}%` : "— 0.00%";
+      const stockMarkup = `<span>${escapeHtml(stockLabel)}</span>${stock ? `<span class="event-stock-change ${priceClass}">${priceLabel}</span>` : ""}`;
+      return `<article class="event ${event.sentiment || "neutral"}"><button type="button" class="event-news-button" data-news-index="${index}"><strong>${escapeHtml(event.title)}</strong><small class="event-stock">${stockMarkup}</small></button><div class="event-insight"><small>${escapeHtml(event.priceReason || fallbackPriceReason(priceChange))}</small></div></article>`;
     })
     .join("");
+}
+
+function fallbackPriceReason(changePercent) {
+  const change = Number(changePercent || 0);
+  if (change > 0) return "최근 거래 흐름을 따라 가격이 상승하고 있습니다.";
+  if (change < 0) return "최근 거래 흐름을 따라 가격이 하락하고 있습니다.";
+  return "최근 가격은 보합 상태입니다.";
+}
+
+function newsSummary(description) {
+  const summary = String(description || "")
+    .replace(/\s*출처:\s*https?:\/\/\S+\s*$/i, "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return summary || "제공된 뉴스 요약이 없습니다.";
 }
 
 function renderDetail() {
@@ -187,6 +220,9 @@ function renderDetail() {
   if (loadedNewsCode !== stock.code) {
     loadedNewsCode = stock.code;
     loadStockNews(stock.code);
+  } else if (currentDetailNews.length) {
+    // WebSocket 가격 갱신 때 뉴스 행의 종목별 실시간 등락률도 함께 갱신한다.
+    renderStockNews(currentDetailNews, stock.code);
   }
   if (loadedOrderBookCode !== stock.code) { loadedOrderBookCode = stock.code; loadOrderBook(stock.code); }
   drawChart(priceHistory.get(stock.code) || [stock.price]);
@@ -261,17 +297,29 @@ async function loadStockNews(stockCode) {
   try {
     const news = await api(`/api/stocks/${encodeURIComponent(stockCode)}/news`);
     if (location.hash !== `#stock/${stockCode}`) return;
-    newsContainer.innerHTML =
-      news
-        .map(
-          (event) => `<div class="event"><strong>${event.title}</strong></div>`,
-        )
-        .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
+    currentDetailNews = news;
+    renderStockNews(news, stockCode);
   } catch (error) {
     loadedNewsCode = null;
+    currentDetailNews = [];
     newsContainer.innerHTML =
       '<p class="empty-state">관련 소식을 불러오지 못했습니다.</p>';
   }
+}
+
+function renderStockNews(news, stockCode) {
+  const newsContainer = document.querySelector("#detail-events");
+  newsContainer.innerHTML = news
+    .map((event, index) => {
+      const stock = currentStocks.find((item) => item.code === event.stockCode)
+        || currentStocks.find((item) => item.code === stockCode);
+      const priceChange = stock ? Number(stock.changePercent || 0) : Number(event.priceChangePercent || 0);
+      const priceClass = priceChange > 0 ? "up" : priceChange < 0 ? "down" : "flat";
+      const priceLabel = priceChange > 0 ? `▲ ${priceChange.toFixed(2)}%` : priceChange < 0 ? `▼ ${Math.abs(priceChange).toFixed(2)}%` : "— 0.00%";
+      const stockLabel = stock ? `${stock.code} · ${stock.name}` : stockCode;
+      return `<article class="event ${event.sentiment || "neutral"}"><button type="button" class="event-news-button" data-detail-news-index="${index}"><strong>${escapeHtml(event.title)}</strong><small class="event-stock"><span>${escapeHtml(stockLabel)}</span><span class="event-stock-change ${priceClass}">${priceLabel}</span></small><small class="event-date">${event.publishedAt ? new Date(event.publishedAt).toLocaleString("ko-KR") : "날짜 미상"}</small></button><div class="event-insight"><small>${escapeHtml(event.priceReason || fallbackPriceReason(priceChange))}</small></div></article>`;
+    })
+    .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
 }
 
 async function loadPriceHistory(stockCode) {
@@ -511,20 +559,48 @@ const profileClose = document.querySelector("#close-profile");
 const rankingModal = document.querySelector("#ranking-modal");
 const menuButton = document.querySelector("#menu-button");
 const menuPanel = document.querySelector("#menu-panel");
+const newsModal = document.querySelector("#news-modal");
+const newsModalTitle = document.querySelector("#news-modal-title");
+const newsModalStock = document.querySelector("#news-modal-stock");
+const newsModalPrice = document.querySelector("#news-modal-price");
+const newsModalDate = document.querySelector("#news-modal-date");
+const newsModalReason = document.querySelector("#news-modal-reason");
+const newsModalSummary = document.querySelector("#news-modal-summary");
 const resetAccountButton = document.querySelector("#reset-account");
 const resetAccountMessage = document.querySelector("#reset-account-message");
 let profileRequired = false;
 
-function openLogin() { loginModal.hidden = false; }
+function openLogin() { closeMenu(); loginModal.hidden = false; }
 function closeLogin() { loginModal.hidden = true; loginMessage.textContent = ""; }
 function closeMenu() { menuPanel.hidden = true; menuButton.setAttribute("aria-expanded", "false"); }
+function openNewsModal(event) {
+  if (!event || !newsModal) return;
+  const stock = currentStocks.find((item) => item.code === event.stockCode);
+  const change = stock ? Number(stock.changePercent || 0) : Number(event.priceChangePercent || 0);
+  newsModalStock.textContent = stock ? `${stock.code} · ${stock.name}` : "시장 전체";
+  newsModalTitle.textContent = event.title || "뉴스 상세";
+  const priceClass = change > 0 ? "up" : change < 0 ? "down" : "flat";
+  newsModalPrice.className = `event-price ${priceClass}`;
+  newsModalPrice.textContent = change > 0 ? `▲ ${change.toFixed(2)}%` : change < 0 ? `▼ ${Math.abs(change).toFixed(2)}%` : "— 0.00%";
+  newsModalDate.textContent = event.publishedAt ? formatNewsDate(event.publishedAt) : "게시 시각 미상";
+  newsModalReason.textContent = event.priceReason || fallbackPriceReason(change);
+  newsModalSummary.textContent = newsSummary(event.description);
+  newsModal.hidden = false;
+}
+function closeNewsModal() { if (newsModal) newsModal.hidden = true; }
+function formatNewsDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("ko-KR");
+}
 function updateLoginButton() {
-  const button = document.querySelector("#login-button");
-  button.hidden = Boolean(currentUser);
-  button.textContent = "Google로 로그인";
-  button.classList.toggle("logged-in", Boolean(currentUser));
-  menuButton.hidden = !currentUser;
+  menuButton.hidden = false;
   menuButton.textContent = currentUser ? `${currentUser.nickname || "내 계정"} ▾` : "☰ 메뉴";
+  const menuLoginButton = document.querySelector("#menu-login-button");
+  const profileButton = document.querySelector("#profile-button");
+  const logoutButton = document.querySelector("#logout-button");
+  if (menuLoginButton) menuLoginButton.hidden = Boolean(currentUser);
+  if (profileButton) profileButton.hidden = !currentUser;
+  if (logoutButton) logoutButton.hidden = !currentUser;
 }
 
 function avatarMarkup(name, className) {
@@ -643,12 +719,23 @@ async function signInWithGoogle() {
     closeLogin();
   } catch (error) { loginMessage.className = "message error"; loginMessage.textContent = error.message; }
 }
-document.querySelector("#login-button").addEventListener("click", openLogin);
+document.querySelector("#menu-login-button").addEventListener("click", openLogin);
 document.querySelector("#google-login").addEventListener("click", signInWithGoogle);
 document.querySelector("#close-login").addEventListener("click", closeLogin);
 menuButton.addEventListener("click", () => { const expanded = menuButton.getAttribute("aria-expanded") === "true"; menuButton.setAttribute("aria-expanded", String(!expanded)); menuPanel.hidden = expanded; });
 document.querySelector("#profile-button").addEventListener("click", () => openProfile(false));
 document.querySelector("#ranking-button").addEventListener("click", openRanking);
+document.querySelector("#event-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-news-index]");
+  if (button) openNewsModal(currentEvents[Number(button.dataset.newsIndex)]);
+});
+document.querySelector("#detail-events").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-detail-news-index]");
+  if (button) openNewsModal(currentDetailNews[Number(button.dataset.detailNewsIndex)]);
+});
+document.querySelector("#close-news").addEventListener("click", closeNewsModal);
+newsModal.addEventListener("click", (event) => { if (event.target === newsModal) closeNewsModal(); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeNewsModal(); });
 document.querySelector("#logout-button").addEventListener("click", async () => { closeMenu(); await firebaseAuth.signOut(); currentUser = null; currentProfile = null; currentOpenOrders = []; currentSettlements = []; profileRequired = false; if (location.hash === "#profile") location.hash = ""; updateLoginButton(); renderPortfolio(null); await refreshMarket(); });
 profileClose.addEventListener("click", closeProfile);
 document.querySelector("#close-ranking").addEventListener("click", closeRanking);
@@ -710,6 +797,8 @@ resetAccountButton?.addEventListener("click", async () => {
     resetAccountMessage.textContent = error.message;
   }
 });
+// 초기 상태(비로그인)에서도 메뉴 버튼과 공개 메뉴 항목을 즉시 표시한다.
+updateLoginButton();
 if (window.GAMESTOCK_FIREBASE_CONFIG && window.firebase) {
   firebase.initializeApp(window.GAMESTOCK_FIREBASE_CONFIG);
   firebaseAuth = firebase.auth();

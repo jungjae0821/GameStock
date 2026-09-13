@@ -47,13 +47,12 @@ body {
 .menu-river-temperature.ok { color: var(--brand); font-weight: 700; }
 .menu-river-temperature.stale { color: #a56a00; }
 .account-actions { position: relative; display: flex; align-items: center; gap: 8px; margin-left: 6px; }
-.login-button { margin: 0; padding: 0 14px; min-height: 36px; white-space: nowrap; }
-.login-button.logged-in { background: #18794e; }
 .menu-button { min-height: 36px; padding: 0 12px; white-space: nowrap; background: #fff; color: var(--brand); border: 1px solid #cfc6e8; }
 .menu-panel { position: absolute; z-index: 12; top: calc(100% + 8px); right: 0; width: 160px; padding: 7px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 12px 30px rgba(31, 24, 55, .16); }
 .menu-panel[hidden] { display: none; }
 .menu-panel button { width: 100%; margin: 0; min-height: 38px; background: transparent; color: var(--ink); text-align: left; padding: 0 10px; }
 .menu-panel button:hover { background: #f2effa; color: var(--brand); }
+.menu-panel .menu-login-button { color: var(--brand); font-weight: 750; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
 .login-modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgba(23, 32, 47, .48); }
 .login-modal[hidden] { display: none; }
 .login-dialog { position: relative; width: min(100%, 390px); padding: 30px; border-radius: 18px; background: white; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
@@ -201,6 +200,19 @@ main {
   font-size: 0.82rem;
   font-weight: 750;
 }
+.stock-reason {
+  display: grid;
+  gap: 3px;
+  margin-top: 14px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: #faf9fc;
+  border: 1px solid #eeeaf5;
+}
+.stock-reason > span { color: var(--muted); font-size: .7rem; font-weight: 750; }
+.stock-reason small { color: var(--ink); font-size: .76rem; line-height: 1.35; }
+.stock-reason.up { border-color: #f3d8dc; background: #fffafa; }
+.stock-reason.down { border-color: #d9e8f3; background: #fbfdff; }
 .change {
   font-size: 0.88rem;
   font-weight: 700;
@@ -299,6 +311,41 @@ button {
   display: block;
   margin-top: 4px;
 }
+.event-news-button {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-weight: inherit;
+}
+.event-news-button:hover { color: var(--brand); }
+.event-news-button strong { display: block; line-height: 1.4; }
+.event-stock { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.event-stock-change { font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.event-stock-change.up { color: var(--up); }
+.event-stock-change.down { color: var(--down); }
+.event-stock-change.flat { color: var(--muted); }
+.event-date { color: var(--muted); }
+.event.positive .event-news-button strong { color: var(--up); }
+.event.negative .event-news-button strong { color: var(--down); }
+.event.neutral .event-news-button strong { color: var(--muted); }
+.event-insight {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-items: end;
+  gap: 3px 9px;
+  min-width: 250px;
+  text-align: right;
+}
+.event-insight small { grid-column: 1 / -1; max-width: 250px; line-height: 1.3; font-size: .72rem; }
+.event-price { font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.event-price.up { color: var(--up); }
+.event-price.down { color: var(--down); }
+.event-price.flat { color: var(--muted); }
 .impact {
   font-weight: 800;
 }
@@ -308,6 +355,11 @@ button {
 .impact.negative {
   color: var(--down);
 }
+.impact.neutral { color: var(--muted); }
+.news-dialog h2 { margin: 2px 0 12px; line-height: 1.35; }
+.news-modal-price-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.news-modal-reason { margin: 18px 0 10px; padding: 12px; border-radius: 10px; background: #f7f5fc; color: var(--brand); font-weight: 700; line-height: 1.45; }
+.news-modal-summary { margin: 0; color: var(--ink); line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
 footer {
   text-align: center;
   padding: 32px;
@@ -527,7 +579,6 @@ footer {
   .topbar .river-temperature {
     display: none;
   }
-  .login-button { margin-left: 0; }
   main {
     width: min(100% - 28px, 1180px);
   }
@@ -562,4 +613,7 @@ footer {
     grid-column: 2 / -1;
     text-align: left;
   }
+  .event { align-items: start; flex-direction: column; gap: 9px; }
+  .event-insight { width: 100%; min-width: 0; justify-items: start; text-align: left; }
+  .event-insight small { max-width: none; }
 }

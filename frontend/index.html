@@ -12,20 +12,19 @@
       <span>서브컬처 게임 모의주식</span>
       <span id="server-status" class="status">서버 확인 중</span>
       <div class="account-actions">
-        <button id="login-button" class="login-button" type="button">
-          Google로 로그인
-        </button>
         <button
           id="menu-button"
           class="menu-button"
           type="button"
           aria-expanded="false"
-          hidden
         >
           ☰ 메뉴
         </button>
         <div id="menu-panel" class="menu-panel" hidden>
-          <button id="profile-button" type="button">마이페이지</button>
+          <button id="menu-login-button" class="menu-login-button" type="button">
+            Google로 로그인
+          </button>
+          <button id="profile-button" type="button" hidden>마이페이지</button>
           <button id="ranking-button" type="button">랭킹</button>
           <div
             id="han-river-temperature"
@@ -34,7 +33,7 @@
           >
             한강 수온(선유) 조회 중…
           </div>
-          <button id="logout-button" type="button">로그아웃</button>
+          <button id="logout-button" type="button" hidden>로그아웃</button>
         </div>
       </div>
     </header>
@@ -188,6 +187,32 @@
       투자에 대한 모든 책임은 투자자에게 있으며 거래에 사용되는 화폐는 실제 돈이
       아닙니다.
     </footer>
+    <div id="news-modal" class="login-modal" hidden>
+      <div
+        class="login-dialog news-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="news-modal-title"
+      >
+        <button
+          id="close-news"
+          class="close-login"
+          type="button"
+          aria-label="뉴스 닫기"
+        >
+          ×
+        </button>
+        <p class="eyebrow">NEWS DETAIL</p>
+        <p id="news-modal-stock" class="detail-subtitle"></p>
+        <h2 id="news-modal-title"></h2>
+        <div class="news-modal-price-row">
+          <span id="news-modal-price" class="event-price flat"></span>
+          <span id="news-modal-date" class="detail-subtitle"></span>
+        </div>
+        <p id="news-modal-reason" class="news-modal-reason"></p>
+        <p id="news-modal-summary" class="news-modal-summary"></p>
+      </div>
+    </div>
     <div id="login-modal" class="login-modal" hidden>
       <div
         class="login-dialog"
