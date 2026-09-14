@@ -75,6 +75,18 @@ public final class MarketModels {
     public record OrderBookLevel(long price, int quantity, int orderCount) { }
     public record OrderBook(String stockCode, List<OrderBookLevel> bids, List<OrderBookLevel> asks) { }
     public record PricePoint(long price, String recordedAt) { }
+    /**
+     * Public explanation of the inputs that are currently shaping a stock's
+     * virtual price. Volumes cover the recent 24-hour window and are split
+     * between human participants and automated liquidity bots.
+     */
+    public record PriceDrivers(String stockCode, long currentPrice, long previousPrice,
+                               double changePercent, double newsImpact, int newsCount,
+                               long userBuyVolume, long userSellVolume,
+                               long botBuyVolume, long botSellVolume,
+                               long openBuyVolume, long openSellVolume,
+                               String latestNewsAt, String latestTradeAt,
+                               String reason) { }
     /** Daily open/close/volume summary. High/low are intentionally omitted per README scope. */
     public record DailyCandle(String stockCode, String tradingDate, long openPrice, long closePrice,
                               long volume) { }

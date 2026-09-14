@@ -35,6 +35,7 @@ let loadedDailyCode = null;
 let loadedNewsCode = null;
 let loadedOrderBookCode = null;
 let loadedTradeCode = null;
+let loadedPriceDriversCode = null;
 let currentUser = null;
 let currentProfile = null;
 let currentOpenOrders = [];
@@ -164,6 +165,15 @@ function newsSummary(description) {
   return summary || "제공된 뉴스 요약이 없습니다.";
 }
 
+function newsSourceUrl(description) {
+  const match = String(description || "").match(/출처:\s*(https?:\/\/[^\s<]+)/i);
+  if (!match) return null;
+  try {
+    const url = new URL(match[1]);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch { return null; }
+}
+
 function renderDetail() {
   if (location.hash === "#profile" && currentUser) {
     clearTradeRefresh();
@@ -183,6 +193,7 @@ function renderDetail() {
     loadedDailyCode = null;
     loadedNewsCode = null;
     loadedTradeCode = null;
+    loadedPriceDriversCode = null;
     marketPage.hidden = false;
     detailPage.hidden = true;
     return;
@@ -216,6 +227,10 @@ function renderDetail() {
   if (loadedTradeCode !== stock.code) {
     loadedTradeCode = stock.code;
     startTradeRefresh(stock.code);
+  }
+  if (loadedPriceDriversCode !== stock.code) {
+    loadedPriceDriversCode = stock.code;
+    loadPriceDrivers(stock.code);
   }
   if (loadedNewsCode !== stock.code) {
     loadedNewsCode = stock.code;
@@ -307,6 +322,40 @@ async function loadStockNews(stockCode) {
   }
 }
 
+function renderPriceDrivers(drivers) {
+  const container = document.querySelector("#price-drivers");
+  const reason = document.querySelector("#price-drivers-reason");
+  const updated = document.querySelector("#price-drivers-updated");
+  if (!container || !drivers) return;
+  const newsDirection = drivers.newsImpact > 0.2 ? "상승 방향" : drivers.newsImpact < -0.2 ? "하락 방향" : "혼합·보합";
+  const flowLabel = (buy, sell) => {
+    const net = Number(buy || 0) - Number(sell || 0);
+    if (net > 0) return `매수 우세 · 순 ${net.toLocaleString()}주`;
+    if (net < 0) return `매도 우세 · 순 ${Math.abs(net).toLocaleString()}주`;
+    return "매수·매도 균형";
+  };
+  const latest = drivers.latestTradeAt ? new Date(drivers.latestTradeAt).toLocaleString("ko-KR") : "최근 체결 없음";
+  const latestNews = drivers.latestNewsAt ? new Date(drivers.latestNewsAt).toLocaleString("ko-KR") : "최근 뉴스 없음";
+  if (reason) reason.textContent = `${drivers.reason || "뉴스와 거래 흐름이 현재 가격에 반영되었습니다."} (최근 체결 ${latest})`;
+  if (updated) updated.textContent = `분석 범위: 최근 24시간 · 마지막 뉴스 ${latestNews} · 마지막 체결 ${latest}`;
+  container.innerHTML = [
+    ["뉴스 흐름", `${newsDirection} · ${Number(drivers.newsCount || 0).toLocaleString()}건`],
+    ["이용자 거래", flowLabel(drivers.userBuyVolume, drivers.userSellVolume)],
+    ["현재 호가", `매수 ${Number(drivers.openBuyVolume || 0).toLocaleString()}주 · 매도 ${Number(drivers.openSellVolume || 0).toLocaleString()}주`],
+  ].map(([label, value]) => `<div class="price-driver"><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+}
+
+async function loadPriceDrivers(stockCode) {
+  const container = document.querySelector("#price-drivers");
+  try {
+    const drivers = await api(`/api/stocks/${encodeURIComponent(stockCode)}/price-drivers`);
+    if (location.hash !== `#stock/${stockCode}`) return;
+    renderPriceDrivers(drivers);
+  } catch {
+    if (container) container.innerHTML = '<p class="empty-state">가격 결정 근거를 불러오지 못했습니다.</p>';
+  }
+}
+
 function renderStockNews(news, stockCode) {
   const newsContainer = document.querySelector("#detail-events");
   newsContainer.innerHTML = news
@@ -368,6 +417,7 @@ function startTradeRefresh(stockCode) {
       loadPublicTrades(stockCode);
       loadOrderBook(stockCode);
       loadDailySummaries(stockCode);
+      loadPriceDrivers(stockCode);
     }
   }, 10000);
 }
@@ -566,6 +616,7 @@ const newsModalPrice = document.querySelector("#news-modal-price");
 const newsModalDate = document.querySelector("#news-modal-date");
 const newsModalReason = document.querySelector("#news-modal-reason");
 const newsModalSummary = document.querySelector("#news-modal-summary");
+const newsModalSource = document.querySelector("#news-modal-source");
 const resetAccountButton = document.querySelector("#reset-account");
 const resetAccountMessage = document.querySelector("#reset-account-message");
 let profileRequired = false;
@@ -585,6 +636,12 @@ function openNewsModal(event) {
   newsModalDate.textContent = event.publishedAt ? formatNewsDate(event.publishedAt) : "게시 시각 미상";
   newsModalReason.textContent = event.priceReason || fallbackPriceReason(change);
   newsModalSummary.textContent = newsSummary(event.description);
+  const sourceUrl = newsSourceUrl(event.description);
+  if (newsModalSource) {
+    newsModalSource.hidden = !sourceUrl;
+    if (sourceUrl) newsModalSource.href = sourceUrl;
+    else newsModalSource.removeAttribute("href");
+  }
   newsModal.hidden = false;
 }
 function closeNewsModal() { if (newsModal) newsModal.hidden = true; }

@@ -54,6 +54,10 @@ public class MarketController {
     public java.util.List<PricePoint> priceHistory(@PathVariable String stockCode) {
         return market.priceHistory(stockCode);
     }
+    @GetMapping("/stocks/{stockCode}/price-drivers")
+    public PriceDrivers priceDrivers(@PathVariable String stockCode) {
+        return market.priceDrivers(stockCode);
+    }
     @GetMapping({"/stocks/{stockCode}/daily", "/stocks/{stockCode}/ohlcv"})
     public java.util.List<DailyCandle> dailySummaries(@PathVariable String stockCode) {
         return market.dailySummaries(stockCode);

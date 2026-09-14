@@ -360,6 +360,8 @@ button {
 .news-modal-price-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .news-modal-reason { margin: 18px 0 10px; padding: 12px; border-radius: 10px; background: #f7f5fc; color: var(--brand); font-weight: 700; line-height: 1.45; }
 .news-modal-summary { margin: 0; color: var(--ink); line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.news-modal-source { display: inline-block; margin-top: 14px; color: var(--brand); font-size: .8rem; font-weight: 750; text-decoration: none; }
+.news-modal-source:hover { text-decoration: underline; }
 footer {
   text-align: center;
   padding: 32px;
@@ -445,6 +447,18 @@ footer {
   width: 100%;
   height: 300px;
 }
+.price-drivers-panel {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.price-drivers-panel .panel-heading h2 { margin-bottom: 8px; }
+.price-drivers-reason { margin: 0 0 12px; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.price-drivers-updated { margin: -4px 0 12px; color: var(--muted); font-size: .72rem; }
+.price-drivers-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.price-driver { display: grid; gap: 4px; min-width: 0; padding: 10px; border: 1px solid #eeeaf5; border-radius: 9px; background: #faf9fc; }
+.price-driver span { color: var(--muted); font-size: .72rem; font-weight: 700; }
+.price-driver strong { overflow-wrap: anywhere; font-size: .8rem; line-height: 1.35; }
 .chart-tooltip {
   position: absolute;
   transform: translateX(-50%);
@@ -598,6 +612,9 @@ footer {
   }
   .chart-panel canvas {
     height: 230px;
+  }
+  .price-drivers-grid {
+    grid-template-columns: 1fr;
   }
   .profile-page {
     padding: 28px 0 42px;

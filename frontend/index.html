@@ -103,6 +103,22 @@
               hidden
             ></div>
           </div>
+          <section class="price-drivers-panel" aria-live="polite">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">PRICE DRIVERS</p>
+                <h2>가격 결정 근거</h2>
+              </div>
+              <span>최근 24시간</span>
+            </div>
+            <p id="price-drivers-reason" class="price-drivers-reason">
+              뉴스와 거래 흐름을 계산하는 중입니다.
+            </p>
+            <p id="price-drivers-updated" class="price-drivers-updated" aria-live="polite"></p>
+            <div id="price-drivers" class="price-drivers-grid">
+              <p class="empty-state">가격 결정 근거를 불러오는 중입니다.</p>
+            </div>
+          </section>
         </div>
         <aside class="order-panel">
           <p class="eyebrow">ORDER</p>
@@ -211,6 +227,7 @@
         </div>
         <p id="news-modal-reason" class="news-modal-reason"></p>
         <p id="news-modal-summary" class="news-modal-summary"></p>
+        <a id="news-modal-source" class="news-modal-source" href="#" target="_blank" rel="noreferrer" hidden>원문 기사 열기 ↗</a>
       </div>
     </div>
     <div id="login-modal" class="login-modal" hidden>

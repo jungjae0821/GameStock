@@ -14,12 +14,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Collections;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.time.Instant;
 import java.util.Random;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 
 import static com.gamestock.backend.market.MarketModels.*;
 
@@ -29,15 +32,29 @@ public class MarketService {
     private static final long STARTING_CASH = 1_000_000L;
     /** GameStock charges a small, transparent 0.10% commission per side. */
     private static final double TRADING_FEE_RATE = 0.001;
+    /** A normal bot matching cycle may move the current price by at most +/-0.5%. */
+    private static final double BOT_PRICE_STEP_RATE = 0.005;
+    /** A bot may react up to +/-1% during a special-news matching cycle. */
+    private static final double BOT_SPECIAL_PRICE_STEP_RATE = 0.01;
+    /** Per-headline news influence limits. */
+    private static final double NEWS_SINGLE_BASE_RATE = 0.02;
+    private static final double NEWS_SINGLE_SPECIAL_RATE = 0.05;
+    private static final double NEWS_MAJOR_INCIDENT_RATE = 0.10;
+    /** Twenty-four-hour aggregate news influence limits. */
+    private static final double NEWS_24H_BASE_RATE = 0.05;
+    private static final double NEWS_24H_SPECIAL_RATE = 0.10;
+    /** Scores are produced by NewsFeedService's -10..+10 classifier. */
+    private static final double NEWS_SPECIAL_IMPACT_THRESHOLD = 6.0;
+    private static final double NEWS_MAJOR_INCIDENT_IMPACT_THRESHOLD = -8.0;
     private static final int MAX_BOT_OPEN_ORDERS_PER_SIDE = 40;
     private static final int USER_ORDER_WINDOW_SECONDS = 10;
     private static final int USER_ORDER_LIMIT = 20;
     private static final int DUPLICATE_ORDER_WINDOW_SECONDS = 2;
     private static final String DEMO_USERNAME = "demo";
+    private static final Pattern NEWS_SOURCE_PATTERN = Pattern.compile("출처:\\s*(https?://\\S+)", Pattern.CASE_INSENSITIVE);
 
     private final ApplicationEventPublisher events;
     private final JdbcTemplate jdbc;
-    private final Map<String, Double> botMomentum = new HashMap<>();
     @Value("${gamestock.simulation.seed:20260910}")
     private long simulationSeed;
     private Random tickRandom = new Random(20260910L);
@@ -230,17 +247,27 @@ public class MarketService {
     }
 
     public synchronized List<MarketEvent> stockNews(String code) {
-        return jdbc.query("""
+        List<MarketEvent> candidates = jdbc.query("""
                 SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
                        s.current_price, s.previous_price
                 FROM market_events e JOIN stocks s ON s.id = e.stock_id
                 WHERE e.event_type = 'NEWS' AND s.stock_code = ?
                 ORDER BY COALESCE(e.published_at, e.created_at) DESC, e.id DESC
-                LIMIT 20
-                """, this::toMarketEvent, code.toUpperCase(Locale.ROOT)).stream()
+                LIMIT 100
+                """, this::toMarketEvent, code.toUpperCase(Locale.ROOT));
+        Set<String> seen = new HashSet<>();
+        return candidates.stream()
                 .filter(this::isRelevantNews)
+                // Google News can publish the same article with minor source/title
+                // variants. Count one canonical source only once toward the five.
+                .filter(event -> seen.add(newsIdentity(event)))
                 .limit(5)
                 .toList();
+    }
+
+    private String newsIdentity(MarketEvent event) {
+        Matcher matcher = NEWS_SOURCE_PATTERN.matcher(event.description() == null ? "" : event.description());
+        return matcher.find() ? matcher.group(1) : event.title();
     }
 
     private boolean isRelevantNews(MarketEvent event) {
@@ -506,6 +533,89 @@ public class MarketService {
             return points;
     }
 
+    /**
+     * Returns a transparent, public summary of the inputs that have shaped a
+     * stock recently. This deliberately uses existing news, trade, and order
+     * tables so the explanation is derived from the same data as the price.
+     */
+    public synchronized PriceDrivers priceDrivers(String code) {
+        settleDuePayments();
+        expireOrders();
+        String normalized = code.toUpperCase(Locale.ROOT);
+        Stock stock = findStock(normalized);
+        if (stock == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
+        long id = stockId(normalized);
+        Double impact = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(e.impact * GREATEST(0, LEAST(1,
+                    1 - TIMESTAMPDIFF(SECOND, COALESCE(e.published_at, e.created_at), CURRENT_TIMESTAMP) / 86400.0))), 0)
+                FROM market_events e
+                WHERE e.stock_id = ? AND e.event_type = 'NEWS'
+                  AND COALESCE(e.published_at, e.created_at) >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
+                """, Double.class, id);
+        Integer newsCount = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM market_events
+                WHERE stock_id = ? AND event_type = 'NEWS'
+                  AND COALESCE(published_at, created_at) >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
+                """, Integer.class, id);
+        VolumeBreakdown volumes = jdbc.queryForObject("""
+                SELECT
+                  COALESCE(SUM(CASE WHEN buyer.password_hash <> 'BOT' THEN t.quantity ELSE 0 END), 0) AS user_buy,
+                  COALESCE(SUM(CASE WHEN seller.password_hash <> 'BOT' THEN t.quantity ELSE 0 END), 0) AS user_sell,
+                  COALESCE(SUM(CASE WHEN buyer.password_hash = 'BOT' THEN t.quantity ELSE 0 END), 0) AS bot_buy,
+                  COALESCE(SUM(CASE WHEN seller.password_hash = 'BOT' THEN t.quantity ELSE 0 END), 0) AS bot_sell
+                FROM trades t
+                JOIN users buyer ON buyer.id = t.buyer_id
+                JOIN users seller ON seller.id = t.seller_id
+                WHERE t.stock_id = ?
+                  AND t.created_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
+                """, (rs, row) -> new VolumeBreakdown(rs.getLong("user_buy"), rs.getLong("user_sell"),
+                rs.getLong("bot_buy"), rs.getLong("bot_sell")), id);
+        VolumeBreakdown openOrders = jdbc.queryForObject("""
+                SELECT
+                  COALESCE(SUM(CASE WHEN side = 'BUY' THEN remaining_quantity ELSE 0 END), 0) AS open_buy,
+                  COALESCE(SUM(CASE WHEN side = 'SELL' THEN remaining_quantity ELSE 0 END), 0) AS open_sell
+                FROM orders
+                WHERE stock_id = ? AND status = 'OPEN'
+                """, (rs, row) -> new VolumeBreakdown(rs.getLong("open_buy"), rs.getLong("open_sell"), 0, 0), id);
+        Timestamp latestNews = jdbc.queryForObject("""
+                SELECT MAX(COALESCE(published_at, created_at)) FROM market_events
+                WHERE stock_id = ? AND event_type = 'NEWS'
+                """, Timestamp.class, id);
+        Timestamp latestTrade = jdbc.queryForObject("SELECT MAX(created_at) FROM trades WHERE stock_id = ?", Timestamp.class, id);
+        double newsImpact = Math.max(-10.0, Math.min(10.0, impact == null ? 0.0 : impact));
+        long userNet = volumes.userBuy() - volumes.userSell();
+        long botNet = volumes.botBuy() - volumes.botSell();
+        long openNet = openOrders.userBuy() - openOrders.userSell();
+        return new PriceDrivers(normalized, stock.price(), previousPrice(normalized), stock.changePercent(),
+                newsImpact, newsCount == null ? 0 : newsCount, volumes.userBuy(), volumes.userSell(),
+                volumes.botBuy(), volumes.botSell(), openOrders.userBuy(), openOrders.userSell(),
+                latestNews == null ? null : latestNews.toInstant().toString(),
+                latestTrade == null ? null : latestTrade.toInstant().toString(),
+                priceDriversReason(stock.changePercent(), newsImpact, userNet, botNet, openNet));
+    }
+
+    private long previousPrice(String code) {
+        Long previous = jdbc.queryForObject("SELECT previous_price FROM stocks WHERE stock_code = ?", Long.class, code);
+        return previous == null ? 0 : previous;
+    }
+
+    private String priceDriversReason(double changePercent, double newsImpact, long userNet,
+                                      long botNet, long openNet) {
+        boolean newsUp = newsImpact > 0.2;
+        boolean newsDown = newsImpact < -0.2;
+        boolean flowUp = userNet > 0 || botNet > 0 || openNet > 0;
+        boolean flowDown = userNet < 0 || botNet < 0 || openNet < 0;
+        if (changePercent > 0 && newsUp && flowUp) return "최근 뉴스와 매수세가 함께 반영되어 가격이 상승했습니다.";
+        if (changePercent < 0 && newsDown && flowDown) return "최근 뉴스와 매도세가 함께 반영되어 가격이 하락했습니다.";
+        if (changePercent > 0 && newsDown && flowUp) return "하락 방향 뉴스가 있었지만 매수세가 우세해 가격이 상승했습니다.";
+        if (changePercent < 0 && newsUp && flowDown) return "상승 방향 뉴스가 있었지만 매도세가 우세해 가격이 하락했습니다.";
+        if (changePercent > 0 && flowUp) return "매수세가 매도세보다 커 가격이 상승했습니다.";
+        if (changePercent < 0 && flowDown) return "매도세가 매수세보다 커 가격이 하락했습니다.";
+        if (changePercent > 0 && newsUp) return "최근 뉴스 흐름이 상승 방향으로 반영되어 가격이 올랐습니다.";
+        if (changePercent < 0 && newsDown) return "최근 뉴스 흐름이 하락 방향으로 반영되어 가격이 내렸습니다.";
+        return "최근 뉴스와 거래 흐름이 뚜렷한 한 방향으로 모이지 않았습니다.";
+    }
+
     public synchronized List<DailyCandle> dailySummaries(String code) {
         String normalized = code.toUpperCase(Locale.ROOT);
         if (findStock(normalized) == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
@@ -630,9 +740,10 @@ public class MarketService {
         List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
         if (codes.isEmpty()) return;
         String code = codes.get(tickRandom.nextInt(codes.size()));
+        NewsBias newsBias = recentNewsBias(code);
         // 봇은 현재가 양옆에 유동성을 공급하고, 별도의 소량 시장가 주문으로 일부만 소비한다.
-        createBotOrder(code, "BUY");
-        createBotOrder(code, "SELL");
+        createBotOrder(code, "BUY", newsBias);
+        createBotOrder(code, "SELL", newsBias);
         // 한 번의 틱 안에서도 양쪽 봇을 모두 실행하되 순서를 섞어 고정된 매수→매도 패턴을 피한다.
         String firstSide = tickRandom.nextBoolean() ? "BUY" : "SELL";
         String secondSide = "BUY".equals(firstSide) ? "SELL" : "BUY";
@@ -643,17 +754,21 @@ public class MarketService {
         MatchSummary secondMatched = matchOrders(code);
         if (secondOrderId > 0) cancelRemainingMarket(secondOrderId);
         MatchSummary matched = firstMatched.merge(secondMatched);
-        // 같은 틱의 양방향 체결은 VWAP 하나로 기록해 그래프에 인위적인 V자 패턴이 남지 않게 한다.
-        if (matched.hasTrades()) moveBotPrice(code, naturalBotPrice(code, matched), matched.totalQuantity());
+        // 뉴스는 봇 호가의 기준 가격을 움직이고, 최종 주가는 실제 체결 VWAP로만 갱신한다.
+        // 따라서 체결하지 않은 상태에서 임의의 가격을 만들어내지 않는다.
+        if (matched.hasTrades()) moveBotPrice(code, matched.vwap(), matched.totalQuantity(), newsBias.special());
         trimBotLiquidity(code);
         events.publishEvent(new MarketChangedEvent(snapshot()));
     }
 
-    private void createBotOrder(String code, String side) {
+    private void createBotOrder(String code, String side, NewsBias newsBias) {
         long id = ensureBot(code, side);
         Stock stock = findStock(code);
         double offset = 0.002 + tickRandom.nextDouble() * 0.006;
-        double rawPrice = stock.price() * ("BUY".equals(side) ? 1 - offset : 1 + offset);
+        // 최근 뉴스 영향은 봇의 기준 호가를 같은 방향으로 이동시킨다.
+        // 실제 현재가는 이 호가가 체결될 때만 바뀌므로 뉴스가 가격을 순간이동시키지 않는다.
+        double fairPrice = stock.price() * (1 + newsBias.rate());
+        double rawPrice = fairPrice * ("BUY".equals(side) ? 1 - offset : 1 + offset);
         long price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
         int quantity = tickRandom.nextInt(26) + 5;
         long idStock = stockId(code);
@@ -1316,13 +1431,6 @@ public class MarketService {
         private long vwap() {
             return totalQuantity == 0 ? 0 : Math.round(totalNotional / (double) totalQuantity);
         }
-        private long impactPrice() {
-            long average = vwap();
-            long imbalance = buyQuantity - sellQuantity;
-            long impactTicks = Math.max(-3, Math.min(3,
-                    Math.round(imbalance * 6.0 / Math.max(totalQuantity, 1))));
-            return Math.max(1, average + impactTicks * tickSize(average));
-        }
     }
     private record OrderState(long id, long userId, long price, int quantity, int remainingQuantity, String status,
                               String orderType, long reservedCash, int reservedQuantity) { }
@@ -1349,6 +1457,10 @@ public class MarketService {
     private record LedgerTrade(long id, long buyerId, long sellerId, int quantity, long price,
                                long buyerFee, long sellerFee, String settlementStatus) { }
     private record ExecutionSummary(long fee, String status, String settlementAt) { }
+    private record VolumeBreakdown(long userBuy, long userSell, long botBuy, long botSell) { }
+    private record RecentNews(String title, String description, double impact, double recency) { }
+    private record NewsInfluence(double rate, boolean special) { }
+    private record NewsBias(double rate, boolean special) { }
 
     private Stock findStock(String code) {
         return stocks().stream().filter(stock -> stock.code().equals(code)).findFirst().orElse(null);
@@ -1414,35 +1526,53 @@ public class MarketService {
                 """, price, price, Math.max(0, volume), code);
     }
 
-    private void moveBotPrice(String code, long requestedPrice, long volume) {
+    private void moveBotPrice(String code, long requestedPrice, long volume, boolean specialNews) {
         Stock current = findStock(code);
-        long maxStep = Math.max(tickSize(current.price()), Math.round(current.price() * 0.004));
+        double stepRate = specialNews ? BOT_SPECIAL_PRICE_STEP_RATE : BOT_PRICE_STEP_RATE;
+        long maxStep = Math.max(tickSize(current.price()), Math.round(current.price() * stepRate));
         long lower = Math.max(100, current.price() - maxStep);
         long upper = current.price() + maxStep;
         long bounded = Math.max(lower, Math.min(upper, requestedPrice));
         moveToPrice(code, bounded, volume);
     }
 
-    private long naturalBotPrice(String code, MatchSummary matched) {
-        Stock current = findStock(code);
-        double shock = tickRandom.nextGaussian() * 0.0012;
-        double previous = botMomentum.getOrDefault(code, 0.0);
-        double newsMove = recentNewsBias(code);
-        double momentum = Math.max(-0.0025, Math.min(0.0025, previous * 0.72 + shock + newsMove));
-        botMomentum.put(code, momentum);
-        return Math.max(1, matched.impactPrice() + Math.round(current.price() * momentum));
-    }
-
-    /** Recent news is a small bounded drift, so a single headline cannot dominate the book. */
-    private double recentNewsBias(String code) {
-        Double impact = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(impact * GREATEST(0, 1 - TIMESTAMPDIFF(HOUR, COALESCE(e.published_at, e.created_at), CURRENT_TIMESTAMP) / 24.0)), 0)
+    /**
+     * Converts each recent headline into a bounded influence, then applies a
+     * separate twenty-four-hour aggregate cap. News only changes bot quotes;
+     * the current price still changes after an actual match.
+     */
+    private NewsBias recentNewsBias(String code) {
+        List<RecentNews> recentNews = jdbc.query("""
+                SELECT e.title, e.description, e.impact,
+                       GREATEST(0, LEAST(1, 1 - TIMESTAMPDIFF(SECOND,
+                           COALESCE(e.published_at, e.created_at), CURRENT_TIMESTAMP) / 86400.0)) AS recency
                 FROM market_events e JOIN stocks s ON s.id = e.stock_id
                 WHERE e.event_type = 'NEWS' AND s.stock_code = ?
                   AND COALESCE(e.published_at, e.created_at) >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
-                """, Double.class, code);
-        double normalized = impact == null ? 0 : impact * 0.0005;
-        return Math.max(-0.006, Math.min(0.006, normalized));
+                """, (rs, row) -> new RecentNews(
+                rs.getString("title"), rs.getString("description"), rs.getDouble("impact"),
+                Math.max(0.0, Math.min(1.0, rs.getDouble("recency")))), code);
+        double total = 0.0;
+        boolean special = false;
+        for (RecentNews news : recentNews) {
+            NewsInfluence influence = newsInfluence(news);
+            total += influence.rate();
+            special |= influence.special();
+        }
+        double aggregateLimit = special ? NEWS_24H_SPECIAL_RATE : NEWS_24H_BASE_RATE;
+        return new NewsBias(Math.max(-aggregateLimit, Math.min(aggregateLimit, total)), special);
+    }
+
+    private NewsInfluence newsInfluence(RecentNews news) {
+        double absoluteImpact = Math.min(10.0, Math.abs(news.impact()));
+        if (absoluteImpact == 0.0) return new NewsInfluence(0.0, false);
+        boolean majorIncident = news.impact() <= NEWS_MAJOR_INCIDENT_IMPACT_THRESHOLD
+                && NewsRelevance.hasIncidentContext(news.title(), news.description());
+        boolean special = majorIncident || absoluteImpact >= NEWS_SPECIAL_IMPACT_THRESHOLD;
+        double singleLimit = majorIncident ? NEWS_MAJOR_INCIDENT_RATE
+                : special ? NEWS_SINGLE_SPECIAL_RATE : NEWS_SINGLE_BASE_RATE;
+        double rate = singleLimit * (absoluteImpact / 10.0) * news.recency();
+        return new NewsInfluence(Math.copySign(rate, news.impact()), special);
     }
 
     private Portfolio portfolioUnsafe(long userId) {

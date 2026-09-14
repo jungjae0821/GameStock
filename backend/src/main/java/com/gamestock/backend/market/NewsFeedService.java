@@ -57,6 +57,11 @@ public class NewsFeedService {
     private static final List<WeightedSignal> NEGATIVE_SIGNALS = List.of(
             new WeightedSignal("서비스 종료", 4), new WeightedSignal("서비스 중단", 4),
             new WeightedSignal("출시 실패", 4), new WeightedSignal("출시 취소", 4),
+            new WeightedSignal("개인정보 유출", 4), new WeightedSignal("데이터 유출", 4),
+            new WeightedSignal("불법 프로그램", 4), new WeightedSignal("핵 사용", 3),
+            new WeightedSignal("핵 이용", 3), new WeightedSignal("비정상 플레이", 3),
+            new WeightedSignal("계정 정지", 3), new WeightedSignal("이용 제한", 3),
+            new WeightedSignal("법적 분쟁", 3), new WeightedSignal("서버 다운", 3),
             new WeightedSignal("업데이트 취소", 3), new WeightedSignal("성공하지 못", 3),
             new WeightedSignal("출시하지 못", 3), new WeightedSignal("성장 둔화", 3),
             new WeightedSignal("실적 악화", 3), new WeightedSignal("기대 이하", 3),
@@ -64,8 +69,10 @@ public class NewsFeedService {
             new WeightedSignal("매출 감소", 3), new WeightedSignal("이용자 감소", 3),
             new WeightedSignal("이용자 이탈", 3), new WeightedSignal("예약 취소", 2),
             new WeightedSignal("접속 장애", 3), new WeightedSignal("접속 불가", 3), new WeightedSignal("긴급 점검", 3),
-            new WeightedSignal("개인정보 유출", 4),
             new WeightedSignal("해킹", 4), new WeightedSignal("환불", 2), new WeightedSignal("논란", 2),
+            new WeightedSignal("제재", 2), new WeightedSignal("보안", 2), new WeightedSignal("유출", 3),
+            new WeightedSignal("피해", 2), new WeightedSignal("과금", 2), new WeightedSignal("맹점", 2),
+            new WeightedSignal("사건사고", 2), new WeightedSignal("사고", 1), new WeightedSignal("소송", 3),
             new WeightedSignal("악재", 2), new WeightedSignal("부정적", 2), new WeightedSignal("우려", 2),
             new WeightedSignal("비판", 2), new WeightedSignal("실패", 2), new WeightedSignal("지연", 2),
             new WeightedSignal("장애", 2), new WeightedSignal("점검", 1), new WeightedSignal("삭제", 2),
@@ -183,7 +190,10 @@ public class NewsFeedService {
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 // Fetch more candidates before relevance filtering so an
                 // unrelated headline does not push a useful item out.
-                .limit(20)
+                // Keep a wider recent window so each stock can fill its five
+                // distinct, relevant headlines even when the feed contains
+                // several near-duplicate or off-topic results.
+                .limit(50)
                 .toList();
     }
 
