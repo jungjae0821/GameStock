@@ -1,33 +1,25 @@
 # GameStock
 
-실제 게임 뉴스와 이용자 거래가 가상 게임주 가격에 반영되는 참여형 시장 서비스입니다.
-
-## 프로젝트 핵심 목적
-
-게임별 뉴스·거래·호가를 한곳에 모아 시장의 기대와 위험이 가격으로 어떻게 이어지는지 보여줍니다. 가상 거래를 사용하며, 실제 금융상품 추천이나 수익 보장을 목적으로 하지 않습니다. 주요 대상은 게임 이용자, 게임사·퍼블리셔, 게임산업 분석가입니다.
-
-시장·계정·주문·체결 데이터는 MySQL에 저장되고, 뉴스·종목 조회, 이용자·봇 거래, 자산 계산을 제공합니다.
+실제 게임 뉴스와 이용자 거래가 가상 게임주 가격에 반영되는 참여형 시장 서비스입니다. 가상 거래만 제공하며 실제 금융상품 추천이나 수익을 보장하지 않습니다.
 
 ## 실행 방법
 
-사전 준비: Java 17 이상, MySQL 8.0, 프로젝트 루트의 `.env` 파일(`DB_PASSWORD` 필수).
+사전 준비: Java 17 이상, MySQL 8.0, 루트 `.env`(`DB_PASSWORD` 필수).
 
-`scripts\start.cmd`를 더블클릭하거나 PowerShell에서 다음을 실행하면 백엔드와 웹 화면이 시작됩니다.
+`scripts\start.cmd`를 더블클릭하거나 PowerShell에서 다음을 실행합니다.
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\start.ps1
 ```
 
-서버를 종료하려면 `scripts\stop.cmd`를 더블클릭합니다.
+웹 화면은 [http://localhost:8080](http://localhost:8080), 종료는 `scripts\stop.cmd` 또는 `.\scripts\stop.ps1`입니다.
 
-브라우저: [http://localhost:8080](http://localhost:8080)
+### 무료 외부 테스트 재실행
 
-### 무료 외부 테스트 재실행 (Firebase Hosting + Cloudflare Quick Tunnel)
+Firebase Hosting에는 프론트엔드를, Cloudflare Quick Tunnel에는 로컬 백엔드를 연결합니다. 데이터는 계속 로컬 MySQL에 저장됩니다.
 
-도메인을 구매하지 않고 외부 기기에서 테스트할 때 사용하는 절차입니다. Firebase Hosting에는 프론트엔드를 배포하고, 로컬에서 실행한 Spring Boot 백엔드만 Cloudflare Quick Tunnel로 임시 공개합니다. MySQL 데이터는 계속 이 컴퓨터에 저장됩니다.
-
-처음 한 번만 프로젝트 루트에서 Firebase Hosting을 초기화합니다.
+처음 한 번만 프로젝트 루트에서 초기화합니다.
 
 ```powershell
 npm install -g firebase-tools
@@ -35,14 +27,13 @@ firebase login
 firebase init hosting
 ```
 
-초기화 질문은 기존 프로젝트 `gamestock-20994`, Public directory `frontend`, Single-page app `Yes`, GitHub 배포 `No`, `index.html` 덮어쓰기 `No`를 선택합니다.
+`gamestock-20994`, Public directory `frontend`, Single-page app `Yes`, GitHub 배포 `No`, `index.html` 덮어쓰기 `No`를 선택합니다.
 
-매번 외부 테스트를 시작할 때는 다음 순서를 지킵니다.
+외부 테스트를 반복할 때는 다음 순서입니다.
 
-1. `.\scripts\start.ps1`로 MySQL·백엔드·로컬 웹 화면을 시작합니다.
-2. `cloudflared.exe`가 있는 폴더에서 `.\cloudflared.exe tunnel --url http://localhost:8081`을 실행합니다.
-3. 출력된 `https://<random>.trycloudflare.com` 주소를 복사합니다. 이 창은 테스트가 끝날 때까지 닫지 않습니다.
-4. `frontend\index.html`에서 `app.js`보다 앞에 다음 설정을 넣고 주소를 이번 실행의 주소로 바꿉니다.
+1. `.\scripts\start.ps1` 실행
+2. `cloudflared.exe tunnel --url http://localhost:8081` 실행 후 출력된 주소를 복사하고 터널 창 유지
+3. `frontend\index.html`에서 `app.js` 앞에 다음 설정 추가
 
    ```html
    <script>
@@ -50,28 +41,28 @@ firebase init hosting
    </script>
    ```
 
-5. 루트 `.env`에 Firebase Hosting 주소를 허용합니다.
+4. 루트 `.env`에 Firebase Hosting 주소를 허용합니다.
 
    ```text
    GAMESTOCK_CORS_ORIGIN=https://gamestock-20994.web.app
    ```
 
-6. 백엔드를 재시작해 환경변수를 반영합니다.
+5. 백엔드를 재시작해 환경변수를 반영합니다.
 
    ```powershell
    .\scripts\stop.ps1
    .\scripts\start.ps1
    ```
 
-7. 프론트엔드를 다시 배포합니다.
+6. 프론트엔드를 다시 배포합니다.
 
    ```powershell
    firebase deploy --only hosting
    ```
 
-8. `https://<random>.trycloudflare.com/api/health`가 `{"status":"ok"}`를 반환하는지 확인한 뒤 `https://gamestock-20994.web.app`에서 로그인·조회·거래·실시간 가격을 테스트합니다.
+7. `https://<random>.trycloudflare.com/api/health`가 `{"status":"ok"}`인지 확인하고 `https://gamestock-20994.web.app`에서 로그인·조회·거래·실시간 가격을 테스트합니다.
 
-Quick Tunnel은 재실행할 때마다 주소가 바뀌므로 3~7번을 반복해야 합니다. 테스트를 끝내려면 Quick Tunnel 창을 닫고 `.\scripts\stop.ps1`을 실행합니다. 장기 운영용 주소가 아닌 테스트 전용 방식입니다.
+Quick Tunnel은 재실행할 때마다 주소가 바뀌므로 2~6번을 반복해야 합니다. 테스트 종료 시 터널 창을 닫고 `.\scripts\stop.ps1`을 실행합니다.
 
 `.env` 예시:
 
@@ -84,13 +75,11 @@ GAMESTOCK_ADMIN_GOOGLE_UID=your-firebase-google-uid
 GAMESTOCK_SIMULATION_SEED=20260910
 ```
 
-`.env`는 Git에 포함하지 않습니다.
+`.env`와 Firebase 서비스 계정 키는 Git에 포함하지 않습니다. 관리자도 Google 로그인이 필요하며 `ADMIN` 계정은 투자 랭킹에서 제외됩니다.
 
-관리자 계정도 Google 로그인은 반드시 거쳐야 합니다. 설정한 UID(권장) 또는 이메일과 일치하는 계정이 로그인하면 `ADMIN` 역할이 부여되고, 관리자 전용 API(`/api/admin/health`)와 향후 관리 화면에서 사용됩니다. `ADMIN` 계정은 투자 랭킹에서 자동으로 제외됩니다.
+### 컴퓨터 재부팅 후 MySQL
 
-### 컴퓨터 재부팅 후 MySQL 설정
-
-MySQL 서비스가 없다면 관리자 권한 PowerShell에서 처음 한 번 등록·자동 시작으로 설정합니다.
+MySQL 서비스가 없다면 관리자 PowerShell에서 한 번만 등록합니다.
 
 ```powershell
 & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld.exe" `
@@ -101,83 +90,81 @@ Set-Service MySQL80 -StartupType Automatic
 Start-Service MySQL80
 ```
 
-`Get-Service MySQL80`에서 `Status=Running`, `StartType=Automatic`이면 재부팅 후에도 자동 실행됩니다. `start.ps1`도 백엔드 실행 전에 서비스를 확인합니다. 최신 뉴스 수집에는 인터넷 연결이 필요합니다.
+`Get-Service MySQL80`에서 `Status=Running`, `StartType=Automatic`이면 재부팅 후에도 자동 실행됩니다.
 
 ## 프로젝트 구조
 
 ```text
-backend/                  Spring Boot REST/WebSocket 백엔드
-frontend/                 HTML·CSS·JavaScript 웹 화면
-mobile/                   Expo Android/iOS 앱
-server/src/.../           기존 데모 서버
-database/schema.sql       MySQL 스키마
-scripts/                  실행·종료 스크립트
+backend/            Spring Boot REST/WebSocket 백엔드
+frontend/           HTML·CSS·JavaScript 웹 화면
+mobile/             Expo Android/iOS 앱
+database/schema.sql MySQL 스키마
+scripts/            실행·종료·테스트 스크립트
 ```
 
 ## 개발 현황
 
-- 완료: MySQL/JDBC 저장소, Firebase Google 로그인, 사용자별 자산·주문·출석 보상
-- 완료: 지정가·시장가 주문, 가격·시간 우선 매칭, 부분 체결·취소, 봇 호가, 호가창 API/화면
-- 완료: Expo 앱의 로그인·거래·호가 깊이 그래프·전체 체결 내역
-- 예정 아이디어: 종목별 게임 이미지, APK 배포, 출석 보상 고도화, 웹·앱 다크모드
+- MySQL/JDBC 저장소, Firebase Google 로그인, 사용자 자산·주문·출석 보상
+- 지정가·시장가·부분 체결·취소, 봇 호가, 호가창·실시간 가격
+- Expo 앱 로그인·거래·호가 그래프·체결 내역
+- 예정: 게임 이미지, APK 배포, 출석 보상 고도화, 다크모드
 
 ## 외부 데이터 연동
 
 ### 게임 뉴스 수집
 
-`application.yml`의 종목별 RSS를 서버 시작 후와 10분마다 조회합니다. 관련성 필터와 중복 제거를 거친 최신 뉴스 최대 5개를 종목 화면에 표시하고, 게임명·게임 문맥·사건사고 신호를 함께 확인해 오탐을 줄입니다. 제목 신호는 본문보다 2배 반영하며, 영향도는 -10~+10으로 계산합니다.
+종목별 RSS를 시작 시와 10분마다 조회해 관련성·중복을 검사한 최신 뉴스 최대 5개를 표시합니다. 게임 문맥과 사건사고 신호를 사용하며 영향도는 -10~+10입니다.
 
-RSS 수집을 끄려면 실행 전에 설정합니다.
+RSS를 끄려면 실행 전에 설정합니다.
 
 ```powershell
 $env:GAMESTOCK_NEWS_ENABLED = "false"
 ```
 
-피드 주소·검색어는 `gamestock.news.feeds`에서 `종목코드|RSS주소` 형식으로 수정할 수 있습니다. RSS가 실패해도 시장 API와 거래는 계속 작동합니다.
+피드는 `gamestock.news.feeds`에서 `종목코드|RSS주소` 형식으로 수정합니다. 수집 실패 시에도 시장 API와 거래는 작동합니다.
 
 ### 한강 수온
 
-웹·모바일 메뉴는 [한강 수온 사이트](https://xn--939at9l4tgt7l6ps.com/ko)의 `선유` 측정소 수온을 30분마다 조회·캐시합니다. 실패 시 마지막 성공값을 사용합니다. 주소·활성화·주기는 `GAMESTOCK_HANGANG_SITE_URL`, `GAMESTOCK_HANGANG_ENABLED`, `GAMESTOCK_HANGANG_REFRESH_MS`로 조정합니다.
+웹·모바일 메뉴는 [한강 수온 사이트](https://xn--939at9l4tgt7l6ps.com/ko)의 `선유` 측정소 수온을 30분마다 조회·캐시합니다. 실패 시 마지막 성공값을 사용하며 `GAMESTOCK_HANGANG_SITE_URL`, `GAMESTOCK_HANGANG_ENABLED`, `GAMESTOCK_HANGANG_REFRESH_MS`로 조정합니다.
 
 ## 주식시장 유사성 개선 계획
 
-현재 호가창, 지정가·시장가 주문, 부분 체결, 사용자별 자산 계산을 제공합니다.
+호가창, 지정가·시장가 주문, 부분 체결, 사용자별 자산 계산을 제공합니다.
 
 ### 0순위: 기타옵션
 
 - [x] Google 로그인·닉네임, 로그인 전 메뉴, 마이페이지, 사용자 투자 랭킹
 
-### 1순위: 주문·체결의 정확성
+### 1순위: 주문·체결
 
-- [x] 개별 체결 기록, 호가 소진 방식의 시장가 주문, 가격·시간 우선 매칭
-- [x] 주문 시 현금·주식 예약 및 체결·취소·만료 시 반환
-- [x] 부분 체결과 주문 취소 API·마이페이지
+- [x] 개별 체결, 가격·시간 우선 매칭, 시장가 호가 소진
+- [x] 현금·주식 예약 및 체결·취소·만료 반환
+- [x] 부분 체결·주문 취소 API·마이페이지
 
-### 2순위: 가격 형성 및 시장 규칙
+### 2순위: 가격 형성
 
-- [x] 스프레드·유동성, 사용자 주문량·체결량·호가 잔량, 종목별 tick size
-- [x] 24시간 거래와 시장가 슬리피지·호가 부족 처리
-- [ ] 일일 가격 제한·거래 중단·급등락 보호는 사용자가 원하는 급등락을 위해 제외
+- [x] 스프레드·유동성·호가 잔량·tick size
+- [x] 24시간 거래, 슬리피지, 호가 부족 처리
+- [ ] 일일 가격 제한·거래 중단·급등락 보호는 범위에서 제외
 
-※ 일일 가격 제한폭·거래 중단 규칙은 급등락을 제한하지 않기를 원한 요청에 따라 이번 범위에서 제외했습니다.
+※ 일일 가격 제한·거래 중단 규칙은 이번 범위에서 제외했습니다.
 
-### 3순위: 계좌·결제 현실화
+### 3순위: 계좌·결제
 
-- [x] 체결 수수료(0.10%), 즉시 현금·주식 반영, 체결 완료 내역
+- [x] 체결 수수료(0.10%), 즉시 현금·주식 반영, 체결 내역
 - [x] 평균 매입가·실현 손익·평가 손익 분리
-- [ ] 배당·분할·공매도·감사 로그는 현재 범위에서 제외
+- [ ] 배당·분할·공매도·감사 로그
 
-### 4순위: 시세·뉴스·운영 안정성
+### 4순위: 시세·뉴스·운영
 
-- [x] 시드·틱 상태 저장으로 봇 시뮬레이션 재현
-- [x] RSS 뉴스 영향도(-10~+10), 체결 기반 일별 시가·종가·거래량
-- [x] DB 행 잠금 기반 주문 직렬화, 중복·속도 제한·트랜잭션 복구
-- [x] Firebase 토큰 검증, USER/ADMIN 권한, 공개 랭킹 개인정보 보호
+- [x] 시드·틱 저장, RSS 영향도(-10~+10), 일별 시세
+- [x] DB 잠금·중복/속도 제한·트랜잭션 복구
+- [x] Firebase 토큰 검증, USER/ADMIN 권한, 랭킹 개인정보 보호
 
-### 5순위: 급하진 않은데 있으면 재밌을만한거
+### 5순위: 부가 기능
 
-- [x] 인생 리셋: 계정별 1회, 개인 자산·주문·출석·거래 내역 초기화
-- [x] 한강 수온: 선유 측정소 값을 30분마다 조회·캐시해 웹·모바일 메뉴에 표시
+- [x] 계정별 인생 리셋
+- [x] 선유 수온 30분 조회·캐시
 
 ## 졸업 프로젝트 보완 계획
 
