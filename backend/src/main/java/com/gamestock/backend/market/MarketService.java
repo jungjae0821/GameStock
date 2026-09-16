@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.Random;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -521,18 +522,43 @@ public class MarketService {
     }
 
     public synchronized List<PricePoint> priceHistory(String code) {
+        return priceHistory(code, "24h");
+    }
+
+    /**
+     * Returns the recorded price points inside one of the public chart windows.
+     * The range is deliberately allow-listed so a client cannot inject SQL
+     * interval fragments. A generous point cap keeps a week view lightweight;
+     * the clients down-sample only when the canvas width requires it.
+     */
+    public synchronized List<PricePoint> priceHistory(String code, String range) {
+        Instant cutoff = Instant.now().minus(historyWindow(range));
         List<PricePoint> points = jdbc.query("""
                 SELECT h.price, h.recorded_at
                 FROM stock_price_history h JOIN stocks s ON s.id = h.stock_id
-                WHERE s.stock_code = ?
+                WHERE s.stock_code = ? AND h.recorded_at >= ?
                 ORDER BY h.recorded_at DESC, h.id DESC
-                LIMIT 200
+                LIMIT 2000
                 """, (rs, row) -> new PricePoint(
                 rs.getLong("price"),
                 rs.getTimestamp("recorded_at").toInstant().toString()),
-                code.toUpperCase(Locale.ROOT));
-            Collections.reverse(points);
-            return points;
+                code.toUpperCase(Locale.ROOT), Timestamp.from(cutoff));
+        Collections.reverse(points);
+        return points;
+    }
+
+    private Duration historyWindow(String range) {
+        return switch (range == null ? "24h" : range.trim().toLowerCase(Locale.ROOT)) {
+            case "5m" -> Duration.ofMinutes(5);
+            case "10m" -> Duration.ofMinutes(10);
+            case "30m" -> Duration.ofMinutes(30);
+            case "1h" -> Duration.ofHours(1);
+            case "6h" -> Duration.ofHours(6);
+            case "12h" -> Duration.ofHours(12);
+            case "7d", "1w" -> Duration.ofDays(7);
+            case "24h" -> Duration.ofHours(24);
+            default -> Duration.ofHours(24);
+        };
     }
 
     /**

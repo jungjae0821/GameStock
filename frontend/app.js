@@ -12,7 +12,7 @@ const TRANSLATIONS = {
     "당신도 여기서만큼은 부자가 될 수 있습니다!": "ここならあなたも資産家になれます！",
     "보유 현금": "保有現金", "주식 평가액": "株式評価額", "총 자산": "総資産", "상장 종목": "上場銘柄",
     "무슨 일이 일어나고 있나요?": "今、何が起きている？", "시장으로 돌아가기": "市場へ戻る",
-    "가격 흐름": "価格推移", "실시간": "リアルタイム", "가격 결정 근거": "価格決定の根拠", "최근 24시간": "直近24時間",
+    "가격 흐름": "価格推移", "실시간": "リアルタイム", "5분": "5分", "10분": "10分", "30분": "30分", "1시간": "1時間", "6시간": "6時間", "12시간": "12時間", "24시간": "24時間", "일주일": "1週間", "가격 결정 근거": "価格決定の根拠", "최근 24시간": "直近24時間",
     "뉴스와 거래 흐름을 계산하는 중입니다.": "ニュースと取引の流れを分析中です。", "가격 결정 근거를 불러오는 중입니다.": "価格決定の根拠を読み込み中です。",
     "이 종목 거래": "この銘柄を取引", "매수": "買い", "매도": "売り", "수량": "数量", "주문 유형": "注文種別",
     "시장가 (즉시 체결)": "成行（即時約定）", "지정가 (호가 대기)": "指値（板で待機）", "시장가 예상 체결금액": "成行の予想約定金額",
@@ -56,7 +56,7 @@ const TRANSLATIONS = {
     "당신도 여기서만큼은 부자가 될 수 있습니다!": "Here, anyone can build a virtual fortune!",
     "보유 현금": "Cash", "주식 평가액": "Stock value", "총 자산": "Total assets", "상장 종목": "Listed stocks",
     "무슨 일이 일어나고 있나요?": "What's happening now?", "시장으로 돌아가기": "Back to market",
-    "가격 흐름": "Price history", "실시간": "Live", "가격 결정 근거": "Price drivers", "최근 24시간": "Last 24 hours",
+    "가격 흐름": "Price history", "실시간": "Live", "5분": "5 min", "10분": "10 min", "30분": "30 min", "1시간": "1 hour", "6시간": "6 hours", "12시간": "12 hours", "24시간": "24 hours", "일주일": "1 week", "가격 결정 근거": "Price drivers", "최근 24시간": "Last 24 hours",
     "뉴스와 거래 흐름을 계산하는 중입니다.": "Analyzing news and trading flow.", "가격 결정 근거를 불러오는 중입니다.": "Loading price drivers.",
     "이 종목 거래": "Trade this stock", "매수": "Buy", "매도": "Sell", "수량": "Quantity", "주문 유형": "Order type",
     "시장가 (즉시 체결)": "Market (immediate)", "지정가 (호가 대기)": "Limit (place on book)", "시장가 예상 체결금액": "Estimated market fill",
@@ -155,6 +155,7 @@ function setLanguage(language, persist = true) {
   if (select) select.value = currentLanguage;
   applyStaticTranslations();
   updateThemeControl();
+  updateChartRangeControls();
   updateLoginButton();
   renderPortfolio(currentPortfolio);
   renderStocks(currentStocks);
@@ -184,6 +185,17 @@ if (location.hash === "#profile") history.replaceState(null, "", `${location.pat
 const message = document.querySelector("#order-message");
 const priceHistory = new Map();
 const chartState = { points: [], width: 0, height: 0 };
+const CHART_RANGES = [
+  { value: "5m", label: "5분", milliseconds: 5 * 60 * 1000 },
+  { value: "10m", label: "10분", milliseconds: 10 * 60 * 1000 },
+  { value: "30m", label: "30분", milliseconds: 30 * 60 * 1000 },
+  { value: "1h", label: "1시간", milliseconds: 60 * 60 * 1000 },
+  { value: "6h", label: "6시간", milliseconds: 6 * 60 * 60 * 1000 },
+  { value: "12h", label: "12시간", milliseconds: 12 * 60 * 60 * 1000 },
+  { value: "24h", label: "24시간", milliseconds: 24 * 60 * 60 * 1000 },
+  { value: "7d", label: "일주일", milliseconds: 7 * 24 * 60 * 60 * 1000 },
+];
+let chartRange = "24h";
 const orderBookCache = new Map();
 let currentStocks = [];
 let currentEvents = [];
@@ -240,7 +252,7 @@ function renderStocks(stocks) {
       const relatedNews = currentEvents.find((event) => event.stockCode === stock.code);
       const reason = relatedNews?.priceReason || fallbackPriceReason(stock.changePercent);
       const reasonClass = stock.changePercent > 0 ? "up" : stock.changePercent < 0 ? "down" : "flat";
-      return `<a class="stock-card" href="#stock/${encodeURIComponent(stock.code)}" aria-label="${escapeHtml(stock.name)} ${t("상세 보기")}"><div class="stock-card-heading"><span class="code">${escapeHtml(stock.code)} · ${escapeHtml(stock.genre)}</span>${sparklineSvg(stock.code, up)}</div><h3>${escapeHtml(stock.name)}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · ${t("거래량")} ${formatNumber(stock.volume)}</span><div class="stock-reason ${reasonClass}"><span>${t("가격 변동 이유")}</span><small>${escapeHtml(reason)}</small></div><span class="card-link">${t("상세 보기")} →</span></a>`;
+      return `<a class="stock-card" href="#stock/${encodeURIComponent(stock.code)}" aria-label="${escapeHtml(stock.name)} ${t("상세 보기")}"><div class="stock-card-heading"><span class="code">${escapeHtml(stock.code)} · ${escapeHtml(stock.genre)}</span>${sparklineSvg(stock.code, up)}</div><div class="stock-name-row"><img class="game-icon" src="assets/game-icons/${encodeURIComponent(stock.code)}.png" alt="" width="36" height="36" loading="lazy"><h3>${escapeHtml(stock.name)}</h3></div><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · ${t("거래량")} ${formatNumber(stock.volume)}</span><div class="stock-reason ${reasonClass}"><span>${t("가격 변동 이유")}</span><small>${escapeHtml(reason)}</small></div><span class="card-link">${t("상세 보기")} →</span></a>`;
     })
     .join("");
 }
@@ -364,6 +376,11 @@ function renderDetail() {
   const up = stock.changePercent >= 0;
   document.querySelector("#detail-code").textContent =
     `${stock.code} · ${stock.genre}`;
+  const detailIcon = document.querySelector("#detail-icon");
+  if (detailIcon) {
+    detailIcon.src = `assets/game-icons/${encodeURIComponent(stock.code)}.png`;
+    detailIcon.alt = `${stock.name} 아이콘`;
+  }
   document.querySelector("#detail-name").textContent = stock.name;
   document.querySelector("#detail-genre").textContent =
     `${t("거래량")} ${formatNumber(stock.volume)}`;
@@ -399,7 +416,28 @@ function renderDetail() {
     renderStockNews(currentDetailNews, stock.code);
   }
   if (loadedOrderBookCode !== stock.code) { loadedOrderBookCode = stock.code; loadOrderBook(stock.code); }
-  drawChart(priceHistory.get(stock.code) || [stock.price]);
+  drawChart(chartPointsFor(stock.code, stock.price));
+}
+
+function selectedChartRange() {
+  return CHART_RANGES.find((range) => range.value === chartRange) || CHART_RANGES[6];
+}
+
+function chartPointsFor(stockCode, fallbackPrice) {
+  const cutoff = Date.now() - selectedChartRange().milliseconds;
+  const points = (priceHistory.get(stockCode) || []).filter((point) => point.time.getTime() >= cutoff);
+  return points.length ? points : [{ price: Number(fallbackPrice || 0), time: new Date() }];
+}
+
+function updateChartRangeControls() {
+  const selected = selectedChartRange();
+  document.querySelectorAll("#chart-range-selector button").forEach((button) => {
+    const active = button.dataset.range === selected.value;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  const label = document.querySelector("#chart-range");
+  if (label) label.textContent = t(selected.label);
 }
 
 async function loadOrderBook(stockCode) {
@@ -530,27 +568,39 @@ function renderStockNews(news, stockCode) {
     .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
 }
 
-async function loadPriceHistory(stockCode) {
+async function loadPriceHistory(stockCode, requestedRange = chartRange) {
   try {
     const savedPoints = await api(
-      `/api/stocks/${encodeURIComponent(stockCode)}/history`,
+      `/api/stocks/${encodeURIComponent(stockCode)}/history?range=${encodeURIComponent(requestedRange)}`,
     );
-    if (location.hash !== `#stock/${stockCode}`) return;
+    if (location.hash !== `#stock/${stockCode}` || chartRange !== requestedRange) return;
     const saved = savedPoints.map((point) => ({
       price: point.price,
       time: new Date(point.recordedAt),
     }));
-    const existing = priceHistory.get(stockCode) || [];
+    const cutoff = Date.now() - (CHART_RANGES.find((range) => range.value === requestedRange)?.milliseconds || CHART_RANGES[6].milliseconds);
+    const existing = (priceHistory.get(stockCode) || []).filter((point) => point.time.getTime() >= cutoff);
     const lastSavedTime = saved.at(-1)?.time.getTime() || 0;
     const livePoints = existing.filter(
       (point) => point.time.getTime() > lastSavedTime,
     );
-    priceHistory.set(stockCode, [...saved, ...livePoints].slice(-200));
-    drawChart(priceHistory.get(stockCode));
+    priceHistory.set(stockCode, [...saved, ...livePoints].slice(-2000));
+    drawChart(chartPointsFor(stockCode, currentStocks.find((stock) => stock.code === stockCode)?.price));
   } catch (error) {
     loadedPriceHistoryCode = null;
   }
 }
+
+document.querySelectorAll("#chart-range-selector button").forEach((button) => {
+  button.addEventListener("click", () => {
+    const nextRange = button.dataset.range;
+    if (!CHART_RANGES.some((range) => range.value === nextRange) || nextRange === chartRange) return;
+    chartRange = nextRange;
+    updateChartRangeControls();
+    const code = location.hash.startsWith("#stock/") ? location.hash.slice(7) : null;
+    if (code) loadPriceHistory(code, chartRange);
+  });
+});
 
 async function loadDailySummaries(stockCode) {
   const container = document.querySelector("#daily-summaries");
@@ -667,7 +717,10 @@ document
     );
     const tooltip = document.querySelector("#chart-tooltip");
     tooltip.hidden = false;
-    tooltip.textContent = `${point.time.toLocaleTimeString(locale())} · ${money.format(point.price)}`;
+    const timeLabel = selectedChartRange().milliseconds > 24 * 60 * 60 * 1000
+      ? point.time.toLocaleDateString(locale(), { month: "short", day: "numeric" })
+      : point.time.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
+    tooltip.textContent = `${timeLabel} · ${money.format(point.price)}`;
     tooltip.style.left = `${Math.min(Math.max(point.x, 70), chartState.width - 70)}px`;
     tooltip.style.top = `${Math.max(point.y - 48, 4)}px`;
   });
@@ -914,7 +967,7 @@ async function openRanking() {
   container.innerHTML = '<p class="empty-state">랭킹을 불러오는 중입니다.</p>';
   try {
     const ranking = await api("/api/ranking");
-    container.innerHTML = ranking.length ? ranking.map((entry) => { const change = Number(entry.changePercent || 0); const sign = change >= 0 ? "+" : ""; const changeClass = change >= 0 ? "profit-up" : "profit-down"; return `<div class="ranking-row"><span class="ranking-rank">${entry.rank}</span><div class="ranking-user">${avatarMarkup(entry.nickname, "ranking-avatar")}<strong>${escapeHtml(entry.nickname)}</strong></div><span class="ranking-change ${changeClass}">${sign}${change.toFixed(2)}%</span><span class="ranking-asset">${money.format(entry.totalAsset)}</span></div>`; }).join("") : '<p class="empty-state">아직 랭킹에 참여한 사용자가 없습니다.</p>';
+    container.innerHTML = ranking.length ? ranking.map((entry) => { const change = Number(entry.changePercent || 0); const sign = change >= 0 ? "+" : ""; const changeClass = change >= 0 ? "profit-up" : "profit-down"; return `<div class="ranking-row"><span class="ranking-rank">${entry.rank}</span><strong class="ranking-user">${escapeHtml(entry.nickname)}</strong><span class="ranking-change ${changeClass}">${sign}${change.toFixed(2)}%</span><span class="ranking-asset">${money.format(entry.totalAsset)}</span></div>`; }).join("") : '<p class="empty-state">아직 랭킹에 참여한 사용자가 없습니다.</p>';
   } catch (error) { container.innerHTML = `<p class="empty-state">랭킹을 불러오지 못했습니다: ${escapeHtml(error.message)}</p>`; }
 }
 

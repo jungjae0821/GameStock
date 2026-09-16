@@ -116,10 +116,9 @@ body {
 .holding-meta { color: var(--muted); font-size: .8rem; margin-top: 3px; }
 .profit-up { color: var(--up); font-weight: 750; }.profit-down { color: var(--down); font-weight: 750; }
 .ranking-list { display: grid; gap: 0; margin-top: 14px; max-height: 55vh; overflow: auto; }
-.ranking-row { grid-template-columns: 34px 1fr auto auto; }
+.ranking-row { grid-template-columns: 34px minmax(0, 1fr) auto auto; }
 .ranking-rank { color: var(--brand); font-weight: 800; text-align: center; }
-.ranking-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: #ede8fb; color: var(--brand); font-size: .8rem; font-weight: 800; overflow: hidden; }
-.ranking-user { display: flex; align-items: center; gap: 8px; min-width: 0; }.ranking-user strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.ranking-change { font-weight: 750; white-space: nowrap; font-variant-numeric: tabular-nums; }.ranking-asset { font-weight: 750; white-space: nowrap; }
+.ranking-user { min-width: 0; overflow: visible; overflow-wrap: anywhere; word-break: break-word; white-space: normal; line-height: 1.35; }.ranking-change { font-weight: 750; white-space: nowrap; font-variant-numeric: tabular-nums; }.ranking-asset { font-weight: 750; white-space: nowrap; }
 main {
   width: min(1180px, calc(100% - 40px));
   margin: auto;
@@ -203,6 +202,10 @@ main {
   margin: 0 0 4px;
   font-size: 1rem;
 }
+.stock-name-row, .detail-title-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.stock-name-row h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-icon { display: block; flex: 0 0 auto; border-radius: 50%; object-fit: cover; }
+.detail-icon { width: 56px; height: 56px; }
 .stock-card-heading { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .sparkline { width: 84px; height: 34px; overflow: visible; }
 .sparkline polyline { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -424,6 +427,9 @@ footer {
 .detail-price {
   text-align: right;
 }
+.chart-range-selector { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.chart-range-selector button { min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); color: var(--muted); font-size: .78rem; font-weight: 700; }
+.chart-range-selector button:hover, .chart-range-selector button.active { border-color: var(--brand); background: var(--brand); color: #fff; }
 .detail-price strong {
   display: block;
   font-size: clamp(1.6rem, 4vw, 2.5rem);

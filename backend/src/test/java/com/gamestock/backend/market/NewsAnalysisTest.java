@@ -61,6 +61,31 @@ class NewsAnalysisTest {
         assertTrue(extreme <= 10.0 && extreme >= -10.0);
     }
 
+    @Test
+    void commonPositiveHeadlinePhrasesProducePositiveSignals() {
+        List<String> positiveHeadlines = List.of(
+                "니케 흥행 돌풍, 글로벌 이용자 급증",
+                "블루 아카이브 신규 업데이트 좋은 반응",
+                "우마무스메 성공적 출시와 호평 이어져",
+                "게임 매출 신기록 달성",
+                "니케 이벤트 개막, 신규 캐릭터 등장",
+                "블루 아카이브 신규 보스 공개",
+                "블루 아카이브 신규 보스·캐릭터 2종 동시 공개",
+                "니케 신규 이벤트 개막",
+                "우마무스메 신규 캐릭터 등장"
+        );
+
+        positiveHeadlines.forEach(title ->
+                assertTrue(sentiment.newsImpact(title, "") > 0,
+                        () -> "positive headline was scored non-positive: " + title));
+    }
+
+    @Test
+    void cancellationContextOverridesPositiveContentWords() {
+        assertTrue(sentiment.newsImpact("니케 이벤트 개막 취소", "") < 0);
+        assertTrue(sentiment.newsImpact("블루 아카이브 신규 보스 공개 취소", "") < 0);
+    }
+
     private static int direction(double score) {
         return score > 0 ? 1 : score < 0 ? -1 : 0;
     }

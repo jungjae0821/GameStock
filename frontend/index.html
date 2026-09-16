@@ -107,7 +107,7 @@
       <section class="detail-header">
         <div>
           <p id="detail-code" class="eyebrow"></p>
-          <h1 id="detail-name"></h1>
+          <div class="detail-title-row"><img id="detail-icon" class="game-icon detail-icon" src="assets/game-icons/UMA.png" alt="" width="56" height="56"><h1 id="detail-name"></h1></div>
           <p id="detail-genre" class="detail-subtitle"></p>
         </div>
         <div class="detail-price">
@@ -121,7 +121,17 @@
               <p class="eyebrow">PRICE HISTORY</p>
               <h2>가격 흐름</h2>
             </div>
-            <span id="chart-range">실시간</span>
+            <span id="chart-range">24시간</span>
+          </div>
+          <div id="chart-range-selector" class="chart-range-selector" role="group" aria-label="차트 기간 선택">
+            <button type="button" data-range="5m" aria-pressed="false">5분</button>
+            <button type="button" data-range="10m" aria-pressed="false">10분</button>
+            <button type="button" data-range="30m" aria-pressed="false">30분</button>
+            <button type="button" data-range="1h" aria-pressed="false">1시간</button>
+            <button type="button" data-range="6h" aria-pressed="false">6시간</button>
+            <button type="button" data-range="12h" aria-pressed="false">12시간</button>
+            <button type="button" data-range="24h" aria-pressed="true">24시간</button>
+            <button type="button" data-range="7d" aria-pressed="false">일주일</button>
           </div>
           <div class="chart-wrap">
             <canvas

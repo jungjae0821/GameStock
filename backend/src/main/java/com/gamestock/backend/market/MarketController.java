@@ -51,8 +51,9 @@ public class MarketController {
     @GetMapping({"/orderbook/{stockCode}", "/stocks/{stockCode}/orderbook"})
     public OrderBook orderBook(@PathVariable String stockCode) { return market.orderBook(stockCode); }
     @GetMapping("/stocks/{stockCode}/history")
-    public java.util.List<PricePoint> priceHistory(@PathVariable String stockCode) {
-        return market.priceHistory(stockCode);
+    public java.util.List<PricePoint> priceHistory(@PathVariable String stockCode,
+                                                   @RequestParam(defaultValue = "24h") String range) {
+        return market.priceHistory(stockCode, range);
     }
     @GetMapping("/stocks/{stockCode}/price-drivers")
     public PriceDrivers priceDrivers(@PathVariable String stockCode) {

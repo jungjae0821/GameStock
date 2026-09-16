@@ -45,8 +45,30 @@ public class NewsFeedService {
             new WeightedSignal("다운로드 증가", 2),
             new WeightedSignal("신규 이벤트", 2), new WeightedSignal("신규 캐릭터", 2),
             new WeightedSignal("콜라보", 2), new WeightedSignal("첫 시연", 2), new WeightedSignal("합류", 2),
-            new WeightedSignal("흥행", 2), new WeightedSignal("성공", 2), new WeightedSignal("성장", 2),
-            new WeightedSignal("호평", 2), new WeightedSignal("호재", 2), new WeightedSignal("긍정적", 2),
+            // Headline-native expressions are listed explicitly because many
+            // Korean game articles describe a positive outcome without using
+            // the shorter tokens below (for example, "좋은 반응" rather than
+            // just "성공"). Longer phrases are scored first and then removed.
+            new WeightedSignal("매출 신기록", 4), new WeightedSignal("사상 최대 매출", 4),
+            new WeightedSignal("이용자 급증", 4), new WeightedSignal("흥행 돌풍", 4),
+            new WeightedSignal("성공적 출시", 3), new WeightedSignal("출시 호평", 3),
+            new WeightedSignal("긍정적 평가", 3), new WeightedSignal("좋은 반응", 3),
+            new WeightedSignal("호평 이어져", 3), new WeightedSignal("인기 급상승", 3),
+            new WeightedSignal("글로벌 흥행", 3), new WeightedSignal("기대감 확산", 2),
+            // Content launches/openings are positive when they describe a
+            // live game's new playable material, not merely an announcement.
+            new WeightedSignal("이벤트 개막", 2), new WeightedSignal("이벤트 개최", 2),
+            new WeightedSignal("신규 캐릭터 등장", 2), new WeightedSignal("신규 캐릭터 공개", 2),
+            new WeightedSignal("신규 보스 등장", 2), new WeightedSignal("신규 보스 공개", 2),
+            new WeightedSignal("신규 콘텐츠 공개", 2),
+            // RSS titles often insert punctuation between the subject and
+            // action ("신규 보스·캐릭터 공개"), so keep shorter fallbacks.
+            new WeightedSignal("신규 캐릭터", 1), new WeightedSignal("신규 보스", 1),
+            new WeightedSignal("캐릭터 등장", 1), new WeightedSignal("보스 공개", 1),
+            new WeightedSignal("개막", 1), new WeightedSignal("등장", 1),
+            new WeightedSignal("흥행", 2), new WeightedSignal("성공", 2), new WeightedSignal("성공적", 2),
+            new WeightedSignal("성장", 2), new WeightedSignal("호평", 2), new WeightedSignal("호재", 2),
+            new WeightedSignal("긍정적", 2), new WeightedSignal("인기", 2), new WeightedSignal("돌파", 2),
             new WeightedSignal("기대작", 2), new WeightedSignal("수상", 2),
             new WeightedSignal("출시", 2), new WeightedSignal("업데이트", 1), new WeightedSignal("신작", 1),
             new WeightedSignal("증가", 1), new WeightedSignal("달성", 1), new WeightedSignal("캠페인", 1),
@@ -57,6 +79,8 @@ public class NewsFeedService {
     private static final List<WeightedSignal> NEGATIVE_SIGNALS = List.of(
             new WeightedSignal("서비스 종료", 4), new WeightedSignal("서비스 중단", 4),
             new WeightedSignal("출시 실패", 4), new WeightedSignal("출시 취소", 4),
+            new WeightedSignal("이벤트 개막 취소", 4), new WeightedSignal("이벤트 개최 취소", 4),
+            new WeightedSignal("신규 캐릭터 공개 취소", 4), new WeightedSignal("신규 보스 공개 취소", 4),
             new WeightedSignal("개인정보 유출", 4), new WeightedSignal("데이터 유출", 4),
             new WeightedSignal("불법 프로그램", 4), new WeightedSignal("핵 사용", 3),
             new WeightedSignal("핵 이용", 3), new WeightedSignal("비정상 플레이", 3),
