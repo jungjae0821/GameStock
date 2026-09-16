@@ -2,11 +2,11 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm ci && npm run build"
+    "buildCommand": "mvn -f backend/pom.xml -DskipTests package"
   },
   "deploy": {
-    "startCommand": "npm start",
-    "healthcheckPath": "/healthz",
+    "startCommand": "java -jar backend/target/gamestock-backend-0.1.0.jar",
+    "healthcheckPath": "/api/health",
     "restartPolicyType": "ON_FAILURE"
   }
 }
