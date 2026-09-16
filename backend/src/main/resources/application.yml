@@ -2,12 +2,15 @@ spring:
   application:
     name: gamestock-backend
   datasource:
-    url: jdbc:mysql://localhost:3306/gamestock?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
-    username: ${DB_USERNAME:jungjae0821}
-    password: ${DB_PASSWORD}
+    # Railway에서는 DB_URL을 지정하거나 MYSQLHOST/MYSQLPORT/MYSQLDATABASE를
+    # 서비스 변수로 연결한다. 값이 없으면 기존 로컬 MySQL로 접속한다.
+    url: "${DB_URL:jdbc:mysql://${MYSQLHOST:localhost}:${MYSQLPORT:3306}/${MYSQLDATABASE:gamestock}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul}"
+    username: "${DB_USERNAME:${MYSQLUSER:jungjae0821}}"
+    password: "${DB_PASSWORD:${MYSQLPASSWORD:}}"
     driver-class-name: com.mysql.cj.jdbc.Driver
 server:
-  port: 8081
+  # Railway가 할당한 포트를 우선 사용하고, 로컬에서는 8081을 사용한다.
+  port: ${PORT:8081}
   error:
     include-message: always
 gamestock:
