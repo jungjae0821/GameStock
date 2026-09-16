@@ -1,6 +1,16 @@
 import { firebaseAuth } from "./firebase";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8081").replace(/\/$/, "");
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+const productionApiBase = "https://gamestock-production.up.railway.app";
+const localApiBase = "http://localhost:8081";
+
+// .env.local is shared by local tooling and can contain localhost. Never ship
+// that value in the Firebase bundle; production clients must use Railway.
+const rawApiBase = import.meta.env.PROD
+  && (!configuredApiBase || /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(configuredApiBase))
+  ? productionApiBase
+  : (configuredApiBase ?? localApiBase);
+const API_BASE = rawApiBase.replace(/\/$/, "");
 
 export class ApiError extends Error {
   readonly status: number;
