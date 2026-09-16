@@ -320,6 +320,7 @@ public class MarketService {
                 LEFT JOIN portfolios p ON p.user_id = u.id
                 LEFT JOIN stocks s ON s.id = p.stock_id
                 WHERE u.password_hash <> 'BOT' AND u.username <> 'demo'
+                  AND COALESCE(u.role, 'USER') <> 'ADMIN'
                 GROUP BY u.id, u.nickname, u.cash
                 ORDER BY (u.cash + reserved_cash + asset_value) DESC, u.id ASC
                 LIMIT 100

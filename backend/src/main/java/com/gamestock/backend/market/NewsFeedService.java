@@ -226,7 +226,9 @@ public class NewsFeedService {
      * being incorrectly rewarded by the positive "출시" keyword. The net
      * score is clamped to -10..10 and zero means the signals cancel out.
      */
-    private double newsImpact(String title, String description) {
+    // Package-private for deterministic, fixture-based sentiment tests. This
+    // is not exposed as an HTTP API; production callers still use saveNews().
+    double newsImpact(String title, String description) {
         String normalizedTitle = normalizeNewsText(title);
         String normalizedDescription = normalizeNewsText(description)
                 .replaceAll("출처:\\s*https?://\\S+", " ");

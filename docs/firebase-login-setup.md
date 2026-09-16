@@ -12,4 +12,16 @@ FIREBASE_SERVICE_ACCOUNT_JSON=C:\secure\gamestock-firebase-admin.json
 
 Google 로그인 성공 시 Firebase UID, 이메일 및 표시 이름이 `users`에 저장됩니다. 프로필에서는 닉네임만 관리하며, Google ID 토큰은 서버에서 검증합니다. 매수·매도와 내 자산/주문 내역 API는 토큰 없이는 사용할 수 없습니다. 시장·차트·뉴스는 로그인 없이 볼 수 있습니다.
 
+## 관리자 계정 지정
+
+관리자도 Google 로그인이 필요합니다. Firebase Console의 **Authentication → Users**에서 관리자 Google 계정의 UID를 확인한 뒤 프로젝트 루트 `.env`에 다음을 추가합니다(UID 사용 권장).
+
+```env
+GAMESTOCK_ADMIN_GOOGLE_UID=관리자_계정의_FIREBASE_UID
+# UID를 모를 때만 보조적으로 사용
+# GAMESTOCK_ADMIN_GOOGLE_EMAIL=admin@example.com
+```
+
+해당 계정이 로그인하면 `users.role`이 `ADMIN`으로 저장됩니다. 관리자는 `/api/admin/health`에 접근할 수 있고, 투자 랭킹에는 표시되지 않습니다. 일반 사용자는 계속 `USER` 역할로 생성됩니다.
+
 출석 보상은 한국 시간 날짜 기준으로 첫 로그인 10만원부터 5일차 50만원까지 증가하고, 6일차부터는 50만원입니다. 하루를 건너뛰면 1일차부터 다시 시작합니다.

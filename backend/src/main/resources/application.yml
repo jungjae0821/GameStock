@@ -12,6 +12,10 @@ server:
     include-message: always
 gamestock:
   cors-origin: ${GAMESTOCK_CORS_ORIGIN:http://localhost:8080}
+  auth:
+    # Firebase 로그인은 항상 필요하며, 아래 값과 일치하는 Google 계정만 ADMIN으로 승격한다.
+    admin-google-uid: ${GAMESTOCK_ADMIN_GOOGLE_UID:}
+    admin-google-email: ${GAMESTOCK_ADMIN_GOOGLE_EMAIL:}
   simulation:
     # 같은 시드와 DB 스냅샷을 사용하면 봇 틱을 재현할 수 있다.
     seed: ${GAMESTOCK_SIMULATION_SEED:20260910}

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -15,6 +16,16 @@ import java.util.Map;
 @Service
 public class AuthService {
     private final JdbcTemplate jdbc;
+    /**
+     * The administrator is still authenticated by Firebase. These optional
+     * allowlists only decide which verified Google identity receives ADMIN on
+     * first login; they never create an unauthenticated bypass.
+     */
+    @Value("${gamestock.auth.admin-google-uid:}")
+    private String adminGoogleUid;
+    @Value("${gamestock.auth.admin-google-email:}")
+    private String adminGoogleEmail;
+
     public AuthService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     @Transactional
@@ -77,7 +88,20 @@ public class AuthService {
             user = jdbc.queryForObject("SELECT id, nickname, email, profile_image_url, profile_completed, role FROM users WHERE google_uid = ?",
                     (rs, row) -> new LoginUser(rs.getLong("id"), rs.getString("nickname"), rs.getString("email"), rs.getString("profile_image_url"), 0, 0, !rs.getBoolean("profile_completed"), rs.getString("role")), token.getUid());
         }
+        if (isConfiguredAdmin(token) && !"ADMIN".equalsIgnoreCase(user.role())) {
+            jdbc.update("UPDATE users SET role = 'ADMIN' WHERE id = ?", user.id());
+            user = new LoginUser(user.id(), user.nickname(), user.email(), user.profileImageUrl(),
+                    user.attendanceReward(), user.attendanceStreak(), user.requiresNickname(), "ADMIN");
+        }
         return grantAttendanceReward(user);
+    }
+
+    private boolean isConfiguredAdmin(FirebaseToken token) {
+        String uid = adminGoogleUid == null ? "" : adminGoogleUid.trim();
+        String email = adminGoogleEmail == null ? "" : adminGoogleEmail.trim();
+        boolean uidMatches = !uid.isBlank() && uid.equals(token.getUid());
+        boolean emailMatches = !email.isBlank() && email.equalsIgnoreCase(token.getEmail() == null ? "" : token.getEmail());
+        return uidMatches || emailMatches;
     }
 
     private String uniqueNickname(String base) {
