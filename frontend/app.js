@@ -1,8 +1,167 @@
-const money = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
+const LANGUAGE_STORAGE_KEY = "gamestock-language";
+const THEME_STORAGE_KEY = "gamestock-theme";
+const SUPPORTED_LANGUAGES = ["ko", "ja", "en"];
+const LOCALES = { ko: "ko-KR", ja: "ja-JP", en: "en-US" };
+const TRANSLATIONS = {
+  ja: {
+    "서브컬처 게임 모의주식": "サブカルゲーム模擬株式",
+    "서버 확인 중": "サーバー確認中",
+    "메뉴": "メニュー", "Google로 로그인": "Googleでログイン", "마이페이지": "マイページ",
+    "랭킹": "ランキング", "로그아웃": "ログアウト", "언어": "言語", "다크 모드": "ダークモード", "라이트 모드": "ライトモード",
+    "당신의 게임에\n지금바로 투자하세요": "あなたのゲームに\n今すぐ投資しよう",
+    "당신도 여기서만큼은 부자가 될 수 있습니다!": "ここならあなたも資産家になれます！",
+    "보유 현금": "保有現金", "주식 평가액": "株式評価額", "총 자산": "総資産", "상장 종목": "上場銘柄",
+    "무슨 일이 일어나고 있나요?": "今、何が起きている？", "시장으로 돌아가기": "市場へ戻る",
+    "가격 흐름": "価格推移", "실시간": "リアルタイム", "가격 결정 근거": "価格決定の根拠", "최근 24시간": "直近24時間",
+    "뉴스와 거래 흐름을 계산하는 중입니다.": "ニュースと取引の流れを分析中です。", "가격 결정 근거를 불러오는 중입니다.": "価格決定の根拠を読み込み中です。",
+    "이 종목 거래": "この銘柄を取引", "매수": "買い", "매도": "売り", "수량": "数量", "주문 유형": "注文種別",
+    "시장가 (즉시 체결)": "成行（即時約定）", "지정가 (호가 대기)": "指値（板で待機）", "시장가 예상 체결금액": "成行の予想約定金額",
+    "현재 호가와 수량을 기준으로 계산합니다.": "現在の板と数量を基準に計算します。", "희망 가격": "希望価格", "주문 체결하기": "注文する",
+    "일별 시세": "日別相場", "체결 기준 시가·종가·거래량입니다. (고가·저가는 집계하지 않습니다.)": "約定基準の始値・終値・出来高です。（高値・安値は集計しません）",
+    "호가창": "板情報", "전체 체결 내역": "全約定履歴", "다른 투자자의 체결도 익명으로 표시됩니다.": "他の投資家の約定も匿名で表示されます。", "관련 소식": "関連ニュース",
+    "거래하려면 로그인하세요": "取引するにはログインしてください", "Google로 계속하기": "Googleで続ける",
+    "프로필 정보를 입력해 주세요.": "プロフィール情報を入力してください。", "닉네임": "ニックネーム", "닉네임 저장": "ニックネームを保存",
+    "보유 종목": "保有銘柄", "미체결 주문": "未約定注文", "체결 완료": "約定完了", "체결 즉시 현금과 주식에 반영됩니다.": "約定後すぐに現金と株式へ反映されます。",
+    "인생 리셋": "人生リセット", "인생 리셋 사용": "人生リセットを使う", "투자 랭킹": "投資ランキング",
+    "기본 지급금 100만원 대비 총자산 등락률을 함께 보여줍니다.": "初期資金100万ウォンに対する総資産の騰落率も表示します。",
+    "원문 기사 열기 ↗": "元記事を開く ↗", "닫기": "閉じる", "시장 전체": "市場全体", "뉴스 상세": "ニュース詳細",
+    "아직 수집된 뉴스가 없습니다.": "収集されたニュースはまだありません。", "상세 보기": "詳細を見る", "가격 변동 이유": "価格変動の理由",
+    "거래량": "出来高", "실시간 연결됨": "リアルタイム接続済み", "서버 연결 실패": "サーバー接続失敗",
+    "한강 수온(선유) 조회 불가": "漢江水温（仙遊）取得不可", "내 계정": "マイアカウント",
+    "당신의 게임에 지금바로 투자하세요": "あなたのゲームに今すぐ投資しよう",
+    "주": "株", "건": "件", "기준": "基準", "미체결 가능": "未約定の可能性", "현재 호가": "現在の板",
+    "매수 잔량": "買い残量", "매도 잔량": "売り残量", "매도 대기 없음": "売り注文なし", "매수 대기 없음": "買い注文なし",
+    "대기 중인 지정가 주문이 없습니다.": "待機中の指値注文はありません。", "호가를 불러오지 못했습니다.": "板情報を読み込めませんでした。",
+    "전체 체결 내역을 불러오는 중입니다.": "全約定履歴を読み込み中です。", "아직 체결된 거래가 없습니다.": "約定した取引はまだありません。",
+    "전체 체결 내역을 불러오지 못했습니다.": "全約定履歴を読み込めませんでした。", "수수료 포함 예상 출금액": "手数料込み予想支払額",
+    "수수료 차감 예상 입금액": "手数料差引後の予想受取額", "반대 호가가 없어 현재가 기준": "反対注文がないため現在値基準",
+    "최근 거래 흐름을 따라 가격이 상승하고 있습니다.": "最近の取引フローに沿って価格が上昇しています。",
+    "최근 거래 흐름을 따라 가격이 하락하고 있습니다.": "最近の取引フローに沿って価格が下落しています。", "최근 가격은 보합 상태입니다.": "最近の価格は横ばいです。",
+    "제공된 뉴스 요약이 없습니다.": "ニュース要約はありません。", "상승 방향": "上昇方向", "하락 방향": "下落方向", "혼합·보합": "混合・横ばい",
+    "매수 우세": "買い優勢", "매도 우세": "売り優勢", "순": "純", "매수·매도 균형": "売買均衡", "최근 체결 없음": "直近の約定なし",
+    "최근 뉴스 없음": "直近のニュースなし", "날짜 미상": "日時不明", "게시 시각 미상": "掲載時刻不明", "요청 처리 중 오류가 발생했습니다.": "処理中にエラーが発生しました。"
+    ,"한강 수온(선유) 조회 중…": "漢江水温（仙遊）取得中…", "호가를 불러오는 중입니다.": "板情報を読み込み中です。",
+    "투자에 대한 모든 책임은 투자자에게 있으며 거래에 사용되는 화폐는 실제 돈이 아닙니다.": "投資判断の責任は利用者にあり、取引に使う通貨は実際のお金ではありません。",
+    "Google 계정으로 로그인하면 나만의 모의 투자 자산과 출석 보상을 받을 수 있습니다.": "Googleでログインすると、自分の模擬投資資産とログイン報酬を利用できます。",
+    "미체결 주문을 불러오는 중입니다.": "未約定注文を読み込み中です。", "체결 내역을 불러오는 중입니다.": "約定履歴を読み込み中です。", "랭킹을 불러오는 중입니다.": "ランキングを読み込み中です。",
+    "모든 보유 자산·미체결 주문·출석 기록을 초기화하고 처음부터 다시 시작합니다. Google 계정당 한 번만 사용할 수 있습니다.": "保有資産・未約定注文・ログイン記録を初期化して最初からやり直します。Googleアカウントごとに1回だけ利用できます。",
+    "내 자산 요약": "資産サマリー", "화면 설정": "表示設定", "언어 설정": "言語設定", "뉴스 닫기": "ニュースを閉じる", "종목 가격 등락 그래프": "銘柄価格チャート",
+    "당신의 게임에": "あなたのゲームに", "지금바로 투자하세요": "今すぐ投資しよう", "한강 수온(선유)": "漢江水温（仙遊）"
+  },
+  en: {
+    "서브컬처 게임 모의주식": "Subculture game stock simulator",
+    "서버 확인 중": "Checking server", "메뉴": "Menu", "Google로 로그인": "Sign in with Google", "마이페이지": "My page",
+    "랭킹": "Ranking", "로그아웃": "Sign out", "언어": "Language", "다크 모드": "Dark mode", "라이트 모드": "Light mode",
+    "당신의 게임에\n지금바로 투자하세요": "Invest in your game\nright now",
+    "당신도 여기서만큼은 부자가 될 수 있습니다!": "Here, anyone can build a virtual fortune!",
+    "보유 현금": "Cash", "주식 평가액": "Stock value", "총 자산": "Total assets", "상장 종목": "Listed stocks",
+    "무슨 일이 일어나고 있나요?": "What's happening now?", "시장으로 돌아가기": "Back to market",
+    "가격 흐름": "Price history", "실시간": "Live", "가격 결정 근거": "Price drivers", "최근 24시간": "Last 24 hours",
+    "뉴스와 거래 흐름을 계산하는 중입니다.": "Analyzing news and trading flow.", "가격 결정 근거를 불러오는 중입니다.": "Loading price drivers.",
+    "이 종목 거래": "Trade this stock", "매수": "Buy", "매도": "Sell", "수량": "Quantity", "주문 유형": "Order type",
+    "시장가 (즉시 체결)": "Market (immediate)", "지정가 (호가 대기)": "Limit (place on book)", "시장가 예상 체결금액": "Estimated market fill",
+    "현재 호가와 수량을 기준으로 계산합니다.": "Calculated from the current order book and quantity.", "희망 가격": "Limit price", "주문 체결하기": "Place order",
+    "일별 시세": "Daily prices", "체결 기준 시가·종가·거래량입니다. (고가·저가는 집계하지 않습니다.)": "Open, close and volume are based on executions. High and low are not aggregated.",
+    "호가창": "Order book", "전체 체결 내역": "All executions", "다른 투자자의 체결도 익명으로 표시됩니다.": "Other investors' executions are shown anonymously.", "관련 소식": "Related news",
+    "거래하려면 로그인하세요": "Sign in to trade", "Google로 계속하기": "Continue with Google",
+    "프로필 정보를 입력해 주세요.": "Enter your profile information.", "닉네임": "Nickname", "닉네임 저장": "Save nickname",
+    "보유 종목": "Holdings", "미체결 주문": "Open orders", "체결 완료": "Executed", "체결 즉시 현금과 주식에 반영됩니다.": "Cash and shares update immediately after execution.",
+    "인생 리셋": "Account reset", "인생 리셋 사용": "Use account reset", "투자 랭킹": "Investment ranking",
+    "기본 지급금 100만원 대비 총자산 등락률을 함께 보여줍니다.": "Shows total asset performance against the initial KRW 1,000,000.",
+    "원문 기사 열기 ↗": "Open source article ↗", "닫기": "Close", "시장 전체": "Whole market", "뉴스 상세": "News details",
+    "아직 수집된 뉴스가 없습니다.": "No news has been collected yet.", "상세 보기": "View details", "가격 변동 이유": "Why the price moved",
+    "거래량": "Volume", "실시간 연결됨": "Live", "서버 연결 실패": "Server connection failed",
+    "한강 수온(선유) 조회 불가": "Han River temperature (Seonyu) unavailable", "내 계정": "My account",
+    "당신의 게임에 지금바로 투자하세요": "Invest in your game right now",
+    "주": " shares", "건": " items", "기준": "basis", "미체결 가능": "may remain unfilled", "현재 호가": "Current book",
+    "매수 잔량": "Buy depth", "매도 잔량": "Sell depth", "매도 대기 없음": "No sell orders", "매수 대기 없음": "No buy orders",
+    "대기 중인 지정가 주문이 없습니다.": "There are no pending limit orders.", "호가를 불러오지 못했습니다.": "Could not load the order book.",
+    "전체 체결 내역을 불러오는 중입니다.": "Loading all executions.", "아직 체결된 거래가 없습니다.": "There are no executions yet.",
+    "전체 체결 내역을 불러오지 못했습니다.": "Could not load executions.", "수수료 포함 예상 출금액": "Estimated debit including fee",
+    "수수료 차감 예상 입금액": "Estimated credit after fee", "반대 호가가 없어 현재가 기준": "Using current price because the opposite book is empty",
+    "최근 거래 흐름을 따라 가격이 상승하고 있습니다.": "The price is rising with the recent trading flow.",
+    "최근 거래 흐름을 따라 가격이 하락하고 있습니다.": "The price is falling with the recent trading flow.", "최근 가격은 보합 상태입니다.": "The recent price is flat.",
+    "제공된 뉴스 요약이 없습니다.": "No news summary is available.", "상승 방향": "Upward", "하락 방향": "Downward", "혼합·보합": "Mixed or flat",
+    "매수 우세": "Buy-dominant", "매도 우세": "Sell-dominant", "순": "net", "매수·매도 균형": "Balanced flow", "최근 체결 없음": "No recent execution",
+    "최근 뉴스 없음": "No recent news", "날짜 미상": "Unknown date", "게시 시각 미상": "Unknown publish time", "요청 처리 중 오류가 발생했습니다.": "An error occurred while processing the request."
+    ,"한강 수온(선유) 조회 중…": "Loading Han River temperature (Seonyu)…", "호가를 불러오는 중입니다.": "Loading the order book.",
+    "투자에 대한 모든 책임은 투자자에게 있으며 거래에 사용되는 화폐는 실제 돈이 아닙니다.": "Users are responsible for their investment decisions, and the currency used here is not real money.",
+    "Google 계정으로 로그인하면 나만의 모의 투자 자산과 출석 보상을 받을 수 있습니다.": "Sign in with Google to access your simulated portfolio and attendance rewards.",
+    "미체결 주문을 불러오는 중입니다.": "Loading open orders.", "체결 내역을 불러오는 중입니다.": "Loading executions.", "랭킹을 불러오는 중입니다.": "Loading ranking.",
+    "모든 보유 자산·미체결 주문·출석 기록을 초기화하고 처음부터 다시 시작합니다. Google 계정당 한 번만 사용할 수 있습니다.": "Reset all holdings, open orders, and attendance records and start again. This can be used once per Google account.",
+    "내 자산 요약": "Asset summary", "화면 설정": "Display settings", "언어 설정": "Language settings", "뉴스 닫기": "Close news", "종목 가격 등락 그래프": "Stock price chart",
+    "당신의 게임에": "Invest in your game", "지금바로 투자하세요": "right now", "한강 수온(선유)": "Han River temperature (Seonyu)"
+  }
+};
+let currentLanguage = SUPPORTED_LANGUAGES.includes(document.documentElement.lang)
+  ? document.documentElement.lang : "ko";
+let money = createMoneyFormatter();
+
+function t(source) { return TRANSLATIONS[currentLanguage]?.[source] || source; }
+function locale() { return LOCALES[currentLanguage] || LOCALES.ko; }
+function createMoneyFormatter() {
+  return new Intl.NumberFormat(locale(), { style: "currency", currency: "KRW", maximumFractionDigits: 0 });
+}
+function formatNumber(value) { return Number(value || 0).toLocaleString(locale()); }
+function formatDateTime(value) { return new Date(value).toLocaleString(locale()); }
+function applyStaticTranslations() {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (["SCRIPT", "STYLE"].includes(node.parentElement?.tagName)) continue;
+    if (node.__gamestockSourceText === undefined) node.__gamestockSourceText = node.nodeValue;
+    const source = node.__gamestockSourceText;
+    const trimmed = source.trim().replace(/\s+/g, " ");
+    if (!trimmed) continue;
+    const translated = t(trimmed);
+    if (translated !== trimmed) {
+      const leading = source.match(/^\s*/)?.[0] || "";
+      const trailing = source.match(/\s*$/)?.[0] || "";
+      node.nodeValue = `${leading}${translated}${trailing}`;
+    } else if (currentLanguage === "ko") node.nodeValue = source;
+  }
+  document.querySelectorAll("[placeholder]").forEach((element) => {
+    if (!element.dataset.sourcePlaceholder) element.dataset.sourcePlaceholder = element.placeholder;
+    element.placeholder = t(element.dataset.sourcePlaceholder);
+  });
+  ["aria-label", "title"].forEach((attribute) => {
+    document.querySelectorAll(`[${attribute}]`).forEach((element) => {
+      const dataKey = attribute === "title" ? "sourceTitle" : "sourceAriaLabel";
+      if (!element.dataset[dataKey]) element.dataset[dataKey] = element.getAttribute(attribute);
+      element.setAttribute(attribute, t(element.dataset[dataKey]));
+    });
+  });
+  document.title = currentLanguage === "ja" ? "ゲーム株" : currentLanguage === "en" ? "GameStock" : "씹덕주식";
+}
+function updateThemeControl() {
+  const button = document.querySelector("#theme-toggle");
+  if (!button) return;
+  const dark = document.documentElement.dataset.theme === "dark";
+  button.setAttribute("aria-pressed", String(dark));
+  button.textContent = dark ? `☀️ ${t("라이트 모드")}` : `🌙 ${t("다크 모드")}`;
+}
+function setTheme(theme, persist = true) {
+  document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
+  if (persist) localStorage.setItem(THEME_STORAGE_KEY, document.documentElement.dataset.theme);
+  updateThemeControl();
+  if (!detailPage.hidden) renderDetail();
+}
+function setLanguage(language, persist = true) {
+  currentLanguage = SUPPORTED_LANGUAGES.includes(language) ? language : "ko";
+  document.documentElement.lang = currentLanguage;
+  if (persist) localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
+  money = createMoneyFormatter();
+  const select = document.querySelector("#language-select");
+  if (select) select.value = currentLanguage;
+  applyStaticTranslations();
+  updateThemeControl();
+  updateLoginButton();
+  renderPortfolio(currentPortfolio);
+  renderStocks(currentStocks);
+  renderEvents(currentEvents);
+  if (currentDetailNews.length && loadedNewsCode) renderStockNews(currentDetailNews, loadedNewsCode);
+  renderDetail();
+}
 function signedMoney(value) {
   const amount = Number(value || 0);
   const sign = amount > 0 ? "+" : amount < 0 ? "-" : "";
@@ -55,7 +214,7 @@ async function api(path, options) {
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   const payload = response.status === 204 ? null : await response.json();
   if (!response.ok)
-    throw new Error(payload.message || "요청 처리 중 오류가 발생했습니다.");
+    throw new Error(payload.message || t("요청 처리 중 오류가 발생했습니다."));
   return payload;
 }
 
@@ -81,7 +240,7 @@ function renderStocks(stocks) {
       const relatedNews = currentEvents.find((event) => event.stockCode === stock.code);
       const reason = relatedNews?.priceReason || fallbackPriceReason(stock.changePercent);
       const reasonClass = stock.changePercent > 0 ? "up" : stock.changePercent < 0 ? "down" : "flat";
-      return `<a class="stock-card" href="#stock/${encodeURIComponent(stock.code)}" aria-label="${escapeHtml(stock.name)} 상세 보기"><div class="stock-card-heading"><span class="code">${escapeHtml(stock.code)} · ${escapeHtml(stock.genre)}</span>${sparklineSvg(stock.code, up)}</div><h3>${escapeHtml(stock.name)}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · 거래량 ${stock.volume.toLocaleString()}</span><div class="stock-reason ${reasonClass}"><span>가격 변동 이유</span><small>${escapeHtml(reason)}</small></div><span class="card-link">상세 보기 →</span></a>`;
+      return `<a class="stock-card" href="#stock/${encodeURIComponent(stock.code)}" aria-label="${escapeHtml(stock.name)} ${t("상세 보기")}"><div class="stock-card-heading"><span class="code">${escapeHtml(stock.code)} · ${escapeHtml(stock.genre)}</span>${sparklineSvg(stock.code, up)}</div><h3>${escapeHtml(stock.name)}</h3><div class="price">${money.format(stock.price)}</div><span class="change ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${Math.abs(stock.changePercent).toFixed(2)}%</span><span class="meta"> · ${t("거래량")} ${formatNumber(stock.volume)}</span><div class="stock-reason ${reasonClass}"><span>${t("가격 변동 이유")}</span><small>${escapeHtml(reason)}</small></div><span class="card-link">${t("상세 보기")} →</span></a>`;
     })
     .join("");
 }
@@ -95,7 +254,7 @@ function sparklineSvg(stockCode, up) {
     const y = 28 - ((price - min) / range) * 24;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
-  return `<svg class="sparkline ${up ? "up" : "down"}" viewBox="0 0 80 32" role="img" aria-label="최근 가격 흐름"><polyline points="${coordinates}" /></svg>`;
+  return `<svg class="sparkline ${up ? "up" : "down"}" viewBox="0 0 80 32" role="img" aria-label="${t("가격 흐름")}"><polyline points="${coordinates}" /></svg>`;
 }
 
 function renderPortfolio(portfolio) {
@@ -129,13 +288,13 @@ async function refreshPortfolio() {
 function renderEvents(events) {
   const container = document.querySelector("#event-list");
   if (!events.length) {
-    container.innerHTML = '<p class="empty-state">아직 수집된 뉴스가 없습니다.</p>';
+    container.innerHTML = `<p class="empty-state">${t("아직 수집된 뉴스가 없습니다.")}</p>`;
     return;
   }
   container.innerHTML = events
     .map((event, index) => {
       const stock = currentStocks.find((item) => item.code === event.stockCode);
-      const stockLabel = stock ? `${stock.code} · ${stock.name}` : "시장 전체";
+      const stockLabel = stock ? `${stock.code} · ${stock.name}` : t("시장 전체");
       const priceChange = stock ? Number(stock.changePercent || 0) : Number(event.priceChangePercent || 0);
       const priceClass = priceChange > 0 ? "up" : priceChange < 0 ? "down" : "flat";
       const priceLabel = priceChange > 0 ? `▲ ${priceChange.toFixed(2)}%` : priceChange < 0 ? `▼ ${Math.abs(priceChange).toFixed(2)}%` : "— 0.00%";
@@ -147,9 +306,9 @@ function renderEvents(events) {
 
 function fallbackPriceReason(changePercent) {
   const change = Number(changePercent || 0);
-  if (change > 0) return "최근 거래 흐름을 따라 가격이 상승하고 있습니다.";
-  if (change < 0) return "최근 거래 흐름을 따라 가격이 하락하고 있습니다.";
-  return "최근 가격은 보합 상태입니다.";
+  if (change > 0) return t("최근 거래 흐름을 따라 가격이 상승하고 있습니다.");
+  if (change < 0) return t("최근 거래 흐름을 따라 가격이 하락하고 있습니다.");
+  return t("최근 가격은 보합 상태입니다.");
 }
 
 function newsSummary(description) {
@@ -162,7 +321,7 @@ function newsSummary(description) {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
     .trim();
-  return summary || "제공된 뉴스 요약이 없습니다.";
+  return summary || t("제공된 뉴스 요약이 없습니다.");
 }
 
 function newsSourceUrl(description) {
@@ -207,7 +366,7 @@ function renderDetail() {
     `${stock.code} · ${stock.genre}`;
   document.querySelector("#detail-name").textContent = stock.name;
   document.querySelector("#detail-genre").textContent =
-    `거래량 ${stock.volume.toLocaleString()}`;
+    `${t("거래량")} ${formatNumber(stock.volume)}`;
   document.querySelector("#detail-price").textContent = money.format(
     stock.price,
   );
@@ -252,9 +411,9 @@ async function loadOrderBook(stockCode) {
     updateMarketPriceEstimate(stockCode, book);
     const bids = book.bids || [], asks = book.asks || [];
     const maxQuantity = Math.max(1, ...bids.map(level => level.quantity), ...asks.map(level => level.quantity));
-    const levelMarkup = (level, side) => `<div class="depth-level ${side}"><span class="depth-price">${level.price.toLocaleString()}원</span><span class="depth-bar"><i style="width:${Math.max(5, level.quantity / maxQuantity * 100)}%"></i></span><strong>${level.quantity.toLocaleString()}주</strong><small>${level.orderCount}건</small></div>`;
-    container.innerHTML = bids.length || asks.length ? `<div class="depth-legend"><span class="book-buy">매수 잔량</span><span class="book-sell">매도 잔량</span></div><div class="depth-chart"><div class="depth-column asks">${asks.map(level => levelMarkup(level, "sell")).join("") || '<p class="empty-state">매도 대기 없음</p>'}</div><div class="depth-column bids">${bids.map(level => levelMarkup(level, "buy")).join("") || '<p class="empty-state">매수 대기 없음</p>'}</div></div>` : '<p class="empty-state">대기 중인 지정가 주문이 없습니다.</p>';
-  } catch { container.innerHTML = '<p class="empty-state">호가를 불러오지 못했습니다.</p>'; }
+    const levelMarkup = (level, side) => `<div class="depth-level ${side}"><span class="depth-price">${money.format(level.price)}</span><span class="depth-bar"><i style="width:${Math.max(5, level.quantity / maxQuantity * 100)}%"></i></span><strong>${formatNumber(level.quantity)}${t("주")}</strong><small>${formatNumber(level.orderCount)}${t("건")}</small></div>`;
+    container.innerHTML = bids.length || asks.length ? `<div class="depth-legend"><span class="book-buy">${t("매수 잔량")}</span><span class="book-sell">${t("매도 잔량")}</span></div><div class="depth-chart"><div class="depth-column asks">${asks.map(level => levelMarkup(level, "sell")).join("") || `<p class="empty-state">${t("매도 대기 없음")}</p>`}</div><div class="depth-column bids">${bids.map(level => levelMarkup(level, "buy")).join("") || `<p class="empty-state">${t("매수 대기 없음")}</p>`}</div></div>` : `<p class="empty-state">${t("대기 중인 지정가 주문이 없습니다.")}</p>`;
+  } catch { container.innerHTML = `<p class="empty-state">${t("호가를 불러오지 못했습니다.")}</p>`; }
 }
 
 function updateMarketPriceEstimate(stockCode = loadedOrderBookCode, book = orderBookCache.get(stockCode)) {
@@ -283,26 +442,26 @@ function updateMarketPriceEstimate(stockCode = loadedOrderBookCode, book = order
   amountDisplay.textContent = money.format(grossAmount);
   const help = document.querySelector("#market-price-help");
   if (help) {
-    const amountLabel = side === "BUY" ? "수수료 포함 예상 출금액" : "수수료 차감 예상 입금액";
+    const amountLabel = side === "BUY" ? t("수수료 포함 예상 출금액") : t("수수료 차감 예상 입금액");
     const depthText = filled > 0
-      ? `현재 호가 ${filled.toLocaleString()}주 기준`
-      : "반대 호가가 없어 현재가 기준";
-    help.textContent = `${depthText} · ${amountLabel} ${money.format(cashAmount)}${remaining > 0 && filled > 0 ? ` · ${remaining.toLocaleString()}주 미체결 가능` : ""}`;
+      ? `${t("현재 호가")} ${formatNumber(filled)}${t("주")} ${t("기준")}`
+      : t("반대 호가가 없어 현재가 기준");
+    help.textContent = `${depthText} · ${amountLabel} ${money.format(cashAmount)}${remaining > 0 && filled > 0 ? ` · ${formatNumber(remaining)}${t("주")} ${t("미체결 가능")}` : ""}`;
   }
 }
 
 async function loadPublicTrades(stockCode) {
   const container = document.querySelector("#public-trades");
-  container.innerHTML = '<p class="empty-state">전체 체결 내역을 불러오는 중입니다.</p>';
+  container.innerHTML = `<p class="empty-state">${t("전체 체결 내역을 불러오는 중입니다.")}</p>`;
   try {
     const trades = await api(`/api/stocks/${encodeURIComponent(stockCode)}/trades`);
     if (location.hash !== `#stock/${stockCode}`) return;
     container.innerHTML = trades.length ? trades.map((trade) => {
       const isBuy = trade.side === "BUY";
-      const date = new Date(trade.createdAt).toLocaleString("ko-KR");
-      return `<div class="history-row"><span class="history-side ${isBuy ? "buy" : "sell"}">${isBuy ? "매수" : "매도"}</span><strong>${trade.quantity.toLocaleString()}주</strong><span>${money.format(trade.price)}</span><time>${date}</time></div>`;
-    }).join("") : '<p class="empty-state">아직 체결된 거래가 없습니다.</p>';
-  } catch { loadedTradeCode = null; container.innerHTML = '<p class="empty-state">전체 체결 내역을 불러오지 못했습니다.</p>'; }
+      const date = formatDateTime(trade.createdAt);
+      return `<div class="history-row"><span class="history-side ${isBuy ? "buy" : "sell"}">${isBuy ? t("매수") : t("매도")}</span><strong>${formatNumber(trade.quantity)}${t("주")}</strong><span>${money.format(trade.price)}</span><time>${date}</time></div>`;
+    }).join("") : `<p class="empty-state">${t("아직 체결된 거래가 없습니다.")}</p>`;
+  } catch { loadedTradeCode = null; container.innerHTML = `<p class="empty-state">${t("전체 체결 내역을 불러오지 못했습니다.")}</p>`; }
 }
 
 async function loadStockNews(stockCode) {
@@ -327,15 +486,15 @@ function renderPriceDrivers(drivers) {
   const reason = document.querySelector("#price-drivers-reason");
   const updated = document.querySelector("#price-drivers-updated");
   if (!container || !drivers) return;
-  const newsDirection = drivers.newsImpact > 0.2 ? "상승 방향" : drivers.newsImpact < -0.2 ? "하락 방향" : "혼합·보합";
+  const newsDirection = drivers.newsImpact > 0.2 ? t("상승 방향") : drivers.newsImpact < -0.2 ? t("하락 방향") : t("혼합·보합");
   const flowLabel = (buy, sell) => {
     const net = Number(buy || 0) - Number(sell || 0);
-    if (net > 0) return `매수 우세 · 순 ${net.toLocaleString()}주`;
-    if (net < 0) return `매도 우세 · 순 ${Math.abs(net).toLocaleString()}주`;
-    return "매수·매도 균형";
+    if (net > 0) return `${t("매수 우세")} · ${t("순")} ${formatNumber(net)}${t("주")}`;
+    if (net < 0) return `${t("매도 우세")} · ${t("순")} ${formatNumber(Math.abs(net))}${t("주")}`;
+    return t("매수·매도 균형");
   };
-  const latest = drivers.latestTradeAt ? new Date(drivers.latestTradeAt).toLocaleString("ko-KR") : "최근 체결 없음";
-  const latestNews = drivers.latestNewsAt ? new Date(drivers.latestNewsAt).toLocaleString("ko-KR") : "최근 뉴스 없음";
+  const latest = drivers.latestTradeAt ? formatDateTime(drivers.latestTradeAt) : t("최근 체결 없음");
+  const latestNews = drivers.latestNewsAt ? formatDateTime(drivers.latestNewsAt) : t("최근 뉴스 없음");
   if (reason) reason.textContent = `${drivers.reason || "뉴스와 거래 흐름이 현재 가격에 반영되었습니다."} (최근 체결 ${latest})`;
   if (updated) updated.textContent = `분석 범위: 최근 24시간 · 마지막 뉴스 ${latestNews} · 마지막 체결 ${latest}`;
   container.innerHTML = [
@@ -366,7 +525,7 @@ function renderStockNews(news, stockCode) {
       const priceClass = priceChange > 0 ? "up" : priceChange < 0 ? "down" : "flat";
       const priceLabel = priceChange > 0 ? `▲ ${priceChange.toFixed(2)}%` : priceChange < 0 ? `▼ ${Math.abs(priceChange).toFixed(2)}%` : "— 0.00%";
       const stockLabel = stock ? `${stock.code} · ${stock.name}` : stockCode;
-      return `<article class="event ${event.sentiment || "neutral"}"><button type="button" class="event-news-button" data-detail-news-index="${index}"><strong>${escapeHtml(event.title)}</strong><small class="event-stock"><span>${escapeHtml(stockLabel)}</span><span class="event-stock-change ${priceClass}">${priceLabel}</span></small><small class="event-date">${event.publishedAt ? new Date(event.publishedAt).toLocaleString("ko-KR") : "날짜 미상"}</small></button><div class="event-insight"><small>${escapeHtml(event.priceReason || fallbackPriceReason(priceChange))}</small></div></article>`;
+      return `<article class="event ${event.sentiment || "neutral"}"><button type="button" class="event-news-button" data-detail-news-index="${index}"><strong>${escapeHtml(event.title)}</strong><small class="event-stock"><span>${escapeHtml(stockLabel)}</span><span class="event-stock-change ${priceClass}">${priceLabel}</span></small><small class="event-date">${event.publishedAt ? formatDateTime(event.publishedAt) : t("날짜 미상")}</small></button><div class="event-insight"><small>${escapeHtml(event.priceReason || fallbackPriceReason(priceChange))}</small></div></article>`;
     })
     .join("") || '<p class="empty-state">아직 관련 소식이 없습니다.</p>';
 }
@@ -441,7 +600,7 @@ async function loadOrderHistory(stockCode) {
       ? orders
           .map((order) => {
             const isBuy = order.side === "BUY";
-            const date = new Date(order.createdAt).toLocaleString("ko-KR");
+            const date = formatDateTime(order.createdAt);
             return `<div class="history-row"><span class="history-side ${isBuy ? "buy" : "sell"}">${isBuy ? "매수" : "매도"}</span><strong>${order.quantity.toLocaleString()}주</strong><span>${money.format(order.price)}</span><time>${date}</time></div>`;
           })
           .join("")
@@ -469,7 +628,7 @@ function drawChart(values) {
   const max = Math.max(...prices);
   const range = max - min || 1;
   context.clearRect(0, 0, displayWidth, displayHeight);
-  context.strokeStyle = "#e5e9ef";
+  context.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--line").trim() || "#e5e9ef";
   context.lineWidth = 1;
   for (let index = 1; index < 4; index += 1) {
     const y = (displayHeight / 4) * index;
@@ -508,7 +667,7 @@ document
     );
     const tooltip = document.querySelector("#chart-tooltip");
     tooltip.hidden = false;
-    tooltip.textContent = `${point.time.toLocaleTimeString("ko-KR")} · ${money.format(point.price)}`;
+    tooltip.textContent = `${point.time.toLocaleTimeString(locale())} · ${money.format(point.price)}`;
     tooltip.style.left = `${Math.min(Math.max(point.x, 70), chartState.width - 70)}px`;
     tooltip.style.top = `${Math.max(point.y - 48, 4)}px`;
   });
@@ -585,7 +744,7 @@ function connectRealtimeMarket() {
   const socket = new WebSocket(MARKET_SOCKET_URL);
   socket.addEventListener("open", () => {
     const status = document.querySelector("#server-status");
-    status.textContent = "실시간 연결됨";
+    status.textContent = t("실시간 연결됨");
     status.classList.add("ok");
   });
   socket.addEventListener("message", (event) => {
@@ -609,6 +768,8 @@ const profileClose = document.querySelector("#close-profile");
 const rankingModal = document.querySelector("#ranking-modal");
 const menuButton = document.querySelector("#menu-button");
 const menuPanel = document.querySelector("#menu-panel");
+const themeToggle = document.querySelector("#theme-toggle");
+const languageSelect = document.querySelector("#language-select");
 const newsModal = document.querySelector("#news-modal");
 const newsModalTitle = document.querySelector("#news-modal-title");
 const newsModalStock = document.querySelector("#news-modal-stock");
@@ -628,12 +789,12 @@ function openNewsModal(event) {
   if (!event || !newsModal) return;
   const stock = currentStocks.find((item) => item.code === event.stockCode);
   const change = stock ? Number(stock.changePercent || 0) : Number(event.priceChangePercent || 0);
-  newsModalStock.textContent = stock ? `${stock.code} · ${stock.name}` : "시장 전체";
-  newsModalTitle.textContent = event.title || "뉴스 상세";
+  newsModalStock.textContent = stock ? `${stock.code} · ${stock.name}` : t("시장 전체");
+  newsModalTitle.textContent = event.title || t("뉴스 상세");
   const priceClass = change > 0 ? "up" : change < 0 ? "down" : "flat";
   newsModalPrice.className = `event-price ${priceClass}`;
   newsModalPrice.textContent = change > 0 ? `▲ ${change.toFixed(2)}%` : change < 0 ? `▼ ${Math.abs(change).toFixed(2)}%` : "— 0.00%";
-  newsModalDate.textContent = event.publishedAt ? formatNewsDate(event.publishedAt) : "게시 시각 미상";
+  newsModalDate.textContent = event.publishedAt ? formatNewsDate(event.publishedAt) : t("게시 시각 미상");
   newsModalReason.textContent = event.priceReason || fallbackPriceReason(change);
   newsModalSummary.textContent = newsSummary(event.description);
   const sourceUrl = newsSourceUrl(event.description);
@@ -647,11 +808,11 @@ function openNewsModal(event) {
 function closeNewsModal() { if (newsModal) newsModal.hidden = true; }
 function formatNewsDate(value) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("ko-KR");
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(locale());
 }
 function updateLoginButton() {
   menuButton.hidden = false;
-  menuButton.textContent = currentUser ? `${currentUser.nickname || "내 계정"} ▾` : "☰ 메뉴";
+  menuButton.textContent = currentUser ? `${currentUser.nickname || t("내 계정")} ▾` : `☰ ${t("메뉴")}`;
   const menuLoginButton = document.querySelector("#menu-login-button");
   const profileButton = document.querySelector("#profile-button");
   const logoutButton = document.querySelector("#logout-button");
@@ -691,14 +852,14 @@ function renderProfile(profile, portfolio = null, { preserveForm = false, orders
     const isBuy = order.side === "BUY";
     const sideLabel = isBuy ? "매수" : "매도";
     const sideClass = isBuy ? "buy" : "sell";
-    const expiry = order.expiresAt ? new Date(order.expiresAt).toLocaleString("ko-KR") : "-";
+    const expiry = order.expiresAt ? formatDateTime(order.expiresAt) : "-";
     const reservation = isBuy ? `예약금 ${money.format(order.reservedCash)}` : `예약수량 ${Number(order.reservedQuantity || order.remainingQuantity).toLocaleString()}주`;
     return `<div class="open-order-row"><div><strong class="order-side ${sideClass}">${sideLabel} · ${escapeHtml(order.stockCode)}</strong><div class="holding-meta">${order.remainingQuantity.toLocaleString()}주 · 지정가 ${money.format(order.price)} · ${reservation}</div><small class="holding-meta">만료 예정 ${expiry}</small></div><button type="button" class="cancel-order" data-cancel-order="${order.id}">주문 취소</button></div>`;
   }).join("") : '<p class="empty-state">미체결 주문이 없습니다.</p>';
   const settlementsContainer = document.querySelector("#profile-settlements");
   settlementsContainer.innerHTML = currentSettlements.length ? currentSettlements.slice(0, 5).map((settlement) => {
     const isBuy = settlement.side === "BUY";
-    const completedAt = settlement.settlementAt ? new Date(settlement.settlementAt).toLocaleString("ko-KR") : "-";
+    const completedAt = settlement.settlementAt ? formatDateTime(settlement.settlementAt) : "-";
     const amountLabel = isBuy ? `출금 ${money.format(settlement.netAmount)}` : `입금 ${money.format(settlement.netAmount)}`;
     return `<div class="settlement-row"><div><strong class="order-side ${isBuy ? "buy" : "sell"}">${isBuy ? "매수" : "매도"} · ${escapeHtml(settlement.stockCode)}</strong><div class="holding-meta">${Number(settlement.quantity).toLocaleString()}주 · ${amountLabel} · 수수료 ${money.format(settlement.fee)}</div><small class="holding-meta">체결 완료 ${completedAt}</small></div><span class="settlement-status">체결 완료</span></div>`;
   }).join("") : '<p class="empty-state">체결 완료된 거래가 없습니다.</p>';
@@ -782,6 +943,10 @@ document.querySelector("#close-login").addEventListener("click", closeLogin);
 menuButton.addEventListener("click", () => { const expanded = menuButton.getAttribute("aria-expanded") === "true"; menuButton.setAttribute("aria-expanded", String(!expanded)); menuPanel.hidden = expanded; });
 document.querySelector("#profile-button").addEventListener("click", () => openProfile(false));
 document.querySelector("#ranking-button").addEventListener("click", openRanking);
+themeToggle?.addEventListener("click", () => {
+  setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+});
+languageSelect?.addEventListener("change", (event) => setLanguage(event.target.value));
 document.querySelector("#event-list").addEventListener("click", (event) => {
   const button = event.target.closest("[data-news-index]");
   if (button) openNewsModal(currentEvents[Number(button.dataset.newsIndex)]);
@@ -854,7 +1019,9 @@ resetAccountButton?.addEventListener("click", async () => {
     resetAccountMessage.textContent = error.message;
   }
 });
-// 초기 상태(비로그인)에서도 메뉴 버튼과 공개 메뉴 항목을 즉시 표시한다.
+// 초기 상태(비로그인)에서도 메뉴와 기기별 화면 설정을 즉시 표시한다.
+setTheme(document.documentElement.dataset.theme, false);
+setLanguage(currentLanguage, false);
 updateLoginButton();
 if (window.GAMESTOCK_FIREBASE_CONFIG && window.firebase) {
   firebase.initializeApp(window.GAMESTOCK_FIREBASE_CONFIG);
@@ -873,7 +1040,7 @@ api("/api/health")
   .then(() => connectRealtimeMarket())
   .catch(
     () =>
-      (document.querySelector("#server-status").textContent = "서버 연결 실패"),
+      (document.querySelector("#server-status").textContent = t("서버 연결 실패")),
   );
 refreshMarket().catch((error) => {
   stockContainer.textContent = `시장 정보를 불러오지 못했습니다: ${error.message}`;
@@ -887,7 +1054,7 @@ async function loadHanRiverTemperature() {
     if (reading.available && reading.temperature != null) {
       const stale = String(reading.message || "").includes("최근 조회값");
       element.className = `menu-river-temperature ${stale ? "stale" : "ok"}`;
-      element.textContent = `한강 수온(선유) ${Number(reading.temperature).toFixed(1)}℃`;
+      element.textContent = `${t("한강 수온(선유)")} ${Number(reading.temperature).toFixed(1)}℃`;
       element.title = `${reading.location || "한강"} · 측정 ${reading.measuredAt || "시간 미상"} · ${reading.message || "조회 완료"}`;
     } else {
       element.className = "menu-river-temperature";

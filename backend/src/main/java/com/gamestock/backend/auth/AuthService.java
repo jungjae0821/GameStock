@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class AuthService {
@@ -79,12 +80,24 @@ public class AuthService {
         if (!existing.isEmpty()) user = existing.get(0);
         else {
             String email = token.getEmail() == null ? "" : token.getEmail();
-            String name = token.getName() == null || token.getName().isBlank() ? "GameStock 사용자" : token.getName();
             String picture = token.getPicture() == null ? "" : token.getPicture();
-            try {
-                jdbc.update("INSERT INTO users (username, password_hash, nickname, google_uid, email, profile_image_url, profile_completed, cash) VALUES (?, 'GOOGLE', ?, ?, ?, ?, FALSE, 1000000)",
-                        "google_" + token.getUid(), uniqueNickname(name), token.getUid(), email, picture);
-            } catch (DuplicateKeyException ignored) { }
+            String username = "google_" + token.getUid();
+            String nickname = defaultNickname();
+            for (int attempt = 0; attempt < 10; attempt++) {
+                try {
+                    // 신규 계정은 자동 닉네임으로 바로 생성한다. 사용자는 이후
+                    // 마이페이지에서 원하는 닉네임으로 자유롭게 변경할 수 있다.
+                    jdbc.update("INSERT INTO users (username, password_hash, nickname, google_uid, email, profile_image_url, profile_completed, cash) VALUES (?, 'GOOGLE', ?, ?, ?, ?, TRUE, 1000000)",
+                            username, nickname, token.getUid(), email, picture);
+                    break;
+                } catch (DuplicateKeyException error) {
+                    // 닉네임 4자리 숫자가 동시에 겹친 경우에만 새 값을 뽑아
+                    // 재시도한다. 같은 Google UID가 먼저 생성된 경우는 아래
+                    // 조회에서 기존 계정을 그대로 사용한다.
+                    if (nicknameExists(nickname)) nickname = defaultNickname();
+                    else break;
+                }
+            }
             user = jdbc.queryForObject("SELECT id, nickname, email, profile_image_url, profile_completed, role FROM users WHERE google_uid = ?",
                     (rs, row) -> new LoginUser(rs.getLong("id"), rs.getString("nickname"), rs.getString("email"), rs.getString("profile_image_url"), 0, 0, !rs.getBoolean("profile_completed"), rs.getString("role")), token.getUid());
         }
@@ -104,9 +117,19 @@ public class AuthService {
         return uidMatches || emailMatches;
     }
 
-    private String uniqueNickname(String base) {
-        String trimmed = base.length() > 42 ? base.substring(0, 42) : base;
-        return trimmed + "_" + Long.toString(System.nanoTime(), 36).substring(5);
+    private String defaultNickname() {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            String nickname = String.format("슈엔단%04d", ThreadLocalRandom.current().nextInt(10_000));
+            if (!nicknameExists(nickname)) return nickname;
+        }
+        // 4자리 조합이 모두 사용되는 상황은 사실상 불가능하지만, DB의
+        // UNIQUE 제약과 함께 동작하도록 마지막 값도 같은 형식을 유지한다.
+        return String.format("슈엔단%04d", ThreadLocalRandom.current().nextInt(10_000));
+    }
+
+    private boolean nicknameExists(String nickname) {
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE nickname = ?", Integer.class, nickname);
+        return count != null && count > 0;
     }
 
     private LoginUser grantAttendanceReward(LoginUser user) {

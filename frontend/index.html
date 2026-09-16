@@ -1,8 +1,25 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => {
+        const supported = ["ko", "ja", "en"];
+        const storedLanguage = localStorage.getItem("gamestock-language");
+        const deviceLanguage = (navigator.languages?.[0] || navigator.language || "ko")
+          .toLowerCase().split("-")[0];
+        const language = supported.includes(storedLanguage)
+          ? storedLanguage
+          : supported.includes(deviceLanguage) ? deviceLanguage : "ko";
+        const storedTheme = localStorage.getItem("gamestock-theme");
+        const theme = storedTheme === "dark" || storedTheme === "light"
+          ? storedTheme
+          : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.lang = language;
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
     <title>씹덕주식</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -30,6 +47,17 @@
           </button>
           <button id="profile-button" type="button" hidden>마이페이지</button>
           <button id="ranking-button" type="button">랭킹</button>
+          <div class="menu-settings" aria-label="화면 설정">
+            <button id="theme-toggle" type="button" aria-pressed="false">
+              🌙 다크 모드
+            </button>
+            <label for="language-select">언어</label>
+            <select id="language-select" aria-label="언어 설정">
+              <option value="ko">한국어</option>
+              <option value="ja">日本語</option>
+              <option value="en">English</option>
+            </select>
+          </div>
           <div
             id="han-river-temperature"
             class="menu-river-temperature"
@@ -362,8 +390,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script>
-      window.GAMESTOCK_API_BASE_URL =
-        "https://gamestock-production.up.railway.app";
+      const localHost = ["localhost", "127.0.0.1"].includes(location.hostname);
+      window.GAMESTOCK_API_BASE_URL = localHost
+        ? `${location.protocol}//${location.hostname}:8081`
+        : "https://gamestock-production.up.railway.app";
     </script>
     <script src="app.js"></script>
   </body>

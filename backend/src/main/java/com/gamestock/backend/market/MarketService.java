@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 
 import static com.gamestock.backend.market.MarketModels.*;
+import static com.gamestock.backend.market.PriceLimitPolicy.*;
 
 @Service
 public class MarketService {
@@ -672,6 +673,13 @@ public class MarketService {
         if ("LIMIT".equals(orderType) && orderPrice <= 0) throw new IllegalArgumentException("지정가를 입력해 주세요.");
         if ("LIMIT".equals(orderType) && orderPrice % tickSize(orderPrice) != 0)
             throw new IllegalArgumentException("호가 단위(" + tickSize(orderPrice) + "원)에 맞는 가격을 입력해 주세요.");
+        if ("LIMIT".equals(orderType)) {
+            PriceBand dailyBand = dailyPriceBand(code);
+            if (!dailyBand.contains(orderPrice)) {
+                throw new IllegalArgumentException("지정가는 오늘의 가격제한폭(" + dailyBand.lowerPrice()
+                        + "원 ~ " + dailyBand.upperPrice() + "원) 안에서 입력해 주세요.");
+            }
+        }
         int requestedQuantity = request.quantity();
         long amount;
         try {
@@ -771,6 +779,7 @@ public class MarketService {
         double fairPrice = stock.price() * (1 + newsBias.rate());
         double rawPrice = fairPrice * ("BUY".equals(side) ? 1 - offset : 1 + offset);
         long price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
+        price = botPriceBand(code).clamp(price);
         int quantity = tickRandom.nextInt(26) + 5;
         long idStock = stockId(code);
         if ("BUY".equals(side)) {
@@ -819,6 +828,8 @@ public class MarketService {
     private MatchSummary matchOrders(String code) {
         long id = stockId(code);
         MatchSummary summary = MatchSummary.empty();
+        PriceBand dailyBand = dailyPriceBand(code);
+        PriceBand botBand = botPriceBand(code);
         while (true) {
             MatchRow buy = topOrder(id, "BUY");
             MatchRow sell = topOrder(id, "SELL");
@@ -853,6 +864,18 @@ public class MarketService {
                 tradePrice = sell.price();
             }
 
+            // Automated liquidity is deliberately narrower than the market's
+            // legal daily range. Any stale or user-provided quote outside the
+            // bot band must not let a bot create an upper/lower-limit trade.
+            if ((buy.bot() || sell.bot()) && !botBand.contains(tradePrice)) {
+                if (buy.bot()) cancelOrderInternal(buy.id());
+                if (sell.bot()) cancelOrderInternal(sell.id());
+                continue;
+            }
+            // New orders are validated before insertion, but this final guard
+            // also protects matching from legacy rows already stored in MySQL.
+            if (!dailyBand.contains(tradePrice)) return summary;
+
             if (!canSettle(buy, sell, quantity, tradePrice, id)) {
                 if (buy.reservedCash() == 0 && availableCash(buy.userId()) < tradePrice * quantity) cancelOrderInternal(buy.id());
                 if (sell.reservedQuantity() == 0 && availableQuantity(sell.userId(), id) < quantity) cancelOrderInternal(sell.id());
@@ -865,12 +888,13 @@ public class MarketService {
 
     private MatchRow topOrder(long stockId, String side) {
         String priceOrder = "BUY".equals(side) ? "o.price DESC" : "o.price ASC";
-        String sql = "SELECT o.id, o.user_id, COALESCE(o.price, 0), o.quantity, o.remaining_quantity, o.order_type, o.created_at, COALESCE(o.reserved_cash, 0), COALESCE(o.reserved_quantity, 0), o.side "
-                + "FROM orders o WHERE o.stock_id = ? AND o.side = ? AND o.status = 'OPEN' AND o.remaining_quantity > 0 "
+        String sql = "SELECT o.id, o.user_id, COALESCE(o.price, 0), o.quantity, o.remaining_quantity, o.order_type, o.created_at, COALESCE(o.reserved_cash, 0), COALESCE(o.reserved_quantity, 0), o.side, (u.password_hash = 'BOT') AS is_bot "
+                + "FROM orders o JOIN users u ON u.id = o.user_id WHERE o.stock_id = ? AND o.side = ? AND o.status = 'OPEN' AND o.remaining_quantity > 0 "
                 + "ORDER BY CASE WHEN o.order_type = 'MARKET' THEN 1 ELSE 0 END DESC, " + priceOrder + ", o.created_at ASC, o.id ASC LIMIT 1";
         List<MatchRow> rows = jdbc.query(sql, (rs, row) -> new MatchRow(
                 rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4), rs.getInt(5),
-                rs.getString(6), rs.getTimestamp(7).toInstant(), rs.getLong(8), rs.getInt(9), rs.getString(10)), stockId, side);
+                rs.getString(6), rs.getTimestamp(7).toInstant(), rs.getLong(8), rs.getInt(9), rs.getString(10),
+                rs.getBoolean(11)), stockId, side);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -1153,13 +1177,18 @@ public class MarketService {
     /** 기존 호가도 새 호가 단위 규칙을 따르도록 보정한다. 예약 현금 차액은 함께 정산한다. */
     private void normalizeOpenOrderPrices() {
         List<OpenLimitOrder> orders = jdbc.query("""
-                SELECT id, user_id, side, price, remaining_quantity, COALESCE(reserved_cash, 0)
-                FROM orders
-                WHERE status = 'OPEN' AND order_type = 'LIMIT' AND price IS NOT NULL
+                SELECT o.id, o.user_id, s.stock_code, o.side, o.price, o.remaining_quantity,
+                       COALESCE(o.reserved_cash, 0), (u.password_hash = 'BOT') AS is_bot
+                FROM orders o
+                JOIN stocks s ON s.id = o.stock_id
+                JOIN users u ON u.id = o.user_id
+                WHERE o.status = 'OPEN' AND o.order_type = 'LIMIT' AND o.price IS NOT NULL
                 """, (rs, row) -> new OpenLimitOrder(rs.getLong(1), rs.getLong(2), rs.getString(3),
-                rs.getLong(4), rs.getInt(5), rs.getLong(6)));
+                rs.getString(4), rs.getLong(5), rs.getInt(6), rs.getLong(7), rs.getBoolean(8)));
         for (OpenLimitOrder order : orders) {
-            long normalized = "BUY".equals(order.side()) ? floorToTick(order.price()) : ceilToTick(order.price());
+            PriceBand allowedBand = order.bot() ? botPriceBand(order.stockCode()) : dailyPriceBand(order.stockCode());
+            long rounded = "BUY".equals(order.side()) ? floorToTick(order.price()) : ceilToTick(order.price());
+            long normalized = allowedBand.clamp(rounded);
             if ("BUY".equals(order.side())) {
                 long required;
                 try {
@@ -1250,27 +1279,6 @@ public class MarketService {
     private boolean earlier(MatchRow first, MatchRow second) {
         int compared = first.createdAt().compareTo(second.createdAt());
         return compared < 0 || (compared == 0 && first.id() < second.id());
-    }
-
-    /** 가격대별 호가 단위. 현재 게임 종목 가격대에 맞춘 교육용 단위다. */
-    private static long tickSize(long price) {
-        if (price <= 1_000) return 1;
-        if (price <= 5_000) return 5;
-        if (price <= 50_000) return 10;
-        if (price <= 100_000) return 50;
-        return 100;
-    }
-
-    private long floorToTick(double price) {
-        long rounded = Math.max(1, Math.round(price));
-        long tick = tickSize(rounded);
-        return Math.max(tick, (rounded / tick) * tick);
-    }
-
-    private long ceilToTick(double price) {
-        long rounded = Math.max(1, Math.round(price));
-        long tick = tickSize(rounded);
-        return Math.max(tick, ((rounded + tick - 1) / tick) * tick);
     }
 
     private void adjustQuantity(long stockId, long userId, int amount, long price, long fee, boolean buy) {
@@ -1413,7 +1421,7 @@ public class MarketService {
     }
 
     private record MatchRow(long id, long userId, long price, int quantity, int remainingQuantity, String orderType,
-                            Instant createdAt, long reservedCash, int reservedQuantity, String side) { }
+                            Instant createdAt, long reservedCash, int reservedQuantity, String side, boolean bot) { }
     private record MatchSummary(long lastTradePrice, long totalQuantity, long totalNotional, String aggressorSide,
                                 long buyQuantity, long sellQuantity) {
         private static MatchSummary empty() { return new MatchSummary(0, 0, 0, null, 0, 0); }
@@ -1436,7 +1444,8 @@ public class MarketService {
     private record OrderState(long id, long userId, long price, int quantity, int remainingQuantity, String status,
                               String orderType, long reservedCash, int reservedQuantity) { }
     private record OrderReservation(long id, long userId, long reservedCash) { }
-    private record OpenLimitOrder(long id, long userId, String side, long price, int remainingQuantity, long reservedCash) { }
+    private record OpenLimitOrder(long id, long userId, String stockCode, String side, long price,
+                                  int remainingQuantity, long reservedCash, boolean bot) { }
     private record HoldingState(int quantity, int settledQuantity, long averagePrice, long realizedProfitLoss) { }
     private record PendingSettlement(long id, long buyerId, long sellerId, long stockId, int quantity,
                                      long grossAmount, long sellerFee) { }
@@ -1497,23 +1506,32 @@ public class MarketService {
 
     private void move(String code, double movement, int volume) {
         Stock old = findStock(code);
-        long next = Math.max(100, Math.round(old.price() * (1 + movement / 100)));
+        long requested = Math.max(100, Math.round(old.price() * (1 + movement / 100)));
+        moveToPrice(code, requested, volume);
+    }
+
+    private long dailyReferencePrice(String code) {
         seedDailySummaries();
-        jdbc.update("""
-                UPDATE stocks
-                SET previous_price = current_price, current_price = ?, total_volume = total_volume + ?
-                WHERE stock_code = ?
-                """, next, volume, code);
-            jdbc.update("""
-                INSERT INTO stock_price_history (stock_id, price)
-                SELECT id, ? FROM stocks WHERE stock_code = ?
-                """, next, code);
-        recordDailyTrade(code, next, volume);
+        List<Long> references = jdbc.query("""
+                SELECT d.open_price
+                FROM daily_market_summaries d
+                JOIN stocks s ON s.id = d.stock_id
+                WHERE s.stock_code = ? AND d.trading_date = CURRENT_DATE
+                """, (rs, row) -> rs.getLong(1), code);
+        return references.isEmpty() ? findStock(code).price() : references.get(0);
+    }
+
+    private PriceBand dailyPriceBand(String code) {
+        return dailyBand(dailyReferencePrice(code));
+    }
+
+    private PriceBand botPriceBand(String code) {
+        return botBand(dailyReferencePrice(code));
     }
 
     private void moveToPrice(String code, long price, long volume) {
-        long next = Math.max(100, price);
-        seedDailySummaries();
+        PriceBand dailyBand = dailyPriceBand(code);
+        long next = dailyBand.clamp(Math.max(100, price));
         jdbc.update("UPDATE stocks SET previous_price = current_price, current_price = ?, total_volume = total_volume + ? WHERE stock_code = ?", next, volume, code);
         jdbc.update("INSERT INTO stock_price_history (stock_id, price) SELECT id, ? FROM stocks WHERE stock_code = ?", next, code);
         recordDailyTrade(code, next, volume);
@@ -1531,9 +1549,11 @@ public class MarketService {
         Stock current = findStock(code);
         double stepRate = specialNews ? BOT_SPECIAL_PRICE_STEP_RATE : BOT_PRICE_STEP_RATE;
         long maxStep = Math.max(tickSize(current.price()), Math.round(current.price() * stepRate));
-        long lower = Math.max(100, current.price() - maxStep);
-        long upper = current.price() + maxStep;
-        long bounded = Math.max(lower, Math.min(upper, requestedPrice));
+        long stepLower = Math.max(100, current.price() - maxStep);
+        long stepUpper = current.price() + maxStep;
+        long bounded = Math.max(stepLower, Math.min(stepUpper, requestedPrice));
+        bounded = bounded >= current.price() ? floorToTick(bounded) : ceilToTick(bounded);
+        bounded = botPriceBand(code).clamp(bounded);
         moveToPrice(code, bounded, volume);
     }
 
