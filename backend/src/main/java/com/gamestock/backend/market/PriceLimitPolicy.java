@@ -9,6 +9,7 @@ package com.gamestock.backend.market;
 final class PriceLimitPolicy {
     static final double DAILY_LIMIT_RATE = 0.30;
     static final double BOT_DAILY_LIMIT_RATE = 0.20;
+    static final double MARKET_EXECUTION_RATE = 0.10;
 
     private PriceLimitPolicy() { }
 
@@ -18,6 +19,10 @@ final class PriceLimitPolicy {
 
     static PriceBand botBand(long referencePrice) {
         return band(referencePrice, BOT_DAILY_LIMIT_RATE);
+    }
+
+    static PriceBand marketExecutionBand(long referencePrice) {
+        return band(referencePrice, MARKET_EXECUTION_RATE);
     }
 
     static PriceBand band(long referencePrice, double rate) {

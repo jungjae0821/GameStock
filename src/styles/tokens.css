@@ -1,0 +1,89 @@
+@layer tokens, base, layout, component, responsive, utility;
+
+@layer tokens {
+  :root {
+    color-scheme: light;
+
+    /*
+     * 색은 두 갈래만 쓴다.
+     *   데이터: 상승 적 · 하락 청 · 전광판 LED · 체결 활동(틸) · 관심(앰버).
+     *   정체성: 브랜드 핑크 — 로고, 현재 탭, 선택된 행, 주문 실행, 포커스.
+     * 표면에는 색을 칠하지 않는다. 색 면은 값이 있는 곳에만 나타난다.
+     * 브랜드 색은 로고에서 추출했다(public/brand/ssokdex-mark.png):
+     * 링·화살표 #FD5886, 딥 로즈 #D83060, 판 잉크 #302430, 머리카락 #F9A8B8, 와인 #6C2448.
+     * 텍스트에는 *-deep 만 쓴다(대비 4.5:1 이상). 밝은 색은 면·막대·마크·큰 숫자 전용이다.
+     */
+
+    /* 표면: 무채색 종이. */
+    --canvas: oklch(0.973 0 0); /* #F5F5F5 */
+    --paper: oklch(1 0 0);
+    --sunken: oklch(0.955 0 0); /* #F0F0F0 표 머리·교차 행 */
+    --rule: oklch(0.9 0 0); /* #E2E2E2 괘선 */
+    --rule-ink: oklch(0.27 0.02 330); /* #2A2229 굵은 괘선 */
+
+    /* 글자: 로고 판에서 가져온 살짝 보라 도는 흑갈색 */
+    --ink: oklch(0.27 0.02 330);
+    --ink-muted: oklch(0.5 0.008 288); /* #6A6A72 */
+    --ink-faint: oklch(0.68 0.005 288); /* 괘선·비활성 전용, 본문 금지 */
+
+    /* 브랜드: 지금 어디에 있는지(현재 탭·선택된 행)와 실행 지점에만 쓴다. */
+    --brand: oklch(0.692 0.202 7); /* #FD5886 밑줄·선택 표시 */
+    --brand-deep: oklch(0.586 0.203 10); /* #D83060 링크·버튼 */
+    --brand-wine: oklch(0.381 0.11 353); /* #6C2448 현재 항목 텍스트 */
+    --brand-wash: oklch(0.967 0.016 358); /* #FEF0F4 선택된 행 전용. 구획 배경으로는 쓰지 않는다 */
+
+    /* 시세: 한국 관행대로 상승 적색, 하락 청색 */
+    --up: oklch(0.605 0.205 26); /* #E23A3A 면·막대·큰 숫자 */
+    --up-deep: oklch(0.532 0.195 25); /* #C4232B 텍스트 */
+    --up-wash: oklch(0.959 0.017 13); /* #FDEDEE */
+    --down: oklch(0.516 0.196 265); /* #2E5BD6 */
+    --down-deep: oklch(0.407 0.159 266); /* #1F3F9E */
+    --down-wash: oklch(0.954 0.019 266); /* #EAF0FD */
+    --flat: var(--ink-muted);
+
+    /* 관심 등록(★) 상태 하나에만 쓰는 색. */
+    --amber: oklch(0.626 0.125 70);
+    --amber-deep: oklch(0.47 0.105 70);
+    --amber-wash: oklch(0.967 0.025 81);
+
+    /* 전광판: 로고 판 잉크 위에 LED 색. 값은 열로 정렬하고 세로 괘선으로만 나눈다. */
+    --board: oklch(0.215 0.023 320); /* #1E1620 */
+    --board-label: oklch(0.72 0.025 330);
+    --led: oklch(0.86 0.14 84);
+    --led-up: oklch(0.76 0.17 20);
+    --led-down: oklch(0.79 0.12 256);
+
+    /* 틱 플래시: 종이 표면에서 값이 바뀔 때만 */
+    --tick-up: var(--up-deep);
+    --tick-up-bg: var(--up-wash);
+    --tick-down: var(--down-deep);
+    --tick-down-bg: var(--down-wash);
+
+    --focus: var(--brand-deep);
+
+    --font-ui: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+      "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+
+    --step--2: 10px;
+    --step--1: 11px;
+    --step-0: 12px;
+    --step-1: 13px;
+    --step-2: 15px;
+    --step-3: 19px;
+    --step-4: 24px;
+    --step-5: 30px;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 44px;
+
+    --radius: 3px;
+
+    --page: 1240px;
+    --bar: 54px;
+  }
+}

@@ -9,14 +9,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 import static com.gamestock.backend.market.MarketModels.*;
+import static com.gamestock.backend.market.UserFeatureModels.*;
 
 @RestController
 @RequestMapping("/api")
 public class MarketController {
     private final MarketService market;
     private final AuthService auth;
+    private final UserFeatureService userFeatures;
 
-    public MarketController(MarketService market, AuthService auth) { this.market = market; this.auth = auth; }
+    public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures) { this.market = market; this.auth = auth; this.userFeatures = userFeatures; }
 
     @GetMapping("/health") public Map<String, String> health() { return Map.of("status", "ok"); }
     @GetMapping("/stocks") public java.util.List<Stock> stocks() { return market.stocks(); }
@@ -83,6 +85,62 @@ public class MarketController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancelOrder(@PathVariable long orderId, @RequestHeader(value = "Authorization", required = false) String authorization) {
         market.cancelOrder(orderId, auth.requireUser(authorization).id());
+    }
+
+    // 372.ro식 관심·알림·커뮤니티 기능. 읽기 공개 범위는 기존 시세/뉴스와 동일하고,
+    // 변경 작업은 Firebase로 인증된 사용자만 수행할 수 있다.
+    @GetMapping("/watchlist")
+    public java.util.List<WatchlistEntry> watchlist(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return userFeatures.watchlist(auth.requireUser(authorization).id());
+    }
+
+    @PutMapping("/watchlist/{stockCode}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void addWatchlist(@PathVariable String stockCode, @RequestHeader(value = "Authorization", required = false) String authorization) {
+        userFeatures.addWatchlist(auth.requireUser(authorization).id(), stockCode);
+    }
+
+    @DeleteMapping("/watchlist/{stockCode}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeWatchlist(@PathVariable String stockCode, @RequestHeader(value = "Authorization", required = false) String authorization) {
+        userFeatures.removeWatchlist(auth.requireUser(authorization).id(), stockCode);
+    }
+
+    @GetMapping("/price-alerts")
+    public java.util.List<PriceAlert> priceAlerts(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return userFeatures.alerts(auth.requireUser(authorization).id());
+    }
+
+    @PostMapping("/price-alerts")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PriceAlert addPriceAlert(@Valid @RequestBody PriceAlertRequest request, @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return userFeatures.addAlert(auth.requireUser(authorization).id(), request);
+    }
+
+    @DeleteMapping("/price-alerts/{alertId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deletePriceAlert(@PathVariable long alertId, @RequestHeader(value = "Authorization", required = false) String authorization) {
+        userFeatures.deleteAlert(auth.requireUser(authorization).id(), alertId);
+    }
+
+    @GetMapping("/stocks/{stockCode}/comments")
+    public java.util.List<StockComment> comments(@PathVariable String stockCode) { return userFeatures.comments(stockCode); }
+
+    @PostMapping("/stocks/{stockCode}/comments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StockComment addComment(@PathVariable String stockCode, @Valid @RequestBody CommentRequest request,
+                                    @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return userFeatures.addComment(auth.requireUser(authorization).id(), stockCode, request);
+    }
+
+    @GetMapping("/stocks/{stockCode}/tags")
+    public java.util.List<StockTag> tags(@PathVariable String stockCode) { return userFeatures.tags(stockCode); }
+
+    @PostMapping("/stocks/{stockCode}/tags")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StockTag addTag(@PathVariable String stockCode, @Valid @RequestBody TagRequest request,
+                           @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return userFeatures.addTag(auth.requireUser(authorization).id(), stockCode, request);
     }
 
     @ExceptionHandler({IllegalArgumentException.class})

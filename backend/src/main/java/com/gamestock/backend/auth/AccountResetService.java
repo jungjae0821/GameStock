@@ -38,6 +38,11 @@ public class AccountResetService {
         cancelOpenOrders(userId);
         jdbc.update("DELETE FROM portfolios WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM attendance_rewards WHERE user_id = ?", userId);
+        // 상세 화면의 개인 기능도 계정 리셋 범위에 포함한다.
+        jdbc.update("DELETE FROM price_alerts WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM stock_comments WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM stock_tags WHERE created_by = ?", userId);
+        jdbc.update("DELETE FROM user_watchlists WHERE user_id = ?", userId);
         jdbc.update("""
                 UPDATE users
                 SET cash = ?,

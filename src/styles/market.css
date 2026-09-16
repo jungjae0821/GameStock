@@ -1,0 +1,637 @@
+@layer component {
+  .price {
+    display: inline-block;
+    padding: 1px 3px;
+    margin: -1px -3px;
+  }
+
+  .delta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+
+  .delta-arrow {
+    /* frontend-apex-ignore: tiny-ui-text -- 장식 글리프이며 방향은 부호와 색이 함께 전달한다 */
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  .delta.is-up {
+    color: var(--up-deep);
+  }
+
+  .delta.is-down {
+    color: var(--down-deep);
+  }
+
+  .delta.is-flat {
+    color: var(--flat);
+  }
+
+  .code-badge {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 21px;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: var(--paper);
+    /* frontend-apex-ignore: tiny-ui-text -- 종목 코드 각인 배지. 옆에 같은 이름이 있고 aria-hidden */
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: var(--ink-muted);
+  }
+
+  .code-badge.is-large {
+    width: 46px;
+    height: 34px;
+    border-radius: 6px;
+    font-size: var(--step-1);
+    font-weight: 600;
+  }
+
+  .code-badge.is-small {
+    width: 26px;
+    height: 18px;
+    /* frontend-apex-ignore: tiny-ui-text -- 좁은 레일에서 쓰는 축소형 각인 배지 */
+    font-size: 9px;
+  }
+
+  .code-text {
+    font-size: var(--step--2);
+    letter-spacing: 0.04em;
+  }
+
+  /* ------------------------------------------------------------- 시세표 */
+
+  .quote-table {
+    font-size: var(--step-1);
+  }
+
+  .quote-table thead th {
+    padding: 6px 8px;
+    background: var(--sunken);
+    border-bottom: 1px solid var(--rule);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .quote-table tbody th,
+  .quote-table tbody td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+
+  .quote-table tbody tr {
+    cursor: pointer;
+  }
+
+  .quote-table tbody tr:hover {
+    background: var(--sunken);
+  }
+
+  .quote-table tbody tr.is-selected {
+    background: var(--brand-wash);
+  }
+
+  .quote-table tbody tr.is-selected .cell-name {
+    box-shadow: inset 3px 0 0 var(--brand);
+  }
+
+  .quote-table tbody tr.is-selected .name-text {
+    font-weight: 700;
+  }
+
+  .quote-table .cell-price,
+  .quote-table .cell-rate,
+  .quote-table .cell-volume,
+  .quote-table td.num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .quote-table .cell-chart {
+    width: 96px;
+  }
+
+  .quote-table .cell-watch {
+    width: 34px;
+    text-align: center;
+  }
+
+  .sort-button {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .sort-button:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .sort-button.is-active {
+    color: var(--brand-wine);
+    font-weight: 700;
+  }
+
+  .sort-note {
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+
+  .name-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-decoration: none;
+  }
+
+  .name-link:hover .name-text {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .name-stack {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.35;
+  }
+
+  .name-text {
+    font-size: var(--step-1);
+  }
+
+  .name-sub {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .watch-button {
+    font-size: var(--step-2);
+    line-height: 1;
+    color: var(--ink-faint);
+  }
+
+  .watch-button:hover {
+    color: var(--ink);
+  }
+
+  .watch-button[aria-pressed="true"] {
+    color: var(--amber);
+  }
+
+  .watch-button.is-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 3px 8px;
+  }
+
+  .watch-button.is-text:hover {
+    border-color: var(--ink);
+  }
+
+  .watch-button.is-text.is-on {
+    color: var(--amber-deep);
+    border-color: color-mix(in oklab, var(--amber) 45%, transparent);
+    background: var(--amber-wash);
+  }
+
+  .volume-cell {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: 74px;
+  }
+
+  .volume-value {
+    font-size: var(--step-0);
+  }
+
+  .volume-bar {
+    width: 58px;
+    height: 4px;
+  }
+
+  .spark {
+    display: block;
+    width: 88px;
+    height: 26px;
+  }
+
+  .spark-line {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+  }
+
+  /* 경로 아래 옅은 면: 세션 등락을 색 면적으로 읽는다. */
+  .spark-area {
+    stroke: none;
+  }
+
+  .spark-base {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+  }
+
+  .spark.is-up .spark-line {
+    stroke: var(--up);
+  }
+
+  .spark.is-up .spark-area {
+    fill: color-mix(in oklab, var(--up) 13%, transparent);
+  }
+
+  .spark.is-up .spark-dot {
+    fill: var(--up);
+  }
+
+  .spark.is-down .spark-line {
+    stroke: var(--down);
+  }
+
+  .spark.is-down .spark-area {
+    fill: color-mix(in oklab, var(--down) 13%, transparent);
+  }
+
+  .spark.is-down .spark-dot {
+    fill: var(--down);
+  }
+
+  .spark.is-flat .spark-line {
+    stroke: var(--ink-muted);
+  }
+
+  .spark.is-flat .spark-area {
+    fill: color-mix(in oklab, var(--ink-muted) 10%, transparent);
+  }
+
+  .spark.is-flat .spark-dot {
+    fill: var(--ink-muted);
+  }
+
+  .holdings-table .cell-name {
+    min-width: 200px;
+  }
+
+  /*
+   * 지표 띠: 카드 네 장이 아니라 계기 하나다. 칸은 괘선으로만 나누고
+   * 색은 값(등락·거래량)에만 붙는다.
+   */
+
+  .index-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .index-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding: var(--space-3);
+  }
+
+  .index-tile + .index-tile {
+    border-left: 1px solid var(--rule);
+  }
+
+  .index-label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-size: var(--step--1);
+    font-weight: 700;
+    color: var(--ink-muted);
+  }
+
+  .index-note {
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+
+  .index-value {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-size: var(--step-4);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .index-value.is-name {
+    font-size: var(--step-2);
+    font-weight: 600;
+  }
+
+  .index-value.is-name a {
+    text-decoration: none;
+  }
+
+  .index-value.is-name a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .index-divider {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  .index-value .is-up {
+    color: var(--up-deep);
+  }
+
+  .index-value .is-down {
+    color: var(--down-deep);
+  }
+
+  .index-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 26px;
+  }
+
+  .index-sub {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .breadth {
+    flex: 1;
+    height: 8px;
+  }
+
+  /* ------------------------------------------------------------- 등락 보드 */
+
+  .movers {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+
+  .mover-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--rule);
+    font-size: var(--step-0);
+    font-weight: 700;
+  }
+
+  .mover-count {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  .panel-mark.is-up {
+    background: var(--up);
+  }
+
+  .panel-mark.is-down {
+    background: var(--down);
+  }
+
+  .mover-list li + li {
+    border-top: 1px solid var(--rule);
+  }
+
+  .mover-row {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px 0;
+    text-decoration: none;
+  }
+
+  .mover-row:hover {
+    background: var(--sunken);
+  }
+
+  .mover-rank {
+    font-size: var(--step--1);
+    color: var(--ink-faint);
+  }
+
+  .mover-name {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .mover-name-text {
+    font-size: var(--step-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mover-bar {
+    height: 4px;
+    border-radius: 2px;
+  }
+
+  .mover-price {
+    font-size: var(--step-1);
+    text-align: right;
+  }
+
+  /* ------------------------------------------------------------- 필터 */
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+  }
+
+  .control-group {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  .filter-button {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: var(--step-0);
+    color: var(--ink-muted);
+    padding: 3px 0 2px;
+    border-bottom: 2px solid transparent;
+  }
+
+  .filter-button:hover {
+    color: var(--ink);
+  }
+
+  .filter-button.is-active {
+    color: var(--brand-wine);
+    font-weight: 700;
+    border-bottom-color: var(--brand);
+  }
+
+  .filter-button .num {
+    font-size: var(--step--1);
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+
+  .control-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .control-field label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .control-field input {
+    width: 210px;
+    height: 28px;
+    padding: 0 8px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    font-size: var(--step-0);
+  }
+
+  .control-field input:focus-visible {
+    border-color: var(--brand);
+  }
+
+  .control-field input::placeholder {
+    color: var(--ink-faint);
+  }
+}
+
+@layer layout {
+  .market-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  .market-layout.has-detail {
+    grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr);
+  }
+
+  .market-list,
+  .market-detail {
+    min-width: 0;
+  }
+}
+
+@layer responsive {
+  @media (max-width: 1080px) {
+    .market-layout.has-detail {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .market-detail {
+      order: -1;
+    }
+
+    .index-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .index-tile:nth-child(even) {
+      border-left: 1px solid var(--rule);
+    }
+
+    .index-tile:nth-child(n + 3) {
+      border-top: 1px solid var(--rule);
+    }
+  }
+
+  @media (max-width: 720px) {
+    .index-strip {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .index-tile + .index-tile {
+      border-left: 0;
+      border-top: 1px solid var(--rule);
+    }
+
+    .movers {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-4);
+    }
+
+    .control-field {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .control-field input {
+      width: 100%;
+    }
+
+    .spark {
+      width: 64px;
+    }
+
+    /* 터치 환경에서 누를 수 있는 영역을 24px 이상으로 키운다. */
+    .quote-table .cell-watch {
+      width: 40px;
+    }
+
+    .watch-button {
+      display: inline-grid;
+      place-items: center;
+      min-width: 34px;
+      min-height: 34px;
+    }
+
+    .watch-button.is-text {
+      min-width: 0;
+      min-height: 34px;
+    }
+
+    .filter-button {
+      align-items: center;
+      min-height: 34px;
+      padding-bottom: 0;
+    }
+
+    .text-button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+    }
+  }
+}

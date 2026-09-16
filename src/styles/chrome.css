@@ -1,0 +1,280 @@
+@layer layout {
+  .app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  .content {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: var(--page);
+    margin: 0 auto;
+    padding: var(--space-5) var(--space-5) var(--space-7);
+    /* frontend-apex-ignore: focus-outline-removed -- 화면 이동 때 스크립트로만 포커스를 받는 컨테이너. tab 순서에 없고 이동은 제목으로 알린다 */
+    outline: none;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+    margin-bottom: var(--space-4);
+  }
+
+  .split-main,
+  .split-side {
+    min-width: 0;
+  }
+
+  .page-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .portfolio-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .portfolio-cell {
+    padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  }
+
+  .portfolio-cell + .portfolio-cell {
+    border-left: 1px solid var(--rule);
+    padding-left: var(--space-3);
+  }
+
+  .portfolio-cell dt {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .portfolio-value {
+    display: inline-block;
+    font-size: var(--step-4);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .portfolio-note {
+    margin-top: 2px;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 1080px) {
+    .split {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .portfolio-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .portfolio-cell:nth-child(odd) {
+      padding-left: 0;
+      border-left: none;
+    }
+
+    .portfolio-cell:nth-child(n + 3) {
+      border-top: 1px solid var(--rule);
+    }
+  }
+}
+
+@layer component {
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule-ink);
+  }
+
+  .topbar-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    width: 100%;
+    max-width: var(--page);
+    margin: 0 auto;
+    padding: 0 var(--space-5);
+    height: var(--bar);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-decoration: none;
+  }
+
+  .brand-mark {
+    border-radius: 50%;
+    display: block;
+  }
+
+  .brand-text {
+    font-size: var(--step-2);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .nav {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-4);
+    height: 100%;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    font-size: var(--step-1);
+    color: var(--ink-muted);
+    text-decoration: none;
+  }
+
+  .nav-link:hover {
+    color: var(--ink);
+  }
+
+  .nav-link.is-active {
+    color: var(--brand-wine);
+    font-weight: 700;
+    box-shadow: inset 0 -3px 0 var(--brand);
+  }
+
+  .topbar-end {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-left: auto;
+  }
+
+  .account-button {
+    border: 1px solid var(--rule);
+    background: transparent;
+    color: var(--ink-muted);
+    padding: 4px 8px;
+    font: inherit;
+    font-size: var(--step--1);
+    cursor: pointer;
+  }
+
+  .account-button:hover:not(:disabled) {
+    color: var(--ink);
+    border-color: var(--brand);
+  }
+
+  .connection-fallback {
+    position: fixed;
+    left: 8px;
+    bottom: 42px;
+    z-index: 30;
+    padding: 4px 8px;
+    background: #fff4e5;
+    border: 1px solid #e7c999;
+    color: #805b20;
+    font-size: 11px;
+  }
+
+  .topbar-clock {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .statusbar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
+  }
+
+  .statusbar-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: var(--page);
+    margin: 0 auto;
+    padding: 5px var(--space-5);
+    min-height: 34px;
+  }
+
+  .status-line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-left: auto;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .status-sep {
+    width: 1px;
+    height: 10px;
+    margin-left: var(--space-2);
+    background: var(--rule);
+  }
+
+  .status-note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .page-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+  }
+
+  .page-title h1 {
+    font-size: var(--step-4);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .page-meta {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+}
+
+@layer responsive {
+  @media (max-width: 720px) {
+    .content {
+      padding: var(--space-4) var(--space-3) var(--space-6);
+    }
+
+    .topbar-inner,
+    .statusbar-inner {
+      padding-inline: var(--space-3);
+    }
+
+    .topbar-inner {
+      gap: var(--space-4);
+      height: 48px;
+    }
+
+    .topbar-clock,
+    .topbar-end .account {
+      display: none;
+    }
+
+    .portfolio-value {
+      font-size: var(--step-3);
+    }
+
+    .statusbar .text-button {
+      min-width: 52px;
+      justify-content: center;
+    }
+  }
+}

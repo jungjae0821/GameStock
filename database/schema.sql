@@ -172,6 +172,51 @@ CREATE TABLE daily_market_summaries (
   INDEX ix_daily_summary_date (trading_date)
 );
 
+-- 종목 상세 화면의 개인 기능(웹·모바일 공용)
+CREATE TABLE user_watchlists (
+  user_id BIGINT NOT NULL,
+  stock_id BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, stock_id),
+  CONSTRAINT fk_watchlist_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_watchlist_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
+);
+
+CREATE TABLE price_alerts (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  stock_id BIGINT NOT NULL,
+  target_price BIGINT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  triggered_at TIMESTAMP NULL,
+  CONSTRAINT fk_alert_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_alert_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  INDEX ix_alert_user_active (user_id, active)
+);
+
+CREATE TABLE stock_comments (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  stock_id BIGINT NOT NULL,
+  comment_text VARCHAR(240) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_comment_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_comment_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  INDEX ix_comment_stock_time (stock_id, created_at)
+);
+
+CREATE TABLE stock_tags (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_id BIGINT NOT NULL,
+  tag VARCHAR(40) NOT NULL,
+  created_by BIGINT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_stock_tag (stock_id, tag),
+  CONSTRAINT fk_tag_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  CONSTRAINT fk_tag_user FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
 -- 시뮬레이션 시드를 고정해 동일한 DB 상태에서 봇 흐름을 재현할 수 있도록 한다.
 CREATE TABLE simulation_state (
   id TINYINT PRIMARY KEY,

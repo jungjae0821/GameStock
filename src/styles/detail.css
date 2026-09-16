@@ -1,0 +1,511 @@
+@layer component {
+  .detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .detail-grid {
+    display: contents;
+  }
+
+  .detail-head {
+    padding: 2px 0 0;
+  }
+
+  .detail-ident {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .detail-name {
+    font-size: var(--step-3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+
+  .detail-sub {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .detail-ident .watch-button {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .detail-price {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .detail-price-value {
+    font-size: var(--step-5);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  /* ------------------------------------------------------------- 지표 격자 */
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+
+  .stat-grid > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 5px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .stat-grid dt {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .stat-grid dd {
+    font-size: var(--step-0);
+  }
+
+  .stat-grid.is-holding {
+    margin-bottom: 0;
+  }
+
+  /* ------------------------------------------------------------- 차트 */
+
+  .chart {
+    margin: 0;
+  }
+
+  .chart-plot {
+    position: relative;
+    height: 150px;
+    padding-left: 72px;
+    padding-right: 72px;
+  }
+
+  .chart-plot svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .chart-grid {
+    stroke: var(--rule);
+    stroke-width: 1;
+  }
+
+  .chart-prevclose {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+
+  .chart-area {
+    fill: var(--ink-faint);
+    opacity: 0.28;
+  }
+
+  .chart.is-up .chart-area {
+    fill: var(--up);
+    opacity: 0.12;
+  }
+
+  .chart.is-down .chart-area {
+    fill: var(--down);
+    opacity: 0.12;
+  }
+
+  .chart-line {
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+  }
+
+  .chart.is-up .chart-line {
+    stroke: var(--up);
+  }
+
+  .chart.is-down .chart-line {
+    stroke: var(--down);
+  }
+
+  .chart.is-flat .chart-line {
+    stroke: var(--ink-muted);
+  }
+
+  .chart-tick {
+    position: absolute;
+    left: 0;
+    width: 66px;
+    transform: translateY(-50%);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .chart-current {
+    position: absolute;
+    right: 0;
+    width: 68px;
+    padding-left: 4px;
+    transform: translateY(-50%);
+    font-size: var(--step--1);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chart.is-up .chart-current {
+    color: var(--up-deep);
+  }
+
+  .chart.is-down .chart-current {
+    color: var(--down-deep);
+  }
+
+  .chart-axis {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 5px 72px 0;
+    border-top: 1px solid var(--rule);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  /* ------------------------------------------------------------- 호가 */
+
+  .book {
+    display: flex;
+    flex-direction: column;
+    font-size: var(--step-0);
+  }
+
+  .book-side {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .book-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 3px 6px;
+  }
+
+  .book-bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 3px;
+  }
+
+  .book-side.is-ask .book-bar {
+    right: 0;
+    background: color-mix(in oklab, var(--down) 14%, transparent);
+  }
+
+  .book-side.is-bid .book-bar {
+    left: 0;
+    background: color-mix(in oklab, var(--up) 14%, transparent);
+  }
+
+  .book-price,
+  .book-qty {
+    position: relative;
+  }
+
+  .book-side.is-ask .book-price {
+    color: var(--down-deep);
+  }
+
+  .book-side.is-bid .book-price {
+    color: var(--up-deep);
+  }
+
+  .book-qty {
+    color: var(--ink-muted);
+  }
+
+  .book-now {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin: 4px 0;
+    padding: 5px 6px;
+    border-block: 1px solid var(--rule-ink);
+    font-size: var(--step-2);
+    font-weight: 700;
+  }
+
+  /* ------------------------------------------------------------- 체결 */
+
+  .tape-strength {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-bottom: var(--space-2);
+  }
+
+  .tape-label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .tape-strength .bar {
+    flex: 1;
+  }
+
+  .tape-list {
+    max-height: 208px;
+    overflow-y: auto;
+  }
+
+  .tape-list li {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: 3px 0;
+    border-top: 1px solid var(--rule);
+    font-size: var(--step-0);
+  }
+
+  .tape-time {
+    color: var(--ink-muted);
+  }
+
+  .tape-price {
+    min-width: 76px;
+    text-align: right;
+  }
+
+  .tape-price.is-buy {
+    color: var(--up-deep);
+  }
+
+  .tape-price.is-sell {
+    color: var(--down-deep);
+  }
+
+  .tape-qty {
+    margin-left: auto;
+    color: var(--ink-muted);
+  }
+
+  /* ------------------------------------------------------------- 주문 */
+
+  .ticket-side {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+
+  .side-button {
+    flex: 1;
+    padding: 9px 0;
+    font-size: var(--step-1);
+    font-weight: 700;
+    color: var(--ink-muted);
+    background: var(--sunken);
+    border-radius: var(--radius);
+  }
+
+  .side-button:hover {
+    color: var(--ink);
+  }
+
+  .side-button.is-buy.is-active {
+    background: var(--up);
+    color: var(--paper);
+  }
+
+  .side-button.is-sell.is-active {
+    background: var(--down);
+    color: var(--paper);
+  }
+
+  .ticket-field {
+    margin-bottom: var(--space-3);
+  }
+
+  .ticket-field label {
+    display: block;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    margin-bottom: 4px;
+  }
+
+  .ticket-input {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    border: 1px solid var(--rule-ink);
+    border-radius: var(--radius);
+    padding: 0 8px;
+    background: var(--paper);
+  }
+
+  .ticket-input input {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    border: none;
+    background: none;
+    font-size: var(--step-3);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .ticket-input input:focus-visible {
+    /* frontend-apex-ignore: focus-outline-removed -- 감싸는 상자가 :focus-within 으로 같은 초점 표시를 그린다 */
+    outline: none;
+  }
+
+  .ticket-input:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  .ticket-unit {
+    font-size: var(--step-0);
+    color: var(--ink-muted);
+  }
+
+  .ticket-ratios {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: 6px;
+  }
+
+  .ticket-summary {
+    border-top: 1px solid var(--rule);
+    margin-bottom: var(--space-2);
+  }
+
+  .ticket-summary > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 5px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .ticket-summary dt {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .ticket-summary dd {
+    font-size: var(--step-0);
+  }
+
+  .ticket-note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    margin-bottom: var(--space-3);
+  }
+
+  .submit-button {
+    width: 100%;
+    padding: 11px 0;
+    font-size: var(--step-2);
+    font-weight: 700;
+    color: var(--paper);
+    border-radius: var(--radius);
+  }
+
+  .submit-button.is-buy {
+    background: var(--up);
+  }
+
+  .submit-button.is-sell {
+    background: var(--down);
+  }
+
+  .submit-button:hover:not(:disabled) {
+    filter: brightness(0.92);
+  }
+
+  .submit-button:disabled {
+    background: var(--sunken);
+    color: var(--ink-faint);
+  }
+
+  .ticket-message {
+    min-height: 20px;
+    margin-top: var(--space-2);
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .ticket-message.is-error {
+    color: var(--up-deep);
+  }
+
+  .fill-list li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 5px 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: var(--step-0);
+  }
+
+  .fill-time {
+    color: var(--ink-muted);
+  }
+
+  .fill-amount {
+    margin-left: auto;
+    color: var(--ink-muted);
+  }
+}
+
+@layer responsive {
+  @media (max-width: 720px) {
+    .chart-plot {
+      padding-left: 0;
+      padding-right: 60px;
+      height: 132px;
+    }
+
+    .chart-tick {
+      display: none;
+    }
+
+    .chart-axis {
+      padding-inline: 0 60px;
+    }
+
+    .ticket-ratios {
+      gap: var(--space-2);
+    }
+
+    .ticket-ratios .text-button {
+      min-width: 52px;
+      justify-content: center;
+    }
+
+    .side-button {
+      padding: 11px 0;
+    }
+  }
+}

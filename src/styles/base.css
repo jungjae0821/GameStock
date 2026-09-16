@@ -1,0 +1,167 @@
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+    scrollbar-color: var(--ink-faint) transparent;
+  }
+
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: var(--step-1);
+    line-height: 1.6;
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  dl,
+  dd,
+  figure {
+    margin: 0;
+  }
+
+  ul,
+  ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    color: var(--ink-faint);
+  }
+
+  input {
+    font: inherit;
+    color: inherit;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    text-align: left;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: oklch(0.9 0.07 82);
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: var(--space-4);
+    top: -100px;
+    z-index: 40;
+    padding: var(--space-2) var(--space-3);
+    background: var(--paper);
+    border: 1px solid var(--rule-ink);
+    font-size: var(--step--1);
+    text-decoration: none;
+  }
+
+  .skip-link:focus {
+    top: var(--space-2);
+  }
+
+  .text-button {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-underline-offset: 3px;
+  }
+
+  .text-button:hover:not(:disabled) {
+    color: var(--ink);
+    text-decoration-color: var(--ink);
+  }
+
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-5) 0;
+    font-size: var(--step-0);
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .empty.is-inline {
+    padding: var(--space-3) 0;
+  }
+
+  .empty a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

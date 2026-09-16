@@ -57,14 +57,16 @@ public class MarketService {
 
     private final ApplicationEventPublisher events;
     private final JdbcTemplate jdbc;
+    private final UserFeatureService userFeatures;
     @Value("${gamestock.simulation.seed:20260910}")
     private long simulationSeed;
     private Random tickRandom = new Random(20260910L);
     private long demoUserId;
 
-    public MarketService(ApplicationEventPublisher events, JdbcTemplate jdbc) {
+    public MarketService(ApplicationEventPublisher events, JdbcTemplate jdbc, UserFeatureService userFeatures) {
         this.events = events;
         this.jdbc = jdbc;
+        this.userFeatures = userFeatures;
     }
 
     @PostConstruct
@@ -96,6 +98,8 @@ public class MarketService {
         insertStock("UMA", "우마무스메 프리티더비", 12_450L);
         insertStock("BA", "블루 아카이브", 8_230L);
         insertStock("GOV", "승리의 여신: 니케", 21_430L);
+        userFeatures.ensureTables();
+        userFeatures.ensureDefaultTags();
         seedPriceHistory();
         seedDailySummaries();
         normalizeOpenOrderPrices();
@@ -888,6 +892,22 @@ public class MarketService {
                 maker = sell;
                 taker = buy;
                 tradePrice = sell.price();
+            }
+
+            // 시장가는 372.ro처럼 현재가 기준 ±10%의 반대 호가까지만 순서대로 훑는다.
+            // 범위를 벗어난 지정가와는 체결하지 않아 한 번의 시장가 주문이 시세를 급격히 건너뛰지 않는다.
+            PriceBand marketBand = marketExecutionBand(findStock(code).price());
+            if (buyMarket && !marketBand.contains(tradePrice)) {
+                if (buy.bot()) cancelOrderInternal(buy.id());
+                else if (sell.bot()) cancelOrderInternal(sell.id());
+                else return summary;
+                continue;
+            }
+            if (sellMarket && !marketBand.contains(tradePrice)) {
+                if (sell.bot()) cancelOrderInternal(sell.id());
+                else if (buy.bot()) cancelOrderInternal(buy.id());
+                else return summary;
+                continue;
             }
 
             // Automated liquidity is deliberately narrower than the market's

@@ -72,12 +72,22 @@ class NewsAnalysisTest {
                 "블루 아카이브 신규 보스 공개",
                 "블루 아카이브 신규 보스·캐릭터 2종 동시 공개",
                 "니케 신규 이벤트 개막",
-                "우마무스메 신규 캐릭터 등장"
+                "우마무스메 신규 캐릭터 등장",
+                "니케 서비스 개선 및 성능 최적화",
+                "블루 아카이브 편의성 개선 업데이트",
+                "우마무스메 버그 수정과 운영 안정화"
         );
 
         positiveHeadlines.forEach(title ->
                 assertTrue(sentiment.newsImpact(title, "") > 0,
                         () -> "positive headline was scored non-positive: " + title));
+    }
+
+    @Test
+    void improvementRequestIsNotMistakenForPositiveOutcome() {
+        assertTrue(sentiment.newsImpact("블루 아카이브 서비스 개선 필요", "이용자 불편이 계속되고 있다") < 0);
+        assertTrue(sentiment.newsImpact("니케 서비스 개선이 필요하다", "이용자 불만이 이어지고 있다") < 0);
+        assertTrue(sentiment.newsImpact("니케 서비스 개선 업데이트", "문제 해결과 최적화가 적용됐다") > 0);
     }
 
     @Test

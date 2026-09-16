@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: gamestock-backend
+  datasource:
+    # Railway에서는 DB_URL을 지정하거나 MYSQLHOST/MYSQLPORT/MYSQLDATABASE를
+    # 서비스 변수로 연결한다. 값이 없으면 기존 로컬 MySQL로 접속한다.
+    url: "${DB_URL:jdbc:mysql://${MYSQLHOST:localhost}:${MYSQLPORT:3306}/${MYSQLDATABASE:gamestock}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul}"
+    username: "${DB_USERNAME:${MYSQLUSER:jungjae0821}}"
+    password: "${DB_PASSWORD:${MYSQLPASSWORD:}}"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+server:
+  # Railway가 할당한 포트를 우선 사용하고, 로컬에서는 8081을 사용한다.
+  port: ${PORT:8081}
+  error:
+    include-message: always
+gamestock:
+  cors-origin: ${GAMESTOCK_CORS_ORIGIN:http://localhost:8080}
+  auth:
+    # Firebase 로그인은 항상 필요하며, 아래 값과 일치하는 Google 계정만 ADMIN으로 승격한다.
+    admin-google-uid: ${GAMESTOCK_ADMIN_GOOGLE_UID:}
+    admin-google-email: ${GAMESTOCK_ADMIN_GOOGLE_EMAIL:}
+  simulation:
+    # 같은 시드와 DB 스냅샷을 사용하면 봇 틱을 재현할 수 있다.
+    seed: ${GAMESTOCK_SIMULATION_SEED:20260910}
+  hangang:
+    enabled: ${GAMESTOCK_HANGANG_ENABLED:true}
+    site-url: ${GAMESTOCK_HANGANG_SITE_URL:https://xn--939at9l4tgt7l6ps.com/ko}
+    refresh-ms: ${GAMESTOCK_HANGANG_REFRESH_MS:1800000}
+    initial-delay-ms: ${GAMESTOCK_HANGANG_INITIAL_DELAY_MS:60000}
+  news:
+    enabled: ${GAMESTOCK_NEWS_ENABLED:true}
+    refresh-ms: ${GAMESTOCK_NEWS_REFRESH_MS:600000}
+    initial-delay-ms: ${GAMESTOCK_NEWS_INITIAL_DELAY_MS:30000}
+    feeds:
+      - "UMA|https://news.google.com/rss/search?q=%EC%9A%B0%EB%A7%88%EB%AC%B4%EC%8A%A4%EB%A9%94%20%ED%94%84%EB%A6%AC%ED%8B%B0%EB%8D%94%EB%B9%84&hl=ko&gl=KR&ceid=KR:ko"
+      - "BA|https://news.google.com/rss/search?q=%EB%B8%94%EB%A3%A8%20%EC%95%84%EC%B9%B4%EC%9D%B4%EB%B8%8C&hl=ko&gl=KR&ceid=KR:ko"
+      - "GOV|https://news.google.com/rss/search?q=%EC%8A%B9%EB%A6%AC%EC%9D%98%20%EC%97%AC%EC%8B%A0%20%EB%8B%88%EC%BC%80&hl=ko&gl=KR&ceid=KR:ko"

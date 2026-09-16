@@ -1,0 +1,183 @@
+@layer component {
+  /*
+   * 전광판. 둥근 칩을 쌓은 카드 벽이 아니라 시세 테이프다 — 한 종목이 한 열이고,
+   * 열은 세로 괘선으로만 나뉜다. 이름·가격·등락이 판 전체에서 같은 자리에 서므로
+   * 15개의 셀이 하나의 계기처럼 읽힌다.
+   */
+
+  .board {
+    --tape-rule: color-mix(in oklab, var(--paper) 10%, transparent);
+    /* 어두운 면에서는 종이와 다른 틱 색을 쓴다. */
+    --tick-up: oklch(0.97 0.13 88);
+    --tick-up-bg: oklch(0.34 0.055 84);
+    --tick-down: oklch(0.95 0.09 250);
+    --tick-down-bg: oklch(0.34 0.05 250);
+
+    padding: var(--space-3) 0 var(--space-2);
+    background: var(--board);
+    border-radius: var(--radius);
+  }
+
+  .board-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: 0 var(--space-3) var(--space-2);
+  }
+
+  .board-title {
+    font-size: var(--step-1);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--paper);
+  }
+
+  .board-meta {
+    margin-left: auto;
+    font-size: var(--step--1);
+    color: var(--board-label);
+  }
+
+  /*
+   * 괘선은 셀이 아니라 판에 긋는다. 열 폭마다 1px 세로선, 15종목이 꽉 차는
+   * 행마다 1px 가로선. -1px 이동으로 판 바깥쪽 두 줄은 지운다.
+   */
+  .board-tape {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    background-image:
+      linear-gradient(to right, var(--tape-rule) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--tape-rule) 1px, transparent 1px);
+    background-size: 20% 33.3333%;
+    background-position: -1px -1px;
+  }
+
+  .board-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    height: 100%;
+    padding: 7px var(--space-3) 8px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* 어두운 면 위의 상호작용은 흰 잉크를 옅게 겹친다. */
+  .board-cell:hover {
+    background: color-mix(in oklab, var(--paper) 7%, transparent);
+  }
+
+  .board-name {
+    font-size: var(--step--1);
+    color: var(--board-label);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .board-price {
+    display: inline-block;
+    font-size: var(--step-3);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--led);
+  }
+
+  /*
+   * 전광판의 서명. 값이 바뀌면 그 자리 글자만 마운트가 갈리고, 밝은 LED 색에서
+   * 제 색으로 돌아온다. 나머지 자리는 정지해 있으므로 움직인 자리만 읽힌다.
+   */
+  .digit {
+    display: inline-block;
+  }
+
+  .digit.is-up {
+    animation: digit-blink-up 460ms ease-out;
+  }
+
+  .digit.is-down {
+    animation: digit-blink-down 460ms ease-out;
+  }
+
+  @keyframes digit-blink-up {
+    from {
+      color: var(--tick-up);
+    }
+    to {
+      color: var(--led);
+    }
+  }
+
+  @keyframes digit-blink-down {
+    from {
+      color: var(--tick-down);
+    }
+    to {
+      color: var(--led);
+    }
+  }
+
+  .board-delta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    font-size: var(--step--1);
+  }
+
+  .board-delta.is-up {
+    color: var(--led-up);
+  }
+
+  .board-delta.is-down {
+    color: var(--led-down);
+  }
+
+  .board-delta.is-flat {
+    color: var(--board-label);
+  }
+
+  .board-arrow {
+    /* frontend-apex-ignore: tiny-ui-text -- 장식 글리프이며 방향은 부호와 색이 함께 전달한다 */
+    font-size: 9px;
+    line-height: 1;
+  }
+}
+
+@layer responsive {
+  @media (max-width: 1080px) {
+    .board-tape {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      /* 3열 × 5행 */
+      background-size: 33.3333% 20%;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .board {
+      padding: var(--space-2) 0;
+    }
+
+    .board-head {
+      padding-inline: var(--space-2);
+    }
+
+    .board-tape {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      /* 2열 × 8행(마지막 행은 1종목) */
+      background-size: 50% 12.5%;
+    }
+
+    .board-cell {
+      padding: 6px var(--space-2) 7px;
+    }
+
+    .board-price {
+      font-size: var(--step-2);
+    }
+
+    .board-meta {
+      display: none;
+    }
+  }
+}

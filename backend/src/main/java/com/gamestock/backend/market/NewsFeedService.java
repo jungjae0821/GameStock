@@ -61,6 +61,15 @@ public class NewsFeedService {
             new WeightedSignal("신규 캐릭터 등장", 2), new WeightedSignal("신규 캐릭터 공개", 2),
             new WeightedSignal("신규 보스 등장", 2), new WeightedSignal("신규 보스 공개", 2),
             new WeightedSignal("신규 콘텐츠 공개", 2),
+            // Improvements, optimization and stabilization are common
+            // positive signals in live-service game headlines.
+            new WeightedSignal("서비스 개선", 3), new WeightedSignal("성능 개선", 3),
+            new WeightedSignal("품질 개선", 2), new WeightedSignal("편의성 개선", 2),
+            new WeightedSignal("문제 해결", 3), new WeightedSignal("버그 수정", 2),
+            new WeightedSignal("오류 수정", 2), new WeightedSignal("운영 안정화", 2),
+            new WeightedSignal("최적화", 2), new WeightedSignal("리뉴얼", 2),
+            new WeightedSignal("개편", 2), new WeightedSignal("보완", 1),
+            new WeightedSignal("강화", 1), new WeightedSignal("개선", 1),
             // RSS titles often insert punctuation between the subject and
             // action ("신규 보스·캐릭터 공개"), so keep shorter fallbacks.
             new WeightedSignal("신규 캐릭터", 1), new WeightedSignal("신규 보스", 1),
@@ -78,6 +87,10 @@ public class NewsFeedService {
             new WeightedSignal("profit", 2));
     private static final List<WeightedSignal> NEGATIVE_SIGNALS = List.of(
             new WeightedSignal("서비스 종료", 4), new WeightedSignal("서비스 중단", 4),
+            new WeightedSignal("개선 요구", 3), new WeightedSignal("개선 필요", 3),
+            new WeightedSignal("개선이 필요", 3), new WeightedSignal("개선이 시급", 3),
+            new WeightedSignal("개선해야", 3), new WeightedSignal("개선 촉구", 3),
+            new WeightedSignal("개선되지", 3),
             new WeightedSignal("출시 실패", 4), new WeightedSignal("출시 취소", 4),
             new WeightedSignal("이벤트 개막 취소", 4), new WeightedSignal("이벤트 개최 취소", 4),
             new WeightedSignal("신규 캐릭터 공개 취소", 4), new WeightedSignal("신규 보스 공개 취소", 4),

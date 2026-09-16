@@ -1,0 +1,125 @@
+@layer component {
+  /* ---------------------------------------------------------------- 패널 */
+
+  /*
+   * 구획은 하나의 패널 층위만 쓴다: 흰 면 + 1px 괘선 + 무채색 머리.
+   * 구획마다 색을 달리하면 색이 정보가 아니라 벽지가 된다. 색은 값에만 쓴다.
+   */
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 7px var(--space-3) 7px var(--space-2);
+    background: var(--sunken);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .panel-mark {
+    flex: none;
+    width: 3px;
+    height: 13px;
+    background: var(--ink-faint);
+  }
+
+  .panel-title {
+    font-size: var(--step-0);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .panel-meta {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .panel-action {
+    margin-left: auto;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+
+  .panel-action:hover {
+    color: var(--brand-deep);
+    border-color: var(--brand);
+  }
+
+  .panel-body {
+    padding: var(--space-3);
+  }
+
+  /* ---------------------------------------------------------------- 칩 */
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    font-size: var(--step--1);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .chip.is-up {
+    color: var(--up-deep);
+    background: var(--up-wash);
+    border-color: color-mix(in oklab, var(--up) 22%, transparent);
+  }
+
+  .chip.is-down {
+    color: var(--down-deep);
+    background: var(--down-wash);
+    border-color: color-mix(in oklab, var(--down) 22%, transparent);
+  }
+
+  .chip.is-flat {
+    color: var(--ink-muted);
+    background: var(--sunken);
+    border-color: var(--rule);
+  }
+
+  .chip.is-solid-up {
+    color: var(--paper);
+    background: var(--up);
+  }
+
+  .chip.is-solid-down {
+    color: var(--paper);
+    background: var(--down);
+  }
+
+  /* ---------------------------------------------------------------- 막대 */
+
+  .bar {
+    position: relative;
+    height: 6px;
+    background: var(--sunken);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--ink-faint);
+  }
+
+  .bar-fill.is-up {
+    background: var(--up);
+  }
+
+  .bar-fill.is-down {
+    background: var(--down);
+  }
+}

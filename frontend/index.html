@@ -7,15 +7,25 @@
       (() => {
         const supported = ["ko", "ja", "en"];
         const storedLanguage = localStorage.getItem("gamestock-language");
-        const deviceLanguage = (navigator.languages?.[0] || navigator.language || "ko")
-          .toLowerCase().split("-")[0];
+        const deviceLanguage = (
+          navigator.languages?.[0] ||
+          navigator.language ||
+          "ko"
+        )
+          .toLowerCase()
+          .split("-")[0];
         const language = supported.includes(storedLanguage)
           ? storedLanguage
-          : supported.includes(deviceLanguage) ? deviceLanguage : "ko";
+          : supported.includes(deviceLanguage)
+            ? deviceLanguage
+            : "ko";
         const storedTheme = localStorage.getItem("gamestock-theme");
-        const theme = storedTheme === "dark" || storedTheme === "light"
-          ? storedTheme
-          : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        const theme =
+          storedTheme === "dark" || storedTheme === "light"
+            ? storedTheme
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
         document.documentElement.lang = language;
         document.documentElement.dataset.theme = theme;
       })();
@@ -26,8 +36,6 @@
   <body>
     <header class="topbar">
       <a class="brand" href="#">씹덕주식</a>
-      <span>서브컬처 게임 모의주식</span>
-      <span id="server-status" class="status">서버 확인 중</span>
       <div class="account-actions">
         <button
           id="menu-button"
@@ -70,11 +78,12 @@
       </div>
     </header>
     <main>
-      <section class="hero">
-        <h1>당신의 게임에<br />지금바로 투자하세요</h1>
-        <p>당신도 여기서만큼은 부자가 될 수 있습니다!</p>
-      </section>
-      <section class="summary-grid" aria-label="내 자산 요약">
+      <section
+        id="portfolio-summary"
+        class="summary-grid"
+        aria-label="내 자산 요약"
+        hidden
+      >
         <article><span>보유 현금</span><strong id="cash">-</strong></article>
         <article>
           <span>주식 평가액</span><strong id="asset-value">-</strong>
@@ -82,22 +91,105 @@
         <article>
           <span>총 자산</span><strong id="total-asset">-</strong>
         </article>
+        <article>
+          <span>평가 손익</span><strong id="portfolio-profit">-</strong>
+          <small id="portfolio-profit-rate">-</small>
+        </article>
       </section>
-      <section class="layout">
-        <div>
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">MARKET</p>
-              <h2>상장 종목</h2>
+      <section id="market-kpis" class="market-kpis" aria-label="시장 요약">
+        <article>
+          <span>시장 평균가</span>
+          <strong id="market-average">-</strong>
+          <small id="market-average-change">-</small>
+        </article>
+        <article>
+          <span>거래대금 합계</span>
+          <strong id="market-turnover">-</strong>
+          <small id="market-stock-count">-</small>
+        </article>
+        <article>
+          <span>상승 · 하락</span>
+          <strong id="market-breadth">-</strong>
+          <small id="market-breadth-note">현재 등락 기준</small>
+        </article>
+        <article>
+          <span>거래량 최다</span>
+          <strong id="market-leader">-</strong>
+          <small id="market-leader-volume">-</small>
+        </article>
+      </section>
+      <section class="layout dashboard-layout">
+        <div id="market-section" class="market-column">
+          <div class="market-toolbar">
+            <div class="section-heading">
+              <h2>시세표</h2>
+              <span id="stock-count" class="detail-subtitle"></span>
+            </div>
+            <div class="market-tabs" role="tablist" aria-label="종목 정렬">
+              <button
+                type="button"
+                class="market-tab active"
+                data-market-sort="volume"
+                role="tab"
+                aria-selected="true"
+              >
+                거래량
+              </button>
+              <button
+                type="button"
+                class="market-tab"
+                data-market-sort="popular"
+                role="tab"
+                aria-selected="false"
+              >
+                인기
+              </button>
+              <button
+                type="button"
+                class="market-tab"
+                data-market-sort="gainers"
+                role="tab"
+                aria-selected="false"
+              >
+                급상승
+              </button>
+              <button
+                type="button"
+                class="market-tab"
+                data-market-sort="losers"
+                role="tab"
+                aria-selected="false"
+              >
+                급하락
+              </button>
+              <button
+                type="button"
+                class="market-tab"
+                data-market-sort="watchlist"
+                role="tab"
+                aria-selected="false"
+              >
+                관심
+              </button>
             </div>
           </div>
-          <div id="stocks" class="stock-grid" aria-live="polite"></div>
+          <div class="stock-board" aria-label="상장 종목 시세 보드">
+            <div class="stock-board-head" aria-hidden="true">
+              <span>종목</span><span>현재가</span><span>차트</span
+              ><span>거래량</span>
+            </div>
+            <div id="stocks" class="stock-grid" aria-live="polite"></div>
+          </div>
         </div>
-      </section>
-      <section class="events">
-        <p class="eyebrow">MARKET EVENTS</p>
-        <h2>무슨 일이 일어나고 있나요?</h2>
-        <div id="event-list"></div>
+        <section id="events-section" class="events market-news-panel" aria-labelledby="events-title">
+          <div class="events-heading">
+            <h2 id="events-title">최신 소식</h2>
+            <span class="detail-subtitle">실시간</span>
+          </div>
+          <div id="event-list" class="event-list" aria-live="polite">
+            <p class="empty-state">소식을 불러오는 중입니다.</p>
+          </div>
+        </section>
       </section>
     </main>
     <main id="stock-detail" class="detail-page" hidden>
@@ -107,31 +199,88 @@
       <section class="detail-header">
         <div>
           <p id="detail-code" class="eyebrow"></p>
-          <div class="detail-title-row"><img id="detail-icon" class="game-icon detail-icon" src="assets/game-icons/UMA.png" alt="" width="56" height="56"><h1 id="detail-name"></h1></div>
+          <div class="detail-title-row">
+            <img
+              id="detail-icon"
+              class="game-icon detail-icon"
+              src="assets/game-icons/UMA.png"
+              alt=""
+              width="56"
+              height="56"
+            />
+            <h1 id="detail-name"></h1>
+          </div>
           <p id="detail-genre" class="detail-subtitle"></p>
+        </div>
+        <div class="detail-tools" aria-label="종목 도구">
+          <button id="stock-info-button" class="detail-tool" type="button">
+            종목 정보
+          </button>
+          <button id="price-alert-button" class="detail-tool" type="button">
+            가격 알림
+          </button>
+          <button
+            id="watchlist-button"
+            class="detail-tool"
+            type="button"
+            aria-pressed="false"
+          >
+            ☆ 관심 등록
+          </button>
         </div>
         <div class="detail-price">
           <strong id="detail-price">-</strong><span id="detail-change">-</span>
         </div>
       </section>
+      <section id="stock-info-panel" class="stock-info-panel" hidden>
+        <div class="panel-heading">
+          <div>
+            <h2>종목 정보</h2>
+          </div>
+          <button id="close-stock-info" class="panel-close" type="button">
+            닫기
+          </button>
+        </div>
+        <div id="stock-info-content" class="stock-info-grid"></div>
+      </section>
       <section class="detail-layout">
         <div class="chart-panel">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">PRICE HISTORY</p>
               <h2>가격 흐름</h2>
             </div>
             <span id="chart-range">24시간</span>
           </div>
-          <div id="chart-range-selector" class="chart-range-selector" role="group" aria-label="차트 기간 선택">
-            <button type="button" data-range="5m" aria-pressed="false">5분</button>
-            <button type="button" data-range="10m" aria-pressed="false">10분</button>
-            <button type="button" data-range="30m" aria-pressed="false">30분</button>
-            <button type="button" data-range="1h" aria-pressed="false">1시간</button>
-            <button type="button" data-range="6h" aria-pressed="false">6시간</button>
-            <button type="button" data-range="12h" aria-pressed="false">12시간</button>
-            <button type="button" data-range="24h" aria-pressed="true">24시간</button>
-            <button type="button" data-range="7d" aria-pressed="false">일주일</button>
+          <div
+            id="chart-range-selector"
+            class="chart-range-selector"
+            role="group"
+            aria-label="차트 기간 선택"
+          >
+            <button type="button" data-range="5m" aria-pressed="false">
+              5분
+            </button>
+            <button type="button" data-range="10m" aria-pressed="false">
+              10분
+            </button>
+            <button type="button" data-range="30m" aria-pressed="false">
+              30분
+            </button>
+            <button type="button" data-range="1h" aria-pressed="false">
+              1시간
+            </button>
+            <button type="button" data-range="6h" aria-pressed="false">
+              6시간
+            </button>
+            <button type="button" data-range="12h" aria-pressed="false">
+              12시간
+            </button>
+            <button type="button" data-range="24h" aria-pressed="true">
+              24시간
+            </button>
+            <button type="button" data-range="7d" aria-pressed="false">
+              일주일
+            </button>
           </div>
           <div class="chart-wrap">
             <canvas
@@ -145,14 +294,16 @@
               hidden
             ></div>
           </div>
-          <section class="price-drivers-panel" aria-live="polite">
-            <div class="panel-heading">
+          <details
+            class="price-drivers-panel detail-collapsible"
+            aria-live="polite"
+          >
+            <summary class="panel-heading">
               <div>
-                <p class="eyebrow">PRICE DRIVERS</p>
                 <h2>가격 결정 근거</h2>
               </div>
-              <span>최근 24시간</span>
-            </div>
+              <span class="collapse-mark">＋</span>
+            </summary>
             <p id="price-drivers-reason" class="price-drivers-reason">
               뉴스와 거래 흐름을 계산하는 중입니다.
             </p>
@@ -164,10 +315,9 @@
             <div id="price-drivers" class="price-drivers-grid">
               <p class="empty-state">가격 결정 근거를 불러오는 중입니다.</p>
             </div>
-          </section>
+          </details>
         </div>
         <aside class="order-panel">
-          <p class="eyebrow">ORDER</p>
           <h2>이 종목 거래</h2>
           <form id="order-form">
             <input id="stock-code" name="stockCode" type="hidden" />
@@ -213,35 +363,120 @@
                 step="1"
                 placeholder="희망 가격"
             /></label>
-            <button type="submit">주문 체결하기</button>
+            <button id="order-submit" type="submit">매수 주문</button>
             <p id="order-message" class="message" role="status"></p>
           </form>
         </aside>
       </section>
-      <section class="events detail-events">
-        <p class="eyebrow">DAILY MARKET</p>
-        <h2>일별 시세</h2>
-        <p class="detail-subtitle">
-          체결 기준 시가·종가·거래량입니다. (고가·저가는 집계하지 않습니다.)
-        </p>
-        <div id="daily-summaries" class="daily-summaries"></div>
-      </section>
-      <section class="events detail-events">
-        <p class="eyebrow">ORDER BOOK</p>
-        <h2>호가창</h2>
-        <div id="order-book" class="order-book">
-          <p class="empty-state">호가를 불러오는 중입니다.</p>
+      <section class="detail-lower-grid">
+        <div class="detail-feed-column">
+          <details
+            class="events detail-events detail-collapsible daily-summary-panel"
+            open
+          >
+            <summary class="detail-collapsible-summary">
+              <span> <h2>일별 시세</h2></span>
+              <span class="collapse-mark">＋</span>
+            </summary>
+            <div id="daily-summaries" class="daily-summaries"></div>
+          </details>
+        </div>
+        <div class="detail-market-column">
+          <section class="events detail-events">
+            <div
+              id="detail-market-tabs"
+              class="subtabs"
+              role="tablist"
+              aria-label="시장 데이터"
+            >
+              <button
+                type="button"
+                class="subtab active"
+                data-detail-tab="book"
+                role="tab"
+                aria-selected="true"
+              >
+                호가
+              </button>
+              <button
+                type="button"
+                class="subtab"
+                data-detail-tab="trades"
+                role="tab"
+                aria-selected="false"
+              >
+                체결
+              </button>
+              <button
+                type="button"
+                class="subtab"
+                data-detail-tab="orders"
+                role="tab"
+                aria-selected="false"
+              >
+                미체결
+              </button>
+            </div>
+            <div
+              id="detail-market-book"
+              class="detail-tab-panel"
+              data-detail-panel="book"
+            >
+              <div id="order-book" class="order-book">
+                <p class="empty-state">호가를 불러오는 중입니다.</p>
+              </div>
+            </div>
+            <div
+              id="detail-market-trades"
+              class="detail-tab-panel"
+              data-detail-panel="trades"
+              hidden
+            >
+              <div id="public-trades" class="order-history"></div>
+            </div>
+            <div
+              id="detail-market-orders"
+              class="detail-tab-panel"
+              data-detail-panel="orders"
+              hidden
+            >
+              <div id="detail-open-orders" class="order-history"></div>
+            </div>
+          </section>
         </div>
       </section>
-      <section class="events detail-events">
-        <p class="eyebrow">PUBLIC TRADES</p>
-        <h2>전체 체결 내역</h2>
-        <p class="detail-subtitle">다른 투자자의 체결도 익명으로 표시됩니다.</p>
-        <div id="public-trades" class="order-history"></div>
-      </section>
-      <section class="events detail-events">
-        <p class="eyebrow">RELATED NEWS</p>
-        <h2>관련 소식</h2>
+      <section class="events detail-events detail-related-news">
+        <div class="detail-section-title">
+          <div>
+            <h2>관련 소식</h2>
+          </div>
+          <span id="news-mention-count" class="mention-count">0건 언급</span>
+        </div>
+        <div
+          id="news-filter-tabs"
+          class="subtabs"
+          role="tablist"
+          aria-label="뉴스 정렬"
+        >
+          <button
+            type="button"
+            class="subtab active"
+            data-news-filter="latest"
+            role="tab"
+            aria-selected="true"
+          >
+            최신순
+          </button>
+          <button
+            type="button"
+            class="subtab"
+            data-news-filter="impact"
+            role="tab"
+            aria-selected="false"
+          >
+            영향도순
+          </button>
+        </div>
         <div id="detail-events"></div>
       </section>
     </main>
@@ -264,7 +499,6 @@
         >
           ×
         </button>
-        <p class="eyebrow">NEWS DETAIL</p>
         <p id="news-modal-stock" class="detail-subtitle"></p>
         <h2 id="news-modal-title"></h2>
         <div class="news-modal-price-row">
@@ -299,12 +533,8 @@
         >
           ×
         </button>
-        <p class="eyebrow">GAMESTOCK</p>
         <h2 id="login-title">거래하려면 로그인하세요</h2>
-        <p>
-          Google 계정으로 로그인하면 나만의 모의 투자 자산과 출석 보상을 받을 수
-          있습니다.
-        </p>
+        <p>거래하려면 Google 로그인이 필요합니다.</p>
         <button id="google-login" type="button">Google로 계속하기</button>
         <p id="login-message" class="message" role="status"></p>
       </div>
@@ -314,52 +544,58 @@
         ← 시장으로 돌아가기
       </button>
       <section class="profile-screen" aria-labelledby="profile-title">
-        <p class="eyebrow">MY PAGE</p>
         <h2 id="profile-title">마이페이지</h2>
-        <div class="profile-heading">
-          <div id="profile-avatar" class="profile-avatar">G</div>
-          <div>
-            <strong id="profile-email"></strong>
-            <p id="profile-help" class="detail-subtitle">
-              프로필 정보를 입력해 주세요.
-            </p>
+        <div class="profile-identity-panel">
+          <div class="profile-heading">
+            <div id="profile-avatar" class="profile-avatar">G</div>
+            <div>
+              <strong id="profile-email"></strong>
+              <p id="profile-help" class="detail-subtitle">
+                프로필 정보를 입력해 주세요.
+              </p>
+            </div>
           </div>
+          <form id="profile-form" class="profile-form">
+            <label
+              >닉네임<input
+                id="profile-nickname"
+                name="nickname"
+                minlength="2"
+                maxlength="50"
+                required
+            /></label>
+            <button type="submit">닉네임 저장</button>
+            <p id="profile-message" class="message" role="status"></p>
+          </form>
         </div>
-        <form id="profile-form" class="profile-form">
-          <label
-            >닉네임<input
-              id="profile-nickname"
-              name="nickname"
-              minlength="2"
-              maxlength="50"
-              required
-          /></label>
-          <button type="submit">닉네임 저장</button>
-          <p id="profile-message" class="message" role="status"></p>
-        </form>
         <section class="profile-holdings">
-          <p class="eyebrow">PORTFOLIO</p>
           <h3>보유 종목</h3>
           <div id="profile-positions"></div>
         </section>
-        <section class="profile-orders">
-          <p class="eyebrow">OPEN ORDERS</p>
-          <h3>미체결 주문</h3>
+        <details class="profile-collapsible profile-orders">
+          <summary class="profile-collapsible-summary">
+            <span> <h3>미체결 주문</h3></span
+            ><span class="collapse-mark">＋</span>
+          </summary>
           <div id="profile-orders">
             <p class="empty-state">미체결 주문을 불러오는 중입니다.</p>
           </div>
-        </section>
-        <section class="profile-settlements">
-          <p class="eyebrow">EXECUTED TRADES</p>
-          <h3>체결 완료</h3>
+        </details>
+        <details class="profile-collapsible profile-settlements">
+          <summary class="profile-collapsible-summary">
+            <span> <h3>체결 완료</h3></span
+            ><span class="collapse-mark">＋</span>
+          </summary>
           <p class="detail-subtitle">체결 즉시 현금과 주식에 반영됩니다.</p>
           <div id="profile-settlements">
             <p class="empty-state">체결 내역을 불러오는 중입니다.</p>
           </div>
-        </section>
-        <section class="profile-reset">
-          <p class="eyebrow">ONE-TIME RESET</p>
-          <h3>인생 리셋</h3>
+        </details>
+        <details class="profile-collapsible profile-reset">
+          <summary class="profile-collapsible-summary">
+            <span> <h3>인생 리셋</h3></span
+            ><span class="collapse-mark">＋</span>
+          </summary>
           <p class="detail-subtitle">
             모든 보유 자산·미체결 주문·출석 기록을 초기화하고 처음부터 다시
             시작합니다. Google 계정당 한 번만 사용할 수 있습니다.
@@ -368,7 +604,7 @@
             인생 리셋 사용
           </button>
           <p id="reset-account-message" class="message" role="status"></p>
-        </section>
+        </details>
       </section>
     </main>
     <div id="ranking-modal" class="login-modal" hidden>
@@ -386,11 +622,7 @@
         >
           ×
         </button>
-        <p class="eyebrow">RANKING</p>
         <h2 id="ranking-title">투자 랭킹</h2>
-        <p class="detail-subtitle">
-          기본 지급금 100만원 대비 총자산 등락률을 함께 보여줍니다.
-        </p>
         <div id="ranking-list" class="ranking-list">
           <p class="empty-state">랭킹을 불러오는 중입니다.</p>
         </div>

@@ -1,20 +1,9 @@
-# Java build output
-build/
-out/
-target/
-node_modules/
-.m2-repository/
-.expo/
-.expo-export/
-dist/
-*.class
-
-# IDE settings
-.idea/
-*.iml
-.vscode/
-
-# Local environment and logs
+node_modules
+dist
+*.tsbuildinfo
+*.local
 .env
-*.log
-secrets/
+.env.*
+!.env.example
+backend/secrets/
+.DS_Store
