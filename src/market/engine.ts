@@ -16,7 +16,7 @@ import type {
 } from "./types";
 
 export const TICK_MS = 2000;
-export const INITIAL_CASH = 1_100_000;
+export const INITIAL_CASH = 1_000_000;
 
 const STORAGE_KEY = "ssokdex.market.v1";
 const SERIES_LIMIT = 720;
@@ -385,11 +385,17 @@ export class MarketEngine {
         if (!LISTING_BY_CODE[code] || !position || typeof position.qty !== "number" || position.qty < 1) continue;
         positions[code] = { code, qty: Math.floor(position.qty), avgCost: Number(position.avgCost) || 0 };
       }
+      const savedCash = typeof stored.cash === "number" && stored.cash >= 0 ? stored.cash : INITIAL_CASH;
+      const fills = Array.isArray(stored.fills) ? stored.fills.slice(0, 50) : [];
+      const realized = typeof stored.realized === "number" ? stored.realized : 0;
+      // 이전 프론트에서 생성된, 아직 거래하지 않은 110만원 세션만 새 초기 자본으로 보정한다.
+      // 거래 이력이 있는 사용자의 잔액은 기존 결과를 보존한다.
+      const hasTradingHistory = Object.keys(positions).length > 0 || fills.length > 0 || realized !== 0;
       this.portfolio = {
-        cash: typeof stored.cash === "number" && stored.cash >= 0 ? stored.cash : INITIAL_CASH,
+        cash: !hasTradingHistory && savedCash === 1_100_000 ? INITIAL_CASH : savedCash,
         positions,
-        fills: Array.isArray(stored.fills) ? stored.fills.slice(0, 50) : [],
-        realized: typeof stored.realized === "number" ? stored.realized : 0,
+        fills,
+        realized,
       };
       this.fillId = this.portfolio.fills.reduce((max, fill) => Math.max(max, fill.id ?? 0), 0);
       this.watch = new Set((stored.watch ?? []).filter((code) => Boolean(LISTING_BY_CODE[code])));

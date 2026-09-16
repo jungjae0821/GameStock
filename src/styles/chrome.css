@@ -171,6 +171,157 @@
     border-color: var(--brand);
   }
 
+  .menu-wrap {
+    position: relative;
+  }
+
+  .menu-button {
+    min-width: 68px;
+  }
+
+  .menu-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+    padding: 6px;
+    background: var(--paper);
+    border: 1px solid var(--rule-ink);
+    box-shadow: 0 8px 24px rgb(23 32 47 / 14%);
+  }
+
+  .menu-user {
+    padding: 8px 10px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    border-bottom: 1px solid var(--rule);
+    overflow-wrap: anywhere;
+  }
+
+  .menu-item {
+    width: 100%;
+    padding: 9px 10px;
+    text-align: left;
+    font-size: var(--step-0);
+  }
+
+  .menu-item:hover:not(:disabled),
+  .menu-item:focus-visible {
+    background: var(--canvas);
+  }
+
+  .menu-login {
+    color: var(--brand-wine);
+    font-weight: 700;
+  }
+
+  .menu-temperature {
+    display: grid;
+    gap: 2px;
+    margin-top: 4px;
+    padding: 9px 10px 7px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .menu-temperature strong {
+    color: var(--ink);
+    font-size: var(--step-1);
+  }
+
+  .menu-temperature small {
+    font-size: 0.72em;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: grid;
+    place-items: center;
+    padding: var(--space-4);
+    background: rgb(23 32 47 / 45%);
+  }
+
+  .ranking-dialog {
+    width: min(520px, 100%);
+    max-height: min(80dvh, 640px);
+    overflow: auto;
+    padding: var(--space-4);
+    background: var(--paper);
+    border: 1px solid var(--rule-ink);
+    box-shadow: 0 14px 42px rgb(23 32 47 / 20%);
+  }
+
+  .dialog-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+  }
+
+  .dialog-heading h2 {
+    font-size: var(--step-2);
+  }
+
+  .dialog-close {
+    padding: 2px 7px;
+    color: var(--ink-muted);
+    font-size: var(--step-3);
+    line-height: 1;
+  }
+
+  .dialog-close:hover {
+    color: var(--ink);
+  }
+
+  .dialog-empty {
+    padding: var(--space-4) 0;
+    color: var(--ink-muted);
+  }
+
+  .ranking-list {
+    display: grid;
+  }
+
+  .ranking-list li {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto auto;
+    gap: var(--space-2);
+    align-items: center;
+    padding: 9px 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .ranking-rank {
+    color: var(--brand-wine);
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .ranking-name {
+    overflow-wrap: anywhere;
+  }
+
+  .ranking-change {
+    color: var(--brand-wine);
+    font-size: var(--step--1);
+  }
+
+  .ranking-change.is-down {
+    color: var(--blue);
+  }
+
+  .ranking-asset {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    text-align: right;
+  }
+
   .connection-fallback {
     position: fixed;
     left: 8px;
@@ -266,6 +417,19 @@
     .topbar-clock,
     .topbar-end .account {
       display: none;
+    }
+
+    .menu-panel {
+      right: -4px;
+    }
+
+    .ranking-list li {
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+    }
+
+    .ranking-asset {
+      grid-column: 2 / -1;
+      text-align: left;
     }
 
     .portfolio-value {
