@@ -21,7 +21,11 @@
           ☰ 메뉴
         </button>
         <div id="menu-panel" class="menu-panel" hidden>
-          <button id="menu-login-button" class="menu-login-button" type="button">
+          <button
+            id="menu-login-button"
+            class="menu-login-button"
+            type="button"
+          >
             Google로 로그인
           </button>
           <button id="profile-button" type="button" hidden>마이페이지</button>
@@ -114,7 +118,11 @@
             <p id="price-drivers-reason" class="price-drivers-reason">
               뉴스와 거래 흐름을 계산하는 중입니다.
             </p>
-            <p id="price-drivers-updated" class="price-drivers-updated" aria-live="polite"></p>
+            <p
+              id="price-drivers-updated"
+              class="price-drivers-updated"
+              aria-live="polite"
+            ></p>
             <div id="price-drivers" class="price-drivers-grid">
               <p class="empty-state">가격 결정 근거를 불러오는 중입니다.</p>
             </div>
@@ -227,7 +235,15 @@
         </div>
         <p id="news-modal-reason" class="news-modal-reason"></p>
         <p id="news-modal-summary" class="news-modal-summary"></p>
-        <a id="news-modal-source" class="news-modal-source" href="#" target="_blank" rel="noreferrer" hidden>원문 기사 열기 ↗</a>
+        <a
+          id="news-modal-source"
+          class="news-modal-source"
+          href="#"
+          target="_blank"
+          rel="noreferrer"
+          hidden
+          >원문 기사 열기 ↗</a
+        >
       </div>
     </div>
     <div id="login-modal" class="login-modal" hidden>
@@ -345,6 +361,10 @@
     <script src="firebase-config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script>
+      window.GAMESTOCK_API_BASE_URL =
+        "https://right-craig-timer-blank.trycloudflare.com";
+    </script>
     <script src="app.js"></script>
   </body>
 </html>

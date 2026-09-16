@@ -23,6 +23,56 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 브라우저: [http://localhost:8080](http://localhost:8080)
 
+### 무료 외부 테스트 재실행 (Firebase Hosting + Cloudflare Quick Tunnel)
+
+도메인을 구매하지 않고 외부 기기에서 테스트할 때 사용하는 절차입니다. Firebase Hosting에는 프론트엔드를 배포하고, 로컬에서 실행한 Spring Boot 백엔드만 Cloudflare Quick Tunnel로 임시 공개합니다. MySQL 데이터는 계속 이 컴퓨터에 저장됩니다.
+
+처음 한 번만 프로젝트 루트에서 Firebase Hosting을 초기화합니다.
+
+```powershell
+npm install -g firebase-tools
+firebase login
+firebase init hosting
+```
+
+초기화 질문은 기존 프로젝트 `gamestock-20994`, Public directory `frontend`, Single-page app `Yes`, GitHub 배포 `No`, `index.html` 덮어쓰기 `No`를 선택합니다.
+
+매번 외부 테스트를 시작할 때는 다음 순서를 지킵니다.
+
+1. `.\scripts\start.ps1`로 MySQL·백엔드·로컬 웹 화면을 시작합니다.
+2. `cloudflared.exe`가 있는 폴더에서 `.\cloudflared.exe tunnel --url http://localhost:8081`을 실행합니다.
+3. 출력된 `https://<random>.trycloudflare.com` 주소를 복사합니다. 이 창은 테스트가 끝날 때까지 닫지 않습니다.
+4. `frontend\index.html`에서 `app.js`보다 앞에 다음 설정을 넣고 주소를 이번 실행의 주소로 바꿉니다.
+
+   ```html
+   <script>
+     window.GAMESTOCK_API_BASE_URL = "https://<random>.trycloudflare.com";
+   </script>
+   ```
+
+5. 루트 `.env`에 Firebase Hosting 주소를 허용합니다.
+
+   ```text
+   GAMESTOCK_CORS_ORIGIN=https://gamestock-20994.web.app
+   ```
+
+6. 백엔드를 재시작해 환경변수를 반영합니다.
+
+   ```powershell
+   .\scripts\stop.ps1
+   .\scripts\start.ps1
+   ```
+
+7. 프론트엔드를 다시 배포합니다.
+
+   ```powershell
+   firebase deploy --only hosting
+   ```
+
+8. `https://<random>.trycloudflare.com/api/health`가 `{"status":"ok"}`를 반환하는지 확인한 뒤 `https://gamestock-20994.web.app`에서 로그인·조회·거래·실시간 가격을 테스트합니다.
+
+Quick Tunnel은 재실행할 때마다 주소가 바뀌므로 3~7번을 반복해야 합니다. 테스트를 끝내려면 Quick Tunnel 창을 닫고 `.\scripts\stop.ps1`을 실행합니다. 장기 운영용 주소가 아닌 테스트 전용 방식입니다.
+
 `.env` 예시:
 
 ```text
