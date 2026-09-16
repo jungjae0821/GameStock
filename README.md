@@ -15,6 +15,20 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 웹 화면은 [http://localhost:8080](http://localhost:8080), 종료는 `scripts\stop.cmd` 또는 `.\scripts\stop.ps1`입니다.
 
+### 프론트엔드 배포 (Firebase Hosting)
+
+Firebase Hosting 프로젝트는 `gamestock-20994`이며, `firebase.json`의 `public` 경로인 `frontend/` 폴더가 웹사이트로 배포됩니다. 프로젝트 루트에서 다음 명령을 실행합니다.
+
+```powershell
+firebase login
+firebase use gamestock-20994
+firebase deploy --only hosting
+```
+
+배포가 완료되면 [https://gamestock-20994.web.app](https://gamestock-20994.web.app)에 최신 프론트엔드가 반영됩니다. 프론트엔드 배포는 Railway 백엔드 배포와 별개이며, 백엔드 서버가 실행 중이어야 로그인·뉴스·거래 API가 정상 동작합니다.
+
+현재 저장소에는 Firebase GitHub Actions 워크플로가 없으므로 `git push`만으로는 프론트엔드가 자동 반영되지 않습니다. 자동 배포를 설정한 뒤에는 `main` 브랜치에 push할 때 GitHub Actions가 위 배포를 대신 실행합니다.
+
 ### 무료 외부 테스트 재실행
 
 Firebase Hosting에는 프론트엔드를, Cloudflare Quick Tunnel에는 로컬 백엔드를 연결합니다. 데이터는 계속 로컬 MySQL에 저장됩니다.
@@ -232,8 +246,13 @@ $env:GAMESTOCK_NEWS_ENABLED = "false"
 #### 현재 고민
 
 1. 왜 이 서비스에 투자해야 됨? 게임사와 협업하지 않는 비공식 서비스만으로는 메리트가 부족할 수 있음. 협찬이 생기면 주간 수익 1·2·3위 사용자에게 소정의 보상을 제공하는 방안을 검토.
-2. 실제 사용자가 얻는 혜택은 무엇인가? 주간 랭킹에서 좋은 성적을 낸 사용자에게 프로필 꾸미기 아이템 등을 제공하는 방안을 검토.
+   -> 사용 대상자를 서브컬처 게임을 좋아하는 사람이지만 주식경험도 한번 해보고 싶은 사람들 위주로 잡기? (교육용으로 방향성을 잡으면 될듯?)
+2. 실제 사용자가 얻는 혜택은 무엇인가?
+   -> 실제 주식을 할때 손해를 보지 않고 투자를 잘할수 있는 법을 공부할수 있음
+   주간 랭킹에서 좋은 성적을 낸 사용자에게 프로필 꾸미기 아이템 등을 제공하는 방안을 검토
+   -> 랭킹 옆에 칭호가 붙는 방식으로 칭호를 추가해야 될듯? (닉네임 - 칭호 - +- 몇퍼) -> 이걸 통해서 좀더 열심히 할수있도록 동기부여?
 3. 구조 자체는 괜찮지만 전체 서비스로 보면 부족한 느낌이 있음. 졸업 프로젝트라는 큰 틀에서 서비스의 목적과 반복 이용 이유를 더 명확히 해야 함.
+   -> 목적을 주식투자 공부용으로 잡는다고 치면 아무래도 반복적으로 사용하는게 도움이 많이 되겠지?
 
 #### 우선적으로 추가하면 좋은 기능
 
