@@ -43,11 +43,12 @@ public final class MarketModels {
      * price move without pretending that a headline is a guaranteed cause.
      */
     public record MarketEvent(String stockCode, String title, int impact, String sentiment,
-                              String description, String publishedAt, double priceChangePercent,
+                              String description, String publishedAt, long priceAtPublish,
+                              double priceChangePercent,
                               String priceDirection, String priceReason) {
         /** Backward-compatible constructor for older callers. */
         public MarketEvent(String stockCode, String title, int impact, String sentiment) {
-            this(stockCode, title, impact, sentiment, "", null, 0, "flat", "가격 변동 정보가 없습니다.");
+            this(stockCode, title, impact, sentiment, "", null, 0, 0, "flat", "가격 변동 정보가 없습니다.");
         }
     }
     public record MarketSnapshot(List<Stock> stocks, Portfolio portfolio, List<MarketEvent> events) { }

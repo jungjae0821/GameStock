@@ -36,47 +36,71 @@ Standard Commons Logging discovery in action with spring-jcl: please remove comm
 
  :: Spring Boot ::               (v3.5.16)
 
-2026-09-17T01:59:03.549+09:00  INFO 40284 --- [gamestock-backend] [           main] c.g.backend.GameStockBackendApplication  : Starting GameStockBackendApplication using Java 17.0.20.1 with PID 40284 (C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\target\classes started by wizju in C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend)
-2026-09-17T01:59:03.551+09:00  INFO 40284 --- [gamestock-backend] [           main] c.g.backend.GameStockBackendApplication  : No active profile set, falling back to 1 default profile: "default"
-2026-09-17T01:59:04.488+09:00  INFO 40284 --- [gamestock-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
-2026-09-17T01:59:04.506+09:00  INFO 40284 --- [gamestock-backend] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-09-17T01:59:04.506+09:00  INFO 40284 --- [gamestock-backend] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.55]
-2026-09-17T01:59:04.581+09:00  INFO 40284 --- [gamestock-backend] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-09-17T01:59:04.581+09:00  INFO 40284 --- [gamestock-backend] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1000 ms
+2026-09-17T09:50:20.019+09:00  INFO 20012 --- [gamestock-backend] [           main] c.g.backend.GameStockBackendApplication  : Starting GameStockBackendApplication using Java 17.0.20.1 with PID 20012 (C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\target\classes started by wizju in C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend)
+2026-09-17T09:50:20.024+09:00  INFO 20012 --- [gamestock-backend] [           main] c.g.backend.GameStockBackendApplication  : No active profile set, falling back to 1 default profile: "default"
+2026-09-17T09:50:21.098+09:00  INFO 20012 --- [gamestock-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
+2026-09-17T09:50:21.118+09:00  INFO 20012 --- [gamestock-backend] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-09-17T09:50:21.118+09:00  INFO 20012 --- [gamestock-backend] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.55]
+2026-09-17T09:50:21.216+09:00  INFO 20012 --- [gamestock-backend] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-09-17T09:50:21.216+09:00  INFO 20012 --- [gamestock-backend] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1151 ms
 Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
-2026-09-17T01:59:05.014+09:00  INFO 40284 --- [gamestock-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-09-17T01:59:05.261+09:00  INFO 40284 --- [gamestock-backend] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@3afca2c
-2026-09-17T01:59:05.263+09:00  INFO 40284 --- [gamestock-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
-2026-09-17T01:59:05.999+09:00  INFO 40284 --- [gamestock-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path '/'
-2026-09-17T01:59:06.014+09:00  INFO 40284 --- [gamestock-backend] [           main] c.g.backend.GameStockBackendApplication  : Started GameStockBackendApplication in 2.917 seconds (process running for 3.347)
-2026-09-17T01:59:06.017+09:00  INFO 40284 --- [gamestock-backend] [           main] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
-2026-09-17T01:59:06.078+09:00  INFO 40284 --- [gamestock-backend] [nio-8081-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-09-17T01:59:06.078+09:00  INFO 40284 --- [gamestock-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-09-17T01:59:06.078+09:00  INFO 40284 --- [gamestock-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
-2026-09-17T01:59:07.147+09:00  INFO 40284 --- [gamestock-backend] [           main] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
-2026-09-17T01:59:07.953+09:00  INFO 40284 --- [gamestock-backend] [           main] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 30개
-2026-09-17T01:59:08.687+09:00  INFO 40284 --- [gamestock-backend] [           main] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 37개
-2026-09-17T01:59:36.111+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
-2026-09-17T01:59:36.324+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
-2026-09-17T01:59:36.454+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 30개
-2026-09-17T01:59:36.573+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 37개
-2026-09-17T02:09:36.575+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
-2026-09-17T02:09:37.428+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 48개
-2026-09-17T02:09:38.294+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 30개
-2026-09-17T02:09:38.908+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 38개
-2026-09-17T02:19:38.926+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
-2026-09-17T02:19:39.620+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 48개
-2026-09-17T02:19:40.225+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 30개
-2026-09-17T02:19:40.740+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 37개
-2026-09-17T02:29:40.743+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
-2026-09-17T02:29:41.520+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
-2026-09-17T02:29:42.086+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 31개
-2026-09-17T02:29:42.639+09:00  INFO 40284 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 38개
+2026-09-17T09:50:21.717+09:00  INFO 20012 --- [gamestock-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-09-17T09:50:21.981+09:00  INFO 20012 --- [gamestock-backend] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@2bdab835
+2026-09-17T09:50:21.981+09:00  INFO 20012 --- [gamestock-backend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-09-17T09:50:22.766+09:00  INFO 20012 --- [gamestock-backend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path '/'
+2026-09-17T09:50:22.784+09:00  INFO 20012 --- [gamestock-backend] [           main] c.g.backend.GameStockBackendApplication  : Started GameStockBackendApplication in 3.26 seconds (process running for 3.659)
+2026-09-17T09:50:22.790+09:00  INFO 20012 --- [gamestock-backend] [           main] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T09:50:24.121+09:00  INFO 20012 --- [gamestock-backend] [           main] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T09:50:24.883+09:00  INFO 20012 --- [gamestock-backend] [           main] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 33개
+2026-09-17T09:50:25.904+09:00  INFO 20012 --- [gamestock-backend] [           main] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T09:50:28.693+09:00  INFO 20012 --- [gamestock-backend] [nio-8081-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-09-17T09:50:28.693+09:00  INFO 20012 --- [gamestock-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-09-17T09:50:28.698+09:00  INFO 20012 --- [gamestock-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+2026-09-17T09:50:52.852+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T09:50:53.243+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T09:50:53.594+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 33개
+2026-09-17T09:50:53.829+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T10:00:53.832+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T10:00:55.525+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T10:00:56.476+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 32개
+2026-09-17T10:00:57.192+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T10:10:57.193+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T10:10:58.794+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T10:10:59.507+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 25개
+2026-09-17T10:11:00.260+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T10:21:00.266+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T10:21:01.448+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T10:21:02.051+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 22개
+2026-09-17T10:21:02.705+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T10:31:02.721+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T10:31:03.822+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T10:31:04.443+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 21개
+2026-09-17T10:31:05.005+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T10:41:05.012+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T10:41:06.372+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T10:41:07.049+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 21개
+2026-09-17T10:41:07.730+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T10:51:07.758+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T10:51:09.120+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T10:51:09.903+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 21개
+2026-09-17T10:51:10.636+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T11:01:10.644+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T11:01:12.160+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T11:01:12.907+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 19개
+2026-09-17T11:01:13.605+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T11:11:13.627+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T11:11:15.237+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T11:11:16.119+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 18개
+2026-09-17T11:11:16.931+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
+2026-09-17T11:21:16.939+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 3개 수집 시작
+2026-09-17T11:21:18.206+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=UMA, 전체 50개 중 관련 47개
+2026-09-17T11:21:18.982+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=BA, 전체 50개 중 관련 19개
+2026-09-17T11:21:19.623+09:00  INFO 20012 --- [gamestock-backend] [   scheduling-1] c.g.backend.market.NewsFeedService       : 뉴스 피드 조회 완료: 종목=GOV, 전체 50개 중 관련 39개
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD FAILURE
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time:  33:51 min
-[INFO] Finished at: 2026-09-17T02:32:49+09:00
+[INFO] Total time:  01:36 h
+[INFO] Finished at: 2026-09-17T11:26:35+09:00
 [INFO] ------------------------------------------------------------------------
 [ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.5.16:run (default-cli) on project gamestock-backend: Process terminated with exit code: -1 -> [Help 1]
 [ERROR] 

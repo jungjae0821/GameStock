@@ -1,25 +1,18 @@
 import { BrandMark } from "./BrandMark";
 import { Link } from "./Link";
 import type { Route } from "../router";
-import { useMarket } from "../market/MarketProvider";
 import { clock } from "../market/format";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { apiFetch } from "../lib/api";
 import { useEffect, useRef, useState } from "react";
+import { navigate } from "../router";
 
 const NAV = [
   { label: "홈", to: "/", match: "home" },
   { label: "시장", to: "/market", match: "market" },
   { label: "속보", to: "/news", match: "news" },
 ] as const;
-
-type RankingEntry = {
-  rank: number;
-  nickname: string;
-  totalAsset: number;
-  changePercent: number;
-};
 
 type TemperatureReading = {
   available: boolean;
@@ -29,18 +22,40 @@ type TemperatureReading = {
   message?: string;
 };
 
-export function Topbar({ route, account }: { route: Route; account: string }) {
-  const snapshot = useMarket();
+type AccountProfile = {
+  nickname?: string | null;
+};
+
+export function Topbar({ route }: { route: Route }) {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
+  const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [rankingOpen, setRankingOpen] = useState(false);
-  const [ranking, setRanking] = useState<RankingEntry[]>([]);
-  const [rankingLoading, setRankingLoading] = useState(false);
+  const [nickname, setNickname] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<TemperatureReading | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => onAuthStateChanged(firebaseAuth, setUser), []);
+  const loadProfile = async () => {
+    if (!firebaseAuth.currentUser) return;
+    try {
+      const profile = await apiFetch<AccountProfile>("/api/profile");
+      setNickname(profile.nickname?.trim() || null);
+    } catch {
+      // 로그인 직후에는 백엔드 계정 생성보다 메뉴 렌더가 먼저 될 수 있다.
+      // 메뉴를 다시 열 때 재시도하므로 Google 표시명으로 대체하지 않는다.
+    }
+  };
+
+  useEffect(() => onAuthStateChanged(firebaseAuth, (current) => {
+    setUser(current);
+    setNickname(null);
+    if (current) void loadProfile();
+  }), []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const login = async () => {
     setBusy(true);
@@ -59,21 +74,14 @@ export function Topbar({ route, account }: { route: Route; account: string }) {
     }
   };
 
-  const openRanking = async () => {
+  const openRanking = () => {
     setMenuOpen(false);
-    setRankingOpen(true);
-    setRankingLoading(true);
-    try {
-      setRanking(await apiFetch<RankingEntry[]>("/api/ranking"));
-    } catch {
-      setRanking([]);
-    } finally {
-      setRankingLoading(false);
-    }
+    navigate("/ranking");
   };
 
   useEffect(() => {
     if (!menuOpen) return;
+    if (user) void loadProfile();
     void loadTemperature();
     const closeOnOutside = (event: MouseEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
@@ -109,8 +117,8 @@ export function Topbar({ route, account }: { route: Route; account: string }) {
           ))}
         </nav>
         <div className="topbar-end">
-          {/* 갱신 주기와 모의 시세 고지는 상태 막대가 담당한다. 여기서는 시각과 계좌만. */}
-          <span className="topbar-clock num">{clock(snapshot.updatedAt)}</span>
+          {/* 상단에는 현재 시각과 메뉴만 표시한다. */}
+          <span className="topbar-clock num">현재시각: {clock(now)}</span>
           <div className="menu-wrap" ref={menuRef}>
             <button
               type="button"
@@ -125,7 +133,7 @@ export function Topbar({ route, account }: { route: Route; account: string }) {
               <div className="menu-panel" role="menu" aria-label="부가 기능">
                 {user ? (
                   <>
-                    <div className="menu-user">{user.displayName ?? user.email ?? account}</div>
+                    <div className="menu-user">{nickname || "내 계정"}</div>
                     <button type="button" className="menu-item" role="menuitem" onClick={() => void signOut(firebaseAuth).then(() => setMenuOpen(false))}>
                       로그아웃
                     </button>
@@ -135,7 +143,10 @@ export function Topbar({ route, account }: { route: Route; account: string }) {
                     {busy ? "로그인 중…" : "Google 로그인"}
                   </button>
                 )}
-                <button type="button" className="menu-item" role="menuitem" onClick={() => void openRanking()}>
+                <button type="button" className="menu-item" role="menuitem" onClick={() => { setMenuOpen(false); navigate("/mypage"); }}>
+                  마이페이지
+                </button>
+                <button type="button" className="menu-item" role="menuitem" onClick={openRanking}>
                   랭킹
                 </button>
                 <div className="menu-temperature" role="status" aria-live="polite">
@@ -148,28 +159,6 @@ export function Topbar({ route, account }: { route: Route; account: string }) {
           </div>
         </div>
       </div>
-      {rankingOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setRankingOpen(false); }}>
-          <section className="ranking-dialog" role="dialog" aria-modal="true" aria-labelledby="ranking-title">
-            <div className="dialog-heading">
-              <h2 id="ranking-title">투자 랭킹</h2>
-              <button type="button" className="dialog-close" onClick={() => setRankingOpen(false)} aria-label="랭킹 닫기">×</button>
-            </div>
-            {rankingLoading ? <p className="dialog-empty">랭킹을 불러오는 중…</p> : ranking.length === 0 ? <p className="dialog-empty">아직 랭킹에 참여한 사용자가 없습니다.</p> : (
-              <ol className="ranking-list">
-                {ranking.map((entry) => (
-                  <li key={`${entry.rank}-${entry.nickname}`}>
-                    <span className="ranking-rank num">{entry.rank}</span>
-                    <span className="ranking-name">{entry.nickname}</span>
-                    <span className={`ranking-change num${entry.changePercent < 0 ? " is-down" : ""}`}>{entry.changePercent >= 0 ? "+" : ""}{entry.changePercent.toFixed(2)}%</span>
-                    <span className="ranking-asset num">{Math.round(entry.totalAsset).toLocaleString("ko-KR")}원</span>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
-        </div>
-      )}
     </header>
   );
 }

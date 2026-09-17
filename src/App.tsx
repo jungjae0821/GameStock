@@ -1,14 +1,13 @@
 import { useEffect, useRef } from "react";
-import { StatusBar } from "./components/StatusBar";
 import { Topbar } from "./components/Topbar";
 import { HomePage } from "./pages/HomePage";
 import { MarketPage } from "./pages/MarketPage";
 import { NewsPage } from "./pages/NewsPage";
+import { RankingPage } from "./pages/RankingPage";
+import { MyPage } from "./pages/MyPage";
 import { LISTING_BY_CODE } from "./market/universe";
 import { useRoute } from "./router";
 import type { Route } from "./router";
-
-const ACCOUNT = "모의계좌 5513";
 
 function titleFor(route: Route): string {
   if (route.name === "market") {
@@ -16,6 +15,8 @@ function titleFor(route: Route): string {
     return name ? `${name} · 시장 · 씹덕주식` : "시장 · 씹덕주식";
   }
   if (route.name === "news") return "속보 · 씹덕주식";
+  if (route.name === "ranking") return "투자 랭킹 · 씹덕주식";
+  if (route.name === "mypage") return "마이페이지 · 씹덕주식";
   return "씹덕주식 · 게임 종목 모의 거래소";
 }
 
@@ -37,13 +38,14 @@ export default function App() {
       <a className="skip-link" href="#content">
         본문으로 건너뛰기
       </a>
-      <Topbar route={route} account={ACCOUNT} />
+      <Topbar route={route} />
       <main id="content" className="content" ref={main} tabIndex={-1}>
         {route.name === "home" && <HomePage />}
         {route.name === "market" && <MarketPage ticker={route.ticker} />}
         {route.name === "news" && <NewsPage />}
+        {route.name === "ranking" && <RankingPage />}
+        {route.name === "mypage" && <MyPage />}
       </main>
-      <StatusBar />
     </div>
   );
 }

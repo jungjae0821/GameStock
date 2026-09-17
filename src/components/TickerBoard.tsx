@@ -1,6 +1,6 @@
 import { Link } from "./Link";
 import { PriceCell } from "./PriceCell";
-import { rate, tickLabel, trendArrow } from "../market/format";
+import { rate, trendArrow } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
@@ -10,7 +10,7 @@ import { LISTING_BY_CODE } from "../market/universe";
  * 흘러 들어온다. 자동 스크롤이나 반복 애니메이션은 쓰지 않는다.
  */
 export function TickerBoard() {
-  const { quotes, codes, tickMs } = useMarket();
+  const { quotes, codes } = useMarket();
 
   return (
     <section className="board" aria-labelledby="board-title">
@@ -18,9 +18,6 @@ export function TickerBoard() {
         <h2 id="board-title" className="board-title">
           전광판
         </h2>
-        <p className="board-meta num">
-          {codes.length}종목 · 세션 등락 · {tickLabel(tickMs)}마다 갱신
-        </p>
       </div>
       <ul className="board-tape">
         {codes.map((code) => {

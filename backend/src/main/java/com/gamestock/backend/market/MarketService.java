@@ -14,7 +14,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Collections;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,9 +44,19 @@ public class MarketService {
     private static final double NEWS_SINGLE_BASE_RATE = 0.02;
     private static final double NEWS_SINGLE_SPECIAL_RATE = 0.05;
     private static final double NEWS_MAJOR_INCIDENT_RATE = 0.10;
+    /** Portion of the aggregate news move applied directly to the reference price. */
+    private static final double NEWS_DIRECT_RATE_SHARE = 0.40;
+    /** News tilts bot order sizes while preserving both buy and sell liquidity. */
+    private static final double BOT_NEWS_SIZE_SENSITIVITY = 6.0;
     /** Twenty-four-hour aggregate news influence limits. */
     private static final double NEWS_24H_BASE_RATE = 0.05;
     private static final double NEWS_24H_SPECIAL_RATE = 0.10;
+    /** Occasionally let one bot submit a visibly larger order so the tape has
+     * natural bursts. The resulting price is still constrained by the bot
+     * +/-20% band and the per-tick step limit in moveBotPrice(). */
+    private static final double BOT_BURST_PROBABILITY = 0.15;
+    private static final int BOT_BURST_MIN_QUANTITY = 80;
+    private static final int BOT_BURST_MAX_QUANTITY = 160;
     /** Scores are produced by NewsFeedService's -10..+10 classifier. */
     private static final double NEWS_SPECIAL_IMPACT_THRESHOLD = 6.0;
     private static final double NEWS_MAJOR_INCIDENT_IMPACT_THRESHOLD = -8.0;
@@ -105,6 +117,7 @@ public class MarketService {
         normalizeOpenOrderPrices();
 
         removeDefaultEvents();
+        initializeNewsPriceState();
 
         demoUserId = jdbc.queryForObject(
                 "SELECT id FROM users WHERE username = ?", Long.class, DEMO_USERNAME);
@@ -236,7 +249,13 @@ public class MarketService {
     public synchronized List<MarketEvent> marketEvents() {
         return jdbc.query("""
                 SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
-                       s.current_price, s.previous_price
+                       s.current_price, s.previous_price,
+                       COALESCE((
+                           SELECT h.price FROM stock_price_history h
+                           WHERE h.stock_id = e.stock_id
+                             AND h.recorded_at <= COALESCE(e.published_at, e.created_at)
+                           ORDER BY h.recorded_at DESC, h.id DESC LIMIT 1
+                       ), s.current_price) AS price_at_publish
                 FROM market_events e LEFT JOIN stocks s ON s.id = e.stock_id
                 WHERE e.event_type = 'NEWS'
             ORDER BY COALESCE(e.published_at, e.created_at) DESC, e.id DESC
@@ -255,7 +274,13 @@ public class MarketService {
     public synchronized List<MarketEvent> stockNews(String code) {
         List<MarketEvent> candidates = jdbc.query("""
                 SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
-                       s.current_price, s.previous_price
+                       s.current_price, s.previous_price,
+                       COALESCE((
+                           SELECT h.price FROM stock_price_history h
+                           WHERE h.stock_id = e.stock_id
+                             AND h.recorded_at <= COALESCE(e.published_at, e.created_at)
+                           ORDER BY h.recorded_at DESC, h.id DESC LIMIT 1
+                       ), s.current_price) AS price_at_publish
                 FROM market_events e JOIN stocks s ON s.id = e.stock_id
                 WHERE e.event_type = 'NEWS' AND s.stock_code = ?
                 ORDER BY COALESCE(e.published_at, e.created_at) DESC, e.id DESC
@@ -287,13 +312,14 @@ public class MarketService {
         String sentiment = impact > 0 ? "positive" : impact < 0 ? "negative" : "neutral";
         long currentPrice = rs.getLong("current_price");
         long previousPrice = rs.getLong("previous_price");
+        long priceAtPublish = rs.getLong("price_at_publish");
         double priceChangePercent = changePercent(currentPrice, previousPrice);
         String priceDirection = priceChangePercent > 0 ? "up" : priceChangePercent < 0 ? "down" : "flat";
         String reason = priceReason(priceChangePercent, impact);
         var publishedAt = rs.getTimestamp("published_at");
         String published = publishedAt == null ? null : publishedAt.toInstant().toString();
         return new MarketEvent(rs.getString("stock_code"), rs.getString("title"), impact,
-                sentiment, rs.getString("description"), published, priceChangePercent,
+                sentiment, rs.getString("description"), published, priceAtPublish, priceChangePercent,
                 priceDirection, reason);
     }
 
@@ -778,23 +804,38 @@ public class MarketService {
         tickRandom = new Random(simulationSeed ^ (tick * 0x9E3779B97F4A7C15L));
         List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
         if (codes.isEmpty()) return;
+        Map<String, NewsBias> newsBiases = new HashMap<>();
+        for (String stockCode : codes) {
+            NewsBias bias = recentNewsBias(stockCode);
+            newsBiases.put(stockCode, bias);
+            applyNewsPriceDrift(stockCode, bias);
+        }
         String code = codes.get(tickRandom.nextInt(codes.size()));
-        NewsBias newsBias = recentNewsBias(code);
-        // 봇은 현재가 양옆에 유동성을 공급하고, 별도의 소량 시장가 주문으로 일부만 소비한다.
+        NewsBias newsBias = newsBiases.getOrDefault(code, new NewsBias(0.0, false));
+        // 뉴스가 움직인 기준가를 따라 봇은 양쪽에 유동성을 공급하되, 방향성에 맞춰 수량을 기울인다.
         createBotOrder(code, "BUY", newsBias);
         createBotOrder(code, "SELL", newsBias);
         // 한 번의 틱 안에서도 양쪽 봇을 모두 실행하되 순서를 섞어 고정된 매수→매도 패턴을 피한다.
         String firstSide = tickRandom.nextBoolean() ? "BUY" : "SELL";
         String secondSide = "BUY".equals(firstSide) ? "SELL" : "BUY";
-        long firstOrderId = createBotMarketOrder(code, firstSide);
+        // A burst is directional (and slightly news-aware), while the other
+        // side remains a normal-sized order. This creates short-lived volume
+        // spikes without making every tick look scripted.
+        boolean burst = tickRandom.nextDouble() < BOT_BURST_PROBABILITY;
+        String burstSide = burst ? burstSide(newsBias) : "";
+        int burstQuantity = burst
+                ? tickRandom.nextInt(BOT_BURST_MAX_QUANTITY - BOT_BURST_MIN_QUANTITY + 1) + BOT_BURST_MIN_QUANTITY
+                : 0;
+        long firstOrderId = createBotMarketOrder(code, firstSide, newsBias,
+                burst && burstSide.equals(firstSide) ? burstQuantity : 0);
         MatchSummary firstMatched = matchOrders(code);
         if (firstOrderId > 0) cancelRemainingMarket(firstOrderId);
-        long secondOrderId = createBotMarketOrder(code, secondSide);
+        long secondOrderId = createBotMarketOrder(code, secondSide, newsBias,
+                burst && burstSide.equals(secondSide) ? burstQuantity : 0);
         MatchSummary secondMatched = matchOrders(code);
         if (secondOrderId > 0) cancelRemainingMarket(secondOrderId);
         MatchSummary matched = firstMatched.merge(secondMatched);
-        // 뉴스는 봇 호가의 기준 가격을 움직이고, 최종 주가는 실제 체결 VWAP로만 갱신한다.
-        // 따라서 체결하지 않은 상태에서 임의의 가격을 만들어내지 않는다.
+        // 뉴스 직접 drift와 체결 VWAP 모두 일일 가격제한폭 안에서 누적된다.
         if (matched.hasTrades()) moveBotPrice(code, matched.vwap(), matched.totalQuantity(), newsBias.special());
         trimBotLiquidity(code);
         events.publishEvent(new MarketChangedEvent(snapshot()));
@@ -804,13 +845,12 @@ public class MarketService {
         long id = ensureBot(code, side);
         Stock stock = findStock(code);
         double offset = 0.002 + tickRandom.nextDouble() * 0.006;
-        // 최근 뉴스 영향은 봇의 기준 호가를 같은 방향으로 이동시킨다.
-        // 실제 현재가는 이 호가가 체결될 때만 바뀌므로 뉴스가 가격을 순간이동시키지 않는다.
+        // 뉴스로 이동한 기준가 주변에 호가를 내고, 뉴스 방향의 수량을 조금 더 크게 준다.
         double fairPrice = stock.price() * (1 + newsBias.rate());
         double rawPrice = fairPrice * ("BUY".equals(side) ? 1 - offset : 1 + offset);
         long price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
-        price = botPriceBand(code).clamp(price);
-        int quantity = tickRandom.nextInt(26) + 5;
+        price = botQuotePrice(botPriceBand(code), side, price);
+        int quantity = newsBiasedQuantity(tickRandom.nextInt(26) + 5, side, newsBias);
         long idStock = stockId(code);
         if ("BUY".equals(side)) {
             long amount = price * quantity;
@@ -825,14 +865,46 @@ public class MarketService {
         }
     }
 
-    private long createBotMarketOrder(String code, String side) {
+    private long createBotMarketOrder(String code, String side, NewsBias newsBias) {
+        return createBotMarketOrder(code, side, newsBias, 0);
+    }
+
+    private long createBotMarketOrder(String code, String side, NewsBias newsBias, int burstQuantity) {
         long id = ensureBot(code, side);
         Stock stock = findStock(code);
-        int quantity = tickRandom.nextInt(22) + 3;
+        int baseQuantity = burstQuantity > 0 ? burstQuantity : tickRandom.nextInt(22) + 3;
+        int quantity = newsBiasedQuantity(baseQuantity, side, newsBias);
         long idStock = stockId(code);
         if ("SELL".equals(side)) addBotInventory(code, quantity + 200, stock.price(), id);
         jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'MARKET', NULL, ?, ?, 0, 0, 'OPEN', NULL)", id, idStock, side, quantity, quantity);
         return jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+    }
+
+    private String burstSide(NewsBias newsBias) {
+        // Follow a strong headline direction most of the time, but retain a
+        // small chance of the opposite side to avoid a deterministic tape.
+        if (newsBias.rate() > 0.01) return tickRandom.nextDouble() < 0.75 ? "BUY" : "SELL";
+        if (newsBias.rate() < -0.01) return tickRandom.nextDouble() < 0.75 ? "SELL" : "BUY";
+        return tickRandom.nextBoolean() ? "BUY" : "SELL";
+    }
+
+    /** Keep both sides active, but give the headline direction more weight. */
+    private int newsBiasedQuantity(int base, String side, NewsBias newsBias) {
+        double directionalRate = "BUY".equals(side) ? newsBias.rate() : -newsBias.rate();
+        double multiplier = 1.0 + Math.max(-0.45, Math.min(0.60, directionalRate * BOT_NEWS_SIZE_SENSITIVITY));
+        return Math.max(2, (int) Math.round(base * multiplier));
+    }
+
+    /** Keep a one-tick spread at the bot band's edges so a bot never freezes
+     * the market by posting both sides at the same boundary price. */
+    private long botQuotePrice(PriceBand band, String side, long rounded) {
+        long tick = tickSize(Math.max(1, band.referencePrice()));
+        if ("BUY".equals(side)) {
+            long upper = Math.max(band.lowerPrice(), band.upperPrice() - tick);
+            return Math.max(band.lowerPrice(), Math.min(upper, rounded));
+        }
+        long lower = Math.min(band.upperPrice(), band.lowerPrice() + tick);
+        return Math.min(band.upperPrice(), Math.max(lower, rounded));
     }
 
     private void trimBotLiquidity(String code) {
@@ -1179,6 +1251,28 @@ public class MarketService {
         jdbc.update("INSERT IGNORE INTO simulation_state (id, tick) VALUES (1, 0)");
     }
 
+    private void ensureNewsPriceState() {
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS news_price_state (
+                  stock_id BIGINT PRIMARY KEY,
+                  applied_bias DECIMAL(8,6) NOT NULL DEFAULT 0,
+                  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  CONSTRAINT fk_news_price_state_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
+                )
+                """);
+    }
+
+    /** Seed only new rows so a backend restart never reapplies old headlines. */
+    private void initializeNewsPriceState() {
+        ensureNewsPriceState();
+        List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
+        for (String code : codes) {
+            long id = stockId(code);
+            double currentBias = recentNewsBias(code).rate();
+            jdbc.update("INSERT IGNORE INTO news_price_state (stock_id, applied_bias) VALUES (?, ?)", id, currentBias);
+        }
+    }
+
     private void ensureMarketLock() {
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS market_locks (
@@ -1234,7 +1328,9 @@ public class MarketService {
         for (OpenLimitOrder order : orders) {
             PriceBand allowedBand = order.bot() ? botPriceBand(order.stockCode()) : dailyPriceBand(order.stockCode());
             long rounded = "BUY".equals(order.side()) ? floorToTick(order.price()) : ceilToTick(order.price());
-            long normalized = allowedBand.clamp(rounded);
+            long normalized = order.bot()
+                    ? botQuotePrice(allowedBand, order.side(), rounded)
+                    : allowedBand.clamp(rounded);
             if ("BUY".equals(order.side())) {
                 long required;
                 try {
@@ -1598,16 +1694,43 @@ public class MarketService {
         long stepLower = Math.max(100, current.price() - maxStep);
         long stepUpper = current.price() + maxStep;
         long bounded = Math.max(stepLower, Math.min(stepUpper, requestedPrice));
-        bounded = bounded >= current.price() ? floorToTick(bounded) : ceilToTick(bounded);
+        bounded = bounded >= current.price() ? ceilToTick(bounded) : floorToTick(bounded);
         bounded = botPriceBand(code).clamp(bounded);
         moveToPrice(code, bounded, volume);
     }
 
     /**
-     * Converts each recent headline into a bounded influence, then applies a
-     * separate twenty-four-hour aggregate cap. News only changes bot quotes;
-     * the current price still changes after an actual match.
+     * Applies the change in the aggregate 24-hour news bias directly to the
+     * reference price. The state table makes this idempotent: a restart or a
+     * repeated scheduler tick cannot apply the same headline twice.
+     * News moves price only (volume remains zero); order matching separately
+     * records actual traded volume and VWAP.
      */
+    private void applyNewsPriceDrift(String code, NewsBias newsBias) {
+        long id = stockId(code);
+        Double previous = jdbc.queryForObject(
+                "SELECT applied_bias FROM news_price_state WHERE stock_id = ?",
+                Double.class, id);
+        if (previous == null) {
+            jdbc.update("INSERT IGNORE INTO news_price_state (stock_id, applied_bias) VALUES (?, ?)",
+                    id, newsBias.rate());
+            return;
+        }
+        double next = newsBias.rate();
+        double delta = next - previous;
+        // Keep sub-tick changes pending so news recency decay is not lost.
+        // The applied value advances only when the accumulated delta is large
+        // enough to move at least one meaningful price increment.
+        if (Math.abs(delta) < 0.00005) return;
+        Stock current = findStock(code);
+        if (current == null) return;
+        long requested = Math.max(100, Math.round(current.price() * (1.0 + delta * NEWS_DIRECT_RATE_SHARE)));
+        long nextPrice = delta >= 0 ? ceilToTick(requested) : floorToTick(requested);
+        jdbc.update("UPDATE news_price_state SET applied_bias = ?, updated_at = CURRENT_TIMESTAMP WHERE stock_id = ?",
+                next, id);
+        if (nextPrice != current.price()) moveToPrice(code, nextPrice, 0);
+    }
+
     private NewsBias recentNewsBias(String code) {
         List<RecentNews> recentNews = jdbc.query("""
                 SELECT e.title, e.description, e.impact,
@@ -1616,9 +1739,16 @@ public class MarketService {
                 FROM market_events e JOIN stocks s ON s.id = e.stock_id
                 WHERE e.event_type = 'NEWS' AND s.stock_code = ?
                   AND COALESCE(e.published_at, e.created_at) >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
+                ORDER BY COALESCE(e.published_at, e.created_at) DESC, e.id DESC
+                LIMIT 100
                 """, (rs, row) -> new RecentNews(
                 rs.getString("title"), rs.getString("description"), rs.getDouble("impact"),
-                Math.max(0.0, Math.min(1.0, rs.getDouble("recency")))), code);
+                Math.max(0.0, Math.min(1.0, rs.getDouble("recency")))), code).stream()
+                // Price formation uses the ten newest relevant headlines for
+                // this stock, independently of the ten-item global feed.
+                .filter(news -> NewsRelevance.isRelevant(code, news.title(), news.description()))
+                .limit(10)
+                .toList();
         double total = 0.0;
         boolean special = false;
         for (RecentNews news : recentNews) {

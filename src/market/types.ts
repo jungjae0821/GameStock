@@ -118,6 +118,8 @@ export type OrderRequest = {
   code: string;
   side: "buy" | "sell";
   qty: number;
+  orderType?: "MARKET" | "LIMIT";
+  price?: number;
 };
 
 export type OrderResult =

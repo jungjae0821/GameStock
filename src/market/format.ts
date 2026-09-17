@@ -42,10 +42,10 @@ export function trendArrow(value: number): string {
   return "−";
 }
 
-/** 122,550주 / 1,204만주 */
+/** 122,550주 / 12.3만주 — 거래량은 만 단위부터 소수 한 자리로 표시한다. */
 export function shares(value: number): string {
   if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(1)}억주`;
-  if (value >= 10_000) return `${wonFormatter.format(Math.round(value / 10_000))}만주`;
+  if (value >= 10_000) return `${(value / 10_000).toFixed(1)}만주`;
   return `${wonFormatter.format(Math.round(value))}주`;
 }
 

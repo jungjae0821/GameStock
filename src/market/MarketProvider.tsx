@@ -15,12 +15,16 @@ export interface MarketApi {
 }
 
 type BackendStock = { code: string; name: string; genre: string; price: number; changePercent: number; volume: number };
+type BackendOrderBookLevel = { price: number; quantity: number; orderCount: number };
+type BackendOrderBook = { stockCode: string; bids: BackendOrderBookLevel[]; asks: BackendOrderBookLevel[] };
+type BackendTrade = { side: string; quantity: number; price: number; orderType?: string; createdAt: string };
 type BackendEvent = {
   stockCode: string;
   title: string;
   impact?: number;
   sentiment?: string;
   publishedAt?: string;
+  priceAtPublish?: number;
   priceChangePercent?: number;
   priceDirection?: string;
 };
@@ -91,7 +95,7 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
       code: event.stockCode,
       source: "미디어 보도" as const,
       title: event.title,
-      priceAtPublish: quotes[event.stockCode]?.price ?? 0,
+      priceAtPublish: Number(event.priceAtPublish ?? quotes[event.stockCode]?.price ?? 0),
       direction: (Number(event.priceChangePercent ?? event.impact ?? 0) >= 0 ? 1 : -1) as 1 | -1,
     })),
     portfolio: toPortfolio(portfolio),
@@ -128,16 +132,54 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           setSnapshot(toSnapshot(stocks, events, portfolio, watchRef.current));
           setServerAvailable(true);
         }
+        void refreshDetails();
       } catch {
         if (!cancelled) setServerAvailable(false);
       }
     };
+    const refreshDetails = async () => {
+      const entries = await Promise.all(Object.keys(LISTING_BY_CODE).map(async (code) => {
+        try {
+          const [book, trades] = await Promise.all([
+            apiFetch<BackendOrderBook>(`/api/stocks/${code}/orderbook`),
+            apiFetch<BackendTrade[]>(`/api/stocks/${code}/trades`),
+          ]);
+          return [code, { book, trades }] as const;
+        } catch {
+          return null;
+        }
+      }));
+      if (cancelled) return;
+      setSnapshot((current) => {
+        const quotes = { ...current.quotes };
+        for (const entry of entries) {
+          if (!entry) continue;
+          const [code, detail] = entry;
+          const quote = quotes[code];
+          if (!quote) continue;
+          quotes[code] = {
+            ...quote,
+            asks: (detail.book.asks ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity })),
+            bids: (detail.book.bids ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity })),
+            prints: (detail.trades ?? []).map((trade) => ({
+              at: Date.parse(trade.createdAt) || Date.now(),
+              price: trade.price,
+              qty: trade.quantity,
+              side: trade.side.toUpperCase() === "BUY" ? "buy" as const : "sell" as const,
+            })),
+          };
+        }
+        return { ...current, quotes, updatedAt: Date.now() };
+      });
+    };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 2000);
+    const detailTimer = window.setInterval(() => void refreshDetails(), 1000);
     const unsubscribe = onAuthStateChanged(firebaseAuth, () => void refresh());
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      window.clearInterval(detailTimer);
       unsubscribe();
     };
   }, []);
@@ -152,7 +194,13 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       try {
         const result = await apiFetch<{ message?: string; price?: number }>("/api/orders", {
           method: "POST",
-          body: JSON.stringify({ stockCode: request.code, side: request.side, quantity: request.qty, orderType: "MARKET" }),
+          body: JSON.stringify({
+            stockCode: request.code,
+            side: request.side,
+            quantity: request.qty,
+            orderType: request.orderType ?? "MARKET",
+            ...(request.price ? { price: request.price } : {}),
+          }),
         });
         return {
           ok: true,

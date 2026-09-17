@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$ports = 8080, 8081
+$ports = 5180, 8081
 $processIds = Get-NetTCPConnection -LocalPort $ports -State Listen -ErrorAction SilentlyContinue |
     Select-Object -ExpandProperty OwningProcess -Unique
 

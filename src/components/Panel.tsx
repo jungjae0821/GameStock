@@ -20,7 +20,15 @@ interface Props {
 export function Panel({ id, title, meta, action, flush = false, level = 2, children }: Props) {
   const route = useRoute();
   const current =
-    route.name === "market" ? (route.ticker ? `/market/${route.ticker}` : "/market") : route.name === "news" ? "/news" : "/";
+    route.name === "market"
+      ? (route.ticker ? `/market/${route.ticker}` : "/market")
+      : route.name === "news"
+        ? "/news"
+        : route.name === "ranking"
+          ? "/ranking"
+          : route.name === "mypage"
+            ? "/mypage"
+          : "/";
   const Heading = level === 2 ? "h2" : "h3";
 
   return (

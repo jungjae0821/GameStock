@@ -223,6 +223,13 @@ CREATE TABLE simulation_state (
   tick BIGINT NOT NULL DEFAULT 0
 );
 
+CREATE TABLE news_price_state (
+  stock_id BIGINT PRIMARY KEY,
+  applied_bias DECIMAL(8,6) NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_news_price_state_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
+);
+
 -- 여러 백엔드 인스턴스가 떠도 주문 매칭 순서를 하나씩 처리하기 위한 DB 행 잠금
 CREATE TABLE market_locks (
   id TINYINT PRIMARY KEY

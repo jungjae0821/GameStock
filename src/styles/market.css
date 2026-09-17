@@ -290,6 +290,13 @@
     min-width: 200px;
   }
 
+  /* 보유 표의 숫자 열은 헤더와 값의 오른쪽 기준선을 공유한다. */
+  .holdings-table thead th:not(:first-child),
+  .holdings-table tbody td:not(:first-child) {
+    text-align: right;
+    white-space: nowrap;
+  }
+
   /*
    * 지표 띠: 카드 네 장이 아니라 계기 하나다. 칸은 괘선으로만 나누고
    * 색은 값(등락·거래량)에만 붙는다.
@@ -307,8 +314,10 @@
   .index-tile {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 6px;
     min-width: 0;
+    min-height: 112px;
     padding: var(--space-3);
   }
 

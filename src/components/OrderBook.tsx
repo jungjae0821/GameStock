@@ -4,8 +4,8 @@ import { useMarket } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
 
 /**
- * 호가 5단계. 엔진이 이번 틱의 체결량과 매수·매도 압력으로 만들어 낸 표시용 데이터이며,
- * 실제 주문 잔량이 아니다. 매도 호가는 청색, 매수 호가는 적색으로 그린다.
+ * 호가 5단계. 백엔드의 공개 주문 잔량을 1초 주기로 반영한다.
+ * 매도 호가는 청색, 매수 호가는 적색으로 그린다.
  */
 export function OrderBook({ code }: { code: string }) {
   const snapshot = useMarket();

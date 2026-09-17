@@ -1,0 +1,76 @@
+오전 10:12:29 [vite] Internal server error: Failed to resolve import "./pages/MyPage" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/wizju/Desktop/학교 수업/3학년/2학기/GameStock/src/App.tsx:8:23
+  8  |  import { NewsPage } from "./pages/NewsPage";
+  9  |  import { RankingPage } from "./pages/RankingPage";
+  10 |  import { MyPage } from "./pages/MyPage";
+     |                          ^
+  11 |  import { LISTING_BY_CODE } from "./market/universe";
+  12 |  import { useRoute } from "./router";
+      at TransformPluginContext._formatLog (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 8)
+      at async TransformPluginContext.transform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:24622:20)
+오전 10:12:29 [vite] Internal server error: Failed to resolve import "./pages/MyPage" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/wizju/Desktop/학교 수업/3학년/2학기/GameStock/src/App.tsx:8:23
+  8  |  import { NewsPage } from "./pages/NewsPage";
+  9  |  import { RankingPage } from "./pages/RankingPage";
+  10 |  import { MyPage } from "./pages/MyPage";
+     |                          ^
+  11 |  import { LISTING_BY_CODE } from "./market/universe";
+  12 |  import { useRoute } from "./router";
+      at TransformPluginContext._formatLog (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 8)
+      at async TransformPluginContext.transform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:24622:20)
+오전 10:12:29 [vite] Internal server error: Failed to resolve import "./pages/MyPage" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/wizju/Desktop/학교 수업/3학년/2학기/GameStock/src/App.tsx:8:23
+  8  |  import { NewsPage } from "./pages/NewsPage";
+  9  |  import { RankingPage } from "./pages/RankingPage";
+  10 |  import { MyPage } from "./pages/MyPage";
+     |                          ^
+  11 |  import { LISTING_BY_CODE } from "./market/universe";
+  12 |  import { useRoute } from "./router";
+      at TransformPluginContext._formatLog (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 8)
+      at async TransformPluginContext.transform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:24622:20)
+오전 10:12:29 [vite] Internal server error: Failed to resolve import "./pages/MyPage" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/wizju/Desktop/학교 수업/3학년/2학기/GameStock/src/App.tsx:8:23
+  8  |  import { NewsPage } from "./pages/NewsPage";
+  9  |  import { RankingPage } from "./pages/RankingPage";
+  10 |  import { MyPage } from "./pages/MyPage";
+     |                          ^
+  11 |  import { LISTING_BY_CODE } from "./market/universe";
+  12 |  import { useRoute } from "./router";
+      at TransformPluginContext._formatLog (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 8)
+      at async TransformPluginContext.transform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///C:/Users/wizju/Desktop/%ED%95%99%EA%B5%90%20%EC%88%98%EC%97%85/3%ED%95%99%EB%85%84/2%ED%95%99%EA%B8%B0/GameStock/node_modules/vite/dist/node/chunks/config.js:24622:20)

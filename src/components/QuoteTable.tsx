@@ -19,6 +19,8 @@ const SORT_LABEL: Record<SortKey, { asc: string; desc: string }> = {
 interface Props {
   codes: string[];
   caption: string;
+  /** 그래프용 시계열을 외부에서 고정할 때 사용한다. 현재가·거래량은 실시간 스냅샷을 계속 사용한다. */
+  chartSeries?: Record<string, number[]>;
   selected?: string | null;
   onSelect?: (code: string) => void;
   onToggleWatch?: boolean;
@@ -31,6 +33,7 @@ interface Props {
 export function QuoteTable({
   codes,
   caption,
+  chartSeries,
   selected,
   onSelect,
   onToggleWatch = false,
@@ -90,6 +93,7 @@ export function QuoteTable({
               onSelect={onSelect}
               showWatch={onToggleWatch}
               volumeScale={scale}
+              chartSeries={chartSeries}
             />
           ))}
         </tbody>
@@ -104,9 +108,10 @@ interface RowProps {
   onSelect?: (code: string) => void;
   showWatch: boolean;
   volumeScale: number;
+  chartSeries?: Record<string, number[]>;
 }
 
-function QuoteRow({ code, selected, onSelect, showWatch, volumeScale }: RowProps) {
+function QuoteRow({ code, selected, onSelect, showWatch, volumeScale, chartSeries }: RowProps) {
   const snapshot = useMarket();
   const api = useMarketApi();
   const listing = LISTING_BY_CODE[code];
@@ -167,7 +172,7 @@ function QuoteRow({ code, selected, onSelect, showWatch, volumeScale }: RowProps
         </Chip>
       </td>
       <td className="cell-chart">
-        <Sparkline series={quote.series} prevClose={quote.prevClose} tone={sparkTone} />
+        <Sparkline series={chartSeries?.[code] ?? quote.series} prevClose={quote.prevClose} tone={sparkTone} />
       </td>
       <td className="cell-volume">
         <span className="volume-cell">

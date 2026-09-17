@@ -13,6 +13,8 @@ export function OrderTicket({ code }: { code: string }) {
   const snapshot = useMarket();
   const api = useMarketApi();
   const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("MARKET");
+  const [limitPrice, setLimitPrice] = useState("");
   const [qty, setQty] = useState("");
   const [result, setResult] = useState<OrderResult | null>(null);
 
@@ -23,7 +25,11 @@ export function OrderTicket({ code }: { code: string }) {
   const maxQty = api.orderable(code, side);
   const parsed = Number(qty);
   const valid = Number.isFinite(parsed) && Number.isInteger(parsed) && parsed >= 1;
-  const amount = valid ? parsed * quote.price : 0;
+  const suggestedLimit = side === "buy" ? quote.asks[0]?.price ?? quote.price : quote.bids[0]?.price ?? quote.price;
+  const parsedLimitPrice = Number(limitPrice);
+  const validLimitPrice = Number.isFinite(parsedLimitPrice) && Number.isInteger(parsedLimitPrice) && parsedLimitPrice > 0;
+  const executionPrice = orderType === "MARKET" ? quote.price : (validLimitPrice ? parsedLimitPrice : suggestedLimit);
+  const amount = valid ? parsed * executionPrice : 0;
   const afterCash = side === "buy" ? snapshot.portfolio.cash - amount : snapshot.portfolio.cash + amount;
   const afterQty = side === "buy" ? (position?.qty ?? 0) + (valid ? parsed : 0) : (position?.qty ?? 0) - (valid ? parsed : 0);
 
@@ -34,7 +40,13 @@ export function OrderTicket({ code }: { code: string }) {
   };
 
   const submit = async () => {
-    const outcome = await api.placeOrder({ code, side, qty: parsed });
+    const outcome = await api.placeOrder({
+      code,
+      side,
+      qty: parsed,
+      orderType,
+      ...(orderType === "LIMIT" ? { price: parsedLimitPrice } : {}),
+    });
     setResult(outcome);
     if (outcome.ok) setQty("");
   };
@@ -58,9 +70,31 @@ export function OrderTicket({ code }: { code: string }) {
               setSide(option);
               setQty("");
               setResult(null);
+              if (orderType === "LIMIT") {
+                const nextSuggested = option === "buy" ? quote.asks[0]?.price ?? quote.price : quote.bids[0]?.price ?? quote.price;
+                setLimitPrice(String(nextSuggested));
+              }
             }}
           >
             {option === "buy" ? "매수" : "매도"}
+          </button>
+        ))}
+      </div>
+
+      <div className="ticket-side" role="group" aria-label="주문 유형">
+        {(["MARKET", "LIMIT"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={`side-button is-type${orderType === option ? " is-active" : ""}`}
+            aria-pressed={orderType === option}
+            onClick={() => {
+              setOrderType(option);
+              setResult(null);
+              if (option === "LIMIT") setLimitPrice(String(suggestedLimit));
+            }}
+          >
+            {option === "MARKET" ? "시장가 즉시" : "호가 지정가"}
           </button>
         ))}
       </div>
@@ -95,6 +129,28 @@ export function OrderTicket({ code }: { code: string }) {
         </div>
       </div>
 
+      {orderType === "LIMIT" && (
+        <div className="ticket-field">
+          <label htmlFor="order-price">희망 가격</label>
+          <div className="ticket-input">
+            <input
+              id="order-price"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              value={limitPrice}
+              onChange={(event) => {
+                setLimitPrice(event.target.value);
+                setResult(null);
+              }}
+            />
+            <span className="ticket-unit">원</span>
+          </div>
+          <p className="ticket-hint">현재 호가 기준 추천가 {won(suggestedLimit)}</p>
+        </div>
+      )}
+
       <dl className="ticket-summary">
         <div>
           <dt>{side === "buy" ? "주문 가능 금액" : "매도 가능 수량"}</dt>
@@ -102,7 +158,7 @@ export function OrderTicket({ code }: { code: string }) {
         </div>
         <div>
           <dt>체결 기준가</dt>
-          <dd className="num">{won(quote.price)}</dd>
+          <dd className="num">{orderType === "MARKET" ? won(quote.price) : won(executionPrice)}</dd>
         </div>
         <div>
           <dt>주문 금액</dt>
@@ -114,9 +170,11 @@ export function OrderTicket({ code }: { code: string }) {
         </div>
       </dl>
 
-      <p className="ticket-note">현재가로 즉시 체결됩니다.</p>
+      <p className="ticket-note">
+        {orderType === "MARKET" ? "현재가에 남아 있는 반대 호가부터 즉시 체결됩니다." : "입력한 호가에 도달하면 가격·시간 우선으로 체결됩니다."}
+      </p>
 
-      <button type="submit" className={`submit-button is-${side}`} disabled={!valid}>
+      <button type="submit" className={`submit-button is-${side}`} disabled={!valid || (orderType === "LIMIT" && !validLimitPrice)}>
         {side === "buy" ? "매수 주문" : "매도 주문"}
       </button>
 

@@ -1,0 +1,56 @@
+
+> ssokdex@0.1.0 dev
+> vite --host 127.0.0.1 --port 5180
+
+
+  VITE v7.3.6  ready in 336 ms
+
+  ➜  Local:   http://127.0.0.1:5180/
+  ➜  press h + enter to show help
+오전 10:11:07 [vite] (client) hmr update /src/components/QuoteTable.tsx
+오전 10:11:07 [vite] (client) hmr update /src/pages/HomePage.tsx
+오전 10:11:27 [vite] (client) hmr update /src/components/StatusBar.tsx
+오전 10:11:27 [vite] (client) hmr update /src/components/Topbar.tsx
+오전 10:12:29 [vite] (client) hmr update /src/App.tsx, /src/pages/HomePage.tsx, /src/components/Topbar.tsx, /src/pages/MarketPage.tsx, /src/components/Link.tsx, /src/components/Panel.tsx
+오전 10:12:29 [vite] (client) hmr update /src/components/Panel.tsx
+오전 10:12:29 [vite] (client) hmr update /src/App.tsx
+오전 10:13:42 [vite] (client) page reload src/pages/MyPage.tsx
+오전 10:14:09 [vite] (client) hmr update /src/styles/index.css
+오전 10:15:38 [vite] (client) hmr update /src/styles/index.css
+오전 10:20:59 [vite] (client) hmr update /src/styles/index.css
+오전 10:32:49 [vite] (client) page reload frontend/index.html
+오전 10:33:01 [vite] (client) page reload frontend/index.html
+오전 10:33:57 [vite] (client) page reload frontend/index.html
+오전 10:35:10 [vite] (client) page reload frontend/index.html
+오전 10:44:21 [vite] (client) page reload frontend/index.html
+오전 10:47:49 [vite] (client) hmr update /src/App.tsx
+오전 11:01:32 [vite] (client) hmr update /src/styles/index.css
+오전 11:10:05 [vite] (client) hmr update /src/styles/index.css
+오전 11:38:15 [vite] (client) hmr update /src/components/Topbar.tsx
+오전 11:38:40 [vite] (client) hmr update /src/components/Topbar.tsx
+오전 11:38:40 [vite] (client) hmr update /src/App.tsx
+오전 11:39:56 [vite] (client) hmr update /src/components/Topbar.tsx
+오전 11:46:57 [vite] (client) hmr update /src/pages/HomePage.tsx
+오전 11:46:57 [vite] (client) hmr update /src/styles/index.css
+오전 11:47:22 [vite] (client) hmr update /src/styles/index.css
+오전 11:56:25 [vite] (client) hmr update /src/pages/MyPage.tsx
+오후 12:25:52 [vite] (client) hmr update /src/market/MarketProvider.tsx
+오후 12:25:52 [vite] (client) hmr invalidate /src/market/MarketProvider.tsx Could not Fast Refresh ("useMarket" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+오후 12:25:52 [vite] (client) page reload src/market/MarketProvider.tsx
+오후 12:34:12 [vite] (client) hmr update /src/components/StatusBar.tsx, /src/pages/NewsPage.tsx, /src/components/Topbar.tsx, /src/market/MarketProvider.tsx, /src/pages/HomePage.tsx, /src/pages/MarketPage.tsx, /src/components/TickerBoard.tsx, /src/components/MoverBoard.tsx, /src/components/NewsFeed.tsx, /src/components/QuoteTable.tsx, /src/components/PortfolioStrip.tsx, /src/components/StockDetail.tsx, /src/components/IndexStrip.tsx, /src/components/HoldingsTable.tsx, /src/components/SeriesChart.tsx, /src/components/OrderBook.tsx, /src/components/TradePrints.tsx, /src/components/PriceCell.tsx, /src/components/OrderTicket.tsx, /src/components/Delta.tsx, /src/pages/MyPage.tsx
+오후 12:34:12 [vite] (client) hmr update /src/components/TickerBoard.tsx
+오후 12:34:12 [vite] (client) hmr invalidate /src/market/MarketProvider.tsx Could not Fast Refresh ("useMarket" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+오후 12:34:12 [vite] (client) page reload src/market/MarketProvider.tsx
+오후 12:48:04 [vite] (client) hmr update /src/market/MarketProvider.tsx
+오후 12:48:04 [vite] (client) hmr invalidate /src/market/MarketProvider.tsx Could not Fast Refresh ("useMarket" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+오후 12:48:04 [vite] (client) page reload src/market/MarketProvider.tsx
+오후 12:48:40 [vite] (client) hmr update /src/components/OrderTicket.tsx
+오후 12:49:03 [vite] (client) hmr update /src/components/StockDetail.tsx
+오후 12:49:34 [vite] (client) hmr update /src/pages/MyPage.tsx
+오후 12:50:10 [vite] (client) hmr update /src/market/MarketProvider.tsx
+오후 12:50:10 [vite] (client) hmr update /src/components/OrderBook.tsx
+오후 12:50:10 [vite] (client) hmr invalidate /src/market/MarketProvider.tsx Could not Fast Refresh ("useMarket" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+오후 12:50:10 [vite] (client) page reload src/market/MarketProvider.tsx
+오후 12:50:38 [vite] (client) hmr update /src/styles/index.css
+오후 12:51:18 [vite] (client) hmr update /src/components/OrderTicket.tsx
+오후 12:51:26 [vite] (client) hmr update /src/pages/MyPage.tsx

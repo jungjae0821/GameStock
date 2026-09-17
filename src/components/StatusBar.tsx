@@ -15,7 +15,6 @@ export function StatusBar() {
   return (
     <footer className="statusbar">
       <div className="statusbar-inner">
-        <span className="status-note">모의 시세 · 실제 시장 데이터가 아닙니다</span>
         <span className="status-note num">{tickLabel(snapshot.tickMs)}마다 갱신</span>
         <p className="status-line num">
           보유 현금 {won(money.cash)}

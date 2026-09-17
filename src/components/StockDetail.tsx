@@ -7,7 +7,7 @@ import { Panel } from "./Panel";
 import { PriceCell } from "./PriceCell";
 import { SeriesChart } from "./SeriesChart";
 import { TradePrints } from "./TradePrints";
-import { clock, compactWon, rate, shares, trendArrow, won } from "../market/format";
+import { compactWon, rate, shares, trendArrow, won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import { sessionRate, strengthRatio } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
@@ -30,7 +30,6 @@ export function StockDetail({ code }: { code: string }) {
   const tone = rateTone(ratio);
   const sparkTone: "up" | "down" | "flat" = ratio > 0 ? "up" : ratio < 0 ? "down" : "flat";
   const position = snapshot.portfolio.positions[code];
-  const fills = snapshot.portfolio.fills.filter((fill) => fill.code === code).slice(0, 6);
   const watched = snapshot.watch.includes(code);
 
   return (
@@ -156,23 +155,6 @@ export function StockDetail({ code }: { code: string }) {
         <OrderTicket key={code} code={code} />
       </Panel>
 
-      <Panel id="detail-fills" title="내 체결 내역" meta={fills.length > 0 ? `최근 ${fills.length}건` : undefined}>
-        {fills.length === 0 ? (
-          <p className="empty is-inline">체결된 주문이 없습니다.</p>
-        ) : (
-          <ul className="fill-list">
-            {fills.map((fill) => (
-              <li key={fill.id}>
-                <span className="num fill-time">{clock(fill.at)}</span>
-                <Chip tone={fill.side === "buy" ? "up" : "down"}>{fill.side === "buy" ? "매수" : "매도"}</Chip>
-                <span className="num">{fill.qty}주</span>
-                <span className="num">{won(fill.price)}</span>
-                <span className="num fill-amount">{won(fill.price * fill.qty)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
     </article>
   );
 }
