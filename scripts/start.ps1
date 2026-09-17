@@ -3,9 +3,6 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $backendScript = Join-Path $projectRoot 'scripts\run-backend.ps1'
 $frontendScript = Join-Path $projectRoot 'scripts\run-frontend.ps1'
-$logDirectory = Join-Path $projectRoot 'logs'
-
-New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 
 function Test-ListeningPort([int] $port) {
     return $null -ne (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
@@ -16,7 +13,7 @@ if (-not (Test-ListeningPort 8081)) {
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',
         '-File', "`"$backendScript`""
-    ) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDirectory 'backend.log') -RedirectStandardError (Join-Path $logDirectory 'backend-error.log')
+    ) -WindowStyle Hidden
 }
 
 if (-not (Test-ListeningPort 5180)) {
@@ -24,7 +21,7 @@ if (-not (Test-ListeningPort 5180)) {
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',
         '-File', "`"$frontendScript`""
-    ) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDirectory 'frontend.log') -RedirectStandardError (Join-Path $logDirectory 'frontend-error.log')
+    ) -WindowStyle Hidden
 }
 
 Write-Host 'GameStock 실행을 시작했습니다.'
