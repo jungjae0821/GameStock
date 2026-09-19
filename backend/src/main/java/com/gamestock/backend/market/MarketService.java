@@ -48,8 +48,9 @@ public class MarketService {
     private static final double NEWS_DIRECT_RATE_SHARE = 0.40;
     /** News tilts bot order sizes while preserving both buy and sell liquidity. */
     private static final double BOT_NEWS_SIZE_SENSITIVITY = 3.0;
-    /** Bot executions move the quote only partially; news drift remains unchanged. */
-    private static final double BOT_TRADE_IMPACT_SHARE = 0.35;
+    /** Bot executions move the quote only partially; the exact share varies per tick. */
+    private static final double BOT_TRADE_IMPACT_MIN = 0.12;
+    private static final double BOT_TRADE_IMPACT_MAX = 0.42;
     /** Keep an internal cushion below the bot band so automated flow cannot pin a limit. */
     private static final double BOT_LIMIT_HEADROOM_RATE = 0.01;
     private static final double BOT_NEAR_LIMIT_POSITION = 0.75;
@@ -57,12 +58,12 @@ public class MarketService {
     /** Twenty-four-hour aggregate news influence limits. */
     private static final double NEWS_24H_BASE_RATE = 0.05;
     private static final double NEWS_24H_SPECIAL_RATE = 0.10;
-    /** Occasionally let one bot submit a visibly larger order so the tape has
-     * natural bursts. The resulting price is still constrained by the bot
-     * +/-20% band and the per-tick step limit in moveBotPrice(). */
+    /** Occasionally let one bot submit a liquidity-sized order so the tape has
+     * natural bursts. Quantity follows recent volume rather than a fixed cap. */
     private static final double BOT_BURST_PROBABILITY = 0.04;
-    private static final int BOT_BURST_MIN_QUANTITY = 18;
-    private static final int BOT_BURST_MAX_QUANTITY = 64;
+    private static final double BOT_NORMAL_VOLUME_PARTICIPATION = 0.07;
+    private static final double BOT_BURST_VOLUME_PARTICIPATION = 0.18;
+    private static final int BOT_INITIAL_INVENTORY = 400;
     /** A quiet tick makes the tape breathe instead of printing on a metronome. */
     private static final double BOT_ACTIVE_TICK_PROBABILITY = 0.78;
     /** Most ticks touch one listing; a smaller share creates cross-market flow. */
@@ -84,6 +85,7 @@ public class MarketService {
     @Value("${gamestock.simulation.seed:20260910}")
     private long simulationSeed;
     private Random tickRandom = new Random(20260910L);
+    private final long runtimeNoise = System.nanoTime();
     private long demoUserId;
 
     public MarketService(ApplicationEventPublisher events, JdbcTemplate jdbc, UserFeatureService userFeatures) {
@@ -811,8 +813,8 @@ public class MarketService {
         settleDuePayments();
         expireOrders();
         long tick = nextSimulationTick();
-        // 동일한 시드와 DB 상태라면 틱별 난수열과 봇 주문 흐름을 재현할 수 있다.
-        tickRandom = new Random(simulationSeed ^ (tick * 0x9E3779B97F4A7C15L));
+        // 재시작 때마다 같은 그래프가 반복되지 않도록 실행별 잡음을 섞는다.
+        tickRandom = new Random(simulationSeed ^ runtimeNoise ^ (tick * 0x9E3779B97F4A7C15L));
         List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
         if (codes.isEmpty()) return;
         Map<String, NewsBias> newsBiases = new HashMap<>();
@@ -847,9 +849,7 @@ public class MarketService {
             int marketOrderCount = tickRandom.nextDouble() < 0.06 ? 2 : (tickRandom.nextDouble() < 0.62 ? 1 : 0);
             boolean burst = tickRandom.nextDouble() < BOT_BURST_PROBABILITY;
             String burstSide = burst ? burstSide(code, newsBias) : "";
-            int burstQuantity = burst
-                    ? tickRandom.nextInt(BOT_BURST_MAX_QUANTITY - BOT_BURST_MIN_QUANTITY + 1) + BOT_BURST_MIN_QUANTITY
-                    : 0;
+            int burstQuantity = burst ? dynamicBotQuantity(code, burstSide, newsBias, true) : 0;
             MatchSummary matched = MatchSummary.empty();
             for (int orderIndex = 0; orderIndex < marketOrderCount; orderIndex++) {
                 String preferredSide = burstSide(code, newsBias);
@@ -878,7 +878,9 @@ public class MarketService {
         double rawPrice = fairPrice * ("BUY".equals(side) ? 1 - offset : 1 + offset);
         long price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
         price = botQuotePrice(botPriceBand(code), side, price);
-        int quantity = newsBiasedQuantity(tickRandom.nextInt(26) + 5, side, newsBias);
+        ensureBotInventory(code, id);
+        int quantity = dynamicBotQuantity(code, side, newsBias, false);
+        if (quantity <= 0) return;
         long idStock = stockId(code);
         if ("BUY".equals(side)) {
             long amount = price * quantity;
@@ -888,7 +890,6 @@ public class MarketService {
             if (updated == 0) return;
             jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, ?, 0, 'OPEN', DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 24 HOUR))", id, idStock, side, price, quantity, quantity, required);
         } else {
-            addBotInventory(code, quantity + 100, stock.price(), id);
             jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, 0, ?, 'OPEN', DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 24 HOUR))", id, idStock, side, price, quantity, quantity, quantity);
         }
     }
@@ -899,11 +900,11 @@ public class MarketService {
 
     private long createBotMarketOrder(String code, String side, NewsBias newsBias, int burstQuantity) {
         long id = ensureBot(code, side);
-        Stock stock = findStock(code);
-        int baseQuantity = burstQuantity > 0 ? burstQuantity : tickRandom.nextInt(22) + 3;
-        int quantity = newsBiasedQuantity(baseQuantity, side, newsBias);
         long idStock = stockId(code);
-        if ("SELL".equals(side)) addBotInventory(code, quantity + 200, stock.price(), id);
+        ensureBotInventory(code, id);
+        int quantity = burstQuantity > 0 ? Math.min(burstQuantity, dynamicBotQuantity(code, side, newsBias, true))
+                : dynamicBotQuantity(code, side, newsBias, false);
+        if (quantity <= 0) return 0;
         jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'MARKET', NULL, ?, ?, 0, 0, 'OPEN', NULL)", id, idStock, side, quantity, quantity);
         return jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
     }
@@ -933,11 +934,45 @@ public class MarketService {
                 (findStock(code).price() - band.lowerPrice()) / (double) span));
     }
 
-    /** Keep both sides active, but give the headline direction more weight. */
-    private int newsBiasedQuantity(int base, String side, NewsBias newsBias) {
+    /**
+     * Order size follows one-hour market liquidity and the bot's actual
+     * cash/holdings. There is no arbitrary fixed 3..64 order cap.
+     */
+    private int dynamicBotQuantity(String code, String side, NewsBias newsBias, boolean burst) {
+        long stockId = stockId(code);
+        Stock stock = findStock(code);
+        Long recentVolume = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(quantity), 0) FROM trades
+                WHERE stock_id = ? AND created_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 HOUR)
+                """, Long.class, stockId);
+        long observedVolume = recentVolume == null ? 0L : Math.max(0L, recentVolume);
+        double participation = burst ? BOT_BURST_VOLUME_PARTICIPATION : BOT_NORMAL_VOLUME_PARTICIPATION;
+        long liquidityQuantity = observedVolume > 0
+                ? Math.max(2L, Math.round(observedVolume * participation))
+                : 6L + tickRandom.nextInt(15);
+        double noise = 0.45 + tickRandom.nextDouble() * 1.10;
+        long desired = Math.max(1L, Math.round(liquidityQuantity * noise));
         double directionalRate = "BUY".equals(side) ? newsBias.rate() : -newsBias.rate();
-        double multiplier = 1.0 + Math.max(-0.45, Math.min(0.60, directionalRate * BOT_NEWS_SIZE_SENSITIVITY));
-        return Math.max(2, (int) Math.round(base * multiplier));
+        double newsMultiplier = 1.0 + Math.max(-0.35, Math.min(0.45, directionalRate * BOT_NEWS_SIZE_SENSITIVITY));
+        long requested = Math.max(1L, Math.round(desired * newsMultiplier));
+        long botId = ensureBot(code, side);
+        if ("SELL".equals(side)) ensureBotInventory(code, botId);
+        long available = "BUY".equals(side)
+                ? availableCash(botId) / Math.max(1L, Math.round(stock.price() * (1.0 + TRADING_FEE_RATE)))
+                : availableQuantity(botId, stockId);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, Math.min(requested, available)));
+    }
+
+    /** Seed a finite inventory once; subsequent sells must be backed by it. */
+    private void ensureBotInventory(String code, long userId) {
+        long id = stockId(code);
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM portfolios WHERE user_id = ? AND stock_id = ?", Integer.class, userId, id);
+        if (count != null && count == 0) {
+            jdbc.update("""
+                    INSERT INTO portfolios (user_id, stock_id, quantity, settled_quantity, average_price, realized_profit_loss)
+                    VALUES (?, ?, ?, ?, ?, 0)
+                    """, userId, id, BOT_INITIAL_INVENTORY, BOT_INITIAL_INVENTORY, findStock(code).price());
+        }
     }
 
     /** Keep a one-tick spread at the bot band's edges so a bot never freezes
@@ -1667,30 +1702,6 @@ public class MarketService {
         return jdbc.queryForObject("SELECT id FROM stocks WHERE stock_code = ?", Long.class, code);
     }
 
-    private void addBotInventory(String code, int amount, long price, long userId) {
-        long id = stockId(code);
-        List<HoldingState> current = jdbc.query("""
-                SELECT quantity, COALESCE(settled_quantity, quantity), average_price,
-                       COALESCE(realized_profit_loss, 0)
-                FROM portfolios WHERE user_id = ? AND stock_id = ?
-                """, (rs, row) -> new HoldingState(rs.getInt(1), rs.getInt(2), rs.getLong(3), rs.getLong(4)), userId, id);
-        HoldingState state = current.isEmpty() ? new HoldingState(0, 0, 0, 0) : current.get(0);
-        int nextQuantity = state.quantity() + amount;
-        long nextAverage = nextQuantity == 0 ? 0 : Math.round(
-                ((double) state.averagePrice() * state.quantity() + price * (long) amount) / nextQuantity);
-        if (current.isEmpty()) {
-            jdbc.update("""
-                    INSERT INTO portfolios (user_id, stock_id, quantity, settled_quantity, average_price, realized_profit_loss)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """, userId, id, nextQuantity, nextQuantity, nextAverage, state.realizedProfitLoss());
-        } else {
-            jdbc.update("""
-                    UPDATE portfolios SET quantity = ?, settled_quantity = ?, average_price = ?
-                    WHERE user_id = ? AND stock_id = ?
-                    """, nextQuantity, state.settledQuantity() + amount, nextAverage, userId, id);
-        }
-    }
-
     private void move(String code, double movement, int volume) {
         Stock old = findStock(code);
         long requested = Math.max(100, Math.round(old.price() * (1 + movement / 100)));
@@ -1734,8 +1745,10 @@ public class MarketService {
 
     private void moveBotPrice(String code, long requestedPrice, long volume, boolean specialNews) {
         Stock current = findStock(code);
+        double impactShare = BOT_TRADE_IMPACT_MIN
+                + tickRandom.nextDouble() * (BOT_TRADE_IMPACT_MAX - BOT_TRADE_IMPACT_MIN);
         long blendedPrice = Math.round(current.price()
-                + (requestedPrice - current.price()) * BOT_TRADE_IMPACT_SHARE);
+                + (requestedPrice - current.price()) * impactShare);
         double stepRate = specialNews ? BOT_SPECIAL_PRICE_STEP_RATE : BOT_PRICE_STEP_RATE;
         long maxStep = Math.max(tickSize(current.price()), Math.round(current.price() * stepRate));
         long stepLower = Math.max(100, current.price() - maxStep);
