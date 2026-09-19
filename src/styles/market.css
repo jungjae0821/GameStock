@@ -561,6 +561,19 @@
   .market-detail {
     min-width: 0;
   }
+
+  .market-list-market-data {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    /* 종목표 아래에서 오른쪽 주문 패널의 시작선과 맞춘다. */
+    margin-top: 275px;
+    align-items: start;
+  }
+
+  .market-list-market-data > .panel {
+    min-width: 0;
+  }
 }
 
 @layer responsive {
@@ -571,6 +584,11 @@
 
     .market-detail {
       order: -1;
+    }
+
+    .market-list-market-data {
+      grid-template-columns: minmax(0, 1fr);
+      margin-top: var(--space-3);
     }
 
     .index-strip {

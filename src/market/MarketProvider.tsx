@@ -109,6 +109,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<MarketSnapshot>(fallbackSnapshot);
   const [serverAvailable, setServerAvailable] = useState(false);
   const watchRef = useRef<string[]>([]);
+  const hasServerSnapshotRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +130,32 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           }
         }
         if (!cancelled) {
-          setSnapshot(toSnapshot(stocks, events, portfolio, watchRef.current));
+          const nextSnapshot = toSnapshot(stocks, events, portfolio, watchRef.current);
+          // The two-second quote refresh must not clear the one-second detail
+          // data while the order book/trade requests are in flight. Keeping
+          // the previous rows prevents a visible empty-frame flicker.
+          setSnapshot((current) => {
+            const quotes = Object.fromEntries(Object.entries(nextSnapshot.quotes).map(([code, quote]) => {
+              const previous = hasServerSnapshotRef.current ? current.quotes[code] : undefined;
+              const previousSeries = previous?.series ?? [];
+              const nextSeries = previousSeries.length > 0 ? [...previousSeries] : [quote.prevClose];
+              if (nextSeries[nextSeries.length - 1] !== quote.price) nextSeries.push(quote.price);
+              if (nextSeries.length < 2) nextSeries.push(quote.price);
+              return [code, previous ? {
+                ...quote,
+                open: previous.open,
+                high: Math.max(previous.high, quote.price),
+                low: Math.min(previous.low, quote.price),
+                prevClose: previous.prevClose,
+                series: nextSeries.slice(-60),
+                asks: previous.asks,
+                bids: previous.bids,
+                prints: previous.prints,
+              } : { ...quote, series: nextSeries.slice(-60) }];
+            }));
+            hasServerSnapshotRef.current = true;
+            return { ...nextSnapshot, quotes };
+          });
           setServerAvailable(true);
         }
         void refreshDetails();
@@ -152,24 +178,37 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       setSnapshot((current) => {
         const quotes = { ...current.quotes };
+        let changed = false;
+        const sameLevels = (left: Quote["asks"], right: Quote["asks"]) =>
+          left.length === right.length && left.every((level, index) => level.price === right[index]?.price && level.qty === right[index]?.qty);
+        const samePrints = (left: Quote["prints"], right: Quote["prints"]) =>
+          left.length === right.length && left.every((print, index) => {
+            const other = right[index];
+            return other && print.at === other.at && print.price === other.price && print.qty === other.qty && print.side === other.side;
+          });
         for (const entry of entries) {
           if (!entry) continue;
           const [code, detail] = entry;
           const quote = quotes[code];
           if (!quote) continue;
+          const asks = (detail.book.asks ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
+          const bids = (detail.book.bids ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
+          const prints = (detail.trades ?? []).map((trade) => ({
+            at: Date.parse(trade.createdAt) || Date.now(),
+            price: trade.price,
+            qty: trade.quantity,
+            side: trade.side.toUpperCase() === "BUY" ? "buy" as const : "sell" as const,
+          }));
+          if (sameLevels(quote.asks, asks) && sameLevels(quote.bids, bids) && samePrints(quote.prints, prints)) continue;
           quotes[code] = {
             ...quote,
-            asks: (detail.book.asks ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity })),
-            bids: (detail.book.bids ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity })),
-            prints: (detail.trades ?? []).map((trade) => ({
-              at: Date.parse(trade.createdAt) || Date.now(),
-              price: trade.price,
-              qty: trade.quantity,
-              side: trade.side.toUpperCase() === "BUY" ? "buy" as const : "sell" as const,
-            })),
+            asks,
+            bids,
+            prints,
           };
+          changed = true;
         }
-        return { ...current, quotes, updatedAt: Date.now() };
+        return changed ? { ...current, quotes, updatedAt: Date.now() } : current;
       });
     };
     void refresh();

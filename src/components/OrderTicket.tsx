@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import type { OrderResult } from "../market/types";
@@ -9,7 +9,7 @@ const RATIOS = [
   { label: "50%", ratio: 0.5 },
 ];
 
-export function OrderTicket({ code }: { code: string }) {
+export function OrderTicket({ code, selectedLimitPrice }: { code: string; selectedLimitPrice?: number | null }) {
   const snapshot = useMarket();
   const api = useMarketApi();
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -17,6 +17,13 @@ export function OrderTicket({ code }: { code: string }) {
   const [limitPrice, setLimitPrice] = useState("");
   const [qty, setQty] = useState("");
   const [result, setResult] = useState<OrderResult | null>(null);
+
+  useEffect(() => {
+    if (selectedLimitPrice === undefined || selectedLimitPrice === null) return;
+    setLimitPrice(String(selectedLimitPrice));
+    setOrderType("LIMIT");
+    setResult(null);
+  }, [selectedLimitPrice]);
 
   const quote = snapshot.quotes[code];
   if (!quote) return null;

@@ -2,11 +2,33 @@
   .detail {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-3);
   }
 
   .detail-grid {
-    display: contents;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    align-items: start;
+  }
+
+  .detail-grid > .panel {
+    min-width: 0;
+  }
+
+  .detail-grid > .panel:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .detail-trade-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .detail-trade-column > .panel {
+    min-width: 0;
   }
 
   .detail-head {
@@ -89,7 +111,7 @@
 
   .chart-plot {
     position: relative;
-    height: 150px;
+    height: 144px;
     padding-left: 72px;
     padding-right: 72px;
   }
@@ -102,34 +124,35 @@
 
   .chart-grid {
     stroke: var(--rule);
-    stroke-width: 1;
+    stroke-width: 0.8;
   }
 
   .chart-prevclose {
     stroke: var(--ink-faint);
-    stroke-width: 1;
+    stroke-width: 0.9;
     stroke-dasharray: 3 3;
   }
 
   .chart-area {
     fill: var(--ink-faint);
-    opacity: 0.28;
+    opacity: 0.2;
   }
 
   .chart.is-up .chart-area {
     fill: var(--up);
-    opacity: 0.12;
+    opacity: 0.1;
   }
 
   .chart.is-down .chart-area {
     fill: var(--down);
-    opacity: 0.12;
+    opacity: 0.1;
   }
 
   .chart-line {
     fill: none;
-    stroke-width: 1.8;
+    stroke-width: 2.2;
     stroke-linejoin: round;
+    stroke-linecap: round;
   }
 
   .chart.is-up .chart-line {
@@ -142,6 +165,23 @@
 
   .chart.is-flat .chart-line {
     stroke: var(--ink-muted);
+  }
+
+  .chart-point {
+    stroke: var(--paper);
+    stroke-width: 1.5;
+  }
+
+  .chart.is-up .chart-point {
+    fill: var(--up);
+  }
+
+  .chart.is-down .chart-point {
+    fill: var(--down);
+  }
+
+  .chart.is-flat .chart-point {
+    fill: var(--ink-muted);
   }
 
   .chart-tick {
@@ -192,18 +232,64 @@
     font-size: var(--step-0);
   }
 
-  .book-side {
+  .book-summary {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0 6px 6px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+
+  .book-summary-ask {
+    color: var(--down-deep);
+  }
+
+  .book-summary-buy {
+    color: var(--up-deep);
+  }
+
+  .book-header,
+  .book-row {
+    display: grid;
+    grid-template-columns: minmax(48px, 0.9fr) minmax(58px, 1fr) 88px minmax(58px, 1fr) minmax(48px, 0.9fr);
+    align-items: center;
+    gap: 4px;
+  }
+
+  .book-header {
+    padding: 0 4px 5px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .book-ladder {
+    border-top: 1px solid var(--rule);
   }
 
   .book-row {
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: 3px 6px;
+    min-height: 30px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .book-cell {
+    position: relative;
+    min-width: 0;
+    height: 30px;
+    overflow: hidden;
+  }
+
+  .book-cell.is-ask {
+    text-align: right;
+  }
+
+  .book-cell.is-bid {
+    text-align: left;
   }
 
   .book-bar {
@@ -211,45 +297,131 @@
     top: 0;
     bottom: 0;
     border-radius: 3px;
+    pointer-events: none;
   }
 
-  .book-side.is-ask .book-bar {
+  .book-cell.is-ask .book-bar {
     right: 0;
     background: color-mix(in oklab, var(--down) 14%, transparent);
   }
 
-  .book-side.is-bid .book-bar {
+  .book-cell.is-bid .book-bar {
     left: 0;
     background: color-mix(in oklab, var(--up) 14%, transparent);
   }
 
-  .book-price,
-  .book-qty {
+  .book-cell .book-qty {
     position: relative;
+    display: inline-block;
+    padding: 5px 6px;
+    font-size: var(--step--1);
   }
 
-  .book-side.is-ask .book-price {
+  .book-price {
+    min-width: 0;
+    padding: 0;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .book-price-button {
+    width: 100%;
+    padding: 5px 2px;
+    color: var(--ink);
+    background: transparent;
+    border-radius: 3px;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .book-price-button.is-clickable:hover,
+  .book-price-button.is-clickable:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -1px;
+  }
+
+  .book-price-button.is-ask {
     color: var(--down-deep);
   }
 
-  .book-side.is-bid .book-price {
+  .book-price-button.is-bid {
     color: var(--up-deep);
   }
 
-  .book-qty {
-    color: var(--ink-muted);
+  .book-price-button.is-best {
+    font-weight: 800;
   }
 
-  .book-now {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin: 4px 0;
-    padding: 5px 6px;
+  .book-cumulative {
+    padding: 5px 2px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .book-cumulative.is-ask {
+    color: color-mix(in oklab, var(--down-deep) 75%, var(--ink-muted));
+  }
+
+  .book-cumulative.is-bid {
+    color: color-mix(in oklab, var(--up-deep) 75%, var(--ink-muted));
+  }
+
+  .book-empty {
+    min-width: 0;
+  }
+
+  .book-cell.is-ask .book-qty {
+    color: var(--down-deep);
+  }
+
+  .book-cell.is-bid .book-qty {
+    color: var(--up-deep);
+  }
+
+  .book-row.is-best .book-cell {
+    background: color-mix(in oklab, var(--ink-faint) 24%, transparent);
+  }
+
+  .book-current-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr);
+    align-items: center;
+    gap: 5px;
+    min-height: 34px;
+    padding: 3px 0;
     border-block: 1px solid var(--rule-ink);
-    font-size: var(--step-2);
-    font-weight: 700;
+    background: var(--sunken);
+  }
+
+  .book-current-line {
+    height: 1px;
+    background: var(--rule-ink);
+  }
+
+  .book-current-label {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+
+  .book-current-price {
+    font-size: var(--step-1);
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .book-current-row .delta {
+    white-space: nowrap;
+  }
+
+  .book-spread {
+    margin-top: 5px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    text-align: center;
   }
 
   /* ------------------------------------------------------------- 체결 */
@@ -272,7 +444,7 @@
   }
 
   .tape-list {
-    max-height: 208px;
+    max-height: 180px;
     overflow-y: auto;
   }
 
@@ -492,10 +664,18 @@
 
 @layer responsive {
   @media (max-width: 720px) {
+    .detail-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .detail-grid > .panel:only-child {
+      grid-column: auto;
+    }
+
     .chart-plot {
       padding-left: 0;
       padding-right: 60px;
-      height: 132px;
+      height: 144px;
     }
 
     .chart-tick {

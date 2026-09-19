@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useHeldOrder, useHoldWhilePointing } from "../lib/useHeldOrder";
 import { Panel } from "../components/Panel";
+import { OrderBook } from "../components/OrderBook";
 import { QuoteTable } from "../components/QuoteTable";
 import { StockDetail } from "../components/StockDetail";
+import { TradePrints } from "../components/TradePrints";
 import { useMarket } from "../market/MarketProvider";
 import { sessionRate, sortCodes } from "../market/selectors";
 import type { SortDirection, SortKey } from "../market/selectors";
@@ -23,6 +25,7 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
   const [view, setView] = useState<View>("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: "volume", direction: "desc" });
+  const [selectedLimitPrice, setSelectedLimitPrice] = useState<number | null>(null);
 
   const matches = (code: string): boolean => {
     const quote = snapshot.quotes[code];
@@ -130,11 +133,22 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
               />
             </Panel>
           )}
+
+          {ticker && (
+            <div className="market-list-market-data">
+              <Panel id="market-detail-book" title="호가" meta="5단계">
+                <OrderBook code={ticker} onPriceSelect={setSelectedLimitPrice} />
+              </Panel>
+              <Panel id="market-detail-tape" title="최근 체결" meta={`${snapshot.quotes[ticker]?.prints.length ?? 0}건`}>
+                <TradePrints code={ticker} />
+              </Panel>
+            </div>
+          )}
         </div>
 
         {ticker && (
           <aside className="market-detail" aria-label="종목 상세">
-            <StockDetail code={ticker} />
+            <StockDetail code={ticker} selectedLimitPrice={selectedLimitPrice} />
           </aside>
         )}
       </div>

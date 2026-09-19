@@ -47,16 +47,25 @@ public class MarketService {
     /** Portion of the aggregate news move applied directly to the reference price. */
     private static final double NEWS_DIRECT_RATE_SHARE = 0.40;
     /** News tilts bot order sizes while preserving both buy and sell liquidity. */
-    private static final double BOT_NEWS_SIZE_SENSITIVITY = 6.0;
+    private static final double BOT_NEWS_SIZE_SENSITIVITY = 3.0;
+    /** Keep an internal cushion below the bot band so automated flow cannot pin a limit. */
+    private static final double BOT_LIMIT_HEADROOM_RATE = 0.01;
+    private static final double BOT_NEAR_LIMIT_POSITION = 0.75;
+    private static final double BOT_LIMIT_REVERSAL_PROBABILITY = 0.62;
     /** Twenty-four-hour aggregate news influence limits. */
     private static final double NEWS_24H_BASE_RATE = 0.05;
     private static final double NEWS_24H_SPECIAL_RATE = 0.10;
     /** Occasionally let one bot submit a visibly larger order so the tape has
      * natural bursts. The resulting price is still constrained by the bot
      * +/-20% band and the per-tick step limit in moveBotPrice(). */
-    private static final double BOT_BURST_PROBABILITY = 0.15;
-    private static final int BOT_BURST_MIN_QUANTITY = 80;
-    private static final int BOT_BURST_MAX_QUANTITY = 160;
+    private static final double BOT_BURST_PROBABILITY = 0.10;
+    private static final int BOT_BURST_MIN_QUANTITY = 40;
+    private static final int BOT_BURST_MAX_QUANTITY = 120;
+    /** A quiet tick makes the tape breathe instead of printing on a metronome. */
+    private static final double BOT_ACTIVE_TICK_PROBABILITY = 0.78;
+    /** Most ticks touch one listing; a smaller share creates cross-market flow. */
+    private static final double BOT_SECOND_LISTING_PROBABILITY = 0.18;
+    private static final double BOT_LIMIT_ORDER_PROBABILITY = 0.82;
     /** Scores are produced by NewsFeedService's -10..+10 classifier. */
     private static final double NEWS_SPECIAL_IMPACT_THRESHOLD = 6.0;
     private static final double NEWS_MAJOR_INCIDENT_IMPACT_THRESHOLD = -8.0;
@@ -810,34 +819,50 @@ public class MarketService {
             newsBiases.put(stockCode, bias);
             applyNewsPriceDrift(stockCode, bias);
         }
-        String code = codes.get(tickRandom.nextInt(codes.size()));
-        NewsBias newsBias = newsBiases.getOrDefault(code, new NewsBias(0.0, false));
-        // 뉴스가 움직인 기준가를 따라 봇은 양쪽에 유동성을 공급하되, 방향성에 맞춰 수량을 기울인다.
-        createBotOrder(code, "BUY", newsBias);
-        createBotOrder(code, "SELL", newsBias);
-        // 한 번의 틱 안에서도 양쪽 봇을 모두 실행하되 순서를 섞어 고정된 매수→매도 패턴을 피한다.
-        String firstSide = tickRandom.nextBoolean() ? "BUY" : "SELL";
-        String secondSide = "BUY".equals(firstSide) ? "SELL" : "BUY";
-        // A burst is directional (and slightly news-aware), while the other
-        // side remains a normal-sized order. This creates short-lived volume
-        // spikes without making every tick look scripted.
-        boolean burst = tickRandom.nextDouble() < BOT_BURST_PROBABILITY;
-        String burstSide = burst ? burstSide(newsBias) : "";
-        int burstQuantity = burst
-                ? tickRandom.nextInt(BOT_BURST_MAX_QUANTITY - BOT_BURST_MIN_QUANTITY + 1) + BOT_BURST_MIN_QUANTITY
-                : 0;
-        long firstOrderId = createBotMarketOrder(code, firstSide, newsBias,
-                burst && burstSide.equals(firstSide) ? burstQuantity : 0);
-        MatchSummary firstMatched = matchOrders(code);
-        if (firstOrderId > 0) cancelRemainingMarket(firstOrderId);
-        long secondOrderId = createBotMarketOrder(code, secondSide, newsBias,
-                burst && burstSide.equals(secondSide) ? burstQuantity : 0);
-        MatchSummary secondMatched = matchOrders(code);
-        if (secondOrderId > 0) cancelRemainingMarket(secondOrderId);
-        MatchSummary matched = firstMatched.merge(secondMatched);
-        // 뉴스 직접 drift와 체결 VWAP 모두 일일 가격제한폭 안에서 누적된다.
-        if (matched.hasTrades()) moveBotPrice(code, matched.vwap(), matched.totalQuantity(), newsBias.special());
-        trimBotLiquidity(code);
+        // 일부 틱은 뉴스만 반영하고 주문을 쉬게 한다. 실제 사용자 시장처럼
+        // 호가와 체결 사이에 짧은 정적 구간이 생기도록 하는 장치다.
+        if (tickRandom.nextDouble() > BOT_ACTIVE_TICK_PROBABILITY) {
+            events.publishEvent(new MarketChangedEvent(snapshot()));
+            return;
+        }
+
+        List<String> activeCodes = new ArrayList<>();
+        activeCodes.add(codes.get(tickRandom.nextInt(codes.size())));
+        if (codes.size() > 1 && tickRandom.nextDouble() < BOT_SECOND_LISTING_PROBABILITY) {
+            String secondary;
+            do {
+                secondary = codes.get(tickRandom.nextInt(codes.size()));
+            } while (activeCodes.contains(secondary));
+            activeCodes.add(secondary);
+        }
+
+        for (String code : activeCodes) {
+            NewsBias newsBias = newsBiases.getOrDefault(code, new NewsBias(0.0, false));
+            // 양쪽에 항상 같은 수량을 놓지 않고, 틱마다 한쪽만 놓는 경우도 둔다.
+            if (tickRandom.nextDouble() < BOT_LIMIT_ORDER_PROBABILITY) createBotOrder(code, "BUY", newsBias);
+            if (tickRandom.nextDouble() < BOT_LIMIT_ORDER_PROBABILITY) createBotOrder(code, "SELL", newsBias);
+
+            int marketOrderCount = tickRandom.nextDouble() < 0.12 ? 2 : (tickRandom.nextDouble() < 0.72 ? 1 : 0);
+            boolean burst = tickRandom.nextDouble() < BOT_BURST_PROBABILITY;
+            String burstSide = burst ? burstSide(code, newsBias) : "";
+            int burstQuantity = burst
+                    ? tickRandom.nextInt(BOT_BURST_MAX_QUANTITY - BOT_BURST_MIN_QUANTITY + 1) + BOT_BURST_MIN_QUANTITY
+                    : 0;
+            MatchSummary matched = MatchSummary.empty();
+            for (int orderIndex = 0; orderIndex < marketOrderCount; orderIndex++) {
+                String preferredSide = burstSide(code, newsBias);
+                String side = orderIndex == 0 || tickRandom.nextDouble() < 0.68
+                        ? preferredSide
+                        : ("BUY".equals(preferredSide) ? "SELL" : "BUY");
+                long orderId = createBotMarketOrder(code, side, newsBias,
+                        burst && burstSide.equals(side) ? burstQuantity : 0);
+                matched = matched.merge(matchOrders(code));
+                if (orderId > 0) cancelRemainingMarket(orderId);
+            }
+            // 뉴스 직접 drift와 체결 VWAP 모두 일일 가격제한폭 안에서 누적된다.
+            if (matched.hasTrades()) moveBotPrice(code, matched.vwap(), matched.totalQuantity(), newsBias.special());
+            trimBotLiquidity(code);
+        }
         events.publishEvent(new MarketChangedEvent(snapshot()));
     }
 
@@ -880,12 +905,29 @@ public class MarketService {
         return jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
     }
 
-    private String burstSide(NewsBias newsBias) {
+    private String burstSide(String code, NewsBias newsBias) {
         // Follow a strong headline direction most of the time, but retain a
         // small chance of the opposite side to avoid a deterministic tape.
-        if (newsBias.rate() > 0.01) return tickRandom.nextDouble() < 0.75 ? "BUY" : "SELL";
-        if (newsBias.rate() < -0.01) return tickRandom.nextDouble() < 0.75 ? "SELL" : "BUY";
+        if (newsBias.rate() > 0.01) {
+            if (botBandPosition(code) >= BOT_NEAR_LIMIT_POSITION)
+                return tickRandom.nextDouble() < BOT_LIMIT_REVERSAL_PROBABILITY ? "SELL" : "BUY";
+            return tickRandom.nextDouble() < 0.68 ? "BUY" : "SELL";
+        }
+        if (newsBias.rate() < -0.01) {
+            if (botBandPosition(code) <= 1.0 - BOT_NEAR_LIMIT_POSITION)
+                return tickRandom.nextDouble() < BOT_LIMIT_REVERSAL_PROBABILITY ? "BUY" : "SELL";
+            return tickRandom.nextDouble() < 0.68 ? "SELL" : "BUY";
+        }
         return tickRandom.nextBoolean() ? "BUY" : "SELL";
+    }
+
+    /** 0 is the bot lower band, 1 is the bot upper band. */
+    private double botBandPosition(String code) {
+        PriceBand band = botPriceBand(code);
+        long span = band.upperPrice() - band.lowerPrice();
+        if (span <= 0) return 0.5;
+        return Math.max(0.0, Math.min(1.0,
+                (findStock(code).price() - band.lowerPrice()) / (double) span));
     }
 
     /** Keep both sides active, but give the headline direction more weight. */
@@ -1695,7 +1737,12 @@ public class MarketService {
         long stepUpper = current.price() + maxStep;
         long bounded = Math.max(stepLower, Math.min(stepUpper, requestedPrice));
         bounded = bounded >= current.price() ? ceilToTick(bounded) : floorToTick(bounded);
-        bounded = botPriceBand(code).clamp(bounded);
+        PriceBand botBand = botPriceBand(code);
+        long headroom = Math.max(tickSize(botBand.referencePrice()) * 2,
+                Math.round(botBand.referencePrice() * BOT_LIMIT_HEADROOM_RATE));
+        long internalLower = Math.min(botBand.upperPrice(), botBand.lowerPrice() + headroom);
+        long internalUpper = Math.max(botBand.lowerPrice(), botBand.upperPrice() - headroom);
+        bounded = Math.max(internalLower, Math.min(internalUpper, bounded));
         moveToPrice(code, bounded, volume);
     }
 
