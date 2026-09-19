@@ -33,6 +33,9 @@ npm start          # dist/ 를 서빙하는 무의존성 Node 서버 (PORT)
   헬스체크 주소는 `/api/health`다.
 - **Firebase Hosting 프론트엔드**: `npm run build` 결과인 `dist/`를 배포한다.
   프론트의 `VITE_API_BASE_URL`은 Railway 백엔드 공개 주소로 지정한다.
+- **프론트엔드 자동 배포**: `.github/workflows/firebase-hosting.yml`이 `main` 브랜치 push마다
+  타입체크·빌드 후 Firebase Hosting에 배포한다. GitHub 저장소 Settings → Secrets and variables → Actions에
+  Firebase 관리자 서비스 계정 JSON 전체를 `FIREBASE_SERVICE_ACCOUNT` 시크릿으로 등록해야 한다.
 - **정적 호스팅(ChatGPT Sites 등)**: `npm run build` 결과인 `dist/`를 그대로 올린다. 클라이언트 라우팅은
   `history.pushState` 기반이므로 서버에 SPA 폴백 설정이 필요하다.
 
