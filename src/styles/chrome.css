@@ -408,6 +408,15 @@
     min-width: 680px;
   }
 
+  /* 마이페이지의 두 표는 공통 규칙보다 우선해 헤더와 모든 셀을 중앙에 맞춘다. */
+  table.mypage-holdings-table th,
+  table.mypage-holdings-table td,
+  table.mypage-trades-table th,
+  table.mypage-trades-table td {
+    text-align: center;
+    vertical-align: middle;
+  }
+
   .mypage-holdings-table thead th:not(:first-child),
   .mypage-holdings-table tbody td:not(:first-child) {
     text-align: center;
