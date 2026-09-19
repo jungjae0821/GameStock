@@ -417,6 +417,12 @@
     vertical-align: middle;
   }
 
+  /* 행 제목(th)과 종목명도 별도 스타일에 밀리지 않도록 다시 고정한다. */
+  table.mypage-holdings-table .cell-name,
+  table.mypage-trades-table tbody th {
+    text-align: center;
+  }
+
   .mypage-holdings-table thead th:not(:first-child),
   .mypage-holdings-table tbody td:not(:first-child) {
     text-align: center;

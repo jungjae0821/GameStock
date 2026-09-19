@@ -4,7 +4,7 @@ import { Panel } from "../components/Panel";
 import { apiFetch } from "../lib/api";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
 import { LISTING_BY_CODE } from "../market/universe";
-import { won } from "../market/format";
+import { clock, won } from "../market/format";
 
 type Profile = {
   nickname: string;
@@ -229,7 +229,7 @@ export function MyPage() {
               <tbody>
                 {completedTrades.map((trade) => (
                   <tr key={trade.id}>
-                    <td className="num">{new Date(trade.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</td>
+                    <td className="num">{Number.isNaN(Date.parse(trade.createdAt)) ? "-" : clock(Date.parse(trade.createdAt))}</td>
                     <th scope="row">{LISTING_BY_CODE[trade.stockCode]?.name ?? trade.stockCode}</th>
                     <td className={trade.side === "BUY" ? "mypage-profit" : "mypage-loss"}>{trade.side === "BUY" ? "매수" : "매도"}</td>
                     <td className="num">{trade.quantity.toLocaleString("ko-KR")}주</td>

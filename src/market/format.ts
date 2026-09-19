@@ -1,4 +1,24 @@
 const wonFormatter = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
+const KST_TIME_ZONE = "Asia/Seoul";
+const kstClockFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: KST_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+const kstMinuteFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: KST_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+const kstDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: KST_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 /** ₩25,710 */
 export function won(value: number): string {
@@ -63,16 +83,12 @@ export function signedNumber(value: number, digits = 2): string {
 
 /** 12:04:31 */
 export function clock(at: number): string {
-  const date = new Date(at);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return kstClockFormatter.format(new Date(at));
 }
 
 /** 12:04 */
 export function minutes(at: number): string {
-  const date = new Date(at);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return kstMinuteFormatter.format(new Date(at));
 }
 
 /** 방금 / 42초 전 / 3분 전 / 12:04 */
@@ -89,11 +105,16 @@ export function since(at: number, now: number): string {
 export function dayLabel(at: number, now: number): string {
   const day = new Date(at);
   const today = new Date(now);
-  const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dateKey = (date: Date) => {
+    const parts = Object.fromEntries(kstDateFormatter.formatToParts(date).map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  };
+  const startOfDay = (date: Date) => Date.parse(`${dateKey(date)}T00:00:00+09:00`);
   const diffDays = Math.round((startOfDay(today) - startOfDay(day)) / 86_400_000);
   if (diffDays === 0) return "오늘";
   if (diffDays === 1) return "어제";
-  return `${day.getMonth() + 1}월 ${day.getDate()}일`;
+  const [, month, dateValue] = dateKey(day).split("-").map(Number);
+  return `${month}월 ${dateValue}일`;
 }
 
 /** 2초 → "2초" */
