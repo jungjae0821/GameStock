@@ -255,7 +255,25 @@
 
   .ranking-table {
     min-width: 560px;
+    width: 100%;
     font-size: var(--step-1);
+    table-layout: fixed;
+  }
+
+  .ranking-table col.ranking-col-rank {
+    width: 72px;
+  }
+
+  .ranking-table col.ranking-col-name {
+    width: auto;
+  }
+
+  .ranking-table col.ranking-col-change {
+    width: 140px;
+  }
+
+  .ranking-table col.ranking-col-asset {
+    width: 170px;
   }
 
   .ranking-table thead th {
@@ -265,12 +283,21 @@
     color: var(--ink-muted);
     font-size: var(--step--1);
     font-weight: 500;
-    text-align: right;
     white-space: nowrap;
   }
 
-  .ranking-table thead th:first-child,
+  .ranking-table .ranking-col-rank,
   .ranking-table tbody th {
+    text-align: center;
+  }
+
+  .ranking-table .ranking-col-name,
+  .ranking-table .ranking-page-name {
+    text-align: center;
+  }
+
+  .ranking-table .ranking-col-change,
+  .ranking-table .ranking-col-asset {
     text-align: center;
   }
 
@@ -292,23 +319,29 @@
   }
 
   .ranking-page-name {
-    width: 100%;
     overflow-wrap: anywhere;
   }
 
   .ranking-page-change {
-    color: var(--brand-wine);
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
   }
 
+  .ranking-page-change.is-up {
+    color: var(--up-deep);
+  }
+
   .ranking-page-change.is-down {
-    color: var(--blue);
+    color: var(--down-deep);
+  }
+
+  .ranking-page-change.is-flat {
+    color: var(--flat);
   }
 
   .ranking-page-asset {
     color: var(--ink-muted);
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
   }
 
@@ -377,7 +410,7 @@
 
   .mypage-holdings-table thead th:not(:first-child),
   .mypage-holdings-table tbody td:not(:first-child) {
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
   }
 

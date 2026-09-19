@@ -48,6 +48,8 @@ public class MarketService {
     private static final double NEWS_DIRECT_RATE_SHARE = 0.40;
     /** News tilts bot order sizes while preserving both buy and sell liquidity. */
     private static final double BOT_NEWS_SIZE_SENSITIVITY = 3.0;
+    /** Bot executions move the quote only partially; news drift remains unchanged. */
+    private static final double BOT_TRADE_IMPACT_SHARE = 0.35;
     /** Keep an internal cushion below the bot band so automated flow cannot pin a limit. */
     private static final double BOT_LIMIT_HEADROOM_RATE = 0.01;
     private static final double BOT_NEAR_LIMIT_POSITION = 0.75;
@@ -58,9 +60,9 @@ public class MarketService {
     /** Occasionally let one bot submit a visibly larger order so the tape has
      * natural bursts. The resulting price is still constrained by the bot
      * +/-20% band and the per-tick step limit in moveBotPrice(). */
-    private static final double BOT_BURST_PROBABILITY = 0.10;
-    private static final int BOT_BURST_MIN_QUANTITY = 40;
-    private static final int BOT_BURST_MAX_QUANTITY = 120;
+    private static final double BOT_BURST_PROBABILITY = 0.04;
+    private static final int BOT_BURST_MIN_QUANTITY = 18;
+    private static final int BOT_BURST_MAX_QUANTITY = 64;
     /** A quiet tick makes the tape breathe instead of printing on a metronome. */
     private static final double BOT_ACTIVE_TICK_PROBABILITY = 0.78;
     /** Most ticks touch one listing; a smaller share creates cross-market flow. */
@@ -842,7 +844,7 @@ public class MarketService {
             if (tickRandom.nextDouble() < BOT_LIMIT_ORDER_PROBABILITY) createBotOrder(code, "BUY", newsBias);
             if (tickRandom.nextDouble() < BOT_LIMIT_ORDER_PROBABILITY) createBotOrder(code, "SELL", newsBias);
 
-            int marketOrderCount = tickRandom.nextDouble() < 0.12 ? 2 : (tickRandom.nextDouble() < 0.72 ? 1 : 0);
+            int marketOrderCount = tickRandom.nextDouble() < 0.06 ? 2 : (tickRandom.nextDouble() < 0.62 ? 1 : 0);
             boolean burst = tickRandom.nextDouble() < BOT_BURST_PROBABILITY;
             String burstSide = burst ? burstSide(code, newsBias) : "";
             int burstQuantity = burst
@@ -859,7 +861,8 @@ public class MarketService {
                 matched = matched.merge(matchOrders(code));
                 if (orderId > 0) cancelRemainingMarket(orderId);
             }
-            // 뉴스 직접 drift와 체결 VWAP 모두 일일 가격제한폭 안에서 누적된다.
+            // 뉴스 직접 drift는 위에서 그대로 적용한다. 봇 체결은 별도 완충 비율만
+            // 가격에 반영해, 봇 거래량이 한 틱의 가격을 끌고 가지 않게 한다.
             if (matched.hasTrades()) moveBotPrice(code, matched.vwap(), matched.totalQuantity(), newsBias.special());
             trimBotLiquidity(code);
         }
@@ -1731,11 +1734,13 @@ public class MarketService {
 
     private void moveBotPrice(String code, long requestedPrice, long volume, boolean specialNews) {
         Stock current = findStock(code);
+        long blendedPrice = Math.round(current.price()
+                + (requestedPrice - current.price()) * BOT_TRADE_IMPACT_SHARE);
         double stepRate = specialNews ? BOT_SPECIAL_PRICE_STEP_RATE : BOT_PRICE_STEP_RATE;
         long maxStep = Math.max(tickSize(current.price()), Math.round(current.price() * stepRate));
         long stepLower = Math.max(100, current.price() - maxStep);
         long stepUpper = current.price() + maxStep;
-        long bounded = Math.max(stepLower, Math.min(stepUpper, requestedPrice));
+        long bounded = Math.max(stepLower, Math.min(stepUpper, blendedPrice));
         bounded = bounded >= current.price() ? ceilToTick(bounded) : floorToTick(bounded);
         PriceBand botBand = botPriceBand(code);
         long headroom = Math.max(tickSize(botBand.referencePrice()) * 2,

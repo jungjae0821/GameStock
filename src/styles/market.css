@@ -112,7 +112,7 @@
   .quote-table .cell-rate,
   .quote-table .cell-volume,
   .quote-table td.num {
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
   }
 
@@ -150,6 +150,7 @@
   .name-link {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--space-2);
     text-decoration: none;
   }
@@ -290,10 +291,10 @@
     min-width: 200px;
   }
 
-  /* 보유 표의 숫자 열은 헤더와 값의 오른쪽 기준선을 공유한다. */
+  /* 보유 표의 모든 열은 같은 중앙 기준선을 공유한다. */
   .holdings-table thead th:not(:first-child),
   .holdings-table tbody td:not(:first-child) {
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
   }
 
