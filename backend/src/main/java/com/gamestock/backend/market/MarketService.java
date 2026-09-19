@@ -22,6 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.time.Instant;
 import java.time.Duration;
+import java.time.ZoneOffset;
 import java.util.Random;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -330,7 +331,7 @@ public class MarketService {
         String priceDirection = priceChangePercent > 0 ? "up" : priceChangePercent < 0 ? "down" : "flat";
         String reason = priceReason(priceChangePercent, impact);
         var publishedAt = rs.getTimestamp("published_at");
-        String published = publishedAt == null ? null : publishedAt.toInstant().toString();
+        String published = publishedAt == null ? null : databaseInstant(publishedAt).toString();
         return new MarketEvent(rs.getString("stock_code"), rs.getString("title"), impact,
                 sentiment, rs.getString("description"), published, priceAtPublish, priceChangePercent,
                 priceDirection, reason);
@@ -407,8 +408,8 @@ public class MarketService {
                 rs.getLong("id"), rs.getString("stock_code"), rs.getString("side"),
                 rs.getInt("quantity"), rs.getInt("remaining_quantity"), rs.getLong("price"),
                 rs.getString("status"), rs.getString("order_type"), rs.getLong("reserved_cash"),
-                rs.getInt("reserved_quantity"), rs.getTimestamp("created_at").toInstant().toString(),
-                rs.getTimestamp("expires_at") == null ? null : rs.getTimestamp("expires_at").toInstant().toString()), userId);
+                rs.getInt("reserved_quantity"), databaseInstant(rs.getTimestamp("created_at")).toString(),
+                rs.getTimestamp("expires_at") == null ? null : databaseInstant(rs.getTimestamp("expires_at")).toString()), userId);
     }
 
     /** The user's recently completed fills. Cash and shares settle immediately. */
@@ -443,8 +444,8 @@ public class MarketService {
                 rs.getLong("id"), rs.getString("side"), rs.getString("stock_code"),
                 rs.getInt("quantity"), rs.getLong("gross_amount"), rs.getLong("fee"),
                 rs.getLong("net_amount"), rs.getString("status"),
-                rs.getTimestamp("settlement_at").toInstant().toString(),
-                rs.getTimestamp("created_at").toInstant().toString(),
+                databaseInstant(rs.getTimestamp("settlement_at")).toString(),
+                databaseInstant(rs.getTimestamp("created_at")).toString(),
                 rs.getBoolean("cancellable")),
                 userId, userId, userId, userId, userId);
     }
@@ -473,7 +474,7 @@ public class MarketService {
                 rs.getLong("id"), rs.getLong("trade_id"), rs.getLong("buyer_id"),
                 rs.getLong("seller_id"), rs.getLong("stock_id"), rs.getInt("quantity"),
                 rs.getLong("gross_amount"), rs.getLong("buyer_fee"), rs.getLong("seller_fee"),
-                rs.getTimestamp("created_at").toInstant(),
+                databaseInstant(rs.getTimestamp("created_at")),
                 (Integer) rs.getObject("buyer_quantity_before"),
                 (Integer) rs.getObject("buyer_settled_quantity_before"),
                 (Long) rs.getObject("buyer_average_price_before"),
@@ -542,9 +543,9 @@ public class MarketService {
                 rs.getString("status"),
                 rs.getString("order_type"),
                 rs.getInt("remaining_quantity"),
-                rs.getTimestamp("created_at").toInstant().toString(),
+                databaseInstant(rs.getTimestamp("created_at")).toString(),
                 rs.getLong("fee"), rs.getString("settlement_status"),
-                rs.getTimestamp("settlement_at") == null ? null : rs.getTimestamp("settlement_at").toInstant().toString()),
+                rs.getTimestamp("settlement_at") == null ? null : databaseInstant(rs.getTimestamp("settlement_at")).toString()),
                 userId, code.toUpperCase(Locale.ROOT), userId);
     }
 
@@ -560,7 +561,7 @@ public class MarketService {
                 WHERE s.stock_code = ? AND (st.id IS NULL OR st.status <> 'CANCELLED')
                 ORDER BY t.created_at DESC, t.id DESC LIMIT 10
                 """, (rs, row) -> new PublicTrade(rs.getString("side"), rs.getInt("quantity"),
-                rs.getLong("price"), rs.getString("order_type"), rs.getTimestamp("created_at").toInstant().toString()),
+                rs.getLong("price"), rs.getString("order_type"), databaseInstant(rs.getTimestamp("created_at")).toString()),
                 code.toUpperCase(Locale.ROOT));
     }
 
@@ -584,7 +585,7 @@ public class MarketService {
                 LIMIT 2000
                 """, (rs, row) -> new PricePoint(
                 rs.getLong("price"),
-                rs.getTimestamp("recorded_at").toInstant().toString()),
+                databaseInstant(rs.getTimestamp("recorded_at")).toString()),
                 code.toUpperCase(Locale.ROOT), Timestamp.from(cutoff));
         Collections.reverse(points);
         return points;
@@ -660,8 +661,8 @@ public class MarketService {
         return new PriceDrivers(normalized, stock.price(), previousPrice(normalized), stock.changePercent(),
                 newsImpact, newsCount == null ? 0 : newsCount, volumes.userBuy(), volumes.userSell(),
                 volumes.botBuy(), volumes.botSell(), openOrders.userBuy(), openOrders.userSell(),
-                latestNews == null ? null : latestNews.toInstant().toString(),
-                latestTrade == null ? null : latestTrade.toInstant().toString(),
+                latestNews == null ? null : databaseInstant(latestNews).toString(),
+                latestTrade == null ? null : databaseInstant(latestTrade).toString(),
                 priceDriversReason(stock.changePercent(), newsImpact, userNet, botNet, openNet));
     }
 
@@ -1091,7 +1092,7 @@ public class MarketService {
                 + "ORDER BY CASE WHEN o.order_type = 'MARKET' THEN 1 ELSE 0 END DESC, " + priceOrder + ", o.created_at ASC, o.id ASC LIMIT 1";
         List<MatchRow> rows = jdbc.query(sql, (rs, row) -> new MatchRow(
                 rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4), rs.getInt(5),
-                rs.getString(6), rs.getTimestamp(7).toInstant(), rs.getLong(8), rs.getInt(9), rs.getString(10),
+                rs.getString(6), databaseInstant(rs.getTimestamp(7)), rs.getLong(8), rs.getInt(9), rs.getString(10),
                 rs.getBoolean(11)), stockId, side);
         return rows.isEmpty() ? null : rows.get(0);
     }
@@ -1632,7 +1633,7 @@ public class MarketService {
                 LEFT JOIN settlements st ON st.trade_id = t.id
                 WHERE t.buy_order_id = ? OR t.sell_order_id = ?
                 """, (rs, row) -> new ExecutionSummary(rs.getLong("fee"), rs.getString("settlement_status"),
-                rs.getTimestamp("settlement_at") == null ? null : rs.getTimestamp("settlement_at").toInstant().toString()),
+                rs.getTimestamp("settlement_at") == null ? null : databaseInstant(rs.getTimestamp("settlement_at")).toString()),
                 side, orderId, orderId);
         return rows.isEmpty() ? new ExecutionSummary(0, "NONE", null) : rows.get(0);
     }
@@ -1696,6 +1697,11 @@ public class MarketService {
 
     private Stock findStock(String code) {
         return stocks().stream().filter(stock -> stock.code().equals(code)).findFirst().orElse(null);
+    }
+
+    /** Railway MySQL returns UTC wall-clock values through the Seoul connection timezone. */
+    private Instant databaseInstant(Timestamp timestamp) {
+        return timestamp.toLocalDateTime().toInstant(ZoneOffset.UTC);
     }
 
     private long stockId(String code) {

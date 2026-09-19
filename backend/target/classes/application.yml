@@ -4,7 +4,7 @@ spring:
   datasource:
     # Railway에서는 DB_URL을 지정하거나 MYSQLHOST/MYSQLPORT/MYSQLDATABASE를
     # 서비스 변수로 연결한다. 값이 없으면 기존 로컬 MySQL로 접속한다.
-    url: "${DB_URL:jdbc:mysql://${MYSQLHOST:localhost}:${MYSQLPORT:3306}/${MYSQLDATABASE:gamestock}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul}"
+    url: "${DB_URL:jdbc:mysql://${MYSQLHOST:localhost}:${MYSQLPORT:3306}/${MYSQLDATABASE:gamestock}?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}"
     username: "${DB_USERNAME:${MYSQLUSER:jungjae0821}}"
     password: "${DB_PASSWORD:${MYSQLPASSWORD:}}"
     driver-class-name: com.mysql.cj.jdbc.Driver

@@ -4,6 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { firebaseAuth } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
 import { MarketEngine } from "./engine";
+import { serverTimestamp } from "./format";
 import { LISTING_BY_CODE, roundToTick } from "./universe";
 import type { MarketSnapshot, OrderRequest, OrderResult, Portfolio, Position, Quote } from "./types";
 
@@ -91,7 +92,7 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
     codes: stocks.map((stock) => stock.code).filter((code) => Boolean(quotes[code])),
     news: events.map((event, index) => ({
       id: index + 1,
-      at: event.publishedAt ? Date.parse(event.publishedAt) || Date.now() : Date.now(),
+      at: event.publishedAt ? serverTimestamp(event.publishedAt) || Date.now() : Date.now(),
       code: event.stockCode,
       source: "미디어 보도" as const,
       title: event.title,
@@ -194,7 +195,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           const asks = (detail.book.asks ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
           const bids = (detail.book.bids ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
           const prints = (detail.trades ?? []).map((trade) => ({
-            at: Date.parse(trade.createdAt) || Date.now(),
+            at: serverTimestamp(trade.createdAt) || Date.now(),
             price: trade.price,
             qty: trade.quantity,
             side: trade.side.toUpperCase() === "BUY" ? "buy" as const : "sell" as const,

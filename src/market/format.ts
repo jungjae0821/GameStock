@@ -20,6 +20,14 @@ const kstDateFormatter = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+/** 서버가 시간대 없이 내려주는 레거시 ISO 값을 UTC로 안전하게 해석한다. */
+export function serverTimestamp(value: string): number {
+  const normalized = value.trim();
+  if (!normalized) return Number.NaN;
+  const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+  return Date.parse(hasOffset ? normalized : `${normalized}Z`);
+}
+
 /** ₩25,710 */
 export function won(value: number): string {
   const sign = value < 0 ? "-" : "";
