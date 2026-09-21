@@ -66,7 +66,7 @@ export function StockDetail({ code, selectedLimitPrice }: { code: string; select
 
       <Panel
         id="detail-session"
-        title="세션 시세"
+        title="가격 차트"
         meta={`전일 종가 ${won(quote.prevClose)}`}
       >
         <dl className="stat-grid">

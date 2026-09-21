@@ -32,8 +32,8 @@ function smoothPath(points: Point[]): string {
 }
 
 /**
- * 세션 가격 경로를 전일 종가 기준선과 함께 보여 준다.
- * 축 눈금과 현재가를 직접 라벨링해 범례 조회를 없앴다.
+ * 종목의 가격 흐름을 전일 종가 기준선과 현재가 라벨만으로 보여 준다.
+ * 차트 바깥의 세션 설명은 제거하고, 가격을 읽는 데 필요한 정보만 남긴다.
  */
 export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down" | "flat" }) {
   const snapshot = useMarket();
@@ -52,7 +52,6 @@ export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down"
   const step = 100 / (series.length - 1);
   const points = series.map((value, index) => ({ x: index * step, y: y(value) }));
   const line = smoothPath(points);
-  const area = `${line} L 100 100 L 0 100 Z`;
   const currentPoint = points[points.length - 1];
   const rate = sessionRate(quote);
   const fallbackTone = rate > 0 ? "up" : rate < 0 ? "down" : "flat";
@@ -63,7 +62,13 @@ export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down"
   return (
     <figure className={`chart is-${tone ?? fallbackTone}`}>
       <div className="chart-plot">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={`${code} 가격 흐름 차트. 현재가 ${won(quote.price)}, 전일 종가 ${won(quote.prevClose)}`}
+          focusable="false"
+        >
           <line className="chart-grid" x1="0" x2="100" y1={y(max)} y2={y(max)} vectorEffect="non-scaling-stroke" />
           <line className="chart-grid" x1="0" x2="100" y1={y(min)} y2={y(min)} vectorEffect="non-scaling-stroke" />
           <line
@@ -74,7 +79,6 @@ export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down"
             y2={y(quote.prevClose)}
             vectorEffect="non-scaling-stroke"
           />
-          <polygon className="chart-area" points={area} />
           <path className="chart-line" d={line} vectorEffect="non-scaling-stroke" />
           {currentPoint && (
             <circle className="chart-point" cx={currentPoint.x} cy={currentPoint.y} r="1.8" vectorEffect="non-scaling-stroke" />
@@ -95,13 +99,8 @@ export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down"
           {won(quote.price)}
         </span>
       </div>
-      <figcaption className="chart-axis">
-        <span>세션 시작</span>
-        <span className="num">{series.length}개 시세</span>
-        <span>현재</span>
-      </figcaption>
       <table className="vh">
-        <caption>{`${code} 세션 시세 요약`}</caption>
+        <caption>{`${code} 가격 흐름 요약`}</caption>
         <tbody>
           <tr>
             <th scope="row">세션 최고</th>
