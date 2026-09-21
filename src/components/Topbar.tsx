@@ -26,8 +26,17 @@ type AccountProfile = {
   nickname?: string | null;
 };
 
+const THEME_STORAGE_KEY = "gamestock-theme";
+type Theme = "light" | "dark";
+
+function readTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
+}
+
 export function Topbar({ route }: { route: Route }) {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
+  const [theme, setTheme] = useState<Theme>(readTheme);
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -78,6 +87,12 @@ export function Topbar({ route }: { route: Route }) {
     setMenuOpen(false);
     navigate("/ranking");
   };
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -148,6 +163,15 @@ export function Topbar({ route }: { route: Route }) {
                 </button>
                 <button type="button" className="menu-item" role="menuitem" onClick={openRanking}>
                   랭킹
+                </button>
+                <button
+                  type="button"
+                  className="menu-item menu-theme-toggle"
+                  role="menuitem"
+                  aria-pressed={theme === "dark"}
+                  onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
+                >
+                  {theme === "dark" ? "라이트모드" : "다크모드"}
                 </button>
                 <div className="menu-temperature" role="status" aria-live="polite">
                   <span>한강물 온도 · 선유</span>

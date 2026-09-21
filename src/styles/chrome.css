@@ -450,9 +450,9 @@
     bottom: 42px;
     z-index: 30;
     padding: 4px 8px;
-    background: #fff4e5;
-    border: 1px solid #e7c999;
-    color: #805b20;
+    background: var(--notice-bg);
+    border: 1px solid var(--notice-rule);
+    color: var(--notice-ink);
     font-size: 11px;
   }
 
