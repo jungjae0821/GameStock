@@ -182,7 +182,24 @@ public class MarketService {
     private void ensureMarketEventColumns() {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'market_events' AND column_name = 'published_at'", Integer.class);
         if (count != null && count == 0) jdbc.execute("ALTER TABLE market_events ADD COLUMN published_at TIMESTAMP NULL AFTER impact");
+        Integer priceAtPublishCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'market_events' AND column_name = 'price_at_publish'", Integer.class);
+        if (priceAtPublishCount != null && priceAtPublishCount == 0) jdbc.execute("ALTER TABLE market_events ADD COLUMN price_at_publish BIGINT NULL AFTER published_at");
         jdbc.update("UPDATE market_events SET published_at = created_at WHERE published_at IS NULL");
+        // Existing events predate the persisted baseline. Reuse the closest
+        // historical quote when available and fall back to the current quote
+        // only for rows without enough history. Newly collected events receive
+        // their collection-time price in NewsFeedService.
+        jdbc.update("""
+                UPDATE market_events e
+                JOIN stocks s ON s.id = e.stock_id
+                SET e.price_at_publish = COALESCE((
+                    SELECT h.price FROM stock_price_history h
+                    WHERE h.stock_id = e.stock_id
+                      AND h.recorded_at <= COALESCE(e.published_at, e.created_at)
+                    ORDER BY h.recorded_at DESC, h.id DESC LIMIT 1
+                ), s.current_price)
+                WHERE e.event_type = 'NEWS' AND e.price_at_publish IS NULL
+                """);
     }
 
     private void insertStock(String code, String name, long price) {
@@ -264,7 +281,7 @@ public class MarketService {
         return jdbc.query("""
                 SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
                        s.current_price, s.previous_price,
-                       COALESCE((
+                       COALESCE(e.price_at_publish, (
                            SELECT h.price FROM stock_price_history h
                            WHERE h.stock_id = e.stock_id
                              AND h.recorded_at <= COALESCE(e.published_at, e.created_at)
@@ -289,7 +306,7 @@ public class MarketService {
         List<MarketEvent> candidates = jdbc.query("""
                 SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
                        s.current_price, s.previous_price,
-                       COALESCE((
+                       COALESCE(e.price_at_publish, (
                            SELECT h.price FROM stock_price_history h
                            WHERE h.stock_id = e.stock_id
                              AND h.recorded_at <= COALESCE(e.published_at, e.created_at)
@@ -325,9 +342,8 @@ public class MarketService {
         int impact = (int) Math.round(rawImpact);
         String sentiment = impact > 0 ? "positive" : impact < 0 ? "negative" : "neutral";
         long currentPrice = rs.getLong("current_price");
-        long previousPrice = rs.getLong("previous_price");
         long priceAtPublish = rs.getLong("price_at_publish");
-        double priceChangePercent = changePercent(currentPrice, previousPrice);
+        double priceChangePercent = changePercent(currentPrice, priceAtPublish);
         String priceDirection = priceChangePercent > 0 ? "up" : priceChangePercent < 0 ? "down" : "flat";
         String reason = priceReason(priceChangePercent, impact);
         var publishedAt = rs.getTimestamp("published_at");

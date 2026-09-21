@@ -238,22 +238,26 @@ public class NewsFeedService {
         double impact = newsImpact(item.title(), item.description());
         Timestamp publishedAt = item.publishedAt() == null ? null : Timestamp.from(item.publishedAt());
         String storedDescription = item.description() + "\n출처: " + item.link();
+        Long priceAtPublish = jdbc.queryForObject(
+                "SELECT current_price FROM stocks WHERE stock_code = ?", Long.class, stockCode);
+        if (priceAtPublish == null || priceAtPublish <= 0) return;
         // Recalculate existing rows as the classifier evolves, while keeping
         // the original publication time when an RSS item omits it.
         jdbc.update("""
                 UPDATE market_events e JOIN stocks s ON s.id = e.stock_id
-                SET e.description = ?, e.impact = ?, e.published_at = COALESCE(?, e.published_at)
+                SET e.description = ?, e.impact = ?, e.published_at = COALESCE(?, e.published_at),
+                    e.price_at_publish = COALESCE(e.price_at_publish, ?)
                 WHERE e.event_type = 'NEWS' AND s.stock_code = ? AND e.title = ?
-                """, storedDescription, impact, publishedAt, stockCode, item.title());
+                """, storedDescription, impact, publishedAt, priceAtPublish, stockCode, item.title());
         jdbc.update("""
-                INSERT INTO market_events (stock_id, event_type, title, description, impact, published_at)
-                SELECT s.id, 'NEWS', ?, ?, ?, ? FROM stocks s
+                INSERT INTO market_events (stock_id, event_type, title, description, impact, published_at, price_at_publish)
+                SELECT s.id, 'NEWS', ?, ?, ?, ?, ? FROM stocks s
                 WHERE s.stock_code = ?
                   AND NOT EXISTS (
                       SELECT 1 FROM market_events e
                       WHERE e.stock_id = s.id AND e.title = ?
                   )
-                """, item.title(), storedDescription, impact, publishedAt, stockCode, item.title());
+                """, item.title(), storedDescription, impact, publishedAt, priceAtPublish, stockCode, item.title());
     }
 
     /**

@@ -77,6 +77,7 @@ CREATE TABLE market_events (
   description TEXT,
   impact DECIMAL(6,2) NOT NULL,
   published_at TIMESTAMP NULL,
+  price_at_publish BIGINT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_events_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
 );
