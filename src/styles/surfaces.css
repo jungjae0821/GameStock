@@ -9,6 +9,7 @@
     background: var(--paper);
     border: 1px solid var(--rule);
     border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
     overflow: hidden;
   }
 
@@ -16,16 +17,17 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: 7px var(--space-3) 7px var(--space-2);
-    background: var(--sunken);
+    padding: 12px var(--space-4) 11px;
+    background: color-mix(in oklab, var(--paper) 78%, var(--sunken));
     border-bottom: 1px solid var(--rule);
   }
 
   .panel-mark {
     flex: none;
-    width: 3px;
-    height: 13px;
-    background: var(--ink-faint);
+    width: 5px;
+    height: 18px;
+    border-radius: var(--radius-pill);
+    background: var(--brand);
   }
 
   .panel-title {
@@ -65,7 +67,7 @@
     gap: 3px;
     padding: 1px 6px;
     border: 1px solid transparent;
-    border-radius: var(--radius);
+    border-radius: var(--radius-pill);
     font-size: var(--step--1);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;

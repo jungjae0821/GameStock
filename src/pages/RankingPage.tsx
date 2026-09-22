@@ -9,6 +9,12 @@ type RankingEntry = {
   changePercent: number;
 };
 
+const medalByRank: Record<number, { emoji: string; label: string; className: string }> = {
+  1: { emoji: "🥇", label: "금메달", className: "is-gold" },
+  2: { emoji: "🥈", label: "은메달", className: "is-silver" },
+  3: { emoji: "🥉", label: "동메달", className: "is-bronze" },
+};
+
 export function RankingPage() {
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +91,20 @@ export function RankingPage() {
               <tbody>
                 {ranking.map((entry) => (
                   <tr key={`${entry.rank}-${entry.nickname}`}>
-                    <th scope="row" className="ranking-page-rank num">{entry.rank}</th>
+                    <th scope="row" className="ranking-page-rank num">
+                      <span className="ranking-rank-content">
+                        {medalByRank[entry.rank] && (
+                          <span
+                            className={`ranking-medal ${medalByRank[entry.rank].className}`}
+                            role="img"
+                            aria-label={medalByRank[entry.rank].label}
+                          >
+                            {medalByRank[entry.rank].emoji}
+                          </span>
+                        )}
+                        <span>{entry.rank}</span>
+                      </span>
+                    </th>
                     <td className="ranking-page-name">{entry.nickname}</td>
                     <td className={`ranking-page-change num${entry.changePercent > 0 ? " is-up" : entry.changePercent < 0 ? " is-down" : " is-flat"}`}>
                       {entry.changePercent >= 0 ? "+" : ""}{entry.changePercent.toFixed(2)}%

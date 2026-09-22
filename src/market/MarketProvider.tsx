@@ -97,6 +97,9 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
       source: "미디어 보도" as const,
       title: event.title,
       priceAtPublish: Number(event.priceAtPublish ?? quotes[event.stockCode]?.price ?? 0),
+      priceChangeRatio: Number.isFinite(Number(event.priceChangePercent))
+        ? Number(event.priceChangePercent) / 100
+        : undefined,
       direction: (Number(event.priceChangePercent ?? event.impact ?? 0) >= 0 ? 1 : -1) as 1 | -1,
     })),
     portfolio: toPortfolio(portfolio),

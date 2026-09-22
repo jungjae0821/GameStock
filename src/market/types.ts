@@ -76,6 +76,8 @@ export interface NewsItem {
   title: string;
   /** 발행 시점의 시세. 이후 가격 변화로 시세 반영률을 계산한다. */
   priceAtPublish: number;
+  /** 서버가 계산한 발행 시점 대비 현재가 변화율. 비율(0.0012 = 0.12%)로 저장한다. */
+  priceChangeRatio?: number;
   /** 소식이 시세에 미치는 방향. */
   direction: 1 | -1;
 }

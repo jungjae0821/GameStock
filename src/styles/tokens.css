@@ -15,11 +15,11 @@
      */
 
     /* 표면: 무채색 종이. */
-    --canvas: oklch(0.973 0 0); /* #F5F5F5 */
+    --canvas: oklch(0.966 0.012 345); /* soft pink-lilac canvas */
     --paper: oklch(1 0 0);
-    --sunken: oklch(0.955 0 0); /* #F0F0F0 표 머리·교차 행 */
-    --rule: oklch(0.9 0 0); /* #E2E2E2 괘선 */
-    --rule-ink: oklch(0.27 0.02 330); /* #2A2229 굵은 괘선 */
+    --sunken: oklch(0.958 0.012 345); /* soft pink table head / zebra */
+    --rule: oklch(0.902 0.018 345); /* quiet lavender-pink line */
+    --rule-ink: oklch(0.32 0.035 330); /* warm ink line */
 
     /* 글자: 로고 판에서 가져온 살짝 보라 도는 흑갈색 */
     --ink: oklch(0.27 0.02 330);
@@ -85,20 +85,27 @@
     --space-6: 32px;
     --space-7: 44px;
 
-    --radius: 3px;
+    /* 372.ro-inspired surface language: rounded, friendly, still data-dense. */
+    --radius-xs: 8px;
+    --radius-sm: 12px;
+    --radius: 16px;
+    --radius-lg: 22px;
+    --radius-pill: 999px;
+    --shadow-card: 0 8px 24px rgb(91 42 78 / 7%);
+    --shadow-float: 0 16px 42px rgb(91 42 78 / 14%);
 
     --page: 1240px;
-    --bar: 54px;
+    --bar: 62px;
   }
 
   /* 기본은 라이트 모드. 메뉴에서 선택한 경우에만 이 팔레트로 전환한다. */
   :root[data-theme="dark"] {
     color-scheme: dark;
 
-    --canvas: oklch(0.18 0.015 285);
-    --paper: oklch(0.23 0.018 285);
-    --sunken: oklch(0.27 0.018 285);
-    --rule: oklch(0.38 0.018 285);
+    --canvas: oklch(0.17 0.025 310);
+    --paper: oklch(0.235 0.028 315);
+    --sunken: oklch(0.275 0.03 315);
+    --rule: oklch(0.38 0.035 315);
     --rule-ink: oklch(0.78 0.02 330);
 
     --ink: oklch(0.94 0.015 285);
@@ -136,5 +143,8 @@
     --notice-bg: oklch(0.3 0.045 75);
     --notice-rule: oklch(0.58 0.1 75);
     --notice-ink: oklch(0.88 0.12 78);
+
+    --shadow-card: 0 10px 28px rgb(0 0 0 / 18%);
+    --shadow-float: 0 18px 44px rgb(0 0 0 / 28%);
   }
 }

@@ -61,7 +61,9 @@ function NewsRow({ item, now }: { item: NewsItem; now: number }) {
   const snapshot = useMarket();
   const listing = LISTING_BY_CODE[item.code];
   const quote = snapshot.quotes[item.code];
-  const effect = newsEffect(item.priceAtPublish, quote);
+  // 서버 뉴스에는 발행 시점 대비 현재가 변화율이 함께 온다.
+  // 대체 엔진처럼 해당 값이 없는 경우에만 기존 가격 차이 계산을 사용한다.
+  const effect = item.priceChangeRatio ?? newsEffect(item.priceAtPublish, quote);
   const ratio = quote ? sessionRate(quote) : 0;
   const effectTone = rateTone(effect);
 

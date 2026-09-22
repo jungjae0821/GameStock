@@ -10,7 +10,7 @@
     width: 100%;
     max-width: var(--page);
     margin: 0 auto;
-    padding: var(--space-5) var(--space-5) var(--space-7);
+    padding: var(--space-6) var(--space-5) var(--space-7);
     /* frontend-apex-ignore: focus-outline-removed -- 화면 이동 때 스크립트로만 포커스를 받는 컨테이너. tab 순서에 없고 이동은 제목으로 알린다 */
     outline: none;
   }
@@ -107,8 +107,9 @@
     position: sticky;
     top: 0;
     z-index: 20;
-    background: var(--paper);
-    border-bottom: 1px solid var(--rule-ink);
+    padding: 8px 0;
+    background: color-mix(in oklab, var(--canvas) 88%, transparent);
+    backdrop-filter: blur(14px);
   }
 
   .topbar-inner {
@@ -120,6 +121,10 @@
     margin: 0 auto;
     padding: 0 var(--space-5);
     height: var(--bar);
+    background: color-mix(in oklab, var(--paper) 94%, var(--brand-wash));
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
   }
 
   .brand {
@@ -174,7 +179,8 @@
 
   .account-button {
     border: 1px solid var(--rule);
-    background: transparent;
+    border-radius: var(--radius-pill);
+    background: var(--paper);
     color: var(--ink-muted);
     padding: 4px 8px;
     font: inherit;
@@ -206,7 +212,8 @@
     padding: 6px;
     background: var(--paper);
     border: 1px solid var(--rule-ink);
-    box-shadow: 0 8px 24px rgb(23 32 47 / 14%);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-float);
   }
 
   .menu-user {
@@ -222,6 +229,7 @@
     padding: 9px 10px;
     text-align: left;
     font-size: var(--step-0);
+    border-radius: var(--radius-xs);
   }
 
   .menu-item:hover:not(:disabled),
@@ -318,6 +326,39 @@
     font-weight: 700;
   }
 
+  .ranking-rank-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 48px;
+  }
+
+  .ranking-medal {
+    display: inline-grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 1px solid color-mix(in oklab, currentColor 28%, transparent);
+    border-radius: var(--radius-pill);
+    background: color-mix(in oklab, currentColor 13%, var(--paper));
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  .ranking-medal.is-gold {
+    color: oklch(0.62 0.16 82);
+  }
+
+  .ranking-medal.is-silver {
+    color: oklch(0.54 0.025 260);
+  }
+
+  .ranking-medal.is-bronze {
+    color: oklch(0.54 0.12 48);
+  }
+
   .ranking-page-name {
     overflow-wrap: anywhere;
   }
@@ -365,7 +406,7 @@
     flex: 1;
     min-width: 0;
     border: 1px solid var(--rule-ink);
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     padding: 7px 9px;
     background: var(--paper);
   }
@@ -377,7 +418,7 @@
 
   .mypage-button {
     border: 1px solid var(--rule-ink);
-    border-radius: 3px;
+    border-radius: var(--radius-pill);
     padding: 7px 12px;
     background: var(--ink);
     color: var(--paper);
@@ -464,8 +505,8 @@
   .statusbar {
     position: static;
     z-index: 20;
-    background: var(--paper);
-    border-top: 1px solid var(--rule);
+    background: transparent;
+    border-top: none;
   }
 
   .statusbar-inner {
@@ -478,6 +519,7 @@
     margin: 0 auto;
     padding: 5px var(--space-5);
     min-height: 34px;
+    padding-block: 9px;
   }
 
   .status-line {
