@@ -61,6 +61,33 @@
     font-size: 9px;
   }
 
+  .game-icon {
+    flex: none;
+    display: block;
+    width: 46px;
+    height: 46px;
+    border: 1px solid color-mix(in oklab, var(--rule-ink) 70%, transparent);
+    border-radius: 14px;
+    object-fit: cover;
+    box-shadow: 0 2px 8px color-mix(in oklab, var(--ink) 10%, transparent);
+  }
+
+  .game-icon-table {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    box-shadow: 0 1px 4px color-mix(in oklab, var(--ink) 9%, transparent);
+  }
+
+  .game-icon-fallback {
+    display: grid;
+    place-items: center;
+    background: var(--sunken);
+    color: var(--ink-muted);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+
   .code-text {
     font-size: var(--step--2);
     letter-spacing: 0.04em;

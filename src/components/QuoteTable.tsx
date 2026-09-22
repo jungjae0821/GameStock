@@ -1,4 +1,5 @@
 import { Chip, rateTone } from "./Chip";
+import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { PriceCell } from "./PriceCell";
 import { Sparkline } from "./Sparkline";
@@ -151,13 +152,11 @@ function QuoteRow({ code, selected, onSelect, showWatch, volumeScale, chartSerie
             onSelect(code);
           }}
         >
-          <span className="code-badge" aria-hidden="true">
-            {code}
-          </span>
+          <GameIcon code={listing.code} name={listing.name} size="table" />
           <span className="name-stack">
             <span className="name-text">{listing.name}</span>
             <span className="name-sub">
-              {listing.genre} · {listing.publisher}
+              {listing.genre} · {listing.publisher} · {listing.code}
             </span>
           </span>
         </Link>

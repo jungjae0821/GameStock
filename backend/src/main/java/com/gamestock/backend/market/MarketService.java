@@ -980,16 +980,50 @@ public class MarketService {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, Math.min(requested, available)));
     }
 
-    /** Seed a finite inventory once; subsequent sells must be backed by it. */
+    /**
+     * Keep a synthetic market-maker inventory available for sell-side liquidity.
+     *
+     * Bot accounts are not real investors, so their inventory is a liquidity
+     * budget rather than a finite user balance. Refill only the amount below
+     * the target after a sell is executed; this preserves the constraint that
+     * every sell is backed by holdings while preventing the ask side from
+     * permanently disappearing after the initial seed is consumed.
+     */
     private void ensureBotInventory(String code, long userId) {
         long id = stockId(code);
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM portfolios WHERE user_id = ? AND stock_id = ?", Integer.class, userId, id);
-        if (count != null && count == 0) {
+        List<HoldingState> holdings = jdbc.query("""
+                SELECT quantity, settled_quantity, average_price, realized_profit_loss
+                FROM portfolios WHERE user_id = ? AND stock_id = ? FOR UPDATE
+                """, (rs, row) -> new HoldingState(
+                rs.getInt("quantity"),
+                rs.getInt("settled_quantity"),
+                rs.getLong("average_price"),
+                rs.getLong("realized_profit_loss")), userId, id);
+        if (holdings.isEmpty()) {
             jdbc.update("""
                     INSERT INTO portfolios (user_id, stock_id, quantity, settled_quantity, average_price, realized_profit_loss)
                     VALUES (?, ?, ?, ?, ?, 0)
                     """, userId, id, BOT_INITIAL_INVENTORY, BOT_INITIAL_INVENTORY, findStock(code).price());
+            return;
         }
+
+        HoldingState holding = holdings.get(0);
+        int refill = BOT_INITIAL_INVENTORY - holding.quantity();
+        if (refill <= 0) return;
+
+        long refillPrice = findStock(code).price();
+        int nextQuantity = holding.quantity() + refill;
+        long nextAveragePrice = nextQuantity == 0
+                ? refillPrice
+                : Math.round(((double) holding.averagePrice() * holding.quantity()
+                + (double) refillPrice * refill) / nextQuantity);
+        jdbc.update("""
+                UPDATE portfolios
+                SET quantity = quantity + ?,
+                    settled_quantity = COALESCE(settled_quantity, quantity) + ?,
+                    average_price = ?
+                WHERE user_id = ? AND stock_id = ?
+                """, refill, refill, nextAveragePrice, userId, id);
     }
 
     /** Keep a one-tick spread at the bot band's edges so a bot never freezes

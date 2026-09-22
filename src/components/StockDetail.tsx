@@ -1,5 +1,6 @@
 import { Chip, rateTone } from "./Chip";
 import { Delta } from "./Delta";
+import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { OrderTicket } from "./OrderTicket";
 import { Panel } from "./Panel";
@@ -34,9 +35,7 @@ export function StockDetail({ code, selectedLimitPrice }: { code: string; select
     <article className="detail" aria-labelledby="detail-name">
       <header className="detail-head">
         <div className="detail-ident">
-          <span className="code-badge is-large" aria-hidden="true">
-            {listing.code}
-          </span>
+          <GameIcon code={listing.code} name={listing.name} />
           <div>
             <h2 id="detail-name" className="detail-name">
               {listing.name}
