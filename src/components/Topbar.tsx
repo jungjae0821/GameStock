@@ -3,7 +3,7 @@ import { Link } from "./Link";
 import type { Route } from "../router";
 import { clock } from "../market/format";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
-import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
+import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, type User } from "firebase/auth";
 import { apiFetch } from "../lib/api";
 import { useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
@@ -25,6 +25,18 @@ type TemperatureReading = {
 type AccountProfile = {
   nickname?: string | null;
 };
+
+type NativeAuthEvent =
+  | { type: "GOOGLE_AUTH_SUCCESS"; idToken: string }
+  | { type: "GOOGLE_AUTH_ERROR"; message?: string };
+
+declare global {
+  interface Window {
+    ReactNativeWebView?: {
+      postMessage(message: string): void;
+    };
+  }
+}
 
 const THEME_STORAGE_KEY = "gamestock-theme";
 type Theme = "light" | "dark";
@@ -62,6 +74,23 @@ export function Topbar({ route }: { route: Route }) {
   }), []);
 
   useEffect(() => {
+    const handleNativeAuth = (event: Event) => {
+      const detail = (event as CustomEvent<NativeAuthEvent>).detail;
+      if (!detail) return;
+      if (detail.type === "GOOGLE_AUTH_ERROR") {
+        setBusy(false);
+        return;
+      }
+
+      void signInWithCredential(firebaseAuth, GoogleAuthProvider.credential(detail.idToken))
+        .finally(() => setBusy(false));
+    };
+
+    window.addEventListener("gamestock-native-auth", handleNativeAuth);
+    return () => window.removeEventListener("gamestock-native-auth", handleNativeAuth);
+  }, []);
+
+  useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
@@ -69,9 +98,13 @@ export function Topbar({ route }: { route: Route }) {
   const login = async () => {
     setBusy(true);
     try {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: "GOOGLE_LOGIN" }));
+        return;
+      }
       await signInWithPopup(firebaseAuth, googleProvider);
     } finally {
-      setBusy(false);
+      if (!window.ReactNativeWebView) setBusy(false);
     }
   };
 

@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { initializeApp } from 'firebase/app';
 import { GoogleAuthProvider, getAuth, getReactNativePersistence, initializeAuth, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { Alert, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { API_BASE_URL, MARKET_SOCKET_URL, FIREBASE_CONFIG, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID, WEB_APP_URL } from './src/config';
 
@@ -92,9 +92,57 @@ function NewsModal({ news, stocks, onClose, styles, t }) {
 
 function WebMirrorScreen() {
   const webUrl = `${WEB_APP_URL}${WEB_APP_URL.includes('?') ? '&' : '?'}app-shell=1`;
+  const webViewRef = useRef(null);
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+  });
+
+  const postWebAuth = payload => {
+    const serialized = JSON.stringify(payload);
+    webViewRef.current?.injectJavaScript(
+      `window.dispatchEvent(new CustomEvent('gamestock-native-auth',{detail:${serialized}})); true;`,
+    );
+  };
+
+  useEffect(() => {
+    if (!response) return;
+    if (response.type !== 'success') {
+      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: response.type === 'dismiss' ? 'Google 로그인이 취소되었습니다.' : 'Google 로그인을 완료하지 못했습니다.' });
+      return;
+    }
+
+    const idToken = response.authentication?.idToken || response.params?.id_token;
+    if (!idToken) {
+      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: 'Google ID 토큰을 받지 못했습니다.' });
+      return;
+    }
+    postWebAuth({ type: 'GOOGLE_AUTH_SUCCESS', idToken });
+  }, [response]);
+
+  const handleWebMessage = event => {
+    let message;
+    try {
+      message = JSON.parse(event.nativeEvent.data);
+    } catch {
+      return;
+    }
+    if (message?.type !== 'GOOGLE_LOGIN') return;
+
+    const clientId = Platform.OS === 'ios' ? GOOGLE_IOS_CLIENT_ID : GOOGLE_ANDROID_CLIENT_ID;
+    if (!clientId) {
+      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: `EXPO_PUBLIC_GOOGLE_${Platform.OS === 'ios' ? 'IOS' : 'ANDROID'}_CLIENT_ID가 설정되지 않았습니다.` });
+      return;
+    }
+    void promptAsync().catch(error => {
+      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: error?.message || 'Google 로그인 창을 열지 못했습니다.' });
+    });
+  };
 
   return <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
     <WebView
+      ref={webViewRef}
       source={{ uri: webUrl }}
       style={{ flex: 1 }}
       startInLoadingState
@@ -104,6 +152,7 @@ function WebMirrorScreen() {
       cacheMode="LOAD_NO_CACHE"
       sharedCookiesEnabled
       thirdPartyCookiesEnabled
+      onMessage={handleWebMessage}
     />
   </SafeAreaView>;
 }
