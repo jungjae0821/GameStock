@@ -1,4 +1,12 @@
 @layer component {
+  .news-filters {
+    align-items: flex-start;
+  }
+
+  .news-filters .control-group {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
   .news-list > li {
     padding: var(--space-3) 0;
     border-bottom: 1px solid var(--rule);
@@ -24,6 +32,8 @@
   }
 
   .news-title a {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
     text-decoration: none;
   }
 

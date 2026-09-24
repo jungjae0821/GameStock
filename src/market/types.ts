@@ -68,12 +68,17 @@ export type NewsSource =
   | "스토어 지표"
   | "미디어 보도";
 
+/** 뉴스 화면에 노출하는 출처. 나머지는 내부 시뮬레이션 신호로만 남긴다. */
+export const VISIBLE_NEWS_SOURCES: NewsSource[] = ["업데이트 노트", "미디어 보도"];
+
 export interface NewsItem {
   id: number;
   at: number;
   code: string;
   source: NewsSource;
   title: string;
+  /** 공식 업데이트 노트의 원문. 화면에서 생략 없이 펼쳐 보인다. */
+  description?: string;
   /** 발행 시점의 시세. 이후 가격 변화로 시세 반영률을 계산한다. */
   priceAtPublish: number;
   /** 서버가 계산한 발행 시점 대비 현재가 변화율. 비율(0.0012 = 0.12%)로 저장한다. */

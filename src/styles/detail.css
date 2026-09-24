@@ -72,6 +72,100 @@
     letter-spacing: -0.03em;
   }
 
+  .detail-tabs {
+    display: flex;
+    gap: var(--space-4);
+    overflow-x: auto;
+    border-bottom: 1px solid var(--rule-ink);
+  }
+
+  .detail-tab {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-height: 34px;
+    padding: 0 2px;
+    color: var(--ink-muted);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+
+  .detail-tab:hover,
+  .detail-tab.is-active {
+    color: var(--brand-wine);
+  }
+
+  .detail-tab.is-active {
+    border-bottom-color: var(--brand);
+    font-weight: 700;
+  }
+
+  .detail-tab-count {
+    color: var(--ink-faint);
+    font-size: var(--step--1);
+    font-weight: 400;
+  }
+
+  .detail-trade-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    align-items: start;
+  }
+
+  .detail-trade-grid > .panel {
+    min-width: 0;
+  }
+
+  .detail-trade-grid > section[aria-labelledby="detail-order"] {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .detail-trade-quotes {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    align-items: stretch;
+  }
+
+  .detail-trade-quotes > .panel {
+    display: flex;
+    min-width: 0;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  .detail-trade-quotes > .panel .panel-body {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .detail-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-5);
+  }
+
+  .detail-info-grid > div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .detail-info-grid dt {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .detail-info-grid dd {
+    text-align: right;
+  }
+
   /* ------------------------------------------------------------- 지표 격자 */
 
   .stat-grid {
@@ -107,6 +201,61 @@
 
   .chart {
     margin: 0;
+  }
+
+  .chart-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+
+  .chart-control {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .chart-control-label {
+    margin-right: 4px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .chart-control-button {
+    min-height: 28px;
+    padding: 3px 8px;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+
+  .chart-control-button:hover {
+    border-color: var(--rule-ink);
+    color: var(--ink);
+  }
+
+  .chart-control-button.is-active {
+    border-color: var(--brand);
+    background: var(--brand-wash);
+    color: var(--brand-wine);
+    font-weight: 700;
+  }
+
+  .chart-status {
+    margin: 0 0 var(--space-2);
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .chart-status.is-error {
+    color: var(--down-deep);
   }
 
   .chart-plot {
@@ -167,6 +316,26 @@
 
   .chart.is-flat .chart-point {
     fill: var(--ink-muted);
+  }
+
+  .chart-candle-wick {
+    stroke-width: 1;
+  }
+
+  .chart-candle-body {
+    stroke-width: 0.8;
+  }
+
+  .chart-candle.is-up .chart-candle-wick,
+  .chart-candle.is-up .chart-candle-body {
+    stroke: var(--up-deep);
+    fill: var(--up);
+  }
+
+  .chart-candle.is-down .chart-candle-wick,
+  .chart-candle.is-down .chart-candle-body {
+    stroke: var(--down-deep);
+    fill: var(--down);
   }
 
   .chart-tick {
@@ -651,10 +820,39 @@
       grid-column: auto;
     }
 
+    .detail-trade-grid,
+    .detail-trade-quotes,
+    .detail-info-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .detail-trade-quotes {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    .detail-trade-grid > section[aria-labelledby="detail-order"],
+    .detail-trade-quotes {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
     .chart-plot {
       padding-left: 0;
       padding-right: 60px;
       height: 168px;
+    }
+
+    .chart-toolbar {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .chart-range-control {
+      flex-wrap: nowrap;
+      max-width: 100%;
+      overflow-x: auto;
+      padding-bottom: 2px;
     }
 
     .chart-tick {

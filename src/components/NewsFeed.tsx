@@ -1,6 +1,6 @@
 import { Chip, rateTone } from "./Chip";
 import { Link } from "./Link";
-import { dayLabel, rate, since, trendArrow } from "../market/format";
+import { dayLabel, kstDateTime, rate, trendArrow } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { newsEffect, sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
@@ -24,7 +24,7 @@ export function NewsFeed({ items, grouped = false, emptyMessage }: Props) {
     return (
       <ol className="news-list">
         {items.map((item) => (
-          <NewsRow key={item.id} item={item} now={snapshot.updatedAt} />
+          <NewsRow key={item.id} item={item} />
         ))}
       </ol>
     );
@@ -48,7 +48,7 @@ export function NewsFeed({ items, grouped = false, emptyMessage }: Props) {
           </h3>
           <ol className="news-list">
             {group.items.map((item) => (
-              <NewsRow key={item.id} item={item} now={snapshot.updatedAt} />
+              <NewsRow key={item.id} item={item} />
             ))}
           </ol>
         </section>
@@ -57,7 +57,7 @@ export function NewsFeed({ items, grouped = false, emptyMessage }: Props) {
   );
 }
 
-function NewsRow({ item, now }: { item: NewsItem; now: number }) {
+function NewsRow({ item }: { item: NewsItem }) {
   const snapshot = useMarket();
   const listing = LISTING_BY_CODE[item.code];
   const quote = snapshot.quotes[item.code];
@@ -66,17 +66,21 @@ function NewsRow({ item, now }: { item: NewsItem; now: number }) {
   const effect = item.priceChangeRatio ?? newsEffect(item.priceAtPublish, quote);
   const ratio = quote ? sessionRate(quote) : 0;
   const effectTone = rateTone(effect);
+  const isUpdateNote = item.source === "업데이트 노트";
+  const updateBody = isUpdateNote
+    ? (item.description ?? item.title).replace(/\n출처:\s*https?:\/\/x\.com\/\S+\s*$/, "").trim()
+    : "";
 
   return (
     <li className="news-item">
       <div className="news-meta">
         <time className="num" dateTime={new Date(item.at).toISOString()}>
-          {since(item.at, now)}
+          {kstDateTime(item.at)}
         </time>
         <span className="news-source">{item.source}</span>
       </div>
       <h3 className="news-title">
-        <Link to={`/market/${item.code}`}>{item.title}</Link>
+        <Link to={`/market/${item.code}`}>{isUpdateNote ? updateBody : item.title}</Link>
       </h3>
       <div className="news-foot">
         <Chip>

@@ -17,6 +17,7 @@ const medalByRank: Record<number, { emoji: string; label: string; className: str
 
 export function RankingPage() {
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
+  const [mode, setMode] = useState<"asset" | "return" | "name">("asset");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const inFlight = useRef(false);
@@ -56,11 +57,27 @@ export function RankingPage() {
     };
   }, []);
 
+  const displayed = [...ranking]
+    .sort((left, right) => mode === "asset"
+      ? right.totalAsset - left.totalAsset
+      : mode === "return"
+        ? right.changePercent - left.changePercent
+        : left.nickname.localeCompare(right.nickname, "ko"))
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+
   return (
     <div className="page-stack ranking-page">
       <div className="page-title">
         <h1>투자 랭킹</h1>
-        <span className="page-meta num">{ranking.length}명 · 총 자산 기준</span>
+        <span className="page-meta num">{ranking.length}명 · {mode === "asset" ? "총 자산" : mode === "return" ? "수익률" : "닉네임"} 기준</span>
+      </div>
+
+      <div className="controls ranking-filters" role="group" aria-label="랭킹 기준">
+        {([ ["asset", "총 자산"], ["return", "수익률"], ["name", "닉네임"] ] as const).map(([id, label]) => (
+          <button key={id} type="button" className={`filter-button${mode === id ? " is-active" : ""}`} aria-pressed={mode === id} onClick={() => setMode(id)}>
+            {label}
+          </button>
+        ))}
       </div>
 
       <Panel id="ranking-board" title="투자자 순위" meta="봇 제외 · 실시간">
@@ -89,7 +106,7 @@ export function RankingPage() {
                 </tr>
               </thead>
               <tbody>
-                {ranking.map((entry) => (
+                {displayed.map((entry) => (
                   <tr key={`${entry.rank}-${entry.nickname}`}>
                     <th scope="row" className="ranking-page-rank num">
                       <span className="ranking-rank-content">

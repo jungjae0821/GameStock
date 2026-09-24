@@ -388,11 +388,11 @@ export class MarketEngine {
       const savedCash = typeof stored.cash === "number" && stored.cash >= 0 ? stored.cash : INITIAL_CASH;
       const fills = Array.isArray(stored.fills) ? stored.fills.slice(0, 50) : [];
       const realized = typeof stored.realized === "number" ? stored.realized : 0;
-      // 이전 프론트에서 생성된, 아직 거래하지 않은 110만원 세션만 새 초기 자본으로 보정한다.
-      // 거래 이력이 있는 사용자의 잔액은 기존 결과를 보존한다.
+      // 비로그인 상태에서는 미션 보상을 지급하지 않으므로 거래 이력이 없는
+      // 로컬 잔액은 항상 초기 자본으로 맞춘다. 거래 이력이 있는 상태는 보존한다.
       const hasTradingHistory = Object.keys(positions).length > 0 || fills.length > 0 || realized !== 0;
       this.portfolio = {
-        cash: !hasTradingHistory && savedCash === 1_100_000 ? INITIAL_CASH : savedCash,
+        cash: hasTradingHistory ? savedCash : INITIAL_CASH,
         positions,
         fills,
         realized,

@@ -1,4 +1,6 @@
 import { IndexStrip } from "../components/IndexStrip";
+import { GameIndexBoard } from "../components/GameIndexBoard";
+import { MissionBoard } from "../components/MissionBoard";
 import { MoverBoard } from "../components/MoverBoard";
 import { NewsFeed } from "../components/NewsFeed";
 import { Panel } from "../components/Panel";
@@ -24,6 +26,7 @@ export function HomePage() {
     return () => window.clearInterval(timer);
   }, []);
   const top = sortCodes(snapshot, "volume", "desc").slice(0, 8);
+  const visibleNews = snapshot.news.filter((item) => item.source === "미디어 보도");
 
   return (
     <div className="page-stack">
@@ -31,6 +34,15 @@ export function HomePage() {
       <IndexStrip />
       <PortfolioStrip />
       <TickerBoard />
+
+      <div className="split home-insight-row">
+        <div className="split-main">
+          <GameIndexBoard />
+        </div>
+        <div className="split-side">
+          <MissionBoard />
+        </div>
+      </div>
 
       <div className="split">
         <div className="split-main">
@@ -57,11 +69,11 @@ export function HomePage() {
         <div className="split-side">
           <Panel
             id="home-news"
-            title="속보"
-            meta={`${snapshot.news.length}건`}
-            action={{ label: "전체 속보", to: "/news" }}
+            title="뉴스"
+            meta={`${visibleNews.length}건`}
+            action={{ label: "전체 뉴스", to: "/news" }}
           >
-            <NewsFeed items={snapshot.news.slice(0, 6)} />
+            <NewsFeed items={visibleNews.slice(0, 6)} />
           </Panel>
         </div>
       </div>

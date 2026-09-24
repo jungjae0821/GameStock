@@ -5,6 +5,7 @@ import { MarketPage } from "./pages/MarketPage";
 import { NewsPage } from "./pages/NewsPage";
 import { RankingPage } from "./pages/RankingPage";
 import { MyPage } from "./pages/MyPage";
+import { MissionRewardToast } from "./components/MissionRewardToast";
 import { LISTING_BY_CODE } from "./market/universe";
 import { useRoute } from "./router";
 import type { Route } from "./router";
@@ -14,7 +15,7 @@ function titleFor(route: Route): string {
     const name = route.ticker ? LISTING_BY_CODE[route.ticker]?.name : undefined;
     return name ? `${name} · 시장 · 씹덕주식` : "시장 · 씹덕주식";
   }
-  if (route.name === "news") return "속보 · 씹덕주식";
+  if (route.name === "news") return "뉴스 · 씹덕주식";
   if (route.name === "ranking") return "투자 랭킹 · 씹덕주식";
   if (route.name === "mypage") return "마이페이지 · 씹덕주식";
   return "씹덕주식 · 게임 종목 모의 거래소";
@@ -46,6 +47,7 @@ export default function App() {
         {route.name === "ranking" && <RankingPage />}
         {route.name === "mypage" && <MyPage />}
       </main>
+      <MissionRewardToast />
     </div>
   );
 }

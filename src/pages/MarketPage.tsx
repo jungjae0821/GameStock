@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useHeldOrder, useHoldWhilePointing } from "../lib/useHeldOrder";
 import { Panel } from "../components/Panel";
-import { OrderBook } from "../components/OrderBook";
 import { QuoteTable } from "../components/QuoteTable";
 import { StockDetail } from "../components/StockDetail";
-import { TradePrints } from "../components/TradePrints";
+import { StockChartPanel } from "../components/StockChartPanel";
 import { useMarket } from "../market/MarketProvider";
 import { sessionRate, sortCodes } from "../market/selectors";
 import type { SortDirection, SortKey } from "../market/selectors";
@@ -98,57 +97,54 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
       </div>
 
       <div className={`market-layout${ticker ? " has-detail" : ""}`}>
-        <div className="market-list" {...holdHandlers}>
-          {codes.length === 0 ? (
-            <Panel id="market-empty" title="시세표" flush>
-              <div className="empty">
-                <p>조건에 맞는 종목이 없습니다.</p>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => {
-                    setView("all");
-                    setQuery("");
-                  }}
-                >
-                  필터 초기화
-                </button>
-              </div>
-            </Panel>
-          ) : (
-            <Panel
-              id="market-table"
-              title="시세표"
-              meta={sort.key === "volume" ? "거래량순" : undefined}
-              flush
-            >
-              <QuoteTable
-                codes={codes}
-                caption="상장 종목 시세"
-                selected={ticker}
-                onSelect={(code) => navigate(`/market/${code}`)}
-                onToggleWatch
-                sort={sort}
-                onSort={changeSort}
-              />
-            </Panel>
-          )}
+        <div className="market-left-column">
+          <div className="market-list" {...holdHandlers}>
+            {codes.length === 0 ? (
+              <Panel id="market-empty" title="시세표" flush>
+                <div className="empty">
+                  <p>조건에 맞는 종목이 없습니다.</p>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => {
+                      setView("all");
+                      setQuery("");
+                    }}
+                  >
+                    필터 초기화
+                  </button>
+                </div>
+              </Panel>
+            ) : (
+              <Panel
+                id="market-table"
+                title="시세표"
+                meta={sort.key === "volume" ? "거래량순" : undefined}
+                flush
+              >
+                <QuoteTable
+                  codes={codes}
+                  caption="상장 종목 시세"
+                  selected={ticker}
+                  onSelect={(code) => navigate(`/market/${code}`)}
+                  onToggleWatch
+                  sort={sort}
+                  onSort={changeSort}
+                />
+              </Panel>
+            )}
+          </div>
 
           {ticker && (
-            <div className="market-list-market-data">
-              <Panel id="market-detail-book" title="호가" meta="5단계">
-                <OrderBook code={ticker} onPriceSelect={setSelectedLimitPrice} />
-              </Panel>
-              <Panel id="market-detail-tape" title="최근 체결" meta={`${snapshot.quotes[ticker]?.prints.length ?? 0}건`}>
-                <TradePrints code={ticker} />
-              </Panel>
-            </div>
+            <aside className="market-detail-chart" aria-label="가격 차트">
+              <StockChartPanel code={ticker} />
+            </aside>
           )}
         </div>
 
         {ticker && (
           <aside className="market-detail" aria-label="종목 상세">
-            <StockDetail code={ticker} selectedLimitPrice={selectedLimitPrice} />
+            <StockDetail code={ticker} selectedLimitPrice={selectedLimitPrice} onPriceSelect={setSelectedLimitPrice} />
           </aside>
         )}
       </div>

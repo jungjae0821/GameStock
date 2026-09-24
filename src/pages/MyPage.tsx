@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, signInWithPopup, type User } from "firebase/auth";
 import { Panel } from "../components/Panel";
+import { Link } from "../components/Link";
 import { apiFetch } from "../lib/api";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
-import { LISTING_BY_CODE } from "../market/universe";
+import { LISTING_BY_CODE, LISTINGS } from "../market/universe";
 import { clock, serverTimestamp, won } from "../market/format";
 
 type Profile = {
@@ -36,11 +37,34 @@ type CompletedTrade = {
   createdAt: string;
 };
 
+type ActiveOrder = {
+  id: number;
+  stockCode: string;
+  side: string;
+  quantity: number;
+  remainingQuantity: number;
+  price: number;
+  status: string;
+  orderType: string;
+  reservedCash: number;
+  reservedQuantity: number;
+  createdAt: string;
+  expiresAt: string | null;
+};
+
+type WatchlistEntry = { stockCode: string; addedAt: string };
+type PriceAlert = { id: number; stockCode: string; targetPrice: number; active: boolean; createdAt: string; triggeredAt: string | null };
+
 export function MyPage() {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [completedTrades, setCompletedTrades] = useState<CompletedTrade[]>([]);
+  const [openOrders, setOpenOrders] = useState<ActiveOrder[]>([]);
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
+  const [alerts, setAlerts] = useState<PriceAlert[]>([]);
+  const [alertCode, setAlertCode] = useState(LISTINGS[0]?.code ?? "");
+  const [alertPrice, setAlertPrice] = useState("");
   const [nickname, setNickname] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,6 +78,9 @@ export function MyPage() {
       setProfile(null);
       setPortfolio(null);
       setCompletedTrades([]);
+      setOpenOrders([]);
+      setWatchlist([]);
+      setAlerts([]);
       return;
     }
     let active = true;
@@ -63,13 +90,19 @@ export function MyPage() {
       apiFetch<Profile>("/api/profile"),
       apiFetch<Portfolio>("/api/portfolio"),
       apiFetch<CompletedTrade[]>("/api/settlements"),
+      apiFetch<ActiveOrder[]>("/api/orders"),
+      apiFetch<WatchlistEntry[]>("/api/watchlist"),
+      apiFetch<PriceAlert[]>("/api/price-alerts"),
     ])
-      .then(([nextProfile, nextPortfolio, nextTrades]) => {
+      .then(([nextProfile, nextPortfolio, nextTrades, nextOpenOrders, nextWatchlist, nextAlerts]) => {
         if (!active) return;
         setProfile(nextProfile);
         setNickname(nextProfile.nickname ?? "");
         setPortfolio(nextPortfolio);
         setCompletedTrades(nextTrades.slice(0, 5));
+        setOpenOrders(nextOpenOrders);
+        setWatchlist(nextWatchlist);
+        setAlerts(nextAlerts);
       })
       .catch((error) => {
         if (active) setMessage(error instanceof Error ? error.message : "마이페이지를 불러오지 못했습니다.");
@@ -97,6 +130,7 @@ export function MyPage() {
         if (active) {
           setPortfolio(nextPortfolio);
           setCompletedTrades(nextTrades.slice(0, 5));
+          setOpenOrders(await apiFetch<ActiveOrder[]>("/api/orders"));
         }
       } catch {
         // 일시적인 네트워크 오류가 있어도 마지막 손익을 유지한다.
@@ -108,6 +142,46 @@ export function MyPage() {
       window.clearInterval(timer);
     };
   }, [user]);
+
+  const addAlert = async () => {
+    const targetPrice = Number(alertPrice);
+    if (!alertCode || !Number.isFinite(targetPrice) || targetPrice < 1) {
+      setMessage("알림 종목과 목표 가격을 확인해 주세요.");
+      return;
+    }
+    try {
+      const created = await apiFetch<PriceAlert>("/api/price-alerts", {
+        method: "POST",
+        body: JSON.stringify({ stockCode: alertCode, targetPrice: Math.round(targetPrice) }),
+      });
+      setAlerts((current) => [created, ...current]);
+      setAlertPrice("");
+      setMessage("가격 알림을 저장했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "가격 알림 저장에 실패했습니다.");
+    }
+  };
+
+  const removeAlert = async (id: number) => {
+    try {
+      await apiFetch(`/api/price-alerts/${id}`, { method: "DELETE" });
+      setAlerts((current) => current.filter((alert) => alert.id !== id));
+      setMessage("가격 알림을 삭제했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "가격 알림 삭제에 실패했습니다.");
+    }
+  };
+
+  const cancelOrder = async (id: number) => {
+    setMessage("");
+    try {
+      await apiFetch(`/api/orders/${id}`, { method: "DELETE" });
+      setOpenOrders((current) => current.filter((order) => order.id !== id));
+      setMessage("미체결 주문을 취소했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "주문 취소에 실패했습니다.");
+    }
+  };
 
   const saveNickname = async () => {
     const value = nickname.trim();
@@ -185,6 +259,82 @@ export function MyPage() {
               </button>
             </div>
             {message && <p className="mypage-message" role="status">{message}</p>}
+          </div>
+        )}
+      </Panel>
+
+      <Panel id="mypage-watch-alerts" title="관심종목·가격 알림" meta={`${watchlist.length}종목 · ${alerts.length}건`}>
+        <div className="feature-columns">
+          <section>
+            <h3 className="feature-heading">관심종목</h3>
+            {watchlist.length === 0 ? <p className="empty is-inline">관심종목이 없습니다. 시장에서 별표를 눌러 담아봐.</p> : (
+              <ul className="feature-list">
+                {watchlist.map((item) => (
+                  <li key={item.stockCode}>
+                    <Link to={`/market/${item.stockCode}`}>{LISTING_BY_CODE[item.stockCode]?.name ?? item.stockCode}</Link>
+                    <span className="num">{item.stockCode}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section>
+            <h3 className="feature-heading">목표가 알림 추가</h3>
+            <div className="alert-form">
+              <label htmlFor="alert-stock">종목</label>
+              <select id="alert-stock" value={alertCode} onChange={(event) => setAlertCode(event.target.value)}>
+                {LISTINGS.map((listing) => <option key={listing.code} value={listing.code}>{listing.name}</option>)}
+              </select>
+              <label htmlFor="alert-price">목표 가격</label>
+              <div className="alert-input-row">
+                <input id="alert-price" type="number" min="1" step="1" value={alertPrice} placeholder="예: 30000" onChange={(event) => setAlertPrice(event.target.value)} />
+                <button type="button" className="mypage-button" onClick={() => void addAlert()}>저장</button>
+              </div>
+            </div>
+            {alerts.length > 0 && <ul className="feature-list alert-list">
+              {alerts.map((alert) => <li key={alert.id}>
+                <span><strong>{LISTING_BY_CODE[alert.stockCode]?.name ?? alert.stockCode}</strong> · <span className="num">{won(alert.targetPrice)}</span></span>
+                <button type="button" className="text-button" onClick={() => void removeAlert(alert.id)}>삭제</button>
+              </li>)}
+            </ul>}
+          </section>
+        </div>
+      </Panel>
+
+      <Panel id="mypage-open-orders" title="미체결 주문" meta={`${openOrders.length}건`} flush>
+        {openOrders.length === 0 ? (
+          <p className="empty is-inline">현재 미체결 주문이 없습니다.</p>
+        ) : (
+          <div className="table-scroll">
+            <table className="quote-table mypage-orders-table">
+              <caption className="vh">미체결 주문 목록</caption>
+              <thead>
+                <tr>
+                  <th scope="col">종목</th>
+                  <th scope="col">구분</th>
+                  <th scope="col">주문 유형</th>
+                  <th scope="col">주문가</th>
+                  <th scope="col">주문 수량</th>
+                  <th scope="col">잔량</th>
+                  <th scope="col">주문 시각</th>
+                  <th scope="col">관리</th>
+                </tr>
+              </thead>
+              <tbody>
+                {openOrders.map((order) => (
+                  <tr key={order.id}>
+                    <th scope="row">{LISTING_BY_CODE[order.stockCode]?.name ?? order.stockCode}</th>
+                    <td className={order.side === "BUY" ? "mypage-profit" : "mypage-loss"}>{order.side === "BUY" ? "매수" : "매도"}</td>
+                    <td>{order.orderType === "LIMIT" ? "지정가" : "시장가"}</td>
+                    <td className="num">{order.price > 0 ? won(order.price) : "-"}</td>
+                    <td className="num">{order.quantity.toLocaleString("ko-KR")}주</td>
+                    <td className="num">{order.remainingQuantity.toLocaleString("ko-KR")}주</td>
+                    <td className="num">{Number.isNaN(serverTimestamp(order.createdAt)) ? "-" : clock(serverTimestamp(order.createdAt))}</td>
+                    <td><button type="button" className="text-button" onClick={() => void cancelOrder(order.id)}>취소</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </Panel>

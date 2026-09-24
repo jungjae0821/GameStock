@@ -1,5 +1,6 @@
 package com.gamestock.backend.market;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -16,6 +17,7 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -23,18 +25,38 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @ConfigurationProperties(prefix = "gamestock.news")
 public class NewsFeedService {
     private static final Logger log = LoggerFactory.getLogger(NewsFeedService.class);
+    private static final String MEDIA_SOURCE = "미디어 보도";
+    private static final String UPDATE_SOURCE = "업데이트 노트";
+    private static final Pattern X_PROFILE_TWEET_PATTERN = Pattern.compile(
+            "client:VHdlZXQ6([^:]+):details\"\\s*:\\$R\\[\\d+\\]=\\{.*?"
+                    + "full_text:\"((?:\\\\.|[^\"\\\\])*)\".*?created_at_ms:(\\d+)",
+            Pattern.DOTALL);
+    private static final String X_BROWSER_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    + "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
+    private static final DateTimeFormatter X_DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss xx uuuu", Locale.ENGLISH);
     /** Longer phrases come first so a phrase such as "출시 지연" is not
      * double-counted as both a negative phrase and a positive "출시" token. */
     private static final List<WeightedSignal> POSITIVE_SIGNALS = List.of(
@@ -120,6 +142,7 @@ public class NewsFeedService {
             new WeightedSignal("lawsuit", 3), new WeightedSignal("loss", 2));
 
     private final JdbcTemplate jdbc;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .followRedirects(HttpClient.Redirect.NORMAL)
@@ -128,6 +151,7 @@ public class NewsFeedService {
     private boolean enabled;
 
     private List<String> feeds = List.of();
+    private List<String> xAccounts = List.of();
 
     public NewsFeedService(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
@@ -139,6 +163,10 @@ public class NewsFeedService {
 
     public void setFeeds(List<String> feeds) {
         this.feeds = feeds == null ? List.of() : feeds;
+    }
+
+    public void setXAccounts(List<String> xAccounts) {
+        this.xAccounts = xAccounts == null ? List.of() : xAccounts;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -156,17 +184,24 @@ public class NewsFeedService {
             log.info("뉴스 수집이 비활성화되어 있습니다.");
             return;
         }
-        log.info("뉴스 피드 {}개 수집 시작", feeds.size());
+        log.info("뉴스 RSS {}개와 공식 X 계정 {}개 수집 시작", feeds.size(), xAccounts.size());
         for (String definition : feeds) {
             try {
-                fetchFeed(definition);
+                fetchRssFeed(definition);
             } catch (Exception error) {
                 log.warn("뉴스 피드 수집 실패: {}", definition, error);
             }
         }
+        for (String definition : xAccounts) {
+            try {
+                fetchXTimeline(definition);
+            } catch (Exception error) {
+                log.warn("공식 X 업데이트 노트 수집 실패: {}", definition, error);
+            }
+        }
     }
 
-    private void fetchFeed(String definition) throws Exception {
+    private void fetchRssFeed(String definition) throws Exception {
         String[] parts = definition.split("\\|", 2);
         if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) return;
 
@@ -196,6 +231,105 @@ public class NewsFeedService {
         log.info("뉴스 피드 조회 완료: 종목={}, 전체 {}개 중 관련 {}개", stockCode, items.size(), saved);
     }
 
+    /**
+     * 공식 X 프로필 페이지에서 계정의 최신 원문을 읽는다.
+     * syndication 타임라인은 계정에 따라 오래된 캐시만 반환할 수 있어,
+     * 실제 프로필이 내려주는 최신 게시물 데이터를 우선 사용한다.
+     */
+    private void fetchXTimeline(String definition) throws Exception {
+        String[] parts = definition.split("\\|", 2);
+        if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) return;
+
+        String stockCode = parts[0].trim().toUpperCase(Locale.ROOT);
+        String handle = parts[1].trim();
+        String encodedHandle = URLEncoder.encode(handle, StandardCharsets.UTF_8);
+        URI endpoint = URI.create("https://x.com/" + encodedHandle);
+        HttpRequest request = HttpRequest.newBuilder(endpoint)
+                .timeout(Duration.ofSeconds(20))
+                .header("User-Agent", X_BROWSER_USER_AGENT)
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+                .header("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7")
+                .header("Sec-Fetch-Dest", "document")
+                .header("Sec-Fetch-Mode", "navigate")
+                .header("Sec-Fetch-Site", "none")
+                .header("Upgrade-Insecure-Requests", "1")
+                .GET()
+                .build();
+        HttpResponse<String> response = httpClient.send(request,
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() / 100 != 2) {
+            log.warn("공식 X 피드가 HTTP {}을 반환했습니다: 종목={}, 계정=@{}", response.statusCode(), stockCode, handle);
+            return;
+        }
+
+        List<NewsItem> items = parseXProfile(response.body(), handle);
+        if (items.isEmpty()) {
+            throw new IllegalStateException("X 공식 프로필에서 게시물 데이터를 찾지 못했습니다");
+        }
+
+        int saved = 0;
+        if (!items.isEmpty()) removeStaleXRows(stockCode);
+        for (NewsItem item : items.stream()
+                .sorted(Comparator.comparing(NewsItem::publishedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(5)
+                .toList()) {
+            // Official-account posts are the source of this category. They do
+            // not need the Korean article relevance gate, because the account
+            // itself is the game-specific relevance boundary.
+            saveNews(stockCode, item);
+            saved++;
+        }
+        log.info("공식 X 업데이트 노트 조회 완료: 종목={}, 계정=@{}, 최신 {}개 중 저장 {}개",
+                stockCode, handle, Math.min(items.size(), 5), saved);
+    }
+
+    /**
+     * X 프로필의 React Flight 데이터에서 게시물 ID, 본문, 실제 게시 시각을 추출한다.
+     * 화면에 보이는 타임라인 순서가 바뀌어도 Snowflake ID와 created_at_ms를 함께 사용한다.
+     */
+    private List<NewsItem> parseXProfile(String html, String handle) throws Exception {
+        Matcher matcher = X_PROFILE_TWEET_PATTERN.matcher(html);
+        List<NewsItem> items = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+        while (matcher.find()) {
+            String id = new String(Base64.getDecoder().decode(matcher.group(1)), StandardCharsets.UTF_8);
+            if (!seenIds.add(id)) continue;
+            String fullText = decodeHtmlEntities(decodeJsonString(matcher.group(2)));
+            if (id.isBlank() || fullText.isBlank()) continue;
+            // X 프로필의 created_at_ms는 이 응답에서 한국 현지 벽시각을
+            // UTC처럼 담아 내려온다. 먼저 UTC 벽시각으로 읽은 뒤 한국
+            // 시간대에 배치해 12:00 게시물이 21:00으로 밀리지 않게 한다.
+            Instant publishedAt = parseTweetPublishedAt(matcher.group(3));
+            String link = "https://x.com/" + handle + "/status/" + id;
+            // 업데이트 노트는 본문 전체를 보존한다. 제목은 목록용 요약으로만
+            // 쓰고, 원문은 description으로 화면에 펼쳐 보여준다.
+            items.add(new NewsItem(trim(socialTitle(fullText), 150), fullText, link,
+                    "@" + handle, publishedAt, UPDATE_SOURCE));
+        }
+        return items;
+    }
+
+    private String decodeJsonString(String escaped) throws Exception {
+        return objectMapper.readTree("\"" + escaped + "\"").asText();
+    }
+
+    private Instant parseTweetPublishedAt(String createdAtMillis) {
+        long wallClockMillis = Long.parseLong(createdAtMillis);
+        LocalDateTime localWallClock = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(wallClockMillis), ZoneOffset.UTC);
+        return localWallClock.atZone(KST_ZONE).toInstant();
+    }
+
+    private void removeStaleXRows(String stockCode) {
+        jdbc.update("""
+                DELETE FROM market_events
+                WHERE stock_id IN (SELECT id FROM stocks WHERE stock_code = ?)
+                  AND event_type = 'NEWS' AND source = ?
+                  AND description LIKE '%%출처: https://x.com/%%'
+                """, stockCode, UPDATE_SOURCE);
+    }
+
     private List<NewsItem> parseItems(String xml) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
@@ -219,7 +353,7 @@ public class NewsFeedService {
                     text(item, "updated"), text(item, "dc:date"));
             if (!title.isBlank()) {
                 result.add(new NewsItem(trim(title, 150), trim(description, 500), link,
-                        trim(sourceName, 120), parsePublishedAt(published)));
+                        trim(sourceName, 120), parsePublishedAt(published), MEDIA_SOURCE));
             }
         }
         return result.stream()
@@ -245,19 +379,21 @@ public class NewsFeedService {
         // the original publication time when an RSS item omits it.
         jdbc.update("""
                 UPDATE market_events e JOIN stocks s ON s.id = e.stock_id
-                SET e.description = ?, e.impact = ?, e.published_at = COALESCE(?, e.published_at),
+                SET e.source = ?, e.description = ?, e.impact = ?, e.published_at = COALESCE(?, e.published_at),
                     e.price_at_publish = COALESCE(e.price_at_publish, ?)
-                WHERE e.event_type = 'NEWS' AND s.stock_code = ? AND e.title = ?
-                """, storedDescription, impact, publishedAt, priceAtPublish, stockCode, item.title());
+                WHERE e.event_type = 'NEWS' AND s.stock_code = ?
+                  AND (e.title = ? OR e.description LIKE CONCAT('%', ?, '%'))
+                """, item.source(), storedDescription, impact, publishedAt, priceAtPublish,
+                stockCode, item.title(), item.link());
         jdbc.update("""
-                INSERT INTO market_events (stock_id, event_type, title, description, impact, published_at, price_at_publish)
-                SELECT s.id, 'NEWS', ?, ?, ?, ?, ? FROM stocks s
+                INSERT INTO market_events (stock_id, event_type, source, title, description, impact, published_at, price_at_publish)
+                SELECT s.id, 'NEWS', ?, ?, ?, ?, ?, ? FROM stocks s
                 WHERE s.stock_code = ?
                   AND NOT EXISTS (
                       SELECT 1 FROM market_events e
                       WHERE e.stock_id = s.id AND e.title = ?
                   )
-                """, item.title(), storedDescription, impact, publishedAt, priceAtPublish, stockCode, item.title());
+                """, item.source(), item.title(), storedDescription, impact, publishedAt, priceAtPublish, stockCode, item.title());
     }
 
     /**
@@ -333,6 +469,9 @@ public class NewsFeedService {
             return ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
         } catch (DateTimeParseException ignored) { }
         try {
+            return ZonedDateTime.parse(value, X_DATE_FORMATTER).toInstant();
+        } catch (DateTimeParseException ignored) { }
+        try {
             return Instant.parse(value);
         } catch (DateTimeParseException ignored) { }
         return null;
@@ -342,7 +481,21 @@ public class NewsFeedService {
         return value == null ? "" : value.substring(0, Math.min(value.length(), maxLength));
     }
 
+    private String socialTitle(String value) {
+        return value == null ? "" : value.replaceAll("\\s+", " ").trim();
+    }
+
+    private String decodeHtmlEntities(String value) {
+        return value == null ? "" : value
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'");
+    }
+
     private record WeightedSignal(String phrase, int weight) { }
     private record SignalScore(int score, String titleRemainder, String bodyRemainder) { }
-    private record NewsItem(String title, String description, String link, String sourceName, Instant publishedAt) { }
+    private record NewsItem(String title, String description, String link, String sourceName,
+                            Instant publishedAt, String source) { }
 }

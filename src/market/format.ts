@@ -19,6 +19,14 @@ const kstDateFormatter = new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   day: "2-digit",
 });
+const kstDateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: KST_TIME_ZONE,
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 
 /** 서버가 시간대 없이 내려주는 레거시 ISO 값을 UTC로 안전하게 해석한다. */
 export function serverTimestamp(value: string): number {
@@ -107,6 +115,11 @@ export function since(at: number, now: number): string {
   const minute = Math.floor(seconds / 60);
   if (minute < 60) return `${minute}분 전`;
   return minutes(at);
+}
+
+/** 공식 게시 시각을 한국 시간으로 고정해 표시한다. */
+export function kstDateTime(at: number): string {
+  return kstDateTimeFormatter.format(new Date(at));
 }
 
 /** 오늘 / 어제 / 9월 15일 */

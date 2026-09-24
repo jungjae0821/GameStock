@@ -29,6 +29,16 @@ CREATE TABLE attendance_rewards (
   CONSTRAINT fk_attendance_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE mission_rewards (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  mission_id VARCHAR(40) NOT NULL,
+  reward_cash BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_mission_reward_user_mission (user_id, mission_id),
+  CONSTRAINT fk_mission_reward_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 CREATE TABLE games (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -73,6 +83,7 @@ CREATE TABLE market_events (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   stock_id BIGINT NULL,
   event_type VARCHAR(40) NOT NULL,
+  source VARCHAR(40) NOT NULL DEFAULT '미디어 보도',
   title VARCHAR(150) NOT NULL,
   description TEXT,
   impact DECIMAL(6,2) NOT NULL,

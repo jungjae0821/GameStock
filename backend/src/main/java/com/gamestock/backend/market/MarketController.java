@@ -30,6 +30,11 @@ public class MarketController {
         return market.stockNews(stockCode);
     }
     @GetMapping("/portfolio") public Portfolio portfolio(@RequestHeader(value = "Authorization", required = false) String authorization) { return market.portfolio(auth.requireUser(authorization).id()); }
+    @PostMapping("/missions/{missionId}/reward")
+    public MissionRewardResult missionReward(@PathVariable String missionId,
+                                              @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return market.rewardMission(missionId, auth.requireUser(authorization).id());
+    }
     @GetMapping("/orders")
     public java.util.List<ActiveOrder> activeOrders(@RequestHeader(value = "Authorization", required = false) String authorization) {
         return market.activeOrders(auth.requireUser(authorization).id());
@@ -56,6 +61,11 @@ public class MarketController {
     public java.util.List<PricePoint> priceHistory(@PathVariable String stockCode,
                                                    @RequestParam(defaultValue = "24h") String range) {
         return market.priceHistory(stockCode, range);
+    }
+    @GetMapping("/stocks/{stockCode}/chart")
+    public java.util.List<ChartCandle> chart(@PathVariable String stockCode,
+                                             @RequestParam(defaultValue = "1d") String range) {
+        return market.chartHistory(stockCode, range);
     }
     @GetMapping("/stocks/{stockCode}/price-drivers")
     public PriceDrivers priceDrivers(@PathVariable String stockCode) {

@@ -11,7 +11,7 @@ import { navigate } from "../router";
 const NAV = [
   { label: "홈", to: "/", match: "home" },
   { label: "시장", to: "/market", match: "market" },
-  { label: "속보", to: "/news", match: "news" },
+  { label: "뉴스", to: "/news", match: "news" },
 ] as const;
 
 type TemperatureReading = {

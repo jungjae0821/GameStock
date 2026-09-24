@@ -14,6 +14,8 @@ com\gamestock\backend\market\MarketModels$PricePoint.class
 com\gamestock\backend\market\UserFeatureService.class
 com\gamestock\backend\auth\AuthService$Profile.class
 com\gamestock\backend\environment\HanRiverTemperatureService.class
+com\gamestock\backend\market\NewsFeedService$SignalScore.class
+com\gamestock\backend\environment\HanRiverTemperatureService$ReadingCandidate.class
 com\gamestock\backend\market\MarketModels$OrderHistory.class
 com\gamestock\backend\market\MarketService$ExecutionSummary.class
 com\gamestock\backend\config\CorsConfig.class
@@ -36,11 +38,15 @@ com\gamestock\backend\market\MarketService$NewsBias.class
 com\gamestock\backend\market\MarketService$NewsInfluence.class
 com\gamestock\backend\auth\AuthService$LoginUser.class
 com\gamestock\backend\market\MarketChangedEvent.class
+com\gamestock\backend\market\NewsFeedService$WeightedSignal.class
 com\gamestock\backend\market\MarketService$OrderReservation.class
 com\gamestock\backend\market\MarketService$MatchRow.class
+com\gamestock\backend\market\MarketModels$MissionRewardResult.class
 com\gamestock\backend\market\MarketService$HoldingState.class
+com\gamestock\backend\market\NewsRelevance.class
 com\gamestock\backend\realtime\WebSocketConfig.class
 com\gamestock\backend\market\MarketService.class
+com\gamestock\backend\market\MarketModels$ChartCandle.class
 com\gamestock\backend\market\MarketModels$OrderRequest.class
 com\gamestock\backend\market\MarketService$MatchSummary.class
 com\gamestock\backend\market\MarketService$VolumeBreakdown.class
@@ -64,6 +70,7 @@ com\gamestock\backend\market\MarketModels$OrderResult.class
 com\gamestock\backend\market\MarketModels$MarketStatus.class
 com\gamestock\backend\market\MarketModels$PublicTrade.class
 com\gamestock\backend\market\MarketModels$Position.class
+com\gamestock\backend\market\NewsRelevance$GameProfile.class
 com\gamestock\backend\market\MarketModels$MarketSnapshot.class
 com\gamestock\backend\market\MarketService$OpenLimitOrder.class
 com\gamestock\backend\market\MarketService$PendingSettlement.class

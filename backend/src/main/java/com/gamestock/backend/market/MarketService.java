@@ -35,6 +35,10 @@ import static com.gamestock.backend.market.PriceLimitPolicy.*;
 public class MarketService {
     private static final Logger log = LoggerFactory.getLogger(MarketService.class);
     private static final long STARTING_CASH = 1_000_000L;
+    private static final Map<String, Long> MISSION_REWARDS = Map.of(
+            "market", 10_000L,
+            "news", 10_000L,
+            "watch", 10_000L);
     /** GameStock charges a small, transparent 0.10% commission per side. */
     private static final double TRADING_FEE_RATE = 0.001;
     /** A normal bot matching cycle may move the current price by at most +/-0.5%. */
@@ -157,6 +161,15 @@ public class MarketService {
                   CONSTRAINT fk_attendance_user FOREIGN KEY (user_id) REFERENCES users(id)
                 )
                 """);
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS mission_rewards (
+                  id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT NOT NULL,
+                  mission_id VARCHAR(40) NOT NULL, reward_cash BIGINT NOT NULL,
+                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  UNIQUE KEY uq_mission_reward_user_mission (user_id, mission_id),
+                  CONSTRAINT fk_mission_reward_user FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """);
     }
 
     private void addOrderColumnIfMissing() {
@@ -180,6 +193,9 @@ public class MarketService {
     }
 
     private void ensureMarketEventColumns() {
+        Integer sourceCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'market_events' AND column_name = 'source'", Integer.class);
+        if (sourceCount != null && sourceCount == 0) jdbc.execute("ALTER TABLE market_events ADD COLUMN source VARCHAR(40) NOT NULL DEFAULT '미디어 보도' AFTER event_type");
+        jdbc.update("UPDATE market_events SET source = '미디어 보도' WHERE source IS NULL OR source = ''");
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'market_events' AND column_name = 'published_at'", Integer.class);
         if (count != null && count == 0) jdbc.execute("ALTER TABLE market_events ADD COLUMN published_at TIMESTAMP NULL AFTER impact");
         Integer priceAtPublishCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'market_events' AND column_name = 'price_at_publish'", Integer.class);
@@ -278,8 +294,8 @@ public class MarketService {
     }
 
     public synchronized List<MarketEvent> marketEvents() {
-        return jdbc.query("""
-                SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
+        List<MarketEvent> relevant = jdbc.query("""
+                SELECT s.stock_code, e.title, e.impact, e.source, e.description, e.published_at,
                        s.current_price, s.previous_price,
                        COALESCE(e.price_at_publish, (
                            SELECT h.price FROM stock_price_history h
@@ -290,11 +306,48 @@ public class MarketService {
                 FROM market_events e LEFT JOIN stocks s ON s.id = e.stock_id
                 WHERE e.event_type = 'NEWS'
             ORDER BY COALESCE(e.published_at, e.created_at) DESC, e.id DESC
-            LIMIT 50
+            LIMIT 200
                 """, this::toMarketEvent).stream()
                 .filter(this::isRelevantNews)
-                .limit(10)
                 .toList();
+        List<MarketEvent> updates = relevant.stream()
+                .filter(event -> "업데이트 노트".equals(event.source()))
+                .toList();
+        List<MarketEvent> media = relevant.stream()
+                .filter(event -> !"업데이트 노트".equals(event.source()))
+                .toList();
+        // 한 게임의 글이 최신이라는 이유로 다른 게임의 공식 글을
+        // 전부 밀어내지 않도록, 종류별로 게임마다 최신 2개씩 확보한다.
+        updates = takeLatestPerStock(updates, 2);
+        media = takeLatestPerStock(media, 2);
+        // 두 종류를 모두 확보하되, 화면에서는 게시 시각의 전체 흐름으로
+        // 섞어서 보여준다. 업데이트 노트를 억지로 상단에 고정하지 않는다.
+        return java.util.stream.Stream.concat(updates.stream(), media.stream())
+                .sorted(java.util.Comparator.comparing(this::publishedInstant,
+                        java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                .toList();
+    }
+
+    private List<MarketEvent> takeLatestPerStock(List<MarketEvent> events, int perStock) {
+        Map<String, Integer> counts = new HashMap<>();
+        return events.stream()
+                .filter(event -> {
+                    String stockCode = event.stockCode();
+                    int count = counts.getOrDefault(stockCode, 0);
+                    if (count >= perStock) return false;
+                    counts.put(stockCode, count + 1);
+                    return true;
+                })
+                .toList();
+    }
+
+    private Instant publishedInstant(MarketEvent event) {
+        if (event.publishedAt() == null || event.publishedAt().isBlank()) return null;
+        try {
+            return Instant.parse(event.publishedAt());
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     /** GameStock은 장 마감 없이 24시간 주문을 접수하는 게임형 시장이다. */
@@ -304,7 +357,7 @@ public class MarketService {
 
     public synchronized List<MarketEvent> stockNews(String code) {
         List<MarketEvent> candidates = jdbc.query("""
-                SELECT s.stock_code, e.title, e.description, e.impact, e.published_at,
+                SELECT s.stock_code, e.title, e.impact, e.source, e.description, e.published_at,
                        s.current_price, s.previous_price,
                        COALESCE(e.price_at_publish, (
                            SELECT h.price FROM stock_price_history h
@@ -333,7 +386,8 @@ public class MarketService {
     }
 
     private boolean isRelevantNews(MarketEvent event) {
-        return event.stockCode() == null
+        return "업데이트 노트".equals(event.source())
+                || event.stockCode() == null
                 || NewsRelevance.isRelevant(event.stockCode(), event.title(), event.description());
     }
 
@@ -349,7 +403,7 @@ public class MarketService {
         var publishedAt = rs.getTimestamp("published_at");
         String published = publishedAt == null ? null : databaseInstant(publishedAt).toString();
         return new MarketEvent(rs.getString("stock_code"), rs.getString("title"), impact,
-                sentiment, rs.getString("description"), published, priceAtPublish, priceChangePercent,
+                sentiment, rs.getString("source"), rs.getString("description"), published, priceAtPublish, priceChangePercent,
                 priceDirection, reason);
     }
 
@@ -407,6 +461,15 @@ public class MarketService {
         settleDuePayments();
         expireOrders();
         return portfolioUnsafe(userId);
+    }
+
+    @Transactional
+    public synchronized MissionRewardResult rewardMission(String missionId, long userId) {
+        Long reward = MISSION_REWARDS.get(missionId);
+        if (reward == null) throw new IllegalArgumentException("존재하지 않는 미션입니다.");
+        int inserted = jdbc.update("INSERT IGNORE INTO mission_rewards (user_id, mission_id, reward_cash) VALUES (?, ?, ?)", userId, missionId, reward);
+        if (inserted > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", reward, userId);
+        return new MissionRewardResult(inserted > 0 ? reward : 0, inserted > 0, portfolioUnsafe(userId));
     }
 
     public synchronized List<ActiveOrder> activeOrders(long userId) {
@@ -605,6 +668,76 @@ public class MarketService {
                 code.toUpperCase(Locale.ROOT), Timestamp.from(cutoff));
         Collections.reverse(points);
         return points;
+    }
+
+    /** Returns a bounded OHLC series for the chart ranges shown by the client. */
+    public synchronized List<ChartCandle> chartHistory(String code, String range) {
+        String normalized = code.toUpperCase(Locale.ROOT);
+        if (findStock(normalized) == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
+        Duration window = chartWindow(range);
+        long bucketSeconds = chartBucketSeconds(range);
+        Instant cutoff = Instant.now().minus(window);
+        return jdbc.query("""
+                WITH bucketed AS (
+                  SELECT h.id, h.price, h.recorded_at,
+                         FLOOR(UNIX_TIMESTAMP(h.recorded_at) / ?) AS bucket,
+                         ROW_NUMBER() OVER (
+                           PARTITION BY FLOOR(UNIX_TIMESTAMP(h.recorded_at) / ?)
+                           ORDER BY h.recorded_at ASC, h.id ASC
+                         ) AS open_rank,
+                         ROW_NUMBER() OVER (
+                           PARTITION BY FLOOR(UNIX_TIMESTAMP(h.recorded_at) / ?)
+                           ORDER BY h.recorded_at DESC, h.id DESC
+                         ) AS close_rank
+                  FROM stock_price_history h
+                  JOIN stocks s ON s.id = h.stock_id
+                  WHERE s.stock_code = ? AND h.recorded_at >= ?
+                )
+                SELECT bucket * ? AS bucket_at,
+                       MAX(CASE WHEN open_rank = 1 THEN price END) AS open_price,
+                       MAX(price) AS high_price,
+                       MIN(price) AS low_price,
+                       MAX(CASE WHEN close_rank = 1 THEN price END) AS close_price,
+                       COUNT(*) AS point_count
+                FROM bucketed
+                GROUP BY bucket
+                ORDER BY bucket ASC
+                LIMIT 2000
+                """, (rs, row) -> new ChartCandle(
+                Instant.ofEpochSecond(rs.getLong("bucket_at")).toString(),
+                rs.getLong("open_price"),
+                rs.getLong("high_price"),
+                rs.getLong("low_price"),
+                rs.getLong("close_price"),
+                rs.getLong("point_count")),
+                bucketSeconds, bucketSeconds, bucketSeconds, normalized,
+                Timestamp.from(cutoff), bucketSeconds);
+    }
+
+    private Duration chartWindow(String range) {
+        return switch (range == null ? "1d" : range.trim().toLowerCase(Locale.ROOT)) {
+            case "1h" -> Duration.ofHours(1);
+            case "6h" -> Duration.ofHours(6);
+            case "12h" -> Duration.ofHours(12);
+            case "1d" -> Duration.ofDays(1);
+            case "1w" -> Duration.ofDays(7);
+            case "1m" -> Duration.ofDays(30);
+            case "1y" -> Duration.ofDays(365);
+            default -> Duration.ofDays(1);
+        };
+    }
+
+    private long chartBucketSeconds(String range) {
+        return switch (range == null ? "1d" : range.trim().toLowerCase(Locale.ROOT)) {
+            case "1h" -> 60;
+            case "6h" -> 300;
+            case "12h" -> 600;
+            case "1d" -> 1800;
+            case "1w" -> 7200;
+            case "1m" -> 86400;
+            case "1y" -> 604800;
+            default -> 1800;
+        };
     }
 
     private Duration historyWindow(String range) {

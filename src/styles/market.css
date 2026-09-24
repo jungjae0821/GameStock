@@ -152,6 +152,31 @@
     text-align: center;
   }
 
+  /* 홈과 시장의 시세표는 모든 열을 같은 왼쪽 기준선에 맞춘다. */
+  .market-quote-table thead th,
+  .market-quote-table tbody th,
+  .market-quote-table tbody td,
+  .market-quote-table .cell-price,
+  .market-quote-table .cell-rate,
+  .market-quote-table .cell-volume,
+  .market-quote-table .cell-watch,
+  .market-quote-table td.num {
+    text-align: left;
+  }
+
+  /* 셀 안쪽의 링크·칩·거래량 묶음도 같은 왼쪽 시작점에 맞춘다. */
+  .market-quote-table .name-link {
+    justify-content: flex-start;
+  }
+
+  .market-quote-table .sort-button {
+    text-align: left;
+  }
+
+  .market-quote-table .volume-cell {
+    align-items: flex-start;
+  }
+
   .sort-button {
     font-size: var(--step--1);
     color: var(--ink-muted);
@@ -585,9 +610,27 @@
     grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr);
   }
 
-  .market-list,
-  .market-detail {
+  .market-left-column {
+    display: flex;
     min-width: 0;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .market-list,
+  .market-detail,
+  .market-detail-chart {
+    min-width: 0;
+  }
+
+  .market-layout.has-detail > .market-left-column {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .market-layout.has-detail > .market-detail {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .market-list-market-data {
@@ -608,6 +651,12 @@
   @media (max-width: 1080px) {
     .market-layout.has-detail {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .market-layout.has-detail > .market-left-column,
+    .market-layout.has-detail > .market-detail {
+      grid-column: auto;
+      grid-row: auto;
     }
 
     .market-detail {

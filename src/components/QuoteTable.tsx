@@ -67,7 +67,7 @@ export function QuoteTable({
 
   return (
     <div className="table-scroll">
-      <table className="quote-table">
+      <table className="quote-table market-quote-table">
         <caption className="vh">{caption}</caption>
         <thead>
           <tr>

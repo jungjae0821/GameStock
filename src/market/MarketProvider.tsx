@@ -12,6 +12,7 @@ export interface MarketApi {
   placeOrder: (request: OrderRequest) => Promise<OrderResult>;
   orderable: (code: string, side: "buy" | "sell") => number;
   toggleWatch: (code: string) => void;
+  claimMissionReward: (missionId: string) => Promise<{ rewardCash: number; awarded: boolean }>;
   reset: () => void;
 }
 
@@ -22,8 +23,10 @@ type BackendTrade = { side: string; quantity: number; price: number; orderType?:
 type BackendEvent = {
   stockCode: string;
   title: string;
+  description?: string;
   impact?: number;
   sentiment?: string;
+  source?: string;
   publishedAt?: string;
   priceAtPublish?: number;
   priceChangePercent?: number;
@@ -31,6 +34,7 @@ type BackendEvent = {
 };
 type BackendPosition = { stockCode: string; quantity: number; averagePrice: number };
 type BackendPortfolio = { cash: number; positions: BackendPosition[]; realizedProfitLoss?: number };
+type BackendMissionReward = { rewardCash: number; awarded: boolean; portfolio: BackendPortfolio };
 
 const SnapshotContext = createContext<MarketSnapshot | null>(null);
 const ApiContext = createContext<MarketApi | null>(null);
@@ -94,8 +98,9 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
       id: index + 1,
       at: event.publishedAt ? serverTimestamp(event.publishedAt) || Date.now() : Date.now(),
       code: event.stockCode,
-      source: "미디어 보도" as const,
+      source: event.source === "업데이트 노트" ? "업데이트 노트" as const : "미디어 보도" as const,
       title: event.title,
+      description: event.description,
       priceAtPublish: Number(event.priceAtPublish ?? quotes[event.stockCode]?.price ?? 0),
       priceChangeRatio: Number.isFinite(Number(event.priceChangePercent))
         ? Number(event.priceChangePercent) / 100
@@ -259,6 +264,16 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       watchRef.current = exists ? watchRef.current.filter((item) => item !== code) : [...watchRef.current, code];
       setSnapshot((current) => ({ ...current, watch: watchRef.current }));
       void apiFetch(`/api/watchlist/${code}`, { method: exists ? "DELETE" : "PUT" }).catch(() => undefined);
+    },
+    claimMissionReward: async (missionId) => {
+      if (!firebaseAuth.currentUser) throw new Error("미션 보상은 로그인 후 받을 수 있습니다.");
+      const result = await apiFetch<BackendMissionReward>(`/api/missions/${encodeURIComponent(missionId)}/reward`, { method: "POST" });
+      setSnapshot((current) => ({
+        ...current,
+        portfolio: toPortfolio(result.portfolio),
+        updatedAt: Date.now(),
+      }));
+      return { rewardCash: result.rewardCash, awarded: result.awarded };
     },
     reset: () => {
       if (firebaseAuth.currentUser) {

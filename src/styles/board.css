@@ -1,4 +1,118 @@
 @layer component {
+  .sector-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .sector-card {
+    min-width: 0;
+    padding: var(--space-3);
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+  }
+
+  .sector-head,
+  .sector-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .sector-head h3 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--step-0);
+  }
+
+  .sector-count,
+  .sector-volume,
+  .sector-leader {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .sector-value {
+    margin-top: var(--space-2);
+  }
+
+  .sector-leader {
+    margin-top: var(--space-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mission-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mission-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .mission-row:last-child {
+    border-bottom: 0;
+  }
+
+  .mission-check {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border: 1px solid var(--rule-ink);
+    border-radius: 50%;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .mission-row.is-done .mission-check {
+    color: var(--up-deep);
+    border-color: var(--up-deep);
+  }
+
+  .mission-copy {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mission-copy h3 {
+    font-size: var(--step-0);
+  }
+
+  .mission-copy p,
+  .mission-status {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .mission-action {
+    flex: 0 0 auto;
+    color: var(--brand-wine);
+    font-size: var(--step--1);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .mission-action:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .mission-action-disabled {
+    color: var(--ink-muted);
+    cursor: not-allowed;
+  }
+
   /*
    * 전광판. 둥근 칩을 쌓은 카드 벽이 아니라 시세 테이프다 — 한 종목이 한 열이고,
    * 열은 세로 괘선으로만 나뉜다. 이름·가격·등락이 판 전체에서 같은 자리에 서므로
@@ -154,6 +268,14 @@
   }
 
   @media (max-width: 720px) {
+    .sector-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sector-card {
+      padding: var(--space-2);
+    }
+
     .board {
       padding: var(--space-2) 0;
     }

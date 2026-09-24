@@ -103,6 +103,30 @@
 }
 
 @layer component {
+  .mission-toast {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-4);
+    z-index: 50;
+    max-width: calc(100vw - var(--space-5) * 2);
+    padding: 10px 16px;
+    color: var(--paper);
+    background: var(--ink);
+    border: 1px solid color-mix(in oklab, var(--paper) 18%, transparent);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-card);
+    font-size: var(--step-0);
+    font-weight: 700;
+    text-align: center;
+    transform: translateX(-50%);
+    animation: mission-toast-in 180ms ease-out;
+  }
+
+  @keyframes mission-toast-in {
+    from { opacity: 0; transform: translate(-50%, 8px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+
   .topbar {
     position: sticky;
     top: 0;
@@ -392,6 +416,88 @@
     max-width: 560px;
   }
 
+  .feature-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+
+  .feature-heading {
+    margin-bottom: var(--space-2);
+    font-size: var(--step-0);
+  }
+
+  .feature-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .feature-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .feature-list li:last-child {
+    border-bottom: 0;
+  }
+
+  .feature-list a {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--brand-wine);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  .feature-list a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .feature-list > li > .num {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .alert-form {
+    display: grid;
+    gap: 5px;
+  }
+
+  .alert-form label {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .alert-form select,
+  .alert-form input {
+    min-height: 34px;
+    border: 1px solid var(--rule-ink);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    background: var(--paper);
+    font: inherit;
+  }
+
+  .alert-input-row {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .alert-input-row input {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .alert-list {
+    margin-top: var(--space-3);
+  }
+
   .mypage-form > label {
     color: var(--ink-muted);
     font-size: var(--step--1);
@@ -449,23 +555,32 @@
     min-width: 680px;
   }
 
+  .mypage-orders-table {
+    min-width: 860px;
+  }
+
   /* 마이페이지의 두 표는 공통 규칙보다 우선해 헤더와 모든 셀을 중앙에 맞춘다. */
   table.mypage-holdings-table th,
   table.mypage-holdings-table td,
   table.mypage-trades-table th,
-  table.mypage-trades-table td {
+  table.mypage-trades-table td,
+  table.mypage-orders-table th,
+  table.mypage-orders-table td {
     text-align: center;
     vertical-align: middle;
   }
 
   /* 행 제목(th)과 종목명도 별도 스타일에 밀리지 않도록 다시 고정한다. */
   table.mypage-holdings-table .cell-name,
-  table.mypage-trades-table tbody th {
+  table.mypage-trades-table tbody th,
+  table.mypage-orders-table tbody th {
     text-align: center;
   }
 
   .mypage-holdings-table thead th:not(:first-child),
-  .mypage-holdings-table tbody td:not(:first-child) {
+  .mypage-holdings-table tbody td:not(:first-child),
+  .mypage-orders-table thead th:not(:first-child),
+  .mypage-orders-table tbody td:not(:first-child) {
     text-align: center;
     white-space: nowrap;
   }
@@ -587,6 +702,11 @@
 
     .portfolio-value {
       font-size: var(--step-3);
+    }
+
+    .feature-columns {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-4);
     }
 
     .statusbar .text-button {

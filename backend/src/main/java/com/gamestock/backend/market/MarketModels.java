@@ -43,15 +43,16 @@ public final class MarketModels {
      * price move without pretending that a headline is a guaranteed cause.
      */
     public record MarketEvent(String stockCode, String title, int impact, String sentiment,
-                              String description, String publishedAt, long priceAtPublish,
+                              String source, String description, String publishedAt, long priceAtPublish,
                               double priceChangePercent,
                               String priceDirection, String priceReason) {
         /** Backward-compatible constructor for older callers. */
         public MarketEvent(String stockCode, String title, int impact, String sentiment) {
-            this(stockCode, title, impact, sentiment, "", null, 0, 0, "flat", "가격 변동 정보가 없습니다.");
+            this(stockCode, title, impact, sentiment, "미디어 보도", "", null, 0, 0, "flat", "가격 변동 정보가 없습니다.");
         }
     }
     public record MarketSnapshot(List<Stock> stocks, Portfolio portfolio, List<MarketEvent> events) { }
+    public record MissionRewardResult(long rewardCash, boolean awarded, Portfolio portfolio) { }
     public record OrderRequest(@NotBlank String stockCode, @NotBlank String side, @Min(1) @Max(1000) int quantity, String orderType, Long price) { }
     public record OrderResult(String message, String stockCode, String side, int quantity, long price,
                               String status, Portfolio portfolio, long fee, String settlementStatus,
@@ -76,6 +77,8 @@ public final class MarketModels {
     public record OrderBookLevel(long price, int quantity, int orderCount) { }
     public record OrderBook(String stockCode, List<OrderBookLevel> bids, List<OrderBookLevel> asks) { }
     public record PricePoint(long price, String recordedAt) { }
+    public record ChartCandle(String recordedAt, long openPrice, long highPrice, long lowPrice,
+                              long closePrice, long volume) { }
     /**
      * Public explanation of the inputs that are currently shaping a stock's
      * virtual price. Volumes cover the recent 24-hour window and are split
