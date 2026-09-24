@@ -5,7 +5,8 @@ import { initializeApp } from 'firebase/app';
 import { GoogleAuthProvider, getAuth, getReactNativePersistence, initializeAuth, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
-import { API_BASE_URL, MARKET_SOCKET_URL, FIREBASE_CONFIG, GOOGLE_WEB_CLIENT_ID } from './src/config';
+import { WebView } from 'react-native-webview';
+import { API_BASE_URL, MARKET_SOCKET_URL, FIREBASE_CONFIG, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID, WEB_APP_URL } from './src/config';
 
 // These bundled PNGs are the same source files used by the web client.
 const GAME_ICONS = {
@@ -89,7 +90,21 @@ function NewsModal({ news, stocks, onClose, styles, t }) {
   return <Modal transparent visible={Boolean(news)} animationType="fade" onRequestClose={onClose}><View style={styles.modalBackdrop}><View style={styles.modalCard}><Text style={styles.eyebrow}>NEWS DETAIL</Text><Text style={styles.modalHelp}>{news?.stockCode || t('시장 전체')}</Text><Text style={styles.detailTitle}>{news?.title || t('뉴스 상세')}</Text><View style={styles.newsModalPriceRow}><Text style={priceStyle}>{describePriceLabel(news)}</Text></View><Text style={styles.newsModalReason}>{describePriceReason(news, t)}</Text><Text style={styles.newsModalSummary}>{summarizeNews(news?.description)}</Text>{sourceUrl && <TouchableOpacity style={styles.newsModalSource} onPress={() => Linking.openURL(sourceUrl)}><Text style={styles.newsModalSourceText}>{t('원문 기사 열기 ↗')}</Text></TouchableOpacity>}<TouchableOpacity style={styles.modalClose} onPress={onClose}><Text style={styles.text}>{t('닫기')}</Text></TouchableOpacity></View></View></Modal>;
 }
 
-export default function App() {
+function WebMirrorScreen() {
+  return <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+    <WebView
+      source={{ uri: WEB_APP_URL }}
+      style={{ flex: 1 }}
+      startInLoadingState
+      javaScriptEnabled
+      domStorageEnabled
+      sharedCookiesEnabled
+      thirdPartyCookiesEnabled
+    />
+  </SafeAreaView>;
+}
+
+function LegacyApp() {
   const systemScheme = useColorScheme();
   const [language, setLanguageState] = useState(detectLanguage);
   const [theme, setThemeState] = useState(systemScheme === 'dark' ? 'dark' : 'light');
@@ -127,7 +142,11 @@ export default function App() {
   const [riverTemperature, setRiverTemperature] = useState(null);
   const [message, setMessage] = useState('');
   const [selectedNews, setSelectedNews] = useState(null);
-  const [request, response, promptAsync] = Google.useAuthRequest({ webClientId: GOOGLE_WEB_CLIENT_ID });
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+  });
 
   useEffect(() => {
     AsyncStorage.multiGet([LANGUAGE_KEY, THEME_KEY]).then(([[, storedLanguage], [, storedTheme]]) => {
@@ -302,3 +321,8 @@ const createStyles = dark => {
   };
   return Object.fromEntries(Object.entries(baseStyles).map(([key, value]) => [key, overrides[key] ? [value, overrides[key]] : value]));
 };
+
+// 웹 클라이언트를 앱 안에서 그대로 보여줘 웹과 모바일 화면을 한 곳에서 관리한다.
+export default function App() {
+  return <WebMirrorScreen />;
+}

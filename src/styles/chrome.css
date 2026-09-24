@@ -155,6 +155,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    white-space: nowrap;
     text-decoration: none;
   }
 
@@ -174,6 +175,7 @@
     align-items: stretch;
     gap: var(--space-4);
     height: 100%;
+    flex: 0 0 auto;
   }
 
   .nav-link {
@@ -182,6 +184,8 @@
     font-size: var(--step-1);
     color: var(--ink-muted);
     text-decoration: none;
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .nav-link:hover {
@@ -688,8 +692,16 @@
     }
 
     .topbar-inner {
-      gap: var(--space-4);
+      gap: var(--space-3);
       height: 48px;
+    }
+
+    .topbar-clock {
+      display: none;
+    }
+
+    .topbar-end {
+      flex: 0 0 auto;
     }
 
     .topbar-end .account {

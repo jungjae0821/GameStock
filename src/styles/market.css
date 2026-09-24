@@ -737,5 +737,20 @@
       align-items: center;
       min-height: 32px;
     }
+
+    /* 앱처럼 좁은 화면에서도 종목명은 한 줄로 읽고, 표 전체를 가로로 넘긴다. */
+    .market-quote-table .cell-name {
+      white-space: nowrap;
+    }
+
+    .market-quote-table .name-link,
+    .market-quote-table .name-text,
+    .market-quote-table .name-sub {
+      white-space: nowrap;
+    }
+
+    .market-quote-table .name-link {
+      min-width: max-content;
+    }
   }
 }
