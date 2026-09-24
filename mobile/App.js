@@ -91,13 +91,17 @@ function NewsModal({ news, stocks, onClose, styles, t }) {
 }
 
 function WebMirrorScreen() {
+  const webUrl = `${WEB_APP_URL}${WEB_APP_URL.includes('?') ? '&' : '?'}app-shell=1`;
+
   return <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
     <WebView
-      source={{ uri: WEB_APP_URL }}
+      source={{ uri: webUrl }}
       style={{ flex: 1 }}
       startInLoadingState
       javaScriptEnabled
       domStorageEnabled
+      cacheEnabled={false}
+      cacheMode="LOAD_NO_CACHE"
       sharedCookiesEnabled
       thirdPartyCookiesEnabled
     />

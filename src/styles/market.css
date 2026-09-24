@@ -740,6 +740,8 @@
 
     /* 앱처럼 좁은 화면에서도 종목명은 한 줄로 읽고, 표 전체를 가로로 넘긴다. */
     .market-quote-table .cell-name {
+      width: 175px;
+      min-width: 175px;
       white-space: nowrap;
     }
 
@@ -750,7 +752,17 @@
     }
 
     .market-quote-table .name-link {
-      min-width: max-content;
+      min-width: 0;
+    }
+
+    .market-quote-table .name-stack {
+      min-width: 0;
+      max-width: 175px;
+    }
+
+    .market-quote-table .name-sub {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 }
