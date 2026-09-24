@@ -11,12 +11,17 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class AuthService {
+    private static final long MOBILE_CODE_TTL_SECONDS = 120;
     private final JdbcTemplate jdbc;
+    private final Map<String, PendingMobileCode> mobileCodes = new ConcurrentHashMap<>();
     /**
      * The administrator is still authenticated by Firebase. These optional
      * allowlists only decide which verified Google identity receives ADMIN on
@@ -44,11 +49,44 @@ public class AuthService {
 
     public LoginUser login(String authorization) { return requireUser(authorization); }
 
+    public MobileCode issueMobileCode(String authorization) {
+        FirebaseToken token = verifyToken(authorization);
+        try {
+            String customToken = FirebaseAuth.getInstance().createCustomToken(token.getUid());
+            String code = UUID.randomUUID().toString().replace("-", "");
+            Instant expiresAt = Instant.now().plusSeconds(MOBILE_CODE_TTL_SECONDS);
+            mobileCodes.put(code, new PendingMobileCode(customToken, expiresAt));
+            mobileCodes.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(Instant.now()));
+            return new MobileCode(code, expiresAt.toString());
+        } catch (Exception error) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "모바일 로그인 코드를 만들지 못했습니다.");
+        }
+    }
+
+    public MobileToken exchangeMobileCode(MobileCodeExchange request) {
+        if (request == null || request.code() == null || request.code().isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "로그인 인증 코드가 필요합니다.");
+        PendingMobileCode pending = mobileCodes.remove(request.code().trim());
+        if (pending == null || pending.expiresAt().isBefore(Instant.now()))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "만료되었거나 이미 사용한 로그인 코드입니다.");
+        return new MobileToken(pending.customToken());
+    }
+
     public LoginUser requireAdmin(String authorization) {
         LoginUser user = requireUser(authorization);
         if (!"ADMIN".equalsIgnoreCase(user.role()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다.");
         return user;
+    }
+
+    private FirebaseToken verifyToken(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer "))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        try {
+            return FirebaseAuth.getInstance().verifyIdToken(authorization.substring(7));
+        } catch (Exception error) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않거나 만료된 로그인입니다.");
+        }
     }
 
     public Profile profile(long userId) {
@@ -160,4 +198,8 @@ public class AuthService {
         }
     }
     public record ProfileUpdate(String nickname, String profileImageUrl) { }
+    public record MobileCode(String code, String expiresAt) { }
+    public record MobileCodeExchange(String code, String state) { }
+    public record MobileToken(String customToken) { }
+    private record PendingMobileCode(String customToken, Instant expiresAt) { }
 }

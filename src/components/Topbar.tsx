@@ -3,7 +3,7 @@ import { Link } from "./Link";
 import type { Route } from "../router";
 import { clock } from "../market/format";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
-import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signInWithPopup, signOut, type User } from "firebase/auth";
+import { onAuthStateChanged, signInWithCustomToken, signInWithPopup, signOut, type User } from "firebase/auth";
 import { apiFetch } from "../lib/api";
 import { useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
@@ -27,7 +27,7 @@ type AccountProfile = {
 };
 
 type NativeAuthEvent =
-  | { type: "GOOGLE_AUTH_SUCCESS"; idToken: string }
+  | { type: "FIREBASE_CUSTOM_TOKEN"; customToken: string }
   | { type: "GOOGLE_AUTH_ERROR"; message?: string };
 
 declare global {
@@ -40,6 +40,14 @@ declare global {
 
 const THEME_STORAGE_KEY = "gamestock-theme";
 type Theme = "light" | "dark";
+
+function mobileReturnUriFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("mobileAuth") !== "1") return null;
+  const returnUri = params.get("returnUri");
+  return returnUri && /^(gamestock|exp):\/\//.test(returnUri) ? returnUri : null;
+}
 
 function readTheme(): Theme {
   if (typeof window === "undefined") return "light";
@@ -55,6 +63,8 @@ export function Topbar({ route }: { route: Route }) {
   const [nickname, setNickname] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<TemperatureReading | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileReturnUri = mobileReturnUriFromLocation();
+  const mobileAuthState = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("state");
 
   const loadProfile = async () => {
     if (!firebaseAuth.currentUser) return;
@@ -82,7 +92,8 @@ export function Topbar({ route }: { route: Route }) {
         return;
       }
 
-      void signInWithCredential(firebaseAuth, GoogleAuthProvider.credential(detail.idToken))
+      void signInWithCustomToken(firebaseAuth, detail.customToken)
+        .catch(() => undefined)
         .finally(() => setBusy(false));
     };
 
@@ -95,6 +106,18 @@ export function Topbar({ route }: { route: Route }) {
     return () => window.clearInterval(timer);
   }, []);
 
+  const completeMobileHandoff = async () => {
+    if (!mobileReturnUri || !mobileAuthState || !firebaseAuth.currentUser) return;
+    const result = await apiFetch<{ code: string }>("/api/auth/mobile/issue", {
+      method: "POST",
+      body: JSON.stringify({ state: mobileAuthState }),
+    });
+    const callback = new URL(mobileReturnUri);
+    callback.searchParams.set("code", result.code);
+    callback.searchParams.set("state", mobileAuthState);
+    window.location.replace(callback.toString());
+  };
+
   const login = async () => {
     setBusy(true);
     try {
@@ -103,6 +126,7 @@ export function Topbar({ route }: { route: Route }) {
         return;
       }
       await signInWithPopup(firebaseAuth, googleProvider);
+      await completeMobileHandoff();
     } finally {
       if (!window.ReactNativeWebView) setBusy(false);
     }

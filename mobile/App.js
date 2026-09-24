@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
 import * as Google from 'expo-auth-session/providers/google';
 import { initializeApp } from 'firebase/app';
 import { GoogleAuthProvider, getAuth, getReactNativePersistence, initializeAuth, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
@@ -19,7 +20,6 @@ const CHART_RANGES = [
   ['6h', '6시간'], ['12h', '12시간'], ['24h', '24시간'], ['7d', '일주일']
 ];
 
-WebBrowser.maybeCompleteAuthSession();
 const firebaseApp = initializeApp(FIREBASE_CONFIG);
 let firebaseAuth;
 try { firebaseAuth = initializeAuth(firebaseApp, { persistence: getReactNativePersistence(AsyncStorage) }); }
@@ -93,11 +93,8 @@ function NewsModal({ news, stocks, onClose, styles, t }) {
 function WebMirrorScreen() {
   const webUrl = `${WEB_APP_URL}${WEB_APP_URL.includes('?') ? '&' : '?'}app-shell=1`;
   const webViewRef = useRef(null);
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-    iosClientId: GOOGLE_IOS_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-  });
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'gamestock', path: 'auth/callback' });
+  const pendingAuthState = useRef(null);
 
   const postWebAuth = payload => {
     const serialized = JSON.stringify(payload);
@@ -105,21 +102,6 @@ function WebMirrorScreen() {
       `window.dispatchEvent(new CustomEvent('gamestock-native-auth',{detail:${serialized}})); true;`,
     );
   };
-
-  useEffect(() => {
-    if (!response) return;
-    if (response.type !== 'success') {
-      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: response.type === 'dismiss' ? 'Google 로그인이 취소되었습니다.' : 'Google 로그인을 완료하지 못했습니다.' });
-      return;
-    }
-
-    const idToken = response.authentication?.idToken || response.params?.id_token;
-    if (!idToken) {
-      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: 'Google ID 토큰을 받지 못했습니다.' });
-      return;
-    }
-    postWebAuth({ type: 'GOOGLE_AUTH_SUCCESS', idToken });
-  }, [response]);
 
   const handleWebMessage = event => {
     let message;
@@ -130,15 +112,56 @@ function WebMirrorScreen() {
     }
     if (message?.type !== 'GOOGLE_LOGIN') return;
 
-    const clientId = Platform.OS === 'ios' ? GOOGLE_IOS_CLIENT_ID : GOOGLE_ANDROID_CLIENT_ID;
-    if (!clientId) {
-      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: `EXPO_PUBLIC_GOOGLE_${Platform.OS === 'ios' ? 'IOS' : 'ANDROID'}_CLIENT_ID가 설정되지 않았습니다.` });
-      return;
-    }
-    void promptAsync().catch(error => {
-      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: error?.message || 'Google 로그인 창을 열지 못했습니다.' });
-    });
+    void (async () => {
+      const state = Crypto.randomUUID();
+      pendingAuthState.current = state;
+      const authUrl = new URL(webUrl);
+      authUrl.searchParams.set('mobileAuth', '1');
+      authUrl.searchParams.set('returnUri', redirectUri);
+      authUrl.searchParams.set('state', state);
+      try {
+        await Linking.openURL(authUrl.toString());
+      } catch (error) {
+        pendingAuthState.current = null;
+        postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: error?.message || 'Google 로그인을 완료하지 못했습니다.' });
+      }
+    })();
   };
+
+  useEffect(() => {
+    const handleDeepLink = ({ url }) => {
+      const expectedState = pendingAuthState.current;
+      if (!expectedState) return;
+
+      void (async () => {
+        try {
+          const callback = new URL(url);
+          if (!['gamestock:', 'exp:'].includes(callback.protocol)) return;
+          if (callback.searchParams.get('state') !== expectedState) {
+            throw new Error('인증 상태가 일치하지 않습니다.');
+          }
+          const code = callback.searchParams.get('code');
+          if (!code) throw new Error('로그인 인증 코드를 받지 못했습니다.');
+
+          const exchange = await fetch(`${API_BASE_URL}/api/auth/mobile/exchange`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+          });
+          const payload = await exchange.json();
+          if (!exchange.ok || !payload.customToken) throw new Error(payload.message || '로그인 인증 교환에 실패했습니다.');
+          pendingAuthState.current = null;
+          postWebAuth({ type: 'FIREBASE_CUSTOM_TOKEN', customToken: payload.customToken });
+        } catch (error) {
+          pendingAuthState.current = null;
+          postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: error?.message || 'Google 로그인을 완료하지 못했습니다.' });
+        }
+      })();
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription.remove();
+  }, []);
 
   return <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
     <WebView

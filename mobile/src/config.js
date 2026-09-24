@@ -20,7 +20,8 @@ export const FIREBASE_CONFIG = {
   messagingSenderId: "957680390567",
   appId: "1:957680390567:web:8f0d60ea888daae68e2682",
 };
-// Firebase 콘솔의 Google OAuth 웹 클라이언트 ID를 지정해야 네이티브 로그인이 작동한다.
+// 예전 네이티브 인증 화면과의 호환성을 위해 남겨둔 값이다.
+// 현재 WebView 로그인은 외부 웹 브라우저의 Firebase Google 로그인과 딥링크를 사용한다.
 export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
 export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 export const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "";

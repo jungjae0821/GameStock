@@ -11,4 +11,14 @@ public class AuthController {
     public AuthService.LoginUser googleLogin(@RequestHeader(value = "Authorization", required = false) String authorization) {
         return auth.login(authorization);
     }
+
+    @PostMapping("/mobile/issue")
+    public AuthService.MobileCode issueMobileCode(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return auth.issueMobileCode(authorization);
+    }
+
+    @PostMapping("/mobile/exchange")
+    public AuthService.MobileToken exchangeMobileCode(@RequestBody AuthService.MobileCodeExchange request) {
+        return auth.exchangeMobileCode(request);
+    }
 }
