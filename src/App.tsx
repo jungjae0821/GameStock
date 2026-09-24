@@ -31,7 +31,13 @@ export default function App() {
     /* 최초 렌더에서는 포커스를 옮기지 않는다. 이동할 때만 본문으로 보낸다. */
     if (previous.current === route) return;
     previous.current = route;
-    main.current?.focus();
+    if (document.documentElement.dataset.appShell === "mobile") {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      });
+    } else {
+      main.current?.focus();
+    }
   }, [route]);
 
   return (

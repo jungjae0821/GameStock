@@ -9,6 +9,10 @@ import { MarketProvider } from "./market/MarketProvider";
 const storedTheme = window.localStorage.getItem("gamestock-theme");
 document.documentElement.dataset.theme = storedTheme === "dark" ? "dark" : "light";
 document.documentElement.style.colorScheme = storedTheme === "dark" ? "dark" : "light";
+document.documentElement.dataset.appShell = new URLSearchParams(window.location.search).get("app-shell") === "1" ? "mobile" : "web";
+if (document.documentElement.dataset.appShell === "mobile") {
+  window.history.scrollRestoration = "manual";
+}
 
 const container = document.getElementById("root");
 if (!container) throw new Error("#root 컨테이너를 찾을 수 없습니다.");

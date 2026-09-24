@@ -1,0 +1,57 @@
+/* WebView 앱에서만 사용하는 화면 배치다. 일반 웹 화면은 건드리지 않는다. */
+@layer mobile {
+  html[data-app-shell="mobile"] section[aria-labelledby="home-market"] .market-quote-table .cell-chart,
+  html[data-app-shell="mobile"] section[aria-labelledby="home-market"] .market-quote-table .cell-volume {
+    display: none;
+  }
+
+  html[data-app-shell="mobile"] section[aria-labelledby="home-market"] .market-quote-table {
+    width: 100%;
+    table-layout: auto;
+  }
+
+  html[data-app-shell="mobile"] section[aria-labelledby="home-market"] .market-quote-table .cell-name {
+    width: auto;
+    min-width: 0;
+  }
+
+  html[data-app-shell="mobile"] section[aria-labelledby="home-market"] .market-quote-table .name-link,
+  html[data-app-shell="mobile"] section[aria-labelledby="home-market"] .market-quote-table .name-text,
+  html[data-app-shell="mobile"] section[aria-labelledby="home-market"] .market-quote-table .name-sub {
+    white-space: nowrap;
+  }
+
+  html[data-app-shell="mobile"] section[aria-labelledby="home-market"] .market-quote-table .name-stack {
+    max-width: none;
+  }
+
+  /* 선택한 종목 화면은 가격 차트를 가장 먼저 보여 준다. */
+  html[data-app-shell="mobile"] .market-layout.has-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    align-items: stretch;
+  }
+
+  html[data-app-shell="mobile"] .market-layout.has-detail > .market-left-column {
+    display: contents;
+  }
+
+  html[data-app-shell="mobile"] .market-layout.has-detail .market-detail-chart {
+    order: -2;
+  }
+
+  html[data-app-shell="mobile"] .market-layout.has-detail > .market-detail {
+    order: -1;
+  }
+
+  html[data-app-shell="mobile"] .market-layout.has-detail .market-list {
+    order: 0;
+  }
+
+  html[data-app-shell="mobile"] .market-layout.has-detail .market-detail-chart,
+  html[data-app-shell="mobile"] .market-layout.has-detail .market-detail,
+  html[data-app-shell="mobile"] .market-layout.has-detail .market-list {
+    width: 100%;
+  }
+}

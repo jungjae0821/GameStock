@@ -26,6 +26,7 @@ try { firebaseAuth = initializeAuth(firebaseApp, { persistence: getReactNativePe
 catch { firebaseAuth = getAuth(firebaseApp); }
 const LANGUAGE_KEY = 'gamestock-language';
 const THEME_KEY = 'gamestock-theme';
+const MOBILE_AUTH_STATE_KEY = 'gamestock-mobile-auth-state';
 const LOCALES = { ko: 'ko-KR', ja: 'ja-JP', en: 'en-US' };
 const TEXT = {
   ja: {
@@ -95,12 +96,22 @@ function WebMirrorScreen() {
   const webViewRef = useRef(null);
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'gamestock', path: 'auth/callback' });
   const pendingAuthState = useRef(null);
+  const pendingWebAuth = useRef(null);
+  const webViewReady = useRef(false);
 
-  const postWebAuth = payload => {
+  const injectWebAuth = payload => {
     const serialized = JSON.stringify(payload);
     webViewRef.current?.injectJavaScript(
       `window.dispatchEvent(new CustomEvent('gamestock-native-auth',{detail:${serialized}})); true;`,
     );
+  };
+
+  const postWebAuth = payload => {
+    if (!webViewReady.current) {
+      pendingWebAuth.current = payload;
+      return;
+    }
+    injectWebAuth(payload);
   };
 
   const handleWebMessage = event => {
@@ -115,53 +126,65 @@ function WebMirrorScreen() {
     void (async () => {
       const state = Crypto.randomUUID();
       pendingAuthState.current = state;
-      const authUrl = new URL(webUrl);
-      authUrl.searchParams.set('mobileAuth', '1');
-      authUrl.searchParams.set('returnUri', redirectUri);
-      authUrl.searchParams.set('state', state);
       try {
+        await AsyncStorage.setItem(MOBILE_AUTH_STATE_KEY, state);
+        const authUrl = new URL(webUrl);
+        authUrl.searchParams.set('mobileAuth', '1');
+        authUrl.searchParams.set('returnUri', redirectUri);
+        authUrl.searchParams.set('state', state);
         await Linking.openURL(authUrl.toString());
       } catch (error) {
         pendingAuthState.current = null;
+        await AsyncStorage.removeItem(MOBILE_AUTH_STATE_KEY).catch(() => {});
         postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: error?.message || 'Google 로그인을 완료하지 못했습니다.' });
       }
     })();
   };
 
-  useEffect(() => {
-    const handleDeepLink = ({ url }) => {
-      const expectedState = pendingAuthState.current;
+  const processDeepLink = async url => {
+    if (!url) return;
+    try {
+      const callback = new URL(url);
+      if (!['gamestock:', 'exp:'].includes(callback.protocol)) return;
+      const expectedState = pendingAuthState.current || await AsyncStorage.getItem(MOBILE_AUTH_STATE_KEY);
       if (!expectedState) return;
+      if (callback.searchParams.get('state') !== expectedState) {
+        throw new Error('인증 상태가 일치하지 않습니다.');
+      }
+      const code = callback.searchParams.get('code');
+      if (!code) throw new Error('로그인 인증 코드를 받지 못했습니다.');
 
-      void (async () => {
-        try {
-          const callback = new URL(url);
-          if (!['gamestock:', 'exp:'].includes(callback.protocol)) return;
-          if (callback.searchParams.get('state') !== expectedState) {
-            throw new Error('인증 상태가 일치하지 않습니다.');
-          }
-          const code = callback.searchParams.get('code');
-          if (!code) throw new Error('로그인 인증 코드를 받지 못했습니다.');
+      const exchange = await fetch(`${API_BASE_URL}/api/auth/mobile/exchange`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const payload = await exchange.json();
+      if (!exchange.ok || !payload.customToken) throw new Error(payload.message || '로그인 인증 교환에 실패했습니다.');
+      pendingAuthState.current = null;
+      await AsyncStorage.removeItem(MOBILE_AUTH_STATE_KEY).catch(() => {});
+      postWebAuth({ type: 'FIREBASE_CUSTOM_TOKEN', customToken: payload.customToken });
+    } catch (error) {
+      pendingAuthState.current = null;
+      await AsyncStorage.removeItem(MOBILE_AUTH_STATE_KEY).catch(() => {});
+      postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: error?.message || 'Google 로그인을 완료하지 못했습니다.' });
+    }
+  };
 
-          const exchange = await fetch(`${API_BASE_URL}/api/auth/mobile/exchange`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
-          });
-          const payload = await exchange.json();
-          if (!exchange.ok || !payload.customToken) throw new Error(payload.message || '로그인 인증 교환에 실패했습니다.');
-          pendingAuthState.current = null;
-          postWebAuth({ type: 'FIREBASE_CUSTOM_TOKEN', customToken: payload.customToken });
-        } catch (error) {
-          pendingAuthState.current = null;
-          postWebAuth({ type: 'GOOGLE_AUTH_ERROR', message: error?.message || 'Google 로그인을 완료하지 못했습니다.' });
-        }
-      })();
-    };
-
-    const subscription = Linking.addEventListener('url', handleDeepLink);
+  useEffect(() => {
+    const subscription = Linking.addEventListener('url', ({ url }) => void processDeepLink(url));
+    Linking.getInitialURL().then(url => processDeepLink(url)).catch(() => {});
     return () => subscription.remove();
   }, []);
+
+  const handleWebViewLoadEnd = () => {
+    webViewReady.current = true;
+    if (pendingWebAuth.current) {
+      const payload = pendingWebAuth.current;
+      pendingWebAuth.current = null;
+      injectWebAuth(payload);
+    }
+  };
 
   return <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
     <WebView
@@ -175,6 +198,7 @@ function WebMirrorScreen() {
       cacheMode="LOAD_NO_CACHE"
       sharedCookiesEnabled
       thirdPartyCookiesEnabled
+      onLoadEnd={handleWebViewLoadEnd}
       onMessage={handleWebMessage}
     />
   </SafeAreaView>;
