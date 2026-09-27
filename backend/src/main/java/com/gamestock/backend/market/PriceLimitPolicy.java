@@ -38,11 +38,13 @@ final class PriceLimitPolicy {
     }
 
     static long tickSize(long price) {
-        if (price <= 1_000) return 1;
-        if (price <= 5_000) return 5;
-        if (price <= 50_000) return 10;
-        if (price <= 100_000) return 50;
-        return 100;
+        if (price < 2_000) return 1;
+        if (price < 5_000) return 5;
+        if (price < 20_000) return 10;
+        if (price < 50_000) return 50;
+        if (price < 200_000) return 100;
+        if (price < 500_000) return 500;
+        return 1_000;
     }
 
     static long floorToTick(double price) {
@@ -55,6 +57,17 @@ final class PriceLimitPolicy {
         long ceiled = Math.max(1, (long) Math.ceil(price));
         long tick = tickSize(ceiled);
         return Math.max(tick, ((ceiled + tick - 1) / tick) * tick);
+    }
+
+    /** Move one legal quote level upward, including across a price-band boundary. */
+    static long nextTickPrice(long price) {
+        if (price >= Long.MAX_VALUE - 1) return price;
+        return ceilToTick(price + 1.0);
+    }
+
+    /** Move one legal quote level downward, including across a price-band boundary. */
+    static long previousTickPrice(long price) {
+        return floorToTick(Math.max(1, price - 1.0));
     }
 
     record PriceBand(long referencePrice, long lowerPrice, long upperPrice) {

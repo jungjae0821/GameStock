@@ -172,7 +172,11 @@ export function Topbar({ route }: { route: Route }) {
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <Link className="brand" to="/">
+        <Link
+          className="brand"
+          to="/"
+          onClick={() => window.scrollTo({ top: 0, left: 0, behavior: "auto" })}
+        >
           <BrandMark />
           <span className="brand-text">씹덕주식</span>
         </Link>

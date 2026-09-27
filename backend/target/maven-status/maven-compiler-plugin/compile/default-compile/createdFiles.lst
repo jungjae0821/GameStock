@@ -22,6 +22,7 @@ com\gamestock\backend\config\CorsConfig.class
 com\gamestock\backend\market\MarketModels$Stock.class
 com\gamestock\backend\auth\AccountResetService$PendingSettlement.class
 com\gamestock\backend\market\MarketModels$RankingEntry.class
+com\gamestock\backend\auth\AuthService$PendingMobileCode.class
 com\gamestock\backend\realtime\MarketSocketHandler.class
 com\gamestock\backend\market\UserFeatureModels$PriceAlert.class
 com\gamestock\backend\market\UserFeatureModels$StockTag.class
@@ -33,6 +34,7 @@ com\gamestock\backend\market\UserFeatureModels.class
 com\gamestock\backend\environment\HanRiverTemperatureService$TemperatureReading.class
 com\gamestock\backend\market\MarketModels$DailyCandle.class
 com\gamestock\backend\auth\AuthController.class
+com\gamestock\backend\auth\AuthService$MobileCode.class
 com\gamestock\backend\market\PriceLimitPolicy.class
 com\gamestock\backend\market\MarketService$NewsBias.class
 com\gamestock\backend\market\MarketService$NewsInfluence.class
@@ -44,6 +46,7 @@ com\gamestock\backend\market\MarketService$MatchRow.class
 com\gamestock\backend\market\MarketModels$MissionRewardResult.class
 com\gamestock\backend\market\MarketService$HoldingState.class
 com\gamestock\backend\market\NewsRelevance.class
+com\gamestock\backend\auth\AuthService$MobileToken.class
 com\gamestock\backend\realtime\WebSocketConfig.class
 com\gamestock\backend\market\MarketService.class
 com\gamestock\backend\market\MarketModels$ChartCandle.class
@@ -61,6 +64,7 @@ com\gamestock\backend\market\MarketService$OrderState.class
 com\gamestock\backend\market\MarketService$LedgerTrade.class
 com\gamestock\backend\market\MarketService$CancelableSettlement.class
 com\gamestock\backend\market\PriceLimitPolicy$PriceBand.class
+com\gamestock\backend\auth\AuthService$MobileCodeExchange.class
 com\gamestock\backend\auth\AdminController.class
 com\gamestock\backend\market\MarketModels.class
 com\gamestock\backend\market\NewsFeedService.class

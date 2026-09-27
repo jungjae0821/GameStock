@@ -34,4 +34,25 @@ class PriceLimitPolicyTest {
         assertTrue(band.contains(band.lowerPrice()));
         assertTrue(band.contains(band.upperPrice()));
     }
+
+    @Test
+    void tickSizeMatchesKrxStockPriceBands() {
+        assertEquals(1L, PriceLimitPolicy.tickSize(1_999L));
+        assertEquals(5L, PriceLimitPolicy.tickSize(2_000L));
+        assertEquals(5L, PriceLimitPolicy.tickSize(4_999L));
+        assertEquals(10L, PriceLimitPolicy.tickSize(5_000L));
+        assertEquals(10L, PriceLimitPolicy.tickSize(19_999L));
+        assertEquals(50L, PriceLimitPolicy.tickSize(20_000L));
+        assertEquals(100L, PriceLimitPolicy.tickSize(50_000L));
+        assertEquals(500L, PriceLimitPolicy.tickSize(200_000L));
+        assertEquals(1_000L, PriceLimitPolicy.tickSize(500_000L));
+    }
+
+    @Test
+    void nextAndPreviousTicksCrossKrxBoundaries() {
+        assertEquals(2_000L, PriceLimitPolicy.nextTickPrice(1_999L));
+        assertEquals(2_005L, PriceLimitPolicy.nextTickPrice(2_000L));
+        assertEquals(1_999L, PriceLimitPolicy.previousTickPrice(2_000L));
+        assertEquals(4_995L, PriceLimitPolicy.previousTickPrice(5_000L));
+    }
 }

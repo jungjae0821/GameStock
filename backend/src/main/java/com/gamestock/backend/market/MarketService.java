@@ -22,7 +22,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.time.Instant;
 import java.time.Duration;
-import java.time.ZoneOffset;
 import java.util.Random;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -1162,12 +1161,11 @@ public class MarketService {
     /** Keep a one-tick spread at the bot band's edges so a bot never freezes
      * the market by posting both sides at the same boundary price. */
     private long botQuotePrice(PriceBand band, String side, long rounded) {
-        long tick = tickSize(Math.max(1, band.referencePrice()));
         if ("BUY".equals(side)) {
-            long upper = Math.max(band.lowerPrice(), band.upperPrice() - tick);
+            long upper = Math.max(band.lowerPrice(), previousTickPrice(band.upperPrice()));
             return Math.max(band.lowerPrice(), Math.min(upper, rounded));
         }
-        long lower = Math.min(band.upperPrice(), band.lowerPrice() + tick);
+        long lower = Math.min(band.upperPrice(), nextTickPrice(band.lowerPrice()));
         return Math.min(band.upperPrice(), Math.max(lower, rounded));
     }
 
@@ -1882,9 +1880,9 @@ public class MarketService {
         return stocks().stream().filter(stock -> stock.code().equals(code)).findFirst().orElse(null);
     }
 
-    /** Railway MySQL returns UTC wall-clock values through the Seoul connection timezone. */
+    /** The JDBC timestamp already carries the normalized instant from the UTC DB session. */
     private Instant databaseInstant(Timestamp timestamp) {
-        return timestamp.toLocalDateTime().toInstant(ZoneOffset.UTC);
+        return timestamp.toInstant();
     }
 
     private long stockId(String code) {

@@ -47,3 +47,21 @@ export function roundToTick(price: number): number {
   const size = tickSize(price);
   return Math.round(price / size) * size;
 }
+
+/**
+ * Return the next valid price on the KRX price ladder.
+ * The tick can change at the boundary, so it is calculated from the
+ * candidate price rather than copied from the current price.
+ */
+export function nextTickPrice(price: number): number {
+  const candidate = Math.max(1, Math.floor(price) + 1);
+  const size = tickSize(candidate);
+  return Math.max(1, Math.ceil(candidate / size) * size);
+}
+
+/** Return the previous valid price on the KRX price ladder. */
+export function previousTickPrice(price: number): number {
+  const candidate = Math.max(1, Math.ceil(price) - 1);
+  const size = tickSize(candidate);
+  return Math.max(1, Math.floor(candidate / size) * size);
+}

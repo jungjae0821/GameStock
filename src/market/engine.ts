@@ -1,4 +1,11 @@
-import { DAILY_LIMIT, LISTINGS, LISTING_BY_CODE, roundToTick, tickSize } from "./universe";
+import {
+  DAILY_LIMIT,
+  LISTINGS,
+  LISTING_BY_CODE,
+  nextTickPrice,
+  previousTickPrice,
+  roundToTick,
+} from "./universe";
 import { generateNews } from "./newsTemplates";
 import { won } from "./format";
 import type {
@@ -182,9 +189,14 @@ export class MarketEngine {
       for (let i = 0; i < prints; i += 1) {
         const side: TradePrint["side"] = this.rng() < buyShare ? "buy" : "sell";
         const at = now - (prints - i - 1) * 420;
+        const distance = Math.floor(this.rng() * 3);
+        let printPrice = quote.price;
+        for (let step = 0; step < distance; step += 1) {
+          printPrice = side === "buy" ? previousTickPrice(printPrice) : nextTickPrice(printPrice);
+        }
         const print: TradePrint = {
           at,
-          price: i === 0 ? quote.price : side === "buy" ? quote.price - tickSize(quote.price) * Math.floor(this.rng() * 3) : quote.price + tickSize(quote.price) * Math.floor(this.rng() * 3),
+          price: i === 0 ? quote.price : printPrice,
           qty: Math.max(1, Math.round((step / prints) * (0.5 + this.rng()))),
           side,
         };
@@ -209,18 +221,29 @@ export class MarketEngine {
    * 호가 단위로 분배해 만든 표시용 데이터다.
    */
   private refreshBook(quote: Quote, pressure: number): void {
-    const size = tickSize(quote.price);
     const base = Math.max(12, Math.round((quote.volume / 900) * (0.4 + pressure * 0.5)));
     const asks: BookLevel[] = [];
     const bids: BookLevel[] = [];
+    let askPrice = quote.price;
+    let bidPrice = quote.price;
     for (let i = 0; i < BOOK_DEPTH; i += 1) {
       const near = BOOK_DEPTH - i;
+      const nextAsk = nextTickPrice(askPrice);
+      if (nextAsk <= askPrice || nextAsk > quote.limitUp) break;
+      askPrice = nextAsk;
       asks.push({
-        price: Math.min(quote.limitUp, quote.price + size * (i + 1)),
+        price: askPrice,
         qty: Math.max(1, Math.round((base * near * (1 + pressure * 0.9) * (0.7 + this.rng() * 0.6)) / BOOK_DEPTH)),
       });
+    }
+
+    for (let i = 0; i < BOOK_DEPTH; i += 1) {
+      const near = BOOK_DEPTH - i;
+      const nextBid = previousTickPrice(bidPrice);
+      if (nextBid >= bidPrice || nextBid < quote.limitDown) break;
+      bidPrice = nextBid;
       bids.push({
-        price: Math.max(quote.limitDown, quote.price - size * (i + 1)),
+        price: bidPrice,
         qty: Math.max(1, Math.round((base * near * (1 - pressure * 0.9) * (0.7 + this.rng() * 0.6)) / BOOK_DEPTH)),
       });
     }

@@ -110,7 +110,7 @@ if (-not [string]::IsNullOrWhiteSpace($FirebaseIdToken)) {
     if ($RunOrderScenarios) {
         $stocks = Get-Json '/stocks'
         $uma = @($stocks | Where-Object { $_.code -eq 'UMA' })[0]
-        $tick = if ($uma.price -le 1000) { 1 } elseif ($uma.price -le 5000) { 5 } elseif ($uma.price -le 50000) { 10 } elseif ($uma.price -le 100000) { 50 } else { 100 }
+        $tick = if ($uma.price -lt 2000) { 1 } elseif ($uma.price -lt 5000) { 5 } elseif ($uma.price -lt 20000) { 10 } elseif ($uma.price -lt 50000) { 50 } elseif ($uma.price -lt 200000) { 100 } elseif ($uma.price -lt 500000) { 500 } else { 1000 }
         $limitPrice = [math]::Max($tick, ([math]::Floor(($uma.price - 3 * $tick) / $tick) * $tick))
         $before = Get-Json '/portfolio' $authHeaders
         $activeBefore = @(Get-Json '/orders' $authHeaders)
