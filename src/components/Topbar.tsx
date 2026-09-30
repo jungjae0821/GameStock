@@ -203,7 +203,7 @@ export function Topbar({ route }: { route: Route }) {
         </nav>
         <div className="topbar-end">
           {/* 상단에는 현재 시각과 메뉴만 표시한다. */}
-          <span className="topbar-clock num">현재시각: {clock(now)}</span>
+          <span className="topbar-clock num" aria-label={`현재시각: ${clock(now)}`}><span className="topbar-clock-label">현재시각: </span>{clock(now)}</span>
           <div className="menu-wrap" ref={menuRef}>
             <button
               type="button"

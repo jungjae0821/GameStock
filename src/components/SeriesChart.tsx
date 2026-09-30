@@ -1,221 +1,195 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import type { PointerEvent } from "react";
 import { apiFetch } from "../lib/api";
-import { indexValue, won } from "../market/format";
+import { indexValue, serverTimestamp, won } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
 
 type ChartMode = "line" | "candle";
 type ChartRange = "realtime" | "1h" | "6h" | "12h" | "1d" | "1w" | "1m" | "1y";
-
-type ChartCandle = {
-  recordedAt: string;
-  openPrice: number;
-  highPrice: number;
-  lowPrice: number;
-  closePrice: number;
-  volume: number;
-};
-
-const MODE_OPTIONS: Array<{ value: ChartMode; label: string }> = [
-  { value: "line", label: "선형" },
-  { value: "candle", label: "캔들" },
-];
+type ChartCandle = { recordedAt: string; openPrice: number; highPrice: number; lowPrice: number; closePrice: number; volume: number };
+type PricePoint = { recordedAt: string; price: number };
+type Sample = { at: number; price: number; candle?: ChartCandle };
 
 const RANGE_OPTIONS: Array<{ value: ChartRange; label: string }> = [
-  { value: "realtime", label: "실시간" },
-  { value: "1h", label: "1시간" },
-  { value: "6h", label: "6시간" },
-  { value: "12h", label: "12시간" },
-  { value: "1d", label: "1일" },
-  { value: "1w", label: "1주" },
-  { value: "1m", label: "1개월" },
-  { value: "1y", label: "1년" },
+  { value: "realtime", label: "실시간" }, { value: "1h", label: "1시간" },
+  { value: "6h", label: "6시간" }, { value: "12h", label: "12시간" },
+  { value: "1d", label: "1일" }, { value: "1w", label: "1주" },
+  { value: "1m", label: "1개월" }, { value: "1y", label: "1년" },
 ];
+const timeFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+});
+const axisFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+});
 
-interface Point {
-  x: number;
-  y: number;
-}
-
-function smoothPath(points: Point[]): string {
-  if (points.length === 0) return "";
-  if (points.length === 1) return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-
-  let path = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const previous = points[index - 1] ?? points[index];
-    const current = points[index];
-    const next = points[index + 1];
-    const following = points[index + 2] ?? next;
-    const controlOne = {
-      x: current.x + (next.x - previous.x) / 6,
-      y: current.y + (next.y - previous.y) / 6,
-    };
-    const controlTwo = {
-      x: next.x - (following.x - current.x) / 6,
-      y: next.y - (following.y - current.y) / 6,
-    };
-    path += ` C ${controlOne.x.toFixed(2)} ${controlOne.y.toFixed(2)}, ${controlTwo.x.toFixed(2)} ${controlTwo.y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`;
-  }
-  return path;
-}
-
-/** 종목 가격을 실시간 선형 또는 구간별 OHLC 캔들로 보여준다. */
+/** Hover and touch read the server's recorded price/time pair, never an estimated tick time. */
 export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down" | "flat" }) {
   const snapshot = useMarket();
   const quote = snapshot.quotes[code];
   const [mode, setMode] = useState<ChartMode>("line");
   const [range, setRange] = useState<ChartRange>("realtime");
-  const [history, setHistory] = useState<ChartCandle[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<{ key: string; samples: Sample[] }>({ key: "", samples: [] });
+  const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [hoveredAt, setHoveredAt] = useState<number | null>(null);
+  const gradientId = useId().replace(/:/g, "");
+  const dataKey = `${code}:${mode}:${range}`;
 
   useEffect(() => {
-    if (range === "realtime") {
-      setHistory([]);
-      setLoading(false);
-      setFailed(false);
-      return undefined;
-    }
-
     let active = true;
+    let pending = false;
+    setLoading(true);
+    setFailed(false);
     const load = async () => {
+      if (pending) return;
+      pending = true;
       try {
-        setLoading(true);
-        const next = await apiFetch<ChartCandle[]>(`/api/stocks/${code}/chart?range=${range}`);
+        let samples: Sample[];
+        if (mode === "line" && range !== "1m" && range !== "1y") {
+          const historyRange = range === "realtime" ? "30m" : range === "1d" ? "24h" : range;
+          const points = await apiFetch<PricePoint[]>(`/api/stocks/${code}/history?range=${historyRange}`);
+          samples = points.map((point) => ({ at: serverTimestamp(point.recordedAt), price: point.price }));
+        } else {
+          const candles = await apiFetch<ChartCandle[]>(`/api/stocks/${code}/chart?range=${range === "realtime" ? "1h" : range}`);
+          samples = candles.map((candle) => ({ at: serverTimestamp(candle.recordedAt), price: candle.closePrice, candle }));
+        }
         if (!active) return;
-        setHistory(next);
+        // A timestamp can occur twice in the same transaction; retain its final recorded price.
+        const unique = new Map(samples.filter((sample) => Number.isFinite(sample.at) && Number.isFinite(sample.price) && sample.price > 0).map((sample) => [sample.at, sample]));
+        setData({ key: dataKey, samples: [...unique.values()].sort((left, right) => left.at - right.at) });
         setFailed(false);
       } catch {
         if (active) setFailed(true);
       } finally {
+        pending = false;
         if (active) setLoading(false);
       }
     };
-
     void load();
-    const timer = window.setInterval(() => void load(), 10_000);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [code, range]);
+    const timer = window.setInterval(() => void load(), range === "realtime" ? 2000 : 10_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [code, mode, range, dataKey]);
 
   if (!quote) return null;
-
-  const realtimeCandle: ChartCandle = {
-    recordedAt: new Date().toISOString(),
-    openPrice: quote.open,
-    highPrice: quote.high,
-    lowPrice: quote.low,
-    closePrice: quote.price,
-    volume: quote.volume,
-  };
-  const candles = range === "realtime" ? [realtimeCandle] : history;
-  const lineValues = range === "realtime" ? quote.series : history.map((item) => item.closePrice);
-  const chartValues = mode === "candle"
-    ? candles.flatMap((item) => [item.openPrice, item.highPrice, item.lowPrice, item.closePrice])
-    : lineValues;
-  const values = chartValues.length > 0 ? chartValues : [quote.price];
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const span = max - min || Math.max(1, max * 0.001);
-  const hi = max + span * 0.08;
-  const lo = min - span * 0.08;
-  const rangeSize = hi - lo;
-  const y = (value: number) => ((hi - value) / rangeSize) * 100;
-  const points = lineValues.map((value, index) => ({
-    x: lineValues.length > 1 ? (index / (lineValues.length - 1)) * 100 : 50,
-    y: y(value),
-  }));
-  const currentValue = mode === "candle" ? candles.at(-1)?.closePrice ?? quote.price : lineValues.at(-1) ?? quote.price;
+  const samples = data.key === dataKey ? data.samples : [];
+  const values = mode === "candle"
+    ? samples.flatMap((sample) => sample.candle ? [sample.candle.openPrice, sample.candle.highPrice, sample.candle.lowPrice, sample.candle.closePrice] : [sample.price])
+    : samples.map((sample) => sample.price);
+  const max = Math.max(...(values.length ? values : [quote.price]));
+  const min = Math.min(...(values.length ? values : [quote.price]));
+  const span = max - min || Math.max(1, max * 0.002);
+  const hi = max + span * 0.18;
+  const lo = min - span * 0.18;
+  const y = (price: number) => ((hi - price) / (hi - lo)) * 100;
+  const firstAt = samples[0]?.at ?? 0;
+  const lastAt = samples.at(-1)?.at ?? firstAt;
+  const x = (at: number) => lastAt > firstAt ? 2 + ((at - firstAt) / (lastAt - firstAt)) * 96 : 50;
+  const points = samples.map((sample) => ({ x: x(sample.at), y: y(sample.price) }));
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(3)} ${point.y.toFixed(3)}`).join(" ");
+  const area = points.length > 1 ? `${path} L ${points.at(-1)!.x} 100 L ${points[0].x} 100 Z` : "";
+  const hoveredIndex = samples.findIndex((sample) => sample.at === hoveredAt);
+  const hovered = samples[hoveredIndex];
+  const currentValue = samples.at(-1)?.price ?? quote.price;
   const prevY = y(quote.prevClose);
-  const showPrev = Math.abs(prevY - y(max)) > 9 && Math.abs(prevY - y(min)) > 9;
-  const rate = sessionRate(quote);
-  const fallbackTone = rate > 0 ? "up" : rate < 0 ? "down" : "flat";
+  const ratio = sessionRate(quote);
+  const chartTone = tone ?? (ratio > 0 ? "up" : ratio < 0 ? "down" : "flat");
+  const rangeLabel = RANGE_OPTIONS.find((option) => option.value === range)?.label;
+
+  const pointAtPointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (!samples.length) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const fraction = Math.max(0, Math.min(1, ((event.clientX - bounds.left) / bounds.width * 100 - 2) / 96));
+    const target = firstAt + fraction * (lastAt - firstAt);
+    let nearest = samples[0];
+    for (const sample of samples) {
+      if (Math.abs(sample.at - target) < Math.abs(nearest.at - target)) nearest = sample;
+    }
+    setHoveredAt(nearest.at);
+  };
 
   return (
-    <figure className={`chart is-${tone ?? fallbackTone}`}>
+    <figure className={`chart stock-series-chart is-${chartTone}`}>
       <div className="chart-toolbar">
-        <div className="chart-control" role="group" aria-label="차트 표현 방식">
-          <span className="chart-control-label">표현</span>
-          {MODE_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`chart-control-button${mode === option.value ? " is-active" : ""}`}
-              aria-pressed={mode === option.value}
-              onClick={() => setMode(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
         <div className="chart-control chart-range-control" role="group" aria-label="차트 기간">
-          <span className="chart-control-label">기간</span>
           {RANGE_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`chart-control-button${range === option.value ? " is-active" : ""}`}
-              aria-pressed={range === option.value}
-              onClick={() => setRange(option.value)}
-            >
-              {option.label}
-            </button>
+            <button key={option.value} type="button" className={`chart-control-button${range === option.value ? " is-active" : ""}`} aria-pressed={range === option.value}
+              onClick={() => { setRange(option.value); setHoveredAt(null); }}>{option.label}</button>
+          ))}
+        </div>
+        <div className="chart-control chart-mode-control" role="group" aria-label="차트 표현 방식">
+          {([ ["line", "선"], ["candle", "캔들"] ] as const).map(([value, label]) => (
+            <button key={value} type="button" className={`chart-control-button${mode === value ? " is-active" : ""}`} aria-pressed={mode === value}
+              onClick={() => { setMode(value); setHoveredAt(null); }}>{label}</button>
           ))}
         </div>
       </div>
-      {loading && <p className="chart-status" role="status">차트 불러오는 중…</p>}
-      {failed && <p className="chart-status is-error" role="status">해당 기간의 차트를 불러오지 못했습니다.</p>}
-      <div className="chart-plot">
-        <svg
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={`${code} ${mode === "line" ? "선형" : "캔들"} 차트. ${RANGE_OPTIONS.find((item) => item.value === range)?.label} 기준 현재가 ${won(currentValue)}`}
-          focusable="false"
-        >
-          <line className="chart-grid" x1="0" x2="100" y1={y(max)} y2={y(max)} vectorEffect="non-scaling-stroke" />
-          <line className="chart-grid" x1="0" x2="100" y1={y(min)} y2={y(min)} vectorEffect="non-scaling-stroke" />
-          <line className="chart-prevclose" x1="0" x2="100" y1={prevY} y2={prevY} vectorEffect="non-scaling-stroke" />
-          {mode === "line" ? (
-            <>
-              <path className="chart-line" d={smoothPath(points)} vectorEffect="non-scaling-stroke" />
-              {points.length === 1 && <circle className="chart-point" cx={points[0].x} cy={points[0].y} r="1.8" vectorEffect="non-scaling-stroke" />}
-              {points.length > 1 && <circle className="chart-point" cx={points.at(-1)?.x} cy={points.at(-1)?.y} r="1.8" vectorEffect="non-scaling-stroke" />}
-            </>
-          ) : (
-            candles.map((item, index) => {
-              const x = candles.length > 1 ? (index / (candles.length - 1)) * 100 : 50;
-              const openY = y(item.openPrice);
-              const closeY = y(item.closePrice);
-              const bodyTop = Math.min(openY, closeY);
-              const bodyHeight = Math.max(1.2, Math.abs(closeY - openY));
-              const width = Math.max(0.7, Math.min(3.2, 72 / Math.max(1, candles.length)));
-              const rising = item.closePrice >= item.openPrice;
-              return (
-                <g key={`${item.recordedAt}-${index}`} className={`chart-candle ${rising ? "is-up" : "is-down"}`}>
-                  <line className="chart-candle-wick" x1={x} x2={x} y1={y(item.highPrice)} y2={y(item.lowPrice)} vectorEffect="non-scaling-stroke" />
-                  <rect className="chart-candle-body" x={x - width / 2} y={bodyTop} width={width} height={bodyHeight} />
-                </g>
-              );
-            })
-          )}
-        </svg>
-        <span className="chart-tick" style={{ top: `${y(max)}%` }}>{won(max)}</span>
-        {showPrev && <span className="chart-tick is-prev" style={{ top: `${prevY}%` }}>전일 {won(quote.prevClose)}</span>}
-        <span className="chart-tick is-bottom" style={{ top: `${y(min)}%` }}>{won(min)}</span>
-        <span className="chart-current" style={{ top: `${y(currentValue)}%` }}>{won(currentValue)}</span>
+      <div className="chart-readout" aria-live="off">
+        {hovered ? (
+          <div className="chart-hover-readout" role="tooltip">
+            <time className="num" dateTime={new Date(hovered.at).toISOString()}>{timeFormatter.format(hovered.at)}</time>
+            <strong className="num">{won(hovered.price)}</strong>
+            {mode === "candle" && hovered.candle && <span className="chart-hover-ohlc num">시가 {won(hovered.candle.openPrice)} · 고가 {won(hovered.candle.highPrice)} · 저가 {won(hovered.candle.lowPrice)}</span>}
+          </div>
+        ) : <p className="chart-status" role="status">{loading ? "차트 불러오는 중…" : failed ? "가격 기록을 불러오지 못했습니다." : samples.length ? "차트에 마우스를 올리거나 터치하면 당시 가격을 볼 수 있어요." : "이 기간에 저장된 가격 기록이 없습니다."}</p>}
       </div>
+      <div className="chart-plot">
+        <div className="chart-canvas" role="group" aria-label={`${code} 가격 차트 탐색`} tabIndex={samples.length ? 0 : -1}
+          onPointerMove={pointAtPointer} onPointerDown={pointAtPointer}
+          onPointerLeave={(event) => { if (event.pointerType === "mouse") setHoveredAt(null); }}
+          onFocus={() => setHoveredAt((current) => current ?? samples.at(-1)?.at ?? null)} onBlur={() => setHoveredAt(null)}
+          onKeyDown={(event) => {
+            if (!samples.length) return;
+            const current = hoveredIndex < 0 ? samples.length - 1 : hoveredIndex;
+            let next = current;
+            if (event.key === "ArrowLeft") next = Math.max(0, current - 1);
+            else if (event.key === "ArrowRight") next = Math.min(samples.length - 1, current + 1);
+            else if (event.key === "Home") next = 0;
+            else if (event.key === "End") next = samples.length - 1;
+            else if (event.key === "Escape") { setHoveredAt(null); return; }
+            else return;
+            event.preventDefault(); setHoveredAt(samples[next].at);
+          }}>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`${code} ${mode === "line" ? "선형" : "캔들"} 차트. ${rangeLabel} 기준 마지막 기록 ${won(currentValue)}`} focusable="false">
+            <defs><linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="currentColor" stopOpacity="0.12" /><stop offset="100%" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
+            {prevY >= 0 && prevY <= 100 && <line className="chart-prevclose" x1="0" x2="100" y1={prevY} y2={prevY} vectorEffect="non-scaling-stroke" />}
+            {mode === "line" ? <>
+              {area && <path d={area} fill={`url(#${gradientId})`} />}
+              <path className="chart-line" d={path} vectorEffect="non-scaling-stroke" />
+            </> : samples.map((sample) => {
+              const candle = sample.candle;
+              if (!candle) return null;
+              const bodyTop = Math.min(y(candle.openPrice), y(candle.closePrice));
+              const width = Math.max(0.25, Math.min(2.5, 65 / Math.max(1, samples.length)));
+              return <g key={sample.at} className={`chart-candle ${candle.closePrice >= candle.openPrice ? "is-up" : "is-down"}`}>
+                <line className="chart-candle-wick" x1={x(sample.at)} x2={x(sample.at)} y1={y(candle.highPrice)} y2={y(candle.lowPrice)} vectorEffect="non-scaling-stroke" />
+                <rect className="chart-candle-body" x={x(sample.at) - width / 2} y={bodyTop} width={width} height={Math.max(0.35, Math.abs(y(candle.closePrice) - y(candle.openPrice)))} />
+              </g>;
+            })}
+          </svg>
+          {samples.length > 0 && <>
+            <span className="chart-extreme is-high" style={{top:`${y(max)}%`}}>최고 {won(max)}</span>
+            {max !== min && <span className="chart-extreme is-low" style={{top:`${y(min)}%`}}>최저 {won(min)}</span>}
+            <span className="chart-last-dot" style={{left:`${x(lastAt)}%`,top:`${y(currentValue)}%`}} />
+          </>}
+          {hovered && <>
+            <span className="chart-crosshair" style={{left:`${x(hovered.at)}%`}} />
+            <span className="chart-hover-dot" style={{left:`${x(hovered.at)}%`,top:`${y(hovered.price)}%`}} />
+          </>}
+        </div>
+        {samples.length > 0 && <span className="chart-current" style={{top:`${y(currentValue)}%`}}>{won(currentValue)}</span>}
+      </div>
+      <div className="chart-timeline num" aria-hidden="true"><span>{samples.length ? axisFormatter.format(firstAt) : ""}</span><span>{samples.length > 1 ? axisFormatter.format(lastAt) : ""}</span></div>
       <table className="vh">
-        <caption>{`${code} ${RANGE_OPTIONS.find((item) => item.value === range)?.label} ${mode === "line" ? "선형" : "캔들"} 차트 요약`}</caption>
+        <caption>{`${code} ${rangeLabel} ${mode === "line" ? "선형" : "캔들"} 차트 요약`}</caption>
         <tbody>
           <tr><th scope="row">기간 최고</th><td>{won(max)}</td></tr>
           <tr><th scope="row">기간 최저</th><td>{won(min)}</td></tr>
           <tr><th scope="row">전일 종가</th><td>{won(quote.prevClose)}</td></tr>
-          <tr><th scope="row">현재가</th><td>{won(currentValue)}</td></tr>
-          <tr><th scope="row">세션 등락률</th><td>{indexValue(rate * 100)}%</td></tr>
+          <tr><th scope="row">마지막 기록</th><td>{won(currentValue)}</td></tr>
+          <tr><th scope="row">세션 등락률</th><td>{indexValue(ratio * 100)}%</td></tr>
         </tbody>
       </table>
     </figure>

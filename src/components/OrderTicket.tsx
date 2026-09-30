@@ -9,10 +9,10 @@ const RATIOS = [
   { label: "50%", ratio: 0.5 },
 ];
 
-export function OrderTicket({ code, selectedLimitPrice }: { code: string; selectedLimitPrice?: number | null }) {
+export function OrderTicket({ code, initialSide = "buy", selectedLimitPrice }: { code: string; initialSide?: "buy" | "sell"; selectedLimitPrice?: number | null }) {
   const snapshot = useMarket();
   const api = useMarketApi();
-  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [side, setSide] = useState<"buy" | "sell">(initialSide);
   const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("MARKET");
   const [limitPrice, setLimitPrice] = useState("");
   const [qty, setQty] = useState("");

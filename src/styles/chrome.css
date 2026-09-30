@@ -149,8 +149,8 @@
     position: sticky;
     top: 0;
     z-index: 20;
-    padding: 8px 0;
-    background: color-mix(in oklab, var(--canvas) 88%, transparent);
+    background: color-mix(in oklab, var(--paper) 94%, transparent);
+    border-bottom: 1px solid var(--rule);
     backdrop-filter: blur(14px);
   }
 
@@ -159,14 +159,8 @@
     align-items: center;
     gap: var(--space-5);
     width: 100%;
-    max-width: var(--page);
-    margin: 0 auto;
-    padding: 0 var(--space-5);
+    padding: 0 var(--space-4);
     height: var(--bar);
-    background: color-mix(in oklab, var(--paper) 94%, var(--brand-wash));
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
   }
 
   .brand {
@@ -221,6 +215,7 @@
     align-items: center;
     gap: var(--space-2);
     margin-left: auto;
+    flex: 0 0 auto;
   }
 
   .account-button {
@@ -665,6 +660,7 @@
   .topbar-clock {
     font-size: var(--step--1);
     color: var(--ink-muted);
+    white-space: nowrap;
   }
 
   .statusbar {
@@ -738,16 +734,41 @@
     }
 
     .topbar-inner {
-      gap: var(--space-3);
+      gap: var(--space-2);
       height: 48px;
     }
 
-    .topbar-clock {
+    .brand {
+      gap: 6px;
+    }
+
+    .brand-mark {
+      width: 26px;
+      height: 26px;
+    }
+
+    .brand-text {
+      font-size: 14px;
+    }
+
+    .nav {
+      gap: 10px;
+    }
+
+    .nav-link {
+      font-size: 12px;
+    }
+
+    .topbar-clock-label {
       display: none;
     }
 
     .topbar-end {
-      flex: 0 0 auto;
+      gap: 6px;
+    }
+
+    .menu-button {
+      min-width: 54px;
     }
 
     .topbar-end .account {
