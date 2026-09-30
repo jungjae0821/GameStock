@@ -34,8 +34,13 @@ npm start          # dist/ 를 서빙하는 무의존성 Node 서버 (PORT)
 ### 배포
 
 - **Railway 백엔드**: 서비스 루트를 `backend/`로 지정하고 `railway.json`이 해당
-  `pom.xml`을 Maven으로 빌드한 뒤 `target/gamestock-backend-0.1.0.jar`를 실행한다.
+  `pom.xml`을 `mvn -DskipTests clean package`로 새로 빌드한 뒤
+  `target/gamestock-backend-0.1.0.jar`를 실행한다. `backend/target/`의 실행 파일과
+  컴파일 결과는 Git에 올리지 않는다. 이전 실행 파일이 최신 소스 대신 배포되지 않도록
+  매 배포에서 빌드 결과를 비우고 다시 생성한다.
   헬스체크 주소는 `/api/health`다.
+  참여자 봇 4명의 이름은 서버 시작 시 공통 설정값으로 갱신한다. 기존 봇의 자산·주문·거래
+  기록을 유지하며, 배포 후 `/api/ranking`에서 지정한 네 이름이 표시되는지 확인한다.
 - **Firebase Hosting 프론트엔드**: `npm run build` 결과인 `dist/`를 배포한다.
   프론트의 `VITE_API_BASE_URL`은 Railway 백엔드 공개 주소로 지정한다.
 - **프론트엔드 자동 배포**: `.github/workflows/firebase-hosting.yml`이 `main` 브랜치 push마다

@@ -6,4 +6,5 @@ dist
 .env.*
 !.env.example
 backend/secrets/
+backend/target/
 .DS_Store
