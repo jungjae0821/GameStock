@@ -7,9 +7,11 @@
 
   .delta {
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     gap: 4px;
     font-size: var(--step--1);
+    line-height: 1.2;
+    vertical-align: middle;
     white-space: nowrap;
   }
 
@@ -252,11 +254,13 @@
   .watch-button.is-text {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-height: var(--chip-height);
     gap: 4px;
     font-size: var(--step--1);
     color: var(--ink-muted);
     border: 1px solid var(--rule);
-    border-radius: var(--radius);
+    border-radius: var(--radius-xs);
     padding: 3px 8px;
   }
 
@@ -464,7 +468,7 @@
   .mover-title {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-2);
     padding-bottom: 5px;
     border-bottom: 1px solid var(--rule);
     font-size: var(--step-0);
@@ -592,7 +596,7 @@
     padding: 0 8px;
     background: var(--paper);
     border: 1px solid var(--rule);
-    border-radius: var(--radius);
+    border-radius: var(--radius-xs);
     font-size: var(--step-0);
   }
 
@@ -729,6 +733,7 @@
     }
 
     .watch-button.is-text {
+      display: inline-flex;
       min-width: 0;
       min-height: 34px;
     }

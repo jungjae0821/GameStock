@@ -1,4 +1,3 @@
-import { Chip } from "./Chip";
 import { Delta } from "./Delta";
 import { Panel } from "./Panel";
 import { PriceCell } from "./PriceCell";
@@ -10,7 +9,6 @@ import { totals } from "../market/selectors";
 export function PortfolioStrip() {
   const snapshot = useMarket();
   const money = totals(snapshot);
-  const tone = money.pnl > 0 ? "up" : money.pnl < 0 ? "down" : "flat";
 
   return (
     <Panel
@@ -40,9 +38,7 @@ export function PortfolioStrip() {
         <div className="portfolio-cell">
           <dt>평가 손익</dt>
           <dd>
-            <Chip tone={tone}>
-              <Delta change={money.pnl} ratio={money.pnlRate} />
-            </Chip>
+            <Delta change={money.pnl} ratio={money.pnlRate} />
           </dd>
           <p className="portfolio-note num">수익률 {rate(money.pnlRate)}</p>
         </div>

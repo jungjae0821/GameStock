@@ -5,7 +5,7 @@ import { clock } from "../market/format";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
 import { onAuthStateChanged, signInWithCustomToken, signInWithPopup, signOut, type User } from "firebase/auth";
 import { apiFetch } from "../lib/api";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
 
 const NAV = [
@@ -106,7 +106,7 @@ export function Topbar({ route }: { route: Route }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const completeMobileHandoff = async () => {
+  const completeMobileHandoff = useCallback(async () => {
     if (!mobileReturnUri || !mobileAuthState || !firebaseAuth.currentUser) return;
     const result = await apiFetch<{ code: string }>("/api/auth/mobile/issue", {
       method: "POST",
@@ -116,9 +116,9 @@ export function Topbar({ route }: { route: Route }) {
     callback.searchParams.set("code", result.code);
     callback.searchParams.set("state", mobileAuthState);
     window.location.replace(callback.toString());
-  };
+  }, [mobileReturnUri, mobileAuthState]);
 
-  const login = async () => {
+  const login = useCallback(async () => {
     setBusy(true);
     try {
       if (window.ReactNativeWebView) {
@@ -130,7 +130,16 @@ export function Topbar({ route }: { route: Route }) {
     } finally {
       if (!window.ReactNativeWebView) setBusy(false);
     }
-  };
+  }, [completeMobileHandoff]);
+
+  useEffect(() => {
+    const handleLoginRequest = () => {
+      if (firebaseAuth.currentUser || busy) return;
+      void login().catch(() => undefined);
+    };
+    window.addEventListener("gamestock-request-login", handleLoginRequest);
+    return () => window.removeEventListener("gamestock-request-login", handleLoginRequest);
+  }, [busy, login]);
 
   const loadTemperature = async () => {
     try {
@@ -203,7 +212,10 @@ export function Topbar({ route }: { route: Route }) {
               aria-haspopup="menu"
               onClick={() => setMenuOpen((open) => !open)}
             >
-              메뉴 <span aria-hidden="true">⌄</span>
+              <span>메뉴</span>
+              <svg className="menu-chevron" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                <path d="M3 4.5 6 7.5 9 4.5" />
+              </svg>
             </button>
             {menuOpen && (
               <div className="menu-panel" role="menu" aria-label="부가 기능">

@@ -1,6 +1,21 @@
 @layer component {
   .news-filters {
     align-items: flex-start;
+    border: 0;
+    border-bottom: 1px solid var(--rule);
+    border-radius: 0;
+    padding-inline: var(--space-3);
+  }
+
+  .news-main > .panel {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .news-main > .panel > .panel-head {
+    padding-inline: var(--space-3);
+    background: var(--paper);
   }
 
   .news-filters .control-group {
@@ -58,7 +73,6 @@
 
   .news-game {
     gap: 6px;
-    padding: 3px 6px;
   }
 
   .news-effect {

@@ -64,12 +64,17 @@
   .chip {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: var(--chip-height);
     gap: 3px;
-    padding: 1px 6px;
+    padding: 2px 8px;
     border: 1px solid transparent;
     border-radius: var(--radius-pill);
     font-size: var(--step--1);
+    line-height: 1.2;
     font-variant-numeric: tabular-nums;
+    vertical-align: middle;
     white-space: nowrap;
   }
 

@@ -12,7 +12,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    min-height: 28px;
+    min-height: var(--chip-height);
     padding: 3px 8px;
     border: 1px solid var(--notice-rule);
     border-radius: 6px;

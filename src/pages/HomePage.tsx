@@ -31,17 +31,9 @@ export function HomePage() {
       <h1 className="vh">씹덕주식 홈</h1>
       <PortfolioStrip />
 
-      <div className="split home-insight-row">
+      <div className="split home-layout">
         <div className="split-main">
           <GameIndexBoard />
-        </div>
-        <div className="split-side">
-          <MissionBoard />
-        </div>
-      </div>
-
-      <div className="split">
-        <div className="split-main">
           <Panel
             id="home-market"
             title="시세표"
@@ -63,6 +55,7 @@ export function HomePage() {
           </div>
         </div>
         <div className="split-side">
+          <MissionBoard />
           <Panel
             id="home-news"
             title="뉴스"

@@ -225,19 +225,26 @@
   }
 
   .chart-control-label {
+    flex: none;
     margin-right: 4px;
     color: var(--ink-muted);
     font-size: var(--step--1);
+    white-space: nowrap;
   }
 
   .chart-control-button {
-    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-height: var(--chip-height);
     padding: 3px 8px;
     border: 1px solid var(--rule);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-xs);
     background: transparent;
     color: var(--ink-muted);
     font-size: var(--step--1);
+    line-height: 1.2;
     white-space: nowrap;
   }
 

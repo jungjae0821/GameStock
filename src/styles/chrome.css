@@ -34,6 +34,16 @@
     gap: var(--space-4);
   }
 
+  .home-layout {
+    margin-bottom: 0;
+  }
+
+  .home-layout > .split-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
   /* 시세표와 등락 흐름은 한 열에 고정하고, 데이터 수가 바뀌어도 패널이
      갑자기 접히지 않도록 최소 높이를 유지한다. */
   .home-movers {
@@ -67,6 +77,10 @@
   .portfolio-cell dt {
     font-size: var(--step--1);
     color: var(--ink-muted);
+  }
+
+  .portfolio-cell:nth-child(-n + 3) dt {
+    font-size: var(--step-2);
   }
 
   .portfolio-value {
@@ -103,6 +117,10 @@
 }
 
 @layer component {
+  .home-movers .panel-head {
+    padding-inline: var(--space-3);
+  }
+
   .mission-toast {
     position: fixed;
     left: 50%;
@@ -206,13 +224,19 @@
   }
 
   .account-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: var(--chip-height);
     border: 1px solid var(--rule);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-xs);
     background: var(--paper);
     color: var(--ink-muted);
     padding: 4px 8px;
     font: inherit;
     font-size: var(--step--1);
+    line-height: 1;
     cursor: pointer;
   }
 
@@ -227,6 +251,18 @@
 
   .menu-button {
     min-width: 68px;
+  }
+
+  .menu-chevron {
+    display: block;
+    flex: none;
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .menu-panel {
@@ -262,7 +298,8 @@
 
   .menu-item:hover:not(:disabled),
   .menu-item:focus-visible {
-    background: var(--canvas);
+    color: var(--brand-wine);
+    background: var(--brand-wash);
   }
 
   .menu-login {
@@ -490,6 +527,7 @@
 
   .alert-input-row {
     display: flex;
+    align-items: center;
     gap: var(--space-2);
   }
 
@@ -509,6 +547,7 @@
 
   .mypage-form-row {
     display: flex;
+    align-items: center;
     gap: var(--space-2);
   }
 
@@ -527,12 +566,19 @@
   }
 
   .mypage-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    min-height: var(--chip-height);
+    height: var(--chip-height);
     border: 1px solid var(--rule-ink);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-xs);
     padding: 7px 12px;
     background: var(--ink);
     color: var(--paper);
     font-size: var(--step--1);
+    line-height: 1.2;
     white-space: nowrap;
   }
 

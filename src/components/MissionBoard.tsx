@@ -168,7 +168,14 @@ export function MissionBoard() {
                 <p>{mission.description}</p>
               </div>
               {done[id] ? <span className="mission-status">완료</span> : !user ? (
-                <span className="mission-action mission-action-disabled" aria-label="로그인 후 미션 수행 가능">로그인 필요</span>
+                <button
+                  type="button"
+                  className="mission-action"
+                  aria-label={`${mission.title} 수행을 위해 로그인`}
+                  onClick={() => window.dispatchEvent(new Event("gamestock-request-login"))}
+                >
+                  로그인 필요
+                </button>
               ) : pending.has(id) || !ready ? (
                 <span className="mission-action mission-action-disabled">{pending.has(id) ? "지급 중…" : "확인 중…"}</span>
               ) : (

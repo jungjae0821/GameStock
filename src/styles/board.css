@@ -41,10 +41,15 @@
   }
 
   .sector-leader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-top: var(--space-2);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+
+  .sector-leader a {
+    display: inline-flex;
+    align-items: center;
   }
 
   .mission-reset-note {

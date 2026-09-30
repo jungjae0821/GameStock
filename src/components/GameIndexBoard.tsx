@@ -1,7 +1,8 @@
 import { Panel } from "./Panel";
 import { Link } from "./Link";
-import { Chip, rateTone } from "./Chip";
-import { rate, shares, trendArrow } from "../market/format";
+import { Delta } from "./Delta";
+import { GameIcon } from "./GameIcon";
+import { shares } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { LISTING_BY_CODE } from "../market/universe";
 import { sessionRate } from "../market/selectors";
@@ -47,14 +48,18 @@ export function GameIndexBoard() {
               <span className="sector-count num">{sector.codes.length}종목</span>
             </div>
             <div className="sector-value">
-              <Chip tone={rateTone(sector.rate)}>
-                <span aria-hidden="true">{trendArrow(sector.rate)}</span>
-                <span className="num">{rate(sector.rate)}</span>
-              </Chip>
+              <Delta change={sector.rate} ratio={sector.rate} showAmount={false} />
               <span className="sector-volume num">{shares(sector.volume)}</span>
             </div>
             <p className="sector-leader">
-              거래량 상위 <Link to={`/market/${sector.leader}`}>{LISTING_BY_CODE[sector.leader]?.name ?? sector.leader}</Link>
+              거래량 상위
+              <Link
+                to={`/market/${sector.leader}`}
+                aria-label={`${LISTING_BY_CODE[sector.leader]?.name ?? sector.leader} 종목 보기`}
+                title={LISTING_BY_CODE[sector.leader]?.name ?? sector.leader}
+              >
+                <GameIcon code={sector.leader} name={LISTING_BY_CODE[sector.leader]?.name ?? sector.leader} size="news" />
+              </Link>
             </p>
           </article>
         ))}

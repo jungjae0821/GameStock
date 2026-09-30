@@ -1,8 +1,7 @@
-import { Chip, rateTone } from "./Chip";
+import { Delta } from "./Delta";
 import { Link } from "./Link";
 import { PriceCell } from "./PriceCell";
 import { RestrictionBadge } from "./RestrictionBadge";
-import { rate, trendArrow } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { movers, sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
@@ -54,10 +53,7 @@ export function MoverBoard() {
                   <span className="mover-price">
                     <PriceCell className="num" value={quote.price} />
                   </span>
-                  <Chip tone={rateTone(ratio)}>
-                    <span aria-hidden="true">{trendArrow(ratio)}</span>
-                    <span className="num">{rate(ratio)}</span>
-                  </Chip>
+                  <Delta change={ratio} ratio={ratio} showAmount={false} />
                 </Link>
                 <RestrictionBadge code={code} />
               </li>
