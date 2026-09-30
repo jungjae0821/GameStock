@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useHeldOrder, useHoldWhilePointing } from "../lib/useHeldOrder";
 import { Panel } from "../components/Panel";
+import { Link } from "../components/Link";
 import { QuoteTable } from "../components/QuoteTable";
 import { StockDetail } from "../components/StockDetail";
 import { StockChartPanel } from "../components/StockChartPanel";
@@ -24,7 +25,7 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
   const [view, setView] = useState<View>("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: "volume", direction: "desc" });
-  const [selectedLimitPrice, setSelectedLimitPrice] = useState<number | null>(null);
+  const [limitSelection, setLimitSelection] = useState<{ code: string; price: number } | null>(null);
 
   const matches = (code: string): boolean => {
     const quote = snapshot.quotes[code];
@@ -59,6 +60,44 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
         : { key, direction: key === "name" ? "asc" : "desc" },
     );
   };
+
+  if (ticker) {
+    const listing = LISTING_BY_CODE[ticker];
+    const quote = snapshot.quotes[ticker];
+
+    return (
+      <div className="page-stack">
+        <h1 className="vh">{listing?.name ?? ticker} 종목 상세</h1>
+        <div className="page-title">
+          <Link className="text-button" to="/market">
+            <span aria-hidden="true">← </span>전체 종목
+          </Link>
+        </div>
+
+        {listing && quote ? (
+          <div className="market-layout has-detail">
+            <div className="market-left-column">
+              <aside className="market-detail-chart" aria-label="가격 차트">
+                <StockChartPanel key={ticker} code={ticker} />
+              </aside>
+            </div>
+            <aside className="market-detail" aria-label="종목 상세">
+              <StockDetail
+                key={ticker}
+                code={ticker}
+                selectedLimitPrice={limitSelection?.code === ticker ? limitSelection.price : null}
+                onPriceSelect={(price) => setLimitSelection({ code: ticker, price })}
+              />
+            </aside>
+          </div>
+        ) : (
+          <Panel id="stock-not-found" title="종목을 찾을 수 없습니다">
+            <p className="empty is-inline">상장 목록에 없는 종목입니다.</p>
+          </Panel>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="page-stack">
@@ -96,7 +135,7 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
         </div>
       </div>
 
-      <div className={`market-layout${ticker ? " has-detail" : ""}`}>
+      <div className="market-layout">
         <div className="market-left-column">
           <div className="market-list" {...holdHandlers}>
             {codes.length === 0 ? (
@@ -125,7 +164,6 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
                 <QuoteTable
                   codes={codes}
                   caption="상장 종목 시세"
-                  selected={ticker}
                   onSelect={(code) => navigate(`/market/${code}`)}
                   onToggleWatch
                   sort={sort}
@@ -134,19 +172,7 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
               </Panel>
             )}
           </div>
-
-          {ticker && (
-            <aside className="market-detail-chart" aria-label="가격 차트">
-              <StockChartPanel code={ticker} />
-            </aside>
-          )}
         </div>
-
-        {ticker && (
-          <aside className="market-detail" aria-label="종목 상세">
-            <StockDetail code={ticker} selectedLimitPrice={selectedLimitPrice} onPriceSelect={setSelectedLimitPrice} />
-          </aside>
-        )}
       </div>
     </div>
   );
