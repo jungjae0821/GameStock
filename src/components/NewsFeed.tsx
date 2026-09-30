@@ -1,5 +1,6 @@
 import { Chip, rateTone } from "./Chip";
 import { Link } from "./Link";
+import { RestrictionBadge } from "./RestrictionBadge";
 import { dayLabel, kstDateTime, rate, trendArrow } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { newsEffect, sessionRate } from "../market/selectors";
@@ -89,6 +90,7 @@ function NewsRow({ item }: { item: NewsItem }) {
           </span>
           <span className="news-listing">{listing?.name ?? item.code}</span>
         </Chip>
+        <RestrictionBadge code={item.code} />
         <Chip tone={rateTone(ratio)}>
           <span aria-hidden="true">{trendArrow(ratio)}</span>
           <span className="num">{rate(ratio)}</span>

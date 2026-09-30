@@ -1,3 +1,11 @@
+export interface DailyMissionStatus {
+  /** 보상 지급 여부를 판단하는 한국시간 날짜(YYYY-MM-DD). */
+  missionDate: string;
+  resetsAt: string;
+  serverTime: string;
+  completedMissionIds: string[];
+}
+
 export interface Listing {
   /** 2~3자 종목 코드. 표에서는 모노그램 배지로, URL에서는 식별자로 쓴다. */
   code: string;
@@ -26,15 +34,30 @@ export interface BookLevel {
   qty: number;
 }
 
-/** 지수: 세션 시작을 1000으로 두고 상장 종목을 거래량 계수로 가중 평균한다. */
+/** 서버 지수: 한국시간 거래일 기준 1000, 전체 종목 수익률을 동일가중 평균한다. */
 export interface MarketIndex {
   value: number;
   prevClose: number;
   series: number[];
+  tradingDate?: string;
+}
+
+export interface TradingRestriction {
+  kind: "DYNAMIC_VI" | "STATIC_VI" | "CIRCUIT_BREAKER";
+  label: string;
+  phase: "AUCTION" | "HALTED" | "CLOSED";
+  level: number;
+  reason: string;
+  effect: string;
+  startedAt: string;
+  endsAt: string;
+  limitOrdersAllowed: boolean;
+  marketOrdersAllowed: boolean;
 }
 
 export interface Quote {
   code: string;
+  restriction?: TradingRestriction | null;
   price: number;
   prevClose: number;
   open: number;

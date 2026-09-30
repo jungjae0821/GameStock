@@ -9,7 +9,15 @@ import java.util.List;
 public final class MarketModels {
     private MarketModels() { }
 
-    public record Stock(String code, String name, String genre, long price, double changePercent, long volume) { }
+    public record Stock(String code, String name, String genre, long price, double changePercent, long volume,
+                        TradingRestriction restriction) {
+        public Stock(String code, String name, String genre, long price, double changePercent, long volume) {
+            this(code, name, genre, price, changePercent, volume, null);
+        }
+    }
+    public record TradingRestriction(String kind, String label, String phase, int level, String reason,
+                                     String effect, String startedAt, String endsAt,
+                                     boolean limitOrdersAllowed, boolean marketOrdersAllowed) { }
     /**
      * cash is immediately available cash. The unsettled fields remain in the
      * response for client compatibility, but immediate settlement keeps them at
@@ -52,7 +60,10 @@ public final class MarketModels {
         }
     }
     public record MarketSnapshot(List<Stock> stocks, Portfolio portfolio, List<MarketEvent> events) { }
-    public record MissionRewardResult(long rewardCash, boolean awarded, Portfolio portfolio) { }
+    public record DailyMissionStatus(String missionDate, String resetsAt, String serverTime,
+                                     List<String> completedMissionIds) { }
+    public record MissionRewardResult(long rewardCash, boolean awarded, Portfolio portfolio,
+                                      DailyMissionStatus missions) { }
     public record OrderRequest(@NotBlank String stockCode, @NotBlank String side, @Min(1) @Max(1000) int quantity, String orderType, Long price) { }
     public record OrderResult(String message, String stockCode, String side, int quantity, long price,
                               String status, Portfolio portfolio, long fee, String settlementStatus,
@@ -94,7 +105,8 @@ public final class MarketModels {
     /** Daily open/close/volume summary. High/low are intentionally omitted per README scope. */
     public record DailyCandle(String stockCode, String tradingDate, long openPrice, long closePrice,
                               long volume) { }
-    public record MarketStatus(boolean open, String session, String timezone, String message) { }
+    public record MarketStatus(boolean open, String session, String timezone, String message,
+                               TradingRestriction restriction, double indexValue, String tradingDate) { }
     public record SettlementEntry(long id, String side, String stockCode, int quantity, long grossAmount,
                                   long fee, long netAmount, String status, String settlementAt,
                                   String createdAt, boolean cancellable) {

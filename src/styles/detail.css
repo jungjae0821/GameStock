@@ -122,6 +122,11 @@
     grid-row: 1;
   }
 
+  .detail-trade-grid > section[aria-labelledby="detail-holding"] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
   .detail-trade-quotes {
     display: grid;
     grid-column: 1 / -1;
@@ -866,6 +871,7 @@
     }
 
     .detail-trade-grid > section[aria-labelledby="detail-order"],
+    .detail-trade-grid > section[aria-labelledby="detail-holding"],
     .detail-trade-quotes {
       grid-column: auto;
       grid-row: auto;

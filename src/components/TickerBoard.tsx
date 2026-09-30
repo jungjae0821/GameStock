@@ -1,5 +1,6 @@
 import { Link } from "./Link";
 import { PriceCell } from "./PriceCell";
+import { RestrictionBadge } from "./RestrictionBadge";
 import { rate, trendArrow } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
@@ -27,9 +28,13 @@ export function TickerBoard() {
           const ratio = sessionRate(quote);
           const tone = ratio > 0 ? "up" : ratio < 0 ? "down" : "flat";
           return (
-            <li key={code}>
-              <Link className="board-cell" to={`/market/${code}`}>
-                <span className="board-name">{listing.name}</span>
+            <li key={code} className={quote.restriction ? "board-has-restriction" : undefined}>
+              <div className="board-cell">
+                <div className="stock-name-group">
+                  <Link className="board-name" to={`/market/${code}`}>{listing.name}</Link>
+                  <RestrictionBadge code={code} />
+                </div>
+                <Link className="board-value-link" to={`/market/${code}`}>
                 <PriceCell className="board-price num" value={quote.price} motion="digits" />
                 <span className={`board-delta num is-${tone}`}>
                   <span className="board-arrow" aria-hidden="true">
@@ -37,7 +42,8 @@ export function TickerBoard() {
                   </span>
                   {rate(ratio)}
                 </span>
-              </Link>
+                </Link>
+              </div>
             </li>
           );
         })}

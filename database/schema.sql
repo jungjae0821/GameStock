@@ -33,9 +33,10 @@ CREATE TABLE mission_rewards (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   mission_id VARCHAR(40) NOT NULL,
+  rewarded_on DATE NOT NULL,
   reward_cash BIGINT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_mission_reward_user_mission (user_id, mission_id),
+  UNIQUE KEY uq_mission_reward_user_day (user_id, mission_id, rewarded_on),
   CONSTRAINT fk_mission_reward_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -245,4 +246,40 @@ CREATE TABLE news_price_state (
 -- 여러 백엔드 인스턴스가 떠도 주문 매칭 순서를 하나씩 처리하기 위한 DB 행 잠금
 CREATE TABLE market_locks (
   id TINYINT PRIMARY KEY
+);
+
+-- 한국시간 거래일별 VI·서킷브레이커 상태를 서버 재시작 후에도 유지한다.
+CREATE TABLE market_protection_state (
+  id INT PRIMARY KEY,
+  trading_date DATE NOT NULL,
+  phase VARCHAR(16) NOT NULL DEFAULT 'NORMAL',
+  level INT NOT NULL DEFAULT 0,
+  trigger_index DOUBLE NOT NULL DEFAULT 1000,
+  below_since TIMESTAMP NULL,
+  started_at TIMESTAMP NULL,
+  ends_at TIMESTAMP NULL
+);
+
+CREATE TABLE stock_protection_state (
+  stock_id BIGINT PRIMARY KEY,
+  day_reference BIGINT NOT NULL,
+  static_reference BIGINT NOT NULL,
+  dynamic_reference BIGINT NOT NULL,
+  last_trade_price BIGINT NOT NULL,
+  vi_type VARCHAR(24) NULL,
+  started_at TIMESTAMP NULL,
+  ends_at TIMESTAMP NULL,
+  CONSTRAINT fk_protection_stock FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
+);
+
+CREATE TABLE trading_restriction_events (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  stock_id BIGINT NULL,
+  kind VARCHAR(24) NOT NULL,
+  level INT NOT NULL DEFAULT 0,
+  reference_price DOUBLE NOT NULL,
+  trigger_price DOUBLE NOT NULL,
+  started_at TIMESTAMP NOT NULL,
+  ends_at TIMESTAMP NOT NULL,
+  CONSTRAINT fk_restriction_event_stock FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );

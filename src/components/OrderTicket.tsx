@@ -29,6 +29,8 @@ export function OrderTicket({ code, selectedLimitPrice }: { code: string; select
   if (!quote) return null;
 
   const position = snapshot.portfolio.positions[code];
+  const restriction = quote.restriction;
+  const blocked = Boolean(restriction && (orderType === "MARKET" ? !restriction.marketOrdersAllowed : !restriction.limitOrdersAllowed));
   const maxQty = api.orderable(code, side);
   const parsed = Number(qty);
   const valid = Number.isFinite(parsed) && Number.isInteger(parsed) && parsed >= 1;
@@ -63,9 +65,10 @@ export function OrderTicket({ code, selectedLimitPrice }: { code: string; select
       className="ticket"
       onSubmit={(event) => {
         event.preventDefault();
-        if (valid) void submit();
+        if (valid && !blocked && (orderType !== "LIMIT" || validLimitPrice)) void submit();
       }}
     >
+      {restriction && <p className="ticket-restriction" role="status"><strong>{restriction.label}</strong><br />{restriction.effect}</p>}
       <div className="ticket-side" role="group" aria-label="주문 방향">
         {(["buy", "sell"] as const).map((option) => (
           <button
@@ -95,13 +98,14 @@ export function OrderTicket({ code, selectedLimitPrice }: { code: string; select
             type="button"
             className={`side-button is-type${orderType === option ? " is-active" : ""}`}
             aria-pressed={orderType === option}
+            disabled={Boolean(restriction && (option === "MARKET" ? !restriction.marketOrdersAllowed : !restriction.limitOrdersAllowed))}
             onClick={() => {
               setOrderType(option);
               setResult(null);
               if (option === "LIMIT") setLimitPrice(String(suggestedLimit));
             }}
           >
-            {option === "MARKET" ? "시장가 즉시" : "호가 지정가"}
+            {option === "MARKET" ? "시장가 즉시" : restriction?.phase === "AUCTION" ? "단일가 지정가" : "호가 지정가"}
           </button>
         ))}
       </div>
@@ -178,11 +182,11 @@ export function OrderTicket({ code, selectedLimitPrice }: { code: string; select
       </dl>
 
       <p className="ticket-note">
-        {orderType === "MARKET" ? "현재가에 남아 있는 반대 호가부터 즉시 체결됩니다." : "입력한 호가에 도달하면 가격·시간 우선으로 체결됩니다."}
+        {restriction ? restriction.effect : orderType === "MARKET" ? "현재가에 남아 있는 반대 호가부터 즉시 체결됩니다." : "입력한 호가에 도달하면 가격·시간 우선으로 체결됩니다."}
       </p>
 
-      <button type="submit" className={`submit-button is-${side}`} disabled={!valid || (orderType === "LIMIT" && !validLimitPrice)}>
-        {side === "buy" ? "매수 주문" : "매도 주문"}
+      <button type="submit" className={`submit-button is-${side}`} disabled={blocked || !valid || (orderType === "LIMIT" && !validLimitPrice)}>
+        {blocked ? "거래 제한 중" : `${side === "buy" ? "매수" : "매도"} ${restriction?.phase === "AUCTION" ? "단일가 접수" : "주문"}`}
       </button>
 
       <p className={`ticket-message${result && !result.ok ? " is-error" : ""}`} role="status" aria-live="polite">

@@ -2,6 +2,7 @@ import { Chip } from "./Chip";
 import { Link } from "./Link";
 import { Delta } from "./Delta";
 import { PriceCell } from "./PriceCell";
+import { RestrictionBadge } from "./RestrictionBadge";
 import { plainRate, won } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { holdings, totals } from "../market/selectors";
@@ -31,6 +32,7 @@ export function HoldingsTable({ caption }: { caption: string }) {
           {rows.map((row) => (
             <tr key={row.listing.code}>
               <th scope="row" className="cell-name">
+                <div className="stock-name-group">
                 <Link className="name-link" to={`/market/${row.listing.code}`}>
                   <span className="code-badge" aria-hidden="true">
                     {row.listing.code}
@@ -42,6 +44,8 @@ export function HoldingsTable({ caption }: { caption: string }) {
                     </span>
                   </span>
                 </Link>
+                <RestrictionBadge code={row.listing.code} />
+                </div>
               </th>
               <td className="num">{row.position.qty}주</td>
               <td className="num">{won(row.position.avgCost)}</td>

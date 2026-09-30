@@ -8,6 +8,7 @@ C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\environment\HanRiverTemperatureController.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\environment\HanRiverTemperatureService.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\GameStockBackendApplication.java
+C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\BotTradingScheduler.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\MarketChangedEvent.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\MarketController.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\MarketModels.java
@@ -15,6 +16,7 @@ C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\NewsFeedService.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\NewsRelevance.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\PriceLimitPolicy.java
+C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\TradingProtectionService.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\UserFeatureModels.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\market\UserFeatureService.java
 C:\Users\wizju\Desktop\학교 수업\3학년\2학기\GameStock\backend\src\main\java\com\gamestock\backend\realtime\MarketSocketHandler.java

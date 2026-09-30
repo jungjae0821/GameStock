@@ -1,6 +1,7 @@
 import { Chip, rateTone } from "./Chip";
 import { Link } from "./Link";
 import { PriceCell } from "./PriceCell";
+import { RestrictionBadge } from "./RestrictionBadge";
 import { rate, trendArrow } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { movers, sessionRate } from "../market/selectors";
@@ -58,6 +59,7 @@ export function MoverBoard() {
                     <span className="num">{rate(ratio)}</span>
                   </Chip>
                 </Link>
+                <RestrictionBadge code={code} />
               </li>
             );
           })}

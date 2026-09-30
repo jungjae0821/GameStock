@@ -8,6 +8,7 @@ import { OrderBook } from "./OrderBook";
 import { Panel } from "./Panel";
 import { PriceCell } from "./PriceCell";
 import { TradePrints } from "./TradePrints";
+import { RestrictionBadge } from "./RestrictionBadge";
 import { rate, trendArrow, won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
@@ -46,9 +47,11 @@ export function StockDetail({ code, selectedLimitPrice, onPriceSelect }: { code:
         <div className="detail-ident">
           <GameIcon code={listing.code} name={listing.name} />
           <div>
-            <h2 id="detail-name" className="detail-name">
+            <div className="stock-name-group"><h2 id="detail-name" className="detail-name">
               {listing.name}
             </h2>
+            <RestrictionBadge code={code} />
+            </div>
             <p className="detail-sub">
               {listing.genre} · {listing.publisher} · {listing.code}
             </p>

@@ -1,6 +1,11 @@
 spring:
   application:
     name: gamestock-backend
+  task:
+    scheduling:
+      # 외부 RSS·X·수온 조회가 VI·서킷브레이커의 자동 재개를 막지 않게 한다.
+      pool:
+        size: 4
   datasource:
     # Railway에서는 DB_URL을 지정하거나 MYSQLHOST/MYSQLPORT/MYSQLDATABASE를
     # 서비스 변수로 연결한다. 값이 없으면 기존 로컬 MySQL로 접속한다.

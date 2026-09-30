@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NewsFeed } from "../components/NewsFeed";
 import { Panel } from "../components/Panel";
+import { RestrictionBadge } from "../components/RestrictionBadge";
 import { tickLabel } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { LISTING_BY_CODE } from "../market/universe";
@@ -63,6 +64,7 @@ export function NewsPage() {
                     <span className="rail-name">{LISTING_BY_CODE[item]?.name ?? item}</span>
                     <span className="rail-count num">{counts.get(item) ?? 0}</span>
                   </button>
+                  <RestrictionBadge code={item} />
                 </li>
               ))}
             </ul>

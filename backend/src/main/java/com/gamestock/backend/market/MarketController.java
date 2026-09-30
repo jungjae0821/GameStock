@@ -30,6 +30,10 @@ public class MarketController {
         return market.stockNews(stockCode);
     }
     @GetMapping("/portfolio") public Portfolio portfolio(@RequestHeader(value = "Authorization", required = false) String authorization) { return market.portfolio(auth.requireUser(authorization).id()); }
+    @GetMapping("/missions")
+    public DailyMissionStatus missions(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        return market.dailyMissions(auth.requireUser(authorization).id());
+    }
     @PostMapping("/missions/{missionId}/reward")
     public MissionRewardResult missionReward(@PathVariable String missionId,
                                               @RequestHeader(value = "Authorization", required = false) String authorization) {

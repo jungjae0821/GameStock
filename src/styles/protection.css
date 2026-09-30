@@ -1,0 +1,56 @@
+@layer component {
+  .stock-name-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .stock-name-group > .name-link { flex: 1; min-width: 0; }
+  .restriction-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-height: 28px;
+    padding: 3px 8px;
+    border: 1px solid var(--notice-rule);
+    border-radius: 6px;
+    background: var(--notice-bg);
+    color: var(--notice-ink);
+    font: 700 11px/1.3 var(--font-ui);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .restriction-badge.is-circuit {
+    border-color: var(--up-deep);
+    background: var(--up-wash);
+    color: var(--up-deep);
+  }
+  .restriction-badge:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .restriction-popover {
+    position: fixed;
+    z-index: 1800;
+    width: min(340px, calc(100vw - 16px));
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    padding: 16px;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: var(--shadow-float);
+    font: 400 13px/1.6 var(--font-ui);
+    white-space: normal;
+    text-align: left;
+  }
+  .restriction-popover-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .restriction-popover-head > button { flex-shrink: 0; width: 34px; height: 34px; font-size: 23px; }
+  .restriction-popover p { margin-top: 10px; overflow-wrap: anywhere; }
+  .restriction-countdown { font-weight: 700; color: var(--notice-ink); font-variant-numeric: tabular-nums; }
+  .restriction-time { color: var(--ink-muted); font-size: 12px; }
+  .ticket-restriction { margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--notice-rule); border-radius: 8px; background: var(--notice-bg); color: var(--notice-ink); line-height: 1.5; }
+  .board-value-link { display: flex; flex-direction: column; gap: 2px; text-decoration: none; }
+  .board-cell .stock-name-group { gap: 4px; }
+  @media (pointer: coarse) { .restriction-badge { min-height: 34px; } }
+}

@@ -3,6 +3,7 @@ import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { PriceCell } from "./PriceCell";
 import { Sparkline } from "./Sparkline";
+import { RestrictionBadge } from "./RestrictionBadge";
 import { rate, shares, trendArrow } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
@@ -143,6 +144,7 @@ function QuoteRow({ code, selected, onSelect, showWatch, volumeScale, chartSerie
         </td>
       )}
       <th scope="row" className="cell-name">
+        <div className="stock-name-group">
         <Link
           className="name-link"
           to={`/market/${code}`}
@@ -160,6 +162,8 @@ function QuoteRow({ code, selected, onSelect, showWatch, volumeScale, chartSerie
             </span>
           </span>
         </Link>
+        <RestrictionBadge code={code} />
+        </div>
       </th>
       <td className="cell-price">
         <PriceCell className="num" value={quote.price} />

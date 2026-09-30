@@ -22,6 +22,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.time.Instant;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Random;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -34,6 +36,7 @@ import static com.gamestock.backend.market.PriceLimitPolicy.*;
 public class MarketService {
     private static final Logger log = LoggerFactory.getLogger(MarketService.class);
     private static final long STARTING_CASH = 1_000_000L;
+    private static final ZoneId MISSION_ZONE = ZoneId.of("Asia/Seoul");
     private static final Map<String, Long> MISSION_REWARDS = Map.of(
             "market", 10_000L,
             "news", 10_000L,
@@ -62,21 +65,33 @@ public class MarketService {
     /** Twenty-four-hour aggregate news influence limits. */
     private static final double NEWS_24H_BASE_RATE = 0.05;
     private static final double NEWS_24H_SPECIAL_RATE = 0.10;
-    /** Occasionally let one bot submit a liquidity-sized order so the tape has
-     * natural bursts. Quantity follows recent volume rather than a fixed cap. */
+    /** Occasionally let one bot submit a larger liquidity-sized order so the
+     * tape has natural bursts without allowing an unbounded quantity. */
     private static final double BOT_BURST_PROBABILITY = 0.04;
-    private static final double BOT_NORMAL_VOLUME_PARTICIPATION = 0.07;
-    private static final double BOT_BURST_VOLUME_PARTICIPATION = 0.18;
+    /** Keep bot quotes visible without letting bot volume feed back into huge orders. */
+    private static final double BOT_NORMAL_VOLUME_PARTICIPATION = 0.02;
+    private static final double BOT_BURST_VOLUME_PARTICIPATION = 0.06;
+    private static final int BOT_NORMAL_ORDER_MAX = 900;
+    private static final int BOT_BURST_ORDER_MAX = 1_800;
     private static final int BOT_INITIAL_INVENTORY = 400;
-    /** A quiet tick makes the tape breathe instead of printing on a metronome. */
-    private static final double BOT_ACTIVE_TICK_PROBABILITY = 0.78;
-    /** Most ticks touch one listing; a smaller share creates cross-market flow. */
-    private static final double BOT_SECOND_LISTING_PROBABILITY = 0.18;
+    /** A bot can choose to wait instead of submitting an order at every decision time. */
+    private static final double BOT_ACTIVE_ACTION_PROBABILITY = 0.78;
     private static final double BOT_LIMIT_ORDER_PROBABILITY = 0.82;
     /** Scores are produced by NewsFeedService's -10..+10 classifier. */
     private static final double NEWS_SPECIAL_IMPACT_THRESHOLD = 6.0;
     private static final double NEWS_MAJOR_INCIDENT_IMPACT_THRESHOLD = -8.0;
-    private static final int MAX_BOT_OPEN_ORDERS_PER_SIDE = 40;
+    private static final int MAX_BOT_OPEN_ORDERS_PER_SIDE = 14;
+    private static final int BOT_ORDER_LIFETIME_MINUTES = 20;
+    /** Human-like participant bots use the normal user order path and ranking. */
+    private static final String TRADER_BOT_PASSWORD = "TRADER";
+    private static final long TRADER_BOT_STARTING_CASH = 1_000_000L;
+    private static final int TRADER_BOT_MAX_OPEN_ORDERS = 3;
+    private static final int TRADER_BOT_MAX_ORDER_QUANTITY = 50;
+    private static final List<TraderBotProfile> TRADER_BOT_PROFILES = List.of(
+            new TraderBotProfile("trader_bot_01", "주식하는 슈엔", TraderStyle.MOMENTUM),
+            new TraderBotProfile("trader_bot_02", "고점에 물린 드레이크", TraderStyle.CONTRARIAN),
+            new TraderBotProfile("trader_bot_03", "물타기 실패한 라플라스", TraderStyle.VALUE),
+            new TraderBotProfile("trader_bot_04", "빚투하는 맥스웰", TraderStyle.INTRADAY));
     private static final int USER_ORDER_WINDOW_SECONDS = 10;
     private static final int USER_ORDER_LIMIT = 20;
     private static final int DUPLICATE_ORDER_WINDOW_SECONDS = 2;
@@ -86,16 +101,19 @@ public class MarketService {
     private final ApplicationEventPublisher events;
     private final JdbcTemplate jdbc;
     private final UserFeatureService userFeatures;
+    private final TradingProtectionService protection;
     @Value("${gamestock.simulation.seed:20260910}")
     private long simulationSeed;
     private Random tickRandom = new Random(20260910L);
     private final long runtimeNoise = System.nanoTime();
     private long demoUserId;
 
-    public MarketService(ApplicationEventPublisher events, JdbcTemplate jdbc, UserFeatureService userFeatures) {
+    public MarketService(ApplicationEventPublisher events, JdbcTemplate jdbc, UserFeatureService userFeatures,
+                         TradingProtectionService protection) {
         this.events = events;
         this.jdbc = jdbc;
         this.userFeatures = userFeatures;
+        this.protection = protection;
     }
 
     @PostConstruct
@@ -127,10 +145,12 @@ public class MarketService {
         insertStock("UMA", "우마무스메 프리티더비", 12_450L);
         insertStock("BA", "블루 아카이브", 8_230L);
         insertStock("GOV", "승리의 여신: 니케", 21_430L);
+        ensureTraderBots();
         userFeatures.ensureTables();
         userFeatures.ensureDefaultTags();
         seedPriceHistory();
         seedDailySummaries();
+        protection.ensureTables();
         normalizeOpenOrderPrices();
 
         removeDefaultEvents();
@@ -141,6 +161,17 @@ public class MarketService {
         // Convert any rows created by the former T+1 implementation to the
         // new immediate-settlement state during startup.
         settleDuePayments();
+    }
+
+    private void ensureTraderBots() {
+        for (TraderBotProfile profile : TRADER_BOT_PROFILES) {
+            jdbc.update("""
+                    INSERT IGNORE INTO users (username, password_hash, nickname, cash)
+                    VALUES (?, ?, ?, ?)
+                    """, profile.username(), TRADER_BOT_PASSWORD, profile.nickname(), TRADER_BOT_STARTING_CASH);
+            jdbc.update("UPDATE users SET nickname = ? WHERE username = ? AND password_hash = ?",
+                    profile.nickname(), profile.username(), TRADER_BOT_PASSWORD);
+        }
     }
 
     private void ensureAuthenticationTables() {
@@ -163,12 +194,35 @@ public class MarketService {
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS mission_rewards (
                   id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT NOT NULL,
-                  mission_id VARCHAR(40) NOT NULL, reward_cash BIGINT NOT NULL,
+                  mission_id VARCHAR(40) NOT NULL, rewarded_on DATE NOT NULL, reward_cash BIGINT NOT NULL,
                   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                  UNIQUE KEY uq_mission_reward_user_mission (user_id, mission_id),
+                  UNIQUE KEY uq_mission_reward_user_day (user_id, mission_id, rewarded_on),
                   CONSTRAINT fk_mission_reward_user FOREIGN KEY (user_id) REFERENCES users(id)
                 )
                 """);
+        migrateDailyMissionRewards();
+    }
+
+    private void migrateDailyMissionRewards() {
+        Integer columnCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'mission_rewards' AND column_name = 'rewarded_on'", Integer.class);
+        if (columnCount != null && columnCount == 0) {
+            jdbc.execute("ALTER TABLE mission_rewards ADD COLUMN rewarded_on DATE NULL AFTER mission_id");
+        }
+        Integer nullableCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'mission_rewards' AND column_name = 'rewarded_on' AND is_nullable = 'YES'", Integer.class);
+        if (nullableCount != null && nullableCount > 0) {
+            // JDBC sessions use UTC. Keep each legacy payout on its original Korean date.
+            jdbc.update("UPDATE mission_rewards SET rewarded_on = DATE(CONVERT_TZ(created_at, '+00:00', '+09:00')) WHERE rewarded_on IS NULL");
+            jdbc.execute("ALTER TABLE mission_rewards MODIFY COLUMN rewarded_on DATE NOT NULL");
+        }
+        Integer dailyIndexCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'mission_rewards' AND index_name = 'uq_mission_reward_user_day'", Integer.class);
+        if (dailyIndexCount != null && dailyIndexCount == 0) {
+            jdbc.execute("ALTER TABLE mission_rewards ADD UNIQUE KEY uq_mission_reward_user_day (user_id, mission_id, rewarded_on)");
+        }
+        Integer legacyIndexCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'mission_rewards' AND index_name = 'uq_mission_reward_user_mission'", Integer.class);
+        if (legacyIndexCount != null && legacyIndexCount > 0) {
+            // Add the daily index first so the user foreign key always has a supporting index.
+            jdbc.execute("ALTER TABLE mission_rewards DROP INDEX uq_mission_reward_user_mission");
+        }
     }
 
     private void addOrderColumnIfMissing() {
@@ -289,7 +343,7 @@ public class MarketService {
                 rs.getString("genre"),
                 rs.getLong("current_price"),
                 changePercent(rs.getLong("current_price"), rs.getLong("previous_price")),
-                rs.getLong("total_volume")));
+                rs.getLong("total_volume"), protection.restriction(rs.getString("stock_code"))));
     }
 
     public synchronized List<MarketEvent> marketEvents() {
@@ -351,7 +405,7 @@ public class MarketService {
 
     /** GameStock은 장 마감 없이 24시간 주문을 접수하는 게임형 시장이다. */
     public synchronized MarketStatus marketStatus() {
-        return new MarketStatus(true, "24H", "Asia/Seoul", "24시간 거래 가능");
+        return protection.marketStatus();
     }
 
     public synchronized List<MarketEvent> stockNews(String code) {
@@ -462,13 +516,30 @@ public class MarketService {
         return portfolioUnsafe(userId);
     }
 
+    @Transactional(readOnly = true)
+    public synchronized DailyMissionStatus dailyMissions(long userId) {
+        return dailyMissionsAt(userId, Instant.now());
+    }
+
+    private DailyMissionStatus dailyMissionsAt(long userId, Instant now) {
+        LocalDate day = now.atZone(MISSION_ZONE).toLocalDate();
+        List<String> completed = jdbc.queryForList("SELECT mission_id FROM mission_rewards WHERE user_id = ? AND rewarded_on = ? ORDER BY mission_id",
+                String.class, userId, java.sql.Date.valueOf(day));
+        return new DailyMissionStatus(day.toString(), day.plusDays(1).atStartOfDay(MISSION_ZONE).toInstant().toString(),
+                now.toString(), completed.stream().filter(MISSION_REWARDS::containsKey).toList());
+    }
+
     @Transactional
     public synchronized MissionRewardResult rewardMission(String missionId, long userId) {
         Long reward = MISSION_REWARDS.get(missionId);
         if (reward == null) throw new IllegalArgumentException("존재하지 않는 미션입니다.");
-        int inserted = jdbc.update("INSERT IGNORE INTO mission_rewards (user_id, mission_id, reward_cash) VALUES (?, ?, ?)", userId, missionId, reward);
+        LocalDate day = LocalDate.now(MISSION_ZONE);
+        int inserted = jdbc.update("INSERT IGNORE INTO mission_rewards (user_id, mission_id, rewarded_on, reward_cash) VALUES (?, ?, ?, ?)",
+                userId, missionId, java.sql.Date.valueOf(day), reward);
         if (inserted > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", reward, userId);
-        return new MissionRewardResult(inserted > 0 ? reward : 0, inserted > 0, portfolioUnsafe(userId));
+        Portfolio portfolio = portfolioUnsafe(userId);
+        return new MissionRewardResult(inserted > 0 ? reward : 0, inserted > 0, portfolio,
+                dailyMissionsAt(userId, Instant.now()));
     }
 
     public synchronized List<ActiveOrder> activeOrders(long userId) {
@@ -877,6 +948,7 @@ public class MarketService {
         acquireMarketLock();
         settleDuePayments();
         expireOrders();
+        advanceTradingProtections();
         String code = request.stockCode().toUpperCase(Locale.ROOT);
         String side = request.side().toUpperCase(Locale.ROOT);
         if (!"BUY".equals(side) && !"SELL".equals(side)) {
@@ -887,6 +959,7 @@ public class MarketService {
         if (stock == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
         String orderType = request.orderType() == null || request.orderType().isBlank() ? "MARKET" : request.orderType().toUpperCase(Locale.ROOT);
         if (!"MARKET".equals(orderType) && !"LIMIT".equals(orderType)) throw new IllegalArgumentException("주문 유형은 MARKET 또는 LIMIT이어야 합니다.");
+        protection.validateOrder(code, orderType);
         long orderPrice = "LIMIT".equals(orderType) ? (request.price() == null ? 0 : request.price()) : stock.price();
         if ("LIMIT".equals(orderType) && orderPrice <= 0) throw new IllegalArgumentException("지정가를 입력해 주세요.");
         if ("LIMIT".equals(orderType) && orderPrice % tickSize(orderPrice) != 0)
@@ -951,71 +1024,142 @@ public class MarketService {
         events.publishEvent(new MarketChangedEvent(snapshot));
         long executedPrice = afterMatch.price() > 0 ? afterMatch.price() : orderPrice;
         ExecutionSummary execution = executionSummary(orderId, side);
-        return new OrderResult(orderMessage(afterMatch.status()), code, side, requestedQuantity, executedPrice,
+        TradingRestriction restriction = protection.restriction(code);
+        String message = restriction != null && "OPEN".equals(afterMatch.status())
+                ? restriction.label() + " 단일가 주문 접수: 종료 시 모인 주문을 한 가격으로 체결합니다."
+                : restriction != null && "MARKET".equals(orderType)
+                ? restriction.label() + " 발동으로 미체결 시장가 잔량을 취소했습니다."
+                : orderMessage(afterMatch.status());
+        return new OrderResult(message, code, side, requestedQuantity, executedPrice,
                 afterMatch.status(), portfolioUnsafe(userId), execution.fee(), execution.status(), execution.settlementAt());
     }
 
     @Scheduled(fixedRate = 5_000)
     @Transactional
-    public synchronized void simulateBots() {
+    public synchronized void maintainMarket() {
         acquireMarketLock();
         settleDuePayments();
         expireOrders();
+        advanceTradingProtections();
+        for (String code : botStockCodes()) applyNewsPriceDrift(code, recentNewsBias(code));
+        events.publishEvent(new MarketChangedEvent(snapshot()));
+    }
+
+    public synchronized List<String> botStockCodes() {
+        return jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
+    }
+
+    public List<String> participantBotUsernames() {
+        return TRADER_BOT_PROFILES.stream().map(TraderBotProfile::username).toList();
+    }
+
+    private void prepareBotAction() {
+        acquireMarketLock();
+        settleDuePayments();
+        expireOrders();
+        advanceTradingProtections();
         long tick = nextSimulationTick();
-        // 재시작 때마다 같은 그래프가 반복되지 않도록 실행별 잡음을 섞는다.
         tickRandom = new Random(simulationSeed ^ runtimeNoise ^ (tick * 0x9E3779B97F4A7C15L));
-        List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
-        if (codes.isEmpty()) return;
-        Map<String, NewsBias> newsBiases = new HashMap<>();
-        for (String stockCode : codes) {
-            NewsBias bias = recentNewsBias(stockCode);
-            newsBiases.put(stockCode, bias);
-            applyNewsPriceDrift(stockCode, bias);
-        }
-        // 일부 틱은 뉴스만 반영하고 주문을 쉬게 한다. 실제 사용자 시장처럼
-        // 호가와 체결 사이에 짧은 정적 구간이 생기도록 하는 장치다.
-        if (tickRandom.nextDouble() > BOT_ACTIVE_TICK_PROBABILITY) {
-            events.publishEvent(new MarketChangedEvent(snapshot()));
-            return;
-        }
+    }
 
-        List<String> activeCodes = new ArrayList<>();
-        activeCodes.add(codes.get(tickRandom.nextInt(codes.size())));
-        if (codes.size() > 1 && tickRandom.nextDouble() < BOT_SECOND_LISTING_PROBABILITY) {
-            String secondary;
-            do {
-                secondary = codes.get(tickRandom.nextInt(codes.size()));
-            } while (activeCodes.contains(secondary));
-            activeCodes.add(secondary);
-        }
-
-        for (String code : activeCodes) {
-            NewsBias newsBias = newsBiases.getOrDefault(code, new NewsBias(0.0, false));
-            // 양쪽에 항상 같은 수량을 놓지 않고, 틱마다 한쪽만 놓는 경우도 둔다.
-            if (tickRandom.nextDouble() < BOT_LIMIT_ORDER_PROBABILITY) createBotOrder(code, "BUY", newsBias);
-            if (tickRandom.nextDouble() < BOT_LIMIT_ORDER_PROBABILITY) createBotOrder(code, "SELL", newsBias);
-
-            int marketOrderCount = tickRandom.nextDouble() < 0.06 ? 2 : (tickRandom.nextDouble() < 0.62 ? 1 : 0);
-            boolean burst = tickRandom.nextDouble() < BOT_BURST_PROBABILITY;
-            String burstSide = burst ? burstSide(code, newsBias) : "";
-            int burstQuantity = burst ? dynamicBotQuantity(code, burstSide, newsBias, true) : 0;
-            MatchSummary matched = MatchSummary.empty();
-            for (int orderIndex = 0; orderIndex < marketOrderCount; orderIndex++) {
-                String preferredSide = burstSide(code, newsBias);
-                String side = orderIndex == 0 || tickRandom.nextDouble() < 0.68
-                        ? preferredSide
-                        : ("BUY".equals(preferredSide) ? "SELL" : "BUY");
-                long orderId = createBotMarketOrder(code, side, newsBias,
-                        burst && burstSide.equals(side) ? burstQuantity : 0);
-                matched = matched.merge(matchOrders(code));
+    /** One side's liquidity bot acts on its own clock; matching stays transactional. */
+    @Transactional
+    public synchronized void liquidityBotAction(String code, String side) {
+        prepareBotAction();
+        if (!protection.marketStatus().open()) return;
+        NewsBias newsBias = recentNewsBias(code);
+        TradingRestriction restriction = protection.restriction(code);
+        if (restriction != null) {
+            if (restriction.limitOrdersAllowed()) createBotOrder(code, side, newsBias);
+        } else if (tickRandom.nextDouble() < BOT_ACTIVE_ACTION_PROBABILITY) {
+            if (tickRandom.nextDouble() < BOT_LIMIT_ORDER_PROBABILITY) createBotOrder(code, side, newsBias);
+            boolean preferred = side.equals(burstSide(code, newsBias));
+            if (tickRandom.nextDouble() < (preferred ? 0.45 : 0.20)) {
+                boolean burst = tickRandom.nextDouble() < BOT_BURST_PROBABILITY;
+                int burstQuantity = burst ? dynamicBotQuantity(code, side, newsBias, true) : 0;
+                long orderId = createBotMarketOrder(code, side, newsBias, burstQuantity);
+                MatchSummary matched = matchOrders(code);
                 if (orderId > 0) cancelRemainingMarket(orderId);
+                if (matched.hasTrades()) moveBotPrice(code, matched.vwap(), matched.totalQuantity(), newsBias.special());
             }
-            // 뉴스 직접 drift는 위에서 그대로 적용한다. 봇 체결은 별도 완충 비율만
-            // 가격에 반영해, 봇 거래량이 한 틱의 가격을 끌고 가지 않게 한다.
-            if (matched.hasTrades()) moveBotPrice(code, matched.vwap(), matched.totalQuantity(), newsBias.special());
-            trimBotLiquidity(code);
+        }
+        trimBotLiquidity(code);
+        events.publishEvent(new MarketChangedEvent(snapshot()));
+    }
+
+    /** Participant accounts keep the ordinary user order path and finite funds. */
+    @Transactional
+    public synchronized void participantBotAction(String username) {
+        prepareBotAction();
+        if (!protection.marketStatus().open()) return;
+        TraderBotProfile profile = TRADER_BOT_PROFILES.stream()
+                .filter(item -> item.username().equals(username)).findFirst().orElseThrow();
+        List<String> codes = botStockCodes();
+        if (codes.isEmpty()) return;
+        long userId = traderBotId(profile.username());
+        String code = codes.get(tickRandom.nextInt(codes.size()));
+        trimTraderOrders(userId);
+        try {
+            submitTraderOrder(profile, userId, code);
+        } catch (IllegalArgumentException ignored) {
+            // Insufficient funds, inventory or a trading restriction can mean waiting.
         }
         events.publishEvent(new MarketChangedEvent(snapshot()));
+    }
+
+    private boolean submitTraderOrder(TraderBotProfile profile, long userId, String code) {
+        Stock stock = findStock(code);
+        OrderBook book = orderBook(code);
+        String side = traderSide(profile.style(), stock, book, userId);
+        int quantity = traderQuantity(stock, userId, side);
+        if (quantity <= 0) return false;
+        boolean market = tickRandom.nextDouble() < 0.18;
+        Long price = market ? null : traderLimitPrice(stock, book, side);
+        order(new OrderRequest(code, side, quantity, market ? "MARKET" : "LIMIT", price), userId);
+        return true;
+    }
+
+    private String traderSide(TraderStyle style, Stock stock, OrderBook book, long userId) {
+        boolean hasShares = availableQuantity(userId, stockId(stock.code())) > 0;
+        return switch (style) {
+            case MOMENTUM -> stock.changePercent() >= 0 ? "BUY" : (hasShares ? "SELL" : "BUY");
+            case CONTRARIAN -> stock.changePercent() >= 0 && hasShares ? "SELL" : "BUY";
+            case VALUE -> tickRandom.nextDouble() < 0.58 && hasShares ? "SELL" : "BUY";
+            case INTRADAY -> tickRandom.nextBoolean() && hasShares ? "SELL" : "BUY";
+        };
+    }
+
+    private int traderQuantity(Stock stock, long userId, String side) {
+        int requested = 5 + tickRandom.nextInt(TRADER_BOT_MAX_ORDER_QUANTITY - 4);
+        if ("SELL".equals(side)) {
+            return Math.min(requested, Math.max(0, availableQuantity(userId, stockId(stock.code()))));
+        }
+        long availableCash = availableCash(userId);
+        long perShare = Math.max(1L, Math.round(stock.price() * (1.0 + TRADING_FEE_RATE)));
+        return Math.min(requested, (int) Math.min(Integer.MAX_VALUE, availableCash / perShare));
+    }
+
+    private long traderLimitPrice(Stock stock, OrderBook book, String side) {
+        long tick = tickSize(stock.price());
+        if ("BUY".equals(side)) {
+            long bestBid = book.bids().isEmpty() ? floorToTick(stock.price() - tick) : book.bids().get(0).price();
+            long price = tickRandom.nextDouble() < 0.55 ? bestBid : stock.price() - tick * (1 + tickRandom.nextInt(3));
+            return floorToTick(Math.max(tick, price));
+        }
+        long bestAsk = book.asks().isEmpty() ? ceilToTick(stock.price() + tick) : book.asks().get(0).price();
+        long price = tickRandom.nextDouble() < 0.55 ? bestAsk : stock.price() + tick * (1 + tickRandom.nextInt(3));
+        return ceilToTick(price);
+    }
+
+    private void trimTraderOrders(long userId) {
+        List<Long> openOrders = jdbc.query("""
+                SELECT id FROM orders
+                WHERE user_id = ? AND status = 'OPEN' AND order_type = 'LIMIT'
+                ORDER BY created_at ASC, id ASC
+                """, (rs, row) -> rs.getLong(1), userId);
+        for (int index = 0; index < openOrders.size() - TRADER_BOT_MAX_OPEN_ORDERS; index++) {
+            cancelOrderInternal(openOrders.get(index));
+        }
     }
 
     private void createBotOrder(String code, String side, NewsBias newsBias) {
@@ -1027,19 +1171,20 @@ public class MarketService {
         double rawPrice = fairPrice * ("BUY".equals(side) ? 1 - offset : 1 + offset);
         long price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
         price = botQuotePrice(botPriceBand(code), side, price);
+        long idStock = stockId(code);
+        if (botPriceLevelOccupied(idStock, side, price)) return;
         ensureBotInventory(code, id);
         int quantity = dynamicBotQuantity(code, side, newsBias, false);
         if (quantity <= 0) return;
-        long idStock = stockId(code);
         if ("BUY".equals(side)) {
             long amount = price * quantity;
             long fee = feeFor(amount);
             long required = amount + fee;
             int updated = jdbc.update("UPDATE users SET cash = cash - ? WHERE id = ? AND cash >= ?", required, id, required);
             if (updated == 0) return;
-            jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, ?, 0, 'OPEN', DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 24 HOUR))", id, idStock, side, price, quantity, quantity, required);
+            jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, ?, 0, 'OPEN', DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " + BOT_ORDER_LIFETIME_MINUTES + " MINUTE))", id, idStock, side, price, quantity, quantity, required);
         } else {
-            jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, 0, ?, 'OPEN', DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 24 HOUR))", id, idStock, side, price, quantity, quantity, quantity);
+            jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, 0, ?, 'OPEN', DATE_ADD(CURRENT_TIMESTAMP, INTERVAL " + BOT_ORDER_LIFETIME_MINUTES + " MINUTE))", id, idStock, side, price, quantity, quantity, quantity);
         }
     }
 
@@ -1103,7 +1248,8 @@ public class MarketService {
         long desired = Math.max(1L, Math.round(liquidityQuantity * noise));
         double directionalRate = "BUY".equals(side) ? newsBias.rate() : -newsBias.rate();
         double newsMultiplier = 1.0 + Math.max(-0.35, Math.min(0.45, directionalRate * BOT_NEWS_SIZE_SENSITIVITY));
-        long requested = Math.max(1L, Math.round(desired * newsMultiplier));
+        long orderCap = burst ? BOT_BURST_ORDER_MAX : BOT_NORMAL_ORDER_MAX;
+        long requested = Math.min(orderCap, Math.max(1L, Math.round(desired * newsMultiplier)));
         long botId = ensureBot(code, side);
         if ("SELL".equals(side)) ensureBotInventory(code, botId);
         long available = "BUY".equals(side)
@@ -1172,15 +1318,56 @@ public class MarketService {
     private void trimBotLiquidity(String code) {
         long stockId = stockId(code);
         for (String side : List.of("BUY", "SELL")) {
-            List<Long> openOrders = jdbc.query("""
-                    SELECT o.id FROM orders o JOIN users u ON u.id = o.user_id
+            List<BotOpenOrder> openOrders = jdbc.query("""
+                    SELECT o.id, o.price FROM orders o JOIN users u ON u.id = o.user_id
                     WHERE o.stock_id = ? AND o.side = ? AND o.order_type = 'LIMIT'
                       AND o.status = 'OPEN' AND u.password_hash = 'BOT'
                     ORDER BY o.created_at DESC, o.id DESC
-                    """, (rs, row) -> rs.getLong(1), stockId, side);
-            for (int index = MAX_BOT_OPEN_ORDERS_PER_SIDE; index < openOrders.size(); index++)
-                cancelOrderInternal(openOrders.get(index));
+                    """, (rs, row) -> new BotOpenOrder(rs.getLong("id"), rs.getLong("price")), stockId, side);
+            Set<Long> occupiedPrices = new HashSet<>();
+            int kept = 0;
+            for (BotOpenOrder order : openOrders) {
+                if (kept >= MAX_BOT_OPEN_ORDERS_PER_SIDE || !occupiedPrices.add(order.price())) {
+                    cancelOrderInternal(order.id());
+                    continue;
+                }
+                kept++;
+            }
+
+            // Remove legacy bot orders that were created before per-order caps
+            // existed. User orders are intentionally left untouched.
+            List<Long> oversizedOrders = jdbc.query("""
+                    SELECT o.id FROM orders o JOIN users u ON u.id = o.user_id
+                    WHERE o.stock_id = ? AND o.side = ? AND o.order_type = 'LIMIT'
+                      AND o.status = 'OPEN' AND u.password_hash = 'BOT'
+                      AND o.remaining_quantity > ?
+                    """, (rs, row) -> rs.getLong(1), stockId, side, BOT_BURST_ORDER_MAX);
+            for (Long orderId : oversizedOrders) cancelOrderInternal(orderId);
+
+            // Orders created before the shorter lifetime was introduced should
+            // not remain in the book for a full day.
+            List<Long> staleOrders = jdbc.query("""
+                    SELECT o.id FROM orders o JOIN users u ON u.id = o.user_id
+                    WHERE o.stock_id = ? AND o.order_type = 'LIMIT' AND o.status = 'OPEN'
+                      AND u.password_hash = 'BOT'
+                      AND o.created_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 20 MINUTE)
+                    """, (rs, row) -> rs.getLong(1), stockId);
+            for (Long orderId : staleOrders) cancelOrderInternal(orderId);
         }
+    }
+
+    private boolean botPriceLevelOccupied(long stockId, String side, long price) {
+        Integer count = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM orders o JOIN users u ON u.id = o.user_id
+                WHERE o.stock_id = ? AND o.side = ? AND o.price = ?
+                  AND o.order_type = 'LIMIT' AND o.status = 'OPEN' AND u.password_hash = 'BOT'
+                """, Integer.class, stockId, side, price);
+        return count != null && count > 0;
+    }
+
+    private long traderBotId(String username) {
+        return jdbc.queryForObject("SELECT id FROM users WHERE username = ? AND password_hash = ?",
+                Long.class, username, TRADER_BOT_PASSWORD);
     }
 
     private long ensureBot(String code, String side) {
@@ -1189,7 +1376,109 @@ public class MarketService {
         return jdbc.queryForObject("SELECT id FROM users WHERE username = ?", Long.class, username);
     }
 
+    private void advanceTradingProtections() {
+        protection.refreshDay();
+        protection.advanceMarketPhase();
+        if (protection.marketAuctionDue()) {
+            List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
+            for (String code : codes) {
+                closeSinglePriceAuction(code);
+                protection.finishAuction(code, findStock(code).price());
+            }
+            protection.finishMarketAuction();
+        }
+        for (String code : protection.dueViAuctions()) {
+            if (protection.marketStatus().restriction() != null) break;
+            closeSinglePriceAuction(code);
+            protection.finishAuction(code, findStock(code).price());
+        }
+        protection.observeMarket();
+    }
+
+    /** Maximise executable volume, then minimise imbalance and distance from the quote. */
+    private void closeSinglePriceAuction(String code) {
+        long stockId = stockId(code);
+        long reference = findStock(code).price();
+        PriceBand daily = dailyPriceBand(code);
+        PriceBand bots = botPriceBand(code);
+        List<MatchRow> orders = jdbc.query("""
+                SELECT o.id, o.user_id, o.price, o.quantity, o.remaining_quantity, o.order_type,
+                       o.created_at, o.reserved_cash, o.reserved_quantity, o.side,
+                       (u.password_hash = 'BOT') AS is_bot
+                FROM orders o JOIN users u ON u.id = o.user_id
+                WHERE o.stock_id = ? AND o.status = 'OPEN' AND o.order_type = 'LIMIT'
+                  AND o.remaining_quantity > 0 ORDER BY o.created_at, o.id
+                """, this::auctionRow, stockId);
+        java.util.SortedSet<Long> candidates = new java.util.TreeSet<>();
+        candidates.add(floorToTick(reference));
+        for (MatchRow order : orders) {
+            if (daily.contains(order.price()) && order.price() % tickSize(order.price()) == 0) candidates.add(order.price());
+        }
+        long price = reference;
+        long bestVolume = 0;
+        long bestImbalance = Long.MAX_VALUE;
+        for (long candidate : candidates) {
+            if (!daily.contains(candidate)) continue;
+            long buys = 0;
+            long sells = 0;
+            for (MatchRow order : orders) {
+                if (order.bot() && !bots.contains(candidate)) continue;
+                if ("BUY".equals(order.side()) && order.price() >= candidate) buys += order.remainingQuantity();
+                if ("SELL".equals(order.side()) && order.price() <= candidate) sells += order.remainingQuantity();
+            }
+            long volume = Math.min(buys, sells);
+            long imbalance = Math.abs(buys - sells);
+            if (volume > bestVolume || (volume == bestVolume && volume > 0 &&
+                    (imbalance < bestImbalance || (imbalance == bestImbalance
+                            && Math.abs(candidate - reference) < Math.abs(price - reference))))) {
+                price = candidate;
+                bestVolume = volume;
+                bestImbalance = imbalance;
+            }
+        }
+        if (bestVolume == 0) return;
+        long volume = 0;
+        while (true) {
+            MatchRow buy = topAuctionOrder(stockId, "BUY", price, bots.contains(price));
+            MatchRow sell = topAuctionOrder(stockId, "SELL", price, bots.contains(price));
+            if (buy == null || sell == null) break;
+            int quantity = Math.min(buy.remainingQuantity(), sell.remainingQuantity());
+            if (!canSettle(buy, sell, quantity, price, stockId)) {
+                if (buy.reservedCash() == 0 && availableCash(buy.userId()) < price * quantity + feeFor(price * quantity)) cancelOrderInternal(buy.id());
+                else cancelOrderInternal(sell.id());
+                continue;
+            }
+            MatchRow maker = earlier(buy, sell) ? buy : sell;
+            MatchRow taker = maker.id() == buy.id() ? sell : buy;
+            settleTrade(stockId, buy, sell, maker, taker, quantity, price);
+            volume += quantity;
+        }
+        if (volume > 0) moveToPrice(code, price, volume);
+    }
+
+    private MatchRow topAuctionOrder(long stockId, String side, long price, boolean botsAllowed) {
+        String comparison = "BUY".equals(side) ? ">=" : "<=";
+        String priority = "BUY".equals(side) ? "DESC" : "ASC";
+        List<MatchRow> rows = jdbc.query("""
+                SELECT o.id, o.user_id, o.price, o.quantity, o.remaining_quantity, o.order_type,
+                       o.created_at, o.reserved_cash, o.reserved_quantity, o.side,
+                       (u.password_hash = 'BOT') AS is_bot
+                FROM orders o JOIN users u ON u.id = o.user_id
+                WHERE o.stock_id = ? AND o.side = ? AND o.status = 'OPEN'
+                  AND o.order_type = 'LIMIT' AND o.remaining_quantity > 0 AND o.price
+                """ + comparison + " ? " + (botsAllowed ? "" : "AND u.password_hash <> 'BOT' ")
+                + "ORDER BY o.price " + priority + ", o.created_at, o.id LIMIT 1",
+                this::auctionRow, stockId, side, price);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private MatchRow auctionRow(ResultSet rs, int row) throws SQLException {
+        return new MatchRow(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4), rs.getInt(5),
+                rs.getString(6), databaseInstant(rs.getTimestamp(7)), rs.getLong(8), rs.getInt(9), rs.getString(10), rs.getBoolean(11));
+    }
+
     private MatchSummary matchOrders(String code) {
+        if (!protection.continuous(code)) return MatchSummary.empty();
         long id = stockId(code);
         MatchSummary summary = MatchSummary.empty();
         PriceBand dailyBand = dailyPriceBand(code);
@@ -1257,10 +1546,11 @@ public class MarketService {
             if (!dailyBand.contains(tradePrice)) return summary;
 
             if (!canSettle(buy, sell, quantity, tradePrice, id)) {
-                if (buy.reservedCash() == 0 && availableCash(buy.userId()) < tradePrice * quantity) cancelOrderInternal(buy.id());
+                if (buy.reservedCash() == 0 && availableCash(buy.userId()) < tradePrice * quantity + feeFor(tradePrice * quantity)) cancelOrderInternal(buy.id());
                 if (sell.reservedQuantity() == 0 && availableQuantity(sell.userId(), id) < quantity) cancelOrderInternal(sell.id());
                 continue;
             }
+            if (!protection.beforeTrade(code, tradePrice)) return summary;
             settleTrade(id, buy, sell, maker, taker, quantity, tradePrice);
             summary = summary.add(quantity, tradePrice, taker.side());
         }
@@ -1327,6 +1617,7 @@ public class MarketService {
         jdbc.update("UPDATE settlements SET settled_at = CURRENT_TIMESTAMP WHERE trade_id = ?", tradeId);
         updateMatchedOrder(buy, quantity, tradePrice);
         updateMatchedOrder(sell, quantity, tradePrice);
+        protection.recordTrade(stockId, tradePrice);
     }
 
     private void updateMatchedOrder(MatchRow order, int filledQuantity, long tradePrice) {
@@ -1848,6 +2139,9 @@ public class MarketService {
     private record OrderState(long id, long userId, long price, int quantity, int remainingQuantity, String status,
                               String orderType, long reservedCash, int reservedQuantity) { }
     private record OrderReservation(long id, long userId, long reservedCash) { }
+    private record BotOpenOrder(long id, long price) { }
+    private record TraderBotProfile(String username, String nickname, TraderStyle style) { }
+    private enum TraderStyle { MOMENTUM, CONTRARIAN, VALUE, INTRADAY }
     private record OpenLimitOrder(long id, long userId, String stockCode, String side, long price,
                                   int remainingQuantity, long reservedCash, boolean bot) { }
     private record HoldingState(int quantity, int settledQuantity, long averagePrice, long realizedProfitLoss) { }
@@ -1920,6 +2214,7 @@ public class MarketService {
         jdbc.update("UPDATE stocks SET previous_price = current_price, current_price = ?, total_volume = total_volume + ? WHERE stock_code = ?", next, volume, code);
         jdbc.update("INSERT INTO stock_price_history (stock_id, price) SELECT id, ? FROM stocks WHERE stock_code = ?", next, code);
         recordDailyTrade(code, next, volume);
+        protection.observeMarket();
     }
 
     private void recordDailyTrade(String code, long price, long volume) {
@@ -1959,6 +2254,7 @@ public class MarketService {
      * records actual traded volume and VWAP.
      */
     private void applyNewsPriceDrift(String code, NewsBias newsBias) {
+        if (!protection.continuous(code)) return;
         long id = stockId(code);
         Double previous = jdbc.queryForObject(
                 "SELECT applied_bias FROM news_price_state WHERE stock_id = ?",
@@ -1980,7 +2276,10 @@ public class MarketService {
         long nextPrice = delta >= 0 ? ceilToTick(requested) : floorToTick(requested);
         jdbc.update("UPDATE news_price_state SET applied_bias = ?, updated_at = CURRENT_TIMESTAMP WHERE stock_id = ?",
                 next, id);
-        if (nextPrice != current.price()) moveToPrice(code, nextPrice, 0);
+        if (nextPrice != current.price()) {
+            moveToPrice(code, nextPrice, 0);
+            protection.observeSyntheticMove(code, current.price(), findStock(code).price());
+        }
     }
 
     private NewsBias recentNewsBias(String code) {

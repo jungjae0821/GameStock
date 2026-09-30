@@ -17,7 +17,6 @@ const medalByRank: Record<number, { emoji: string; label: string; className: str
 
 export function RankingPage() {
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
-  const [mode, setMode] = useState<"asset" | "return" | "name">("asset");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const inFlight = useRef(false);
@@ -58,29 +57,17 @@ export function RankingPage() {
   }, []);
 
   const displayed = [...ranking]
-    .sort((left, right) => mode === "asset"
-      ? right.totalAsset - left.totalAsset
-      : mode === "return"
-        ? right.changePercent - left.changePercent
-        : left.nickname.localeCompare(right.nickname, "ko"))
+    .sort((left, right) => right.totalAsset - left.totalAsset)
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
   return (
     <div className="page-stack ranking-page">
       <div className="page-title">
         <h1>투자 랭킹</h1>
-        <span className="page-meta num">{ranking.length}명 · {mode === "asset" ? "총 자산" : mode === "return" ? "수익률" : "닉네임"} 기준</span>
+        <span className="page-meta num">{ranking.length}명</span>
       </div>
 
-      <div className="controls ranking-filters" role="group" aria-label="랭킹 기준">
-        {([ ["asset", "총 자산"], ["return", "수익률"], ["name", "닉네임"] ] as const).map(([id, label]) => (
-          <button key={id} type="button" className={`filter-button${mode === id ? " is-active" : ""}`} aria-pressed={mode === id} onClick={() => setMode(id)}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <Panel id="ranking-board" title="투자자 순위" meta="봇 제외 · 실시간">
+      <Panel id="ranking-board" title="" hideHeader>
         {loading ? (
           <p className="empty is-inline">랭킹을 불러오는 중…</p>
         ) : error ? (
@@ -89,8 +76,7 @@ export function RankingPage() {
           <p className="empty is-inline">아직 랭킹에 참여한 사용자가 없습니다.</p>
         ) : (
           <div className="table-scroll">
-            <table className="ranking-table">
-              <caption className="sr-only">투자자 랭킹</caption>
+            <table className="ranking-table" aria-label="랭킹 표">
               <colgroup>
                 <col className="ranking-col-rank" />
                 <col className="ranking-col-name" />
@@ -119,7 +105,7 @@ export function RankingPage() {
                             {medalByRank[entry.rank].emoji}
                           </span>
                         )}
-                        <span>{entry.rank}</span>
+                        {!medalByRank[entry.rank] && <span>{entry.rank}</span>}
                       </span>
                     </th>
                     <td className="ranking-page-name">{entry.nickname}</td>

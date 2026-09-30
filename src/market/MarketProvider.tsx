@@ -6,17 +6,18 @@ import { apiFetch } from "../lib/api";
 import { MarketEngine } from "./engine";
 import { serverTimestamp } from "./format";
 import { LISTING_BY_CODE, roundToTick } from "./universe";
-import type { MarketSnapshot, OrderRequest, OrderResult, Portfolio, Position, Quote } from "./types";
+import type { DailyMissionStatus, MarketSnapshot, OrderRequest, OrderResult, Portfolio, Position, Quote, TradingRestriction } from "./types";
 
 export interface MarketApi {
   placeOrder: (request: OrderRequest) => Promise<OrderResult>;
   orderable: (code: string, side: "buy" | "sell") => number;
   toggleWatch: (code: string) => void;
-  claimMissionReward: (missionId: string) => Promise<{ rewardCash: number; awarded: boolean }>;
+  claimMissionReward: (missionId: string) => Promise<{ rewardCash: number; awarded: boolean; missions: DailyMissionStatus }>;
   reset: () => void;
 }
 
-type BackendStock = { code: string; name: string; genre: string; price: number; changePercent: number; volume: number };
+type BackendStock = { code: string; name: string; genre: string; price: number; changePercent: number; volume: number; restriction?: TradingRestriction | null };
+type BackendMarketStatus = { indexValue: number; tradingDate: string };
 type BackendOrderBookLevel = { price: number; quantity: number; orderCount: number };
 type BackendOrderBook = { stockCode: string; bids: BackendOrderBookLevel[]; asks: BackendOrderBookLevel[] };
 type BackendTrade = { side: string; quantity: number; price: number; orderType?: string; createdAt: string };
@@ -34,7 +35,7 @@ type BackendEvent = {
 };
 type BackendPosition = { stockCode: string; quantity: number; averagePrice: number };
 type BackendPortfolio = { cash: number; positions: BackendPosition[]; realizedProfitLoss?: number };
-type BackendMissionReward = { rewardCash: number; awarded: boolean; portfolio: BackendPortfolio };
+type BackendMissionReward = { rewardCash: number; awarded: boolean; portfolio: BackendPortfolio; missions: DailyMissionStatus };
 
 const SnapshotContext = createContext<MarketSnapshot | null>(null);
 const ApiContext = createContext<MarketApi | null>(null);
@@ -55,7 +56,7 @@ function toPortfolio(value?: BackendPortfolio): Portfolio {
   return { cash: value.cash, positions, fills: [], realized: value.realizedProfitLoss ?? 0 };
 }
 
-function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: BackendPortfolio, watch: string[] = []): MarketSnapshot {
+function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: BackendPortfolio, watch: string[] = [], market?: BackendMarketStatus): MarketSnapshot {
   const quotes: Record<string, Quote> = {};
   const series: number[] = [];
   let weighted = 0;
@@ -68,6 +69,7 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
     if (!listing) continue;
     quotes[stock.code] = {
       code: stock.code,
+      restriction: stock.restriction,
       price,
       prevClose,
       open: price,
@@ -89,10 +91,10 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
     weight += activity;
     series.push(price);
   }
-  const indexValue = weight > 0 ? (weighted / weight) * 1000 : 1000;
+  const indexValue = market?.indexValue ?? (weight > 0 ? (weighted / weight) * 1000 : 1000);
   return {
     quotes,
-    index: { value: indexValue, prevClose: 1000, series: [1000, indexValue] },
+    index: { value: indexValue, prevClose: 1000, series: [1000, indexValue], tradingDate: market?.tradingDate },
     codes: stocks.map((stock) => stock.code).filter((code) => Boolean(quotes[code])),
     news: events.map((event, index) => ({
       id: index + 1,
@@ -124,9 +126,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const refresh = async () => {
       try {
-        const [stocks, events] = await Promise.all([
+        const [stocks, events, market] = await Promise.all([
           apiFetch<BackendStock[]>("/api/stocks"),
           apiFetch<BackendEvent[]>("/api/market-events"),
+          apiFetch<BackendMarketStatus>("/api/market-status"),
         ]);
         let portfolio: BackendPortfolio | undefined;
         if (firebaseAuth.currentUser) {
@@ -139,7 +142,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           }
         }
         if (!cancelled) {
-          const nextSnapshot = toSnapshot(stocks, events, portfolio, watchRef.current);
+          const nextSnapshot = toSnapshot(stocks, events, portfolio, watchRef.current, market);
           // The two-second quote refresh must not clear the one-second detail
           // data while the order book/trade requests are in flight. Keeping
           // the previous rows prevents a visible empty-frame flicker.
@@ -266,14 +269,17 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       void apiFetch(`/api/watchlist/${code}`, { method: exists ? "DELETE" : "PUT" }).catch(() => undefined);
     },
     claimMissionReward: async (missionId) => {
-      if (!firebaseAuth.currentUser) throw new Error("미션 보상은 로그인 후 받을 수 있습니다.");
+      const claimant = firebaseAuth.currentUser;
+      if (!claimant) throw new Error("미션 보상은 로그인 후 받을 수 있습니다.");
       const result = await apiFetch<BackendMissionReward>(`/api/missions/${encodeURIComponent(missionId)}/reward`, { method: "POST" });
-      setSnapshot((current) => ({
-        ...current,
-        portfolio: toPortfolio(result.portfolio),
-        updatedAt: Date.now(),
-      }));
-      return { rewardCash: result.rewardCash, awarded: result.awarded };
+      if (firebaseAuth.currentUser?.uid === claimant.uid) {
+        setSnapshot((current) => ({
+          ...current,
+          portfolio: toPortfolio(result.portfolio),
+          updatedAt: Date.now(),
+        }));
+      }
+      return { rewardCash: result.rewardCash, awarded: result.awarded, missions: result.missions };
     },
     reset: () => {
       if (firebaseAuth.currentUser) {

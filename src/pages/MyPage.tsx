@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, signInWithPopup, type User } from "firebase/auth";
 import { Panel } from "../components/Panel";
 import { Link } from "../components/Link";
+import { RestrictionBadge } from "../components/RestrictionBadge";
 import { apiFetch } from "../lib/api";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
 import { LISTING_BY_CODE, LISTINGS } from "../market/universe";
@@ -323,7 +324,7 @@ export function MyPage() {
               <tbody>
                 {openOrders.map((order) => (
                   <tr key={order.id}>
-                    <th scope="row">{LISTING_BY_CODE[order.stockCode]?.name ?? order.stockCode}</th>
+                    <th scope="row"><span className="stock-name-group">{LISTING_BY_CODE[order.stockCode]?.name ?? order.stockCode}<RestrictionBadge code={order.stockCode} /></span></th>
                     <td className={order.side === "BUY" ? "mypage-profit" : "mypage-loss"}>{order.side === "BUY" ? "매수" : "매도"}</td>
                     <td>{order.orderType === "LIMIT" ? "지정가" : "시장가"}</td>
                     <td className="num">{order.price > 0 ? won(order.price) : "-"}</td>
@@ -352,7 +353,7 @@ export function MyPage() {
                   const listing = LISTING_BY_CODE[position.stockCode];
                   return (
                     <tr key={position.stockCode}>
-                      <th scope="row" className="cell-name">{listing?.name ?? position.stockCode}</th>
+                      <th scope="row" className="cell-name"><span className="stock-name-group">{listing?.name ?? position.stockCode}<RestrictionBadge code={position.stockCode} /></span></th>
                       <td className="num">{position.quantity.toLocaleString("ko-KR")}주</td>
                       <td className="num">{won(position.averagePrice)}</td>
                       <td className="num">{won(position.marketValue)}</td>
