@@ -15,10 +15,10 @@
      */
 
     /* 표면: 무채색 종이. */
-    --canvas: oklch(0.966 0.012 345); /* soft pink-lilac canvas */
+    --canvas: #fff;
     --paper: oklch(1 0 0);
-    --sunken: oklch(0.958 0.012 345); /* soft pink table head / zebra */
-    --rule: oklch(0.902 0.018 345); /* quiet lavender-pink line */
+    --sunken: oklch(0.975 0 0); /* neutral table head / zebra */
+    --rule: oklch(0.91 0 0); /* neutral divider */
     --rule-ink: oklch(0.32 0.035 330); /* warm ink line */
 
     /* 글자: 로고 판에서 가져온 살짝 보라 도는 흑갈색 */

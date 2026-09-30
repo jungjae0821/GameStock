@@ -12,10 +12,10 @@ export function GameIcon({
 }: {
   code: string;
   name: string;
-  size?: "detail" | "table";
+  size?: "detail" | "table" | "news";
 }) {
   const source = ICON_BY_CODE[code];
-  const className = `game-icon${size === "table" ? " game-icon-table" : ""}`;
+  const className = `game-icon${size !== "detail" ? ` game-icon-${size}` : ""}`;
 
   if (!source) {
     return (

@@ -1,4 +1,5 @@
 import { Chip, rateTone } from "./Chip";
+import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { RestrictionBadge } from "./RestrictionBadge";
 import { dayLabel, kstDateTime, rate, trendArrow } from "../market/format";
@@ -84,10 +85,8 @@ function NewsRow({ item }: { item: NewsItem }) {
         <Link to={`/market/${item.code}`}>{isUpdateNote ? updateBody : item.title}</Link>
       </h3>
       <div className="news-foot">
-        <Chip>
-          <span className="code-text" aria-hidden="true">
-            {item.code}
-          </span>
+        <Chip className="news-game">
+          <GameIcon code={item.code} name={listing?.name ?? item.code} size="news" />
           <span className="news-listing">{listing?.name ?? item.code}</span>
         </Chip>
         <RestrictionBadge code={item.code} />

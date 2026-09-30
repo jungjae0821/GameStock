@@ -1,4 +1,3 @@
-import { IndexStrip } from "../components/IndexStrip";
 import { GameIndexBoard } from "../components/GameIndexBoard";
 import { MissionBoard } from "../components/MissionBoard";
 import { MoverBoard } from "../components/MoverBoard";
@@ -6,7 +5,6 @@ import { NewsFeed } from "../components/NewsFeed";
 import { Panel } from "../components/Panel";
 import { PortfolioStrip } from "../components/PortfolioStrip";
 import { QuoteTable } from "../components/QuoteTable";
-import { TickerBoard } from "../components/TickerBoard";
 import { useMarket } from "../market/MarketProvider";
 import { sortCodes } from "../market/selectors";
 import { navigate } from "../router";
@@ -31,9 +29,7 @@ export function HomePage() {
   return (
     <div className="page-stack">
       <h1 className="vh">씹덕주식 홈</h1>
-      <IndexStrip />
       <PortfolioStrip />
-      <TickerBoard />
 
       <div className="split home-insight-row">
         <div className="split-main">

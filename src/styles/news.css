@@ -56,6 +56,11 @@
     font-weight: 600;
   }
 
+  .news-game {
+    gap: 6px;
+    padding: 3px 6px;
+  }
+
   .news-effect {
     margin-left: auto;
     padding-left: var(--space-2);

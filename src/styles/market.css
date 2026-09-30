@@ -79,6 +79,13 @@
     box-shadow: 0 1px 4px color-mix(in oklab, var(--ink) 9%, transparent);
   }
 
+  .game-icon-news {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    box-shadow: 0 1px 3px color-mix(in oklab, var(--ink) 8%, transparent);
+  }
+
   .game-icon-fallback {
     display: grid;
     place-items: center;

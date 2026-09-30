@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GameIcon } from "../components/GameIcon";
 import { NewsFeed } from "../components/NewsFeed";
 import { Panel } from "../components/Panel";
 import { RestrictionBadge } from "../components/RestrictionBadge";
@@ -58,9 +59,7 @@ export function NewsPage() {
                     aria-pressed={code === item}
                     onClick={() => setCode(item)}
                   >
-                    <span className="code-badge is-small" aria-hidden="true">
-                      {item}
-                    </span>
+                    <GameIcon code={item} name={LISTING_BY_CODE[item]?.name ?? item} size="news" />
                     <span className="rail-name">{LISTING_BY_CODE[item]?.name ?? item}</span>
                     <span className="rail-count num">{counts.get(item) ?? 0}</span>
                   </button>
