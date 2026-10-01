@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useHeldOrder, useHoldWhilePointing } from "../lib/useHeldOrder";
-import { Panel } from "../components/Panel";
 import { QuoteTable } from "../components/QuoteTable";
 import { StockDetail } from "../components/StockDetail";
 import { useMarket } from "../market/MarketProvider";
@@ -8,7 +7,6 @@ import { sessionRate, sortCodes } from "../market/selectors";
 import type { SortDirection, SortKey } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
 import { navigate } from "../router";
-import { requireSignIn } from "../lib/auth";
 
 type View = "all" | "up" | "down" | "watch";
 
@@ -34,22 +32,11 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
     if (view === "watch" && !snapshot.watch.includes(code)) return false;
     const needle = query.trim().toLowerCase();
     if (!needle) return true;
-    return [listing.name, listing.code, listing.publisher, listing.genre].some((field) =>
-      field.toLowerCase().includes(needle),
-    );
+    return [listing.name, listing.code, listing.publisher].some((field) => field.toLowerCase().includes(needle));
   };
 
   const [hold, holdHandlers] = useHoldWhilePointing();
   const codes = useHeldOrder(sortCodes(snapshot, sort.key, sort.direction).filter(matches), hold);
-  const counts: Record<View, number> = { all: 0, up: 0, down: 0, watch: 0 };
-  for (const code of snapshot.codes) {
-    const quote = snapshot.quotes[code];
-    if (!quote) continue;
-    counts.all += 1;
-    if (sessionRate(quote) > 0) counts.up += 1;
-    if (sessionRate(quote) < 0) counts.down += 1;
-    if (snapshot.watch.includes(code)) counts.watch += 1;
-  }
 
   const changeSort = (key: SortKey) => {
     setSort((current) =>
@@ -59,31 +46,9 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
     );
   };
 
-  if (ticker) {
-    const listing = LISTING_BY_CODE[ticker];
-    const quote = snapshot.quotes[ticker];
-
-    return (
-      <div className="page-stack">
-        {listing && quote ? (
-          <StockDetail key={ticker} code={ticker} />
-        ) : (
-          <Panel id="stock-not-found" title="종목을 찾을 수 없습니다">
-            <p className="empty is-inline">상장 목록에 없는 종목입니다.</p>
-          </Panel>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="page-stack">
-      <div className="page-title">
-        <h1>시장</h1>
-        <span className="page-meta num">
-          {counts.all}종목
-        </span>
-      </div>
+      <h1 className="page-title">시장</h1>
 
       <div className="controls">
         <div className="control-group" role="group" aria-label="종목 필터">
@@ -93,66 +58,60 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
               type="button"
               className={`filter-button${view === item.id ? " is-active" : ""}`}
               aria-pressed={view === item.id}
-              onClick={() => {
-                if (item.id === "watch" && !requireSignIn("/market")) return;
-                setView(item.id);
-              }}
+              onClick={() => setView(item.id)}
             >
               {item.label}
-              <span className="num">{counts[item.id]}</span>
             </button>
           ))}
         </div>
         <div className="control-field">
-          <label htmlFor="market-search">종목 검색</label>
+          <label htmlFor="market-search" className="vh">
+            종목 검색
+          </label>
           <input
             id="market-search"
             type="search"
             value={query}
-            placeholder="게임명 · 퍼블리셔 · 코드"
+            placeholder="게임 이름 검색"
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
       </div>
 
-      <div className="market-layout">
-        <div className="market-left-column">
-          <div className="market-list" {...holdHandlers}>
-            {codes.length === 0 ? (
-              <Panel id="market-empty" title="시세표" flush>
-                <div className="empty">
-                  <p>조건에 맞는 종목이 없습니다.</p>
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={() => {
-                      setView("all");
-                      setQuery("");
-                    }}
-                  >
-                    필터 초기화
-                  </button>
-                </div>
-              </Panel>
-            ) : (
-              <Panel
-                id="market-table"
-                title="시세표"
-                meta={sort.key === "volume" ? "거래량순" : undefined}
-                flush
+      <div className={`market-layout${ticker ? " has-detail" : ""}`}>
+        <div className="market-list" {...holdHandlers}>
+          {codes.length === 0 ? (
+            <div className="empty">
+              <p>조건에 맞는 종목이 없습니다.</p>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setView("all");
+                  setQuery("");
+                }}
               >
-                <QuoteTable
-                  codes={codes}
-                  caption="상장 종목 시세"
-                  onSelect={(code) => navigate(`/market/${code}`)}
-                  onToggleWatch
-                  sort={sort}
-                  onSort={changeSort}
-                />
-              </Panel>
-            )}
-          </div>
+                필터 초기화
+              </button>
+            </div>
+          ) : (
+            <QuoteTable
+              codes={codes}
+              caption="상장 종목 시세"
+              selected={ticker}
+              onSelect={(code) => navigate(`/market/${code}`)}
+              watchable
+              sort={sort}
+              onSort={changeSort}
+            />
+          )}
         </div>
+
+        {ticker && (
+          <aside className="market-detail" aria-label="종목 상세">
+            <StockDetail code={ticker} />
+          </aside>
+        )}
       </div>
     </div>
   );

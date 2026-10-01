@@ -1,0 +1,50 @@
+/* Server-only controls are scoped; reference tokens/base/app stay unchanged. */
+@layer component {
+  .login-panel { --rule-width: 1px; --radius-pill: 999px; }
+  .integration-tools { color: var(--ink-muted); font-size: var(--step-0); }
+  .integration-tools > summary { cursor: pointer; padding-block: var(--space-2); }
+  .integration-tools[open] > summary { margin-bottom: var(--space-4); }
+  .integration-trading { display: grid; gap: var(--space-5); color: var(--ink); }
+  .integration-tools input, .integration-tools select {
+    max-width: 100%; padding: 8px 12px; border: 1px solid var(--rule);
+    border-radius: var(--radius); background: var(--paper); color: var(--ink); font: inherit;
+  }
+  .integration-tools .mypage-button {
+    padding: 8px 12px; background: var(--sunken); border-radius: var(--radius); font-weight: 700;
+  }
+  .integration-tools .is-danger { color: var(--up-deep); }
+  .integration-tools .mypage-edit-row, .integration-tools .alert-input-row,
+  .integration-tools .mypage-reset-row, .integration-tools .feature-list li {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
+  }
+  .integration-tools .feature-columns { display: grid; gap: var(--space-5); }
+  .integration-tools .page-title { font-size: var(--step-3); }
+  .integration-tools .page-title h1 { font-size: inherit; }
+  .integration-tools .alert-form { display: grid; gap: var(--space-2); }
+  .integration-tools .quote-table td, .integration-tools .quote-table th { padding: 8px; }
+  .integration-tools .ticket-summary > div { display: flex; justify-content: space-between; }
+  .integration-tools .ticket-summary, .integration-tools .ticket-note { font-size: var(--step-0); }
+  .integration-ranking th:not(:nth-child(2)), .integration-ranking td:not(:nth-child(2)) { text-align: right; }
+  .integration-ranking th:first-child { text-align: left; }
+  .integration-ranking .ranking-medal { font-weight: 800; }
+  .integration-ranking .is-gold { color: var(--amber-deep); }
+  .integration-ranking .is-silver { color: var(--ink-muted); }
+  .integration-ranking .is-bronze { color: var(--brand-wine); }
+  .integration-trading .chart-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+  .integration-trading .chart-range, .integration-trading .chart-modes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .integration-trading .chart-crosshair { stroke: var(--ink-faint); stroke-dasharray: 3 3; }
+  .integration-trading .chart-candle.is-up { fill: var(--up); stroke: var(--up); }
+  .integration-trading .chart-candle.is-down { fill: var(--down); stroke: var(--down); }
+  .integration-trading .book-table { width: 100%; }
+  .integration-trading .book-table td, .integration-trading .book-table th { padding: 6px; }
+  .integration-trading .book-depth { background: var(--sunken); }
+  .integration-trading .book-depth-fill { display: block; height: 4px; background: var(--ink-faint); }
+  .integration-trading .is-ask { color: var(--down-deep); }
+  .integration-trading .is-bid { color: var(--up-deep); }
+  .backend-loading { min-height: 100dvh; display: grid; place-items: center; text-align: center; }
+  .backend-loading-inner { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-5); }
+  .backend-loading-stage { width: 260px; height: 320px; }
+  .backend-loading-art { width: 100%; height: 100%; object-fit: contain; }
+  .backend-loading-status { color: var(--ink-muted); }
+  .mission-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 60; padding: 12px 20px; background: var(--paper); color: var(--ink); box-shadow: 0 4px 20px #0002; }
+}

@@ -1,3 +1,4 @@
+import { AuthBridge } from "./components/AuthBridge";
 import { useEffect, useRef } from "react";
 import { Topbar } from "./components/Topbar";
 import { HomePage } from "./pages/HomePage";
@@ -6,6 +7,7 @@ import { NewsPage } from "./pages/NewsPage";
 import { RankingPage } from "./pages/RankingPage";
 import { MyPage } from "./pages/MyPage";
 import { LoginPage } from "./pages/LoginPage";
+import { StatusBar } from "./components/StatusBar";
 import { MissionRewardToast } from "./components/MissionRewardToast";
 import { LoginModal } from "./components/LoginModal";
 import { openLoginPrompt, useAuthUser } from "./lib/auth";
@@ -18,7 +20,7 @@ function titleFor(route: Route): string {
     const name = route.ticker ? LISTING_BY_CODE[route.ticker]?.name : undefined;
     return name ? `${name} · 시장 · 씹덕주식` : "시장 · 씹덕주식";
   }
-  if (route.name === "news") return "뉴스 · 씹덕주식";
+  if (route.name === "news") return "속보 · 씹덕주식";
   if (route.name === "ranking") return "투자 랭킹 · 씹덕주식";
   if (route.name === "mypage") return "마이페이지 · 씹덕주식";
   if (route.name === "login") return "로그인 · 씹덕주식";
@@ -53,6 +55,7 @@ export default function App() {
       <a className="skip-link" href="#content">
         본문으로 건너뛰기
       </a>
+      <AuthBridge />
       <Topbar route={route} />
       <main id="content" className="content" ref={main} tabIndex={-1}>
         {route.name === "home" && <HomePage />}
@@ -62,6 +65,7 @@ export default function App() {
         {route.name === "mypage" && (auth.user ? <MyPage /> : <p className="empty" role="status">로그인 상태를 확인하고 있어요.</p>)}
         {route.name === "login" && <LoginPage method={route.method} />}
       </main>
+      <StatusBar />
       <MissionRewardToast />
       <LoginModal />
     </div>

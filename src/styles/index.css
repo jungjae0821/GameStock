@@ -1,13 +1,7 @@
 @import "./tokens.css";
 @import "./base.css";
-@import "./surfaces.css";
-@import "./chrome.css";
-@import "./board.css";
-@import "./market.css";
-@import "./detail.css";
-@import "./news.css";
-@import "./mobile.css";
-@import "./protection.css";
-@import "./stock-detail.css";
+@import "./app.css";
 @import "./login.css";
-@import "./home-redesign.css";
+@import "./exchange-tools.css";
+@import "./integration.css";
+@import "./account.css";

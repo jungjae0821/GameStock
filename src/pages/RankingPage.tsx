@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Panel } from "../components/Panel";
 import { apiFetch } from "../lib/api";
 
 type RankingEntry = {
@@ -73,13 +72,10 @@ export function RankingPage() {
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
   return (
-    <div className="page-stack ranking-page">
-      <div className="page-title">
-        <h1>투자 랭킹</h1>
-        <span className="page-meta num">{ranking.length}명</span>
-      </div>
+    <div className="page-stack is-narrow">
+      <h1 className="page-title">랭킹</h1>
 
-      <Panel id="ranking-board" hideHeader>
+      <section aria-label="투자 랭킹">
         {loading ? (
           <p className="empty is-inline">랭킹을 불러오는 중…</p>
         ) : error ? (
@@ -88,7 +84,7 @@ export function RankingPage() {
           <p className="empty is-inline">아직 랭킹에 참여한 사용자가 없습니다.</p>
         ) : (
           <div className="table-scroll">
-            <table className="ranking-table" aria-label="랭킹 표">
+            <table className="table integration-ranking" aria-label="랭킹 표">
               <colgroup>
                 <col className="ranking-col-rank" />
                 <col className="ranking-col-name" />
@@ -131,7 +127,7 @@ export function RankingPage() {
             </table>
           </div>
         )}
-      </Panel>
+      </section>
     </div>
   );
 }

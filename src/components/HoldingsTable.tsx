@@ -1,71 +1,48 @@
-import { Chip } from "./Chip";
+import { Delta } from "./Delta";
 import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
-import { Delta } from "./Delta";
-import { PriceCell } from "./PriceCell";
-import { RestrictionBadge } from "./RestrictionBadge";
-import { plainRate, won } from "../market/format";
+import { won } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { holdings, totals } from "../market/selectors";
 
 export function HoldingsTable({ caption }: { caption: string }) {
   const snapshot = useMarket();
-  const money = totals(snapshot);
-  const rows = holdings(snapshot, money.total);
+  const rows = holdings(snapshot, totals(snapshot).total);
   if (rows.length === 0) return null;
 
   return (
     <div className="table-scroll">
-      <table className="quote-table holdings-table">
+      <table className="table">
         <caption className="vh">{caption}</caption>
         <thead>
           <tr>
-            <th scope="col">종목</th>
-            <th scope="col">보유 수량</th>
-            <th scope="col">평균 단가</th>
-            <th scope="col">현재가</th>
-            <th scope="col">평가액</th>
-            <th scope="col">평가 손익</th>
-            <th scope="col">비중</th>
+            <th scope="col" className="cell-name">
+              게임
+            </th>
+            <th scope="col" className="cell-num">
+              수량
+            </th>
+            <th scope="col" className="cell-num">
+              평가액
+            </th>
+            <th scope="col" className="cell-num">
+              손익
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.listing.code}>
               <th scope="row" className="cell-name">
-                <div className="stock-name-group">
                 <Link className="name-link" to={`/market/${row.listing.code}`}>
-                  <GameIcon code={row.listing.code} name={row.listing.name} size="table" />
-                  <span className="name-stack">
-                    <span className="name-text">{row.listing.name}</span>
-                    <span className="name-sub">
-                      {row.listing.genre} · {row.listing.publisher} · {row.listing.code}
-                    </span>
-                  </span>
+                  <GameIcon code={row.listing.code} />
+                  <span className="name-text">{row.listing.name}</span>
                 </Link>
-                <RestrictionBadge code={row.listing.code} />
-                </div>
               </th>
-              <td className="num">{row.position.qty}주</td>
-              <td className="num">{won(row.position.avgCost)}</td>
-              <td>
-                <PriceCell className="num" value={row.quote.price} />
-              </td>
-              <td>
-                <PriceCell className="num" value={row.value} />
-              </td>
-              <td>
-                <Chip tone={row.pnl > 0 ? "up" : row.pnl < 0 ? "down" : "flat"}>
-                  <Delta change={row.pnl} ratio={row.pnlRate} />
-                </Chip>
-              </td>
-              <td>
-                <span className="volume-cell">
-                  <span className="num volume-value">{plainRate(row.weight, 1)}</span>
-                  <span className="bar volume-bar" aria-hidden="true">
-                    <span className="bar-fill" style={{ width: `${Math.max(2, row.weight * 100)}%` }} />
-                  </span>
-                </span>
+              <td className="cell-num num">{row.position.qty}주</td>
+              <td className="cell-num num">{won(row.value)}</td>
+              <td className="cell-num">
+                <Delta change={row.pnl} ratio={row.pnlRate} />
               </td>
             </tr>
           ))}

@@ -179,20 +179,12 @@ public class MarketService {
                 VALUES (?, ?, ?, ?)
                 """, DEMO_USERNAME, "demo", "Demo User", 1_000_000L);
 
-        insertGameIfMissing("우마무스메 프리티더비", "Cygames", "RPG");
-        insertGameIfMissing("블루 아카이브", "Nexon", "RPG");
-        insertGameIfMissing("승리의 여신: 니케", "ShiftUp", "RPG");
-        insertGameIfMissing("젠레스 존 제로", "HoYoverse", "액션");
-
         renameExistingStock("NEXA", "UMA", "네사: 크로니클", "우마무스메 프리티더비");
         renameExistingStock("STAR", "BA", "스타라이트 아레나", "블루 아카이브");
         renameExistingStock("MOMO", "GOV", "모모 팜", "승리의 여신: 니케");
         removeExistingStock("VOID", "보이드 러너");
 
-        insertStock("UMA", "우마무스메 프리티더비", 10_000L);
-        insertStock("BA", "블루 아카이브", 10_000L);
-        insertStock("GOV", "승리의 여신: 니케", 10_000L);
-        insertStock("ZZZ", "젠레스 존 제로", 10_000L);
+        StockCatalog.ensureListings(jdbc);
         ensureTraderBots();
         userFeatures.ensureTables();
         userFeatures.ensureDefaultTags();
@@ -322,21 +314,6 @@ public class MarketService {
                 ), s.current_price)
                 WHERE e.event_type = 'NEWS' AND e.price_at_publish IS NULL
                 """);
-    }
-
-    private void insertStock(String code, String name, long price) {
-        jdbc.update("""
-                INSERT IGNORE INTO stocks (game_id, stock_code, current_price, previous_price, total_volume)
-                SELECT id, ?, ?, ?, ? FROM games WHERE name = ?
-                """, code, price, price, 0L, name);
-    }
-
-    private void insertGameIfMissing(String name, String developer, String genre) {
-        jdbc.update("""
-                INSERT INTO games (name, developer, genre)
-                SELECT ?, ?, ?
-                WHERE NOT EXISTS (SELECT 1 FROM games WHERE name = ?)
-                """, name, developer, genre, name);
     }
 
     private void renameExistingStock(String oldCode, String newCode, String oldName, String newName) {

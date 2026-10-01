@@ -1,11 +1,10 @@
 import { Delta } from "./Delta";
+import { PriceCell } from "./PriceCell";
 import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
-import { PriceCell } from "./PriceCell";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
-import type { SortDirection, SortKey } from "../market/selectors";
 
 interface Props {
   codes: string[];
@@ -13,31 +12,10 @@ interface Props {
   selected?: string | null;
   onSelect?: (code: string) => void;
   watchable?: boolean;
-  sort?: { key: SortKey; direction: SortDirection };
-  onSort?: (key: SortKey) => void;
 }
 
-export function QuoteTable({ codes, caption, selected, onSelect, watchable = false, sort, onSort }: Props) {
-  const header = (key: SortKey, label: string, className: string) => {
-    const active = sort?.key === key;
-    return (
-      <th
-        scope="col"
-        className={className}
-        aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
-      >
-        {onSort ? (
-          <button type="button" className={`sort-button${active ? " is-active" : ""}`} onClick={() => onSort(key)}>
-            {label}
-            {active && <span aria-hidden="true">{sort.direction === "asc" ? " ↑" : " ↓"}</span>}
-          </button>
-        ) : (
-          label
-        )}
-      </th>
-    );
-  };
-
+/** 홈 "인기 종목"용 단순 시세표: 게임 · 현재가 · 등락. */
+export function HomeQuoteTable({ codes, caption, selected, onSelect, watchable = false }: Props) {
   return (
     <div className="table-scroll">
       <table className="table quote-table">
@@ -49,9 +27,15 @@ export function QuoteTable({ codes, caption, selected, onSelect, watchable = fal
                 <span className="vh">관심</span>
               </th>
             )}
-            {header("name", "게임", "cell-name")}
-            {header("price", "현재가", "cell-num")}
-            {header("rate", "등락", "cell-num")}
+            <th scope="col" className="cell-name">
+              게임
+            </th>
+            <th scope="col" className="cell-num">
+              현재가
+            </th>
+            <th scope="col" className="cell-num">
+              등락
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -109,7 +93,7 @@ function QuoteRow({ code, selected, onSelect, watchable }: RowProps) {
             onSelect(code);
           }}
         >
-          <GameIcon code={code} />
+          <GameIcon code={code} name={listing.name} />
           <span className="name-text">{listing.name}</span>
         </Link>
       </th>

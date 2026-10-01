@@ -1,0 +1,26 @@
+[
+  {
+    "code": "AK",
+    "file": "ak-endfield.png",
+    "sourcePage": "https://play.google.com/store/apps/details?id=com.gryphline.endfield.gp&hl=ko",
+    "sourceImage": "https://play-lh.googleusercontent.com/l6FVNa293RykBWy88TqEhUakIcGSC8bRygSnKOBgztln48JX-WzMWnrBAETrKZsxDNC4HhwCsvfle_UI7rBE=s0-br30"
+  },
+  {
+    "code": "PX",
+    "file": "px-cookiekingdom.png",
+    "sourcePage": "https://play.google.com/store/apps/details?id=com.devsisters.ck&hl=ko",
+    "sourceImage": "https://play-lh.googleusercontent.com/J1zzZf_Clyg51sikuBbfTMD_sGVK64Ki5vyVtn3MmkUUzQ-AxKWq2-WuVDnpkrpai6Icun3wXspttadNAxy4djI=s0-br30"
+  },
+  {
+    "code": "SD",
+    "file": "sd-trickcal.png",
+    "sourcePage": "https://play.google.com/store/apps/details?id=com.epidgames.trickcalrevive&hl=ko",
+    "sourceImage": "https://play-lh.googleusercontent.com/7WntpQt6D18uzI3amQ_SrHYl74se-bQl1PXORC1xUpkc5KtkPPdYcX8WZXOH-NS5BMwlLICJ-CUifGkvsD_C98s=s0-br30"
+  },
+  {
+    "code": "EL",
+    "file": "el-overwatch.ico",
+    "sourcePage": "https://overwatch.blizzard.com/ko-kr/",
+    "sourceImage": "https://static.playoverwatch.com/images/favicon.988844a2b97828442775a674abf32ada4f722334.ico"
+  }
+]

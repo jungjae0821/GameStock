@@ -5,7 +5,9 @@ const productionApiBase = "https://gamestock-production.up.railway.app";
 const localApiBase = "http://localhost:8081";
 const isLocalBase = (value: string) => /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(value);
 
-const API_TIMEOUT_MS = 4_000;
+// A full market simulation can briefly hold a quote request while bots trade.
+// Give the selected backend time to answer before falling back to another DB.
+const API_TIMEOUT_MS = 15_000;
 
 // 개발 화면은 로컬 백엔드를 먼저 보고, 로컬 서버가 꺼져 있으면 Railway로
 // 재시도한다. 배포 화면은 Railway를 먼저 보되 사용자의 로컬 백엔드도

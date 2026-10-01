@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { LISTING_BY_CODE } from "../market/universe";
-import { OrderTicket } from "./OrderTicket";
+import { AdvancedOrderTicket } from "./AdvancedOrderTicket";
 
 /** Native modal keeps background controls inert and keyboard focus inside the order form. */
 export function OrderDialog({ code, initialSide, selectedLimitPrice, onClose }: {
@@ -39,7 +39,7 @@ export function OrderDialog({ code, initialSide, selectedLimitPrice, onClose }: 
           <div><h2 id="stock-order-title">{LISTING_BY_CODE[code]?.name ?? code} 주문</h2><p>시장가·호가 지정가</p></div>
           <button type="button" className="stock-order-close" aria-label="주문창 닫기" onClick={onClose} autoFocus>×</button>
         </header>
-        <div className="stock-order-dialog-body"><OrderTicket code={code} initialSide={initialSide} selectedLimitPrice={selectedLimitPrice} /></div>
+        <div className="stock-order-dialog-body"><AdvancedOrderTicket code={code} initialSide={initialSide} selectedLimitPrice={selectedLimitPrice} /></div>
       </div>
     </dialog>, document.body,
   );

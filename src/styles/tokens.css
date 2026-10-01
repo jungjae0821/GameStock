@@ -14,14 +14,12 @@
      * 텍스트에는 *-deep 만 쓴다(대비 4.5:1 이상). 밝은 색은 면·막대·마크·큰 숫자 전용이다.
      */
 
-    /* 표면: 무채색 종이. */
-    --canvas: #fff;
+    /* 표면: 무채색 종이 한 장. 카드로 띄우지 않는다. */
+    --canvas: oklch(1 0 0);
     --paper: oklch(1 0 0);
-    --rule-width: 1px;
-    /* 라이트모드는 모든 표면을 순백으로 통일한다: 표 머리·카드·구획 배경도 흰색. */
-    --sunken: #fff;
-    --rule: oklch(0.91 0 0); /* neutral divider */
-    --rule-ink: oklch(0.32 0.035 330); /* warm ink line */
+    --sunken: oklch(0.955 0 0); /* #F0F0F0 표 머리·교차 행 */
+    --rule: oklch(0.9 0 0); /* #E2E2E2 괘선 */
+    --rule-ink: oklch(0.27 0.02 330); /* #2A2229 굵은 괘선 */
 
     /* 글자: 로고 판에서 가져온 살짝 보라 도는 흑갈색 */
     --ink: oklch(0.27 0.02 330);
@@ -61,11 +59,12 @@
     --tick-down: var(--down-deep);
     --tick-down-bg: var(--down-wash);
 
-    --focus: var(--brand-deep);
-
+    /* 알림 상자(공지·비로그인 안내) — 라이브 버전 참고 */
     --notice-bg: oklch(0.965 0.035 75);
     --notice-rule: oklch(0.82 0.09 75);
     --notice-ink: oklch(0.43 0.09 75);
+
+    --focus: var(--brand-deep);
 
     --font-ui: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
       "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
@@ -87,69 +86,14 @@
     --space-6: 32px;
     --space-7: 44px;
 
-    /* 372.ro-inspired surface language: rounded, friendly, still data-dense. */
-    --radius-xs: 8px;
-    --radius-sm: 12px;
-    --radius: 16px;
-    --radius-lg: 22px;
-    --radius-pill: 999px;
-    --chip-height: 32px;
-    --shadow-card: 0 8px 24px rgb(91 42 78 / 7%);
-    --shadow-float: 0 16px 42px rgb(91 42 78 / 14%);
+    /*
+     * 면은 평평하다. 그림자도 알약도 없다. 모서리는 2px 하나뿐이고
+     * 구획은 괘선(위 2px 잉크선 + 머리 아래 1px)으로만 나눈다.
+     */
+    --radius: 2px;
+    --rule-heavy: 2px solid var(--rule-ink);
 
-    --page: 1240px;
+    --page: 1080px;
     --bar: 62px;
-  }
-
-  /* 기본은 라이트 모드. 메뉴에서 선택한 경우에만 이 팔레트로 전환한다. */
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-
-    /* 완전 검정에 가까운 무채색 표면. 색조를 걷어내 순수 블랙으로 둔다. */
-    --canvas: #000;
-    --paper: #0d0d10;
-    --rule-width: 2px;
-    --sunken: #17171b;
-    --rule: #2c2c31;
-    --rule-ink: oklch(0.72 0.01 330);
-
-    --ink: oklch(0.94 0.015 285);
-    --ink-muted: oklch(0.75 0.02 285);
-    --ink-faint: oklch(0.58 0.018 285);
-
-    --brand: oklch(0.75 0.19 7);
-    --brand-deep: oklch(0.79 0.17 10);
-    --brand-wine: oklch(0.88 0.1 350);
-    --brand-wash: oklch(0.32 0.05 350);
-
-    --up: oklch(0.72 0.18 26);
-    --up-deep: oklch(0.8 0.16 25);
-    --up-wash: oklch(0.31 0.05 13);
-    --down: oklch(0.72 0.15 265);
-    --down-deep: oklch(0.82 0.13 266);
-    --down-wash: oklch(0.3 0.045 266);
-    --flat: var(--ink-muted);
-
-    --amber: oklch(0.78 0.14 70);
-    --amber-deep: oklch(0.85 0.12 70);
-    --amber-wash: oklch(0.32 0.05 81);
-
-    --board: #050507;
-    --board-label: oklch(0.78 0.025 330);
-    --led: oklch(0.9 0.13 84);
-    --led-up: oklch(0.82 0.16 20);
-    --led-down: oklch(0.84 0.12 256);
-
-    --tick-up: var(--up-deep);
-    --tick-up-bg: var(--up-wash);
-    --tick-down: var(--down-deep);
-    --tick-down-bg: var(--down-wash);
-    --focus: var(--brand-deep);
-    --notice-bg: oklch(0.3 0.045 75);
-    --notice-rule: oklch(0.58 0.1 75);
-    --notice-ink: oklch(0.88 0.12 78);
-
-    --shadow-card: 0 10px 28px rgb(0 0 0 / 18%);
-    --shadow-float: 0 18px 44px rgb(0 0 0 / 28%);
   }
 }

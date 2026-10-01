@@ -38,6 +38,7 @@ type BackendEvent = {
 };
 type BackendPosition = { stockCode: string; quantity: number; averagePrice: number };
 type BackendPortfolio = { cash: number; positions: BackendPosition[]; realizedProfitLoss?: number; attendanceRewardCash?: number };
+type BackendSettlement = { id: number; stockCode: string; side: string; quantity: number; grossAmount: number; createdAt: string };
 type BackendMissionReward = { rewardCash: number; awarded: boolean; portfolio: BackendPortfolio; missions: DailyMissionStatus };
 
 const SnapshotContext = createContext<MarketSnapshot | null>(null);
@@ -137,6 +138,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const activeDetailCodeRef = useRef<string | null>(null);
   const refreshInFlightRef = useRef(false);
   const detailRefreshInFlightRef = useRef(false);
+  const snapshotFillsRef = useRef<Portfolio["fills"]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,9 +155,23 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           apiFetch<BackendMarketStatus>("/api/market-status"),
         ]);
         let portfolio: BackendPortfolio | undefined;
+        let fills: Portfolio["fills"] = [];
         if (firebaseAuth.currentUser) {
           try {
             portfolio = await apiFetch<BackendPortfolio>("/api/portfolio");
+            const settlements = await apiFetch<BackendSettlement[]>("/api/settlements").catch(() => null);
+            if (settlements) {
+            fills = settlements.map((trade) => ({
+              id: trade.id,
+              code: trade.stockCode,
+              side: trade.side.toUpperCase() === "BUY" ? "buy" : "sell",
+              qty: trade.quantity,
+              price: trade.quantity > 0 ? trade.grossAmount / trade.quantity : 0,
+              at: serverTimestamp(trade.createdAt),
+            }));
+            } else {
+              fills = snapshotFillsRef.current;
+            }
             const watchQuerySeq = watchMutationSeq.current;
             const watch = await apiFetch<{ stockCode: string }[]>("/api/watchlist");
             if (firebaseAuth.currentUser?.uid !== refreshingUid) return;
@@ -172,6 +188,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         }
         if (!cancelled && firebaseAuth.currentUser?.uid === refreshingUid) {
           const nextSnapshot = toSnapshot(stocks, events, portfolio, watchRef.current, market);
+          nextSnapshot.portfolio.fills = fills;
+          snapshotFillsRef.current = fills;
           // The two-second quote refresh must not clear the one-second detail
           // data while the order book/trade requests are in flight. Keeping
           // the previous rows prevents a visible empty-frame flicker.
@@ -272,6 +290,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     const detailTimer = window.setInterval(() => void refreshDetails(), 2000);
     const unsubscribe = onAuthStateChanged(firebaseAuth, () => {
       watchRef.current = [];
+      snapshotFillsRef.current = [];
       setSnapshot((current) => ({ ...current, watch: [], portfolio: toPortfolio() }));
       void refresh();
     });

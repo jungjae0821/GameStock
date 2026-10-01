@@ -18,7 +18,7 @@ interface Props {
  * 구획은 색으로 구분하지 않는다. 같은 무채색 머리와 괘선을 쓰고, 색은
  * 안에 담긴 값(등락·손익·체결)에만 붙는다.
  */
-export function Panel({ id, title, meta, action, hideHeader = false, flush = false, level = 2, children }: Props) {
+export function Panel({ id, title, meta, action, hideHeader = false, level = 2, children }: Props) {
   const route = useRoute();
   const current =
     route.name === "market"
@@ -36,7 +36,6 @@ export function Panel({ id, title, meta, action, hideHeader = false, flush = fal
     <section className="panel" aria-labelledby={hideHeader ? undefined : id}>
       {!hideHeader && (
         <div className="panel-head">
-          <span className="panel-mark" aria-hidden="true" />
           <Heading id={id} className="panel-title">
             {title}
           </Heading>
@@ -48,7 +47,7 @@ export function Panel({ id, title, meta, action, hideHeader = false, flush = fal
           )}
         </div>
       )}
-      {flush ? children : <div className="panel-body">{children}</div>}
+      {children}
     </section>
   );
 }

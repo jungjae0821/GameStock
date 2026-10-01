@@ -1,0 +1,2407 @@
+/* Existing exchange styles, restricted to optional controls. */
+@layer component { .integration-tools { --rule-width: 2px;
+--radius-xs: 8px;
+--radius-sm: 12px;
+--radius-lg: 22px;
+--radius-pill: 999px;
+--chip-height: 32px;
+--shadow-card: 0 10px 28px rgb(0 0 0 / 18%);
+--shadow-float: 0 18px 44px rgb(0 0 0 / 28%); } }
+@layer component {
+  .integration-tools .detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .integration-tools .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    align-items: start;
+  }
+
+  .integration-tools .detail-grid > .panel {
+    min-width: 0;
+  }
+
+  .integration-tools .detail-grid > .panel:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .integration-tools .detail-trade-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .integration-tools .detail-trade-column > .panel {
+    min-width: 0;
+  }
+
+  .integration-tools .detail-head {
+    padding: 2px 0 0;
+  }
+
+  .integration-tools .detail-ident {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .integration-tools .detail-name {
+    font-size: var(--step-3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+
+  .integration-tools .detail-sub {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .detail-ident .watch-button {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .integration-tools .detail-price {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .integration-tools .detail-price-value {
+    font-size: var(--step-5);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .integration-tools .detail-tabs {
+    display: flex;
+    gap: var(--space-4);
+    overflow-x: auto;
+    border-bottom: var(--rule-width) solid var(--rule-ink);
+  }
+
+  .integration-tools .detail-tab {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-height: 34px;
+    padding: 0 2px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .integration-tools .detail-tab:hover {
+    color: var(--ink);
+  }
+
+  /* 선택된 탭은 밑줄 없이 글자색만 바꾼다. */
+  .integration-tools .detail-tab.is-active {
+    color: var(--brand-deep);
+    font-weight: 700;
+  }
+
+  .integration-tools .detail-tab-count {
+    color: var(--ink-faint);
+    font-size: var(--step--1);
+    font-weight: 400;
+  }
+
+  .integration-tools .detail-trade-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    align-items: start;
+  }
+
+  .integration-tools .detail-trade-grid > .panel {
+    min-width: 0;
+  }
+
+  .integration-tools .detail-trade-grid > section[aria-labelledby="detail-order"] {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .integration-tools .detail-trade-grid > section[aria-labelledby="detail-holding"] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .integration-tools .detail-trade-quotes {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    align-items: stretch;
+  }
+
+  .integration-tools .detail-trade-quotes > .panel {
+    display: flex;
+    min-width: 0;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  .integration-tools .detail-trade-quotes > .panel .panel-body {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .integration-tools .detail-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-5);
+  }
+
+  .integration-tools .detail-info-grid > div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 8px 0;
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .integration-tools .detail-info-grid dt {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .integration-tools .detail-info-grid dd {
+    text-align: right;
+  }
+
+  /* ------------------------------------------------------------- 지표 격자 */
+
+  .integration-tools .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+
+  .integration-tools .stat-grid > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 5px 0;
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .integration-tools .stat-grid dt {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .stat-grid dd {
+    font-size: var(--step-0);
+  }
+
+  .integration-tools .stat-grid.is-holding {
+    margin-bottom: 0;
+  }
+
+  /* ------------------------------------------------------------- 차트 */
+
+  .integration-tools .chart {
+    margin: 0;
+  }
+
+  .integration-tools .chart-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+
+  .integration-tools .chart-control {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .integration-tools .chart-control-label {
+    flex: none;
+    margin-right: 4px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+
+  .integration-tools .chart-control-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-height: var(--chip-height);
+    padding: 3px 8px;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .integration-tools .chart-control-button:hover {
+    border-color: var(--rule-ink);
+    color: var(--ink);
+  }
+
+  .integration-tools .chart-control-button.is-active {
+    border-color: var(--brand);
+    background: var(--brand-wash);
+    color: var(--brand-wine);
+    font-weight: 700;
+  }
+
+  .integration-tools .chart-status {
+    margin: 0 0 var(--space-2);
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .integration-tools .chart-status.is-error {
+    color: var(--down-deep);
+  }
+
+  .integration-tools .chart-plot {
+    position: relative;
+    height: 168px;
+    padding-left: 72px;
+    padding-right: 72px;
+  }
+
+  .integration-tools .chart-plot svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .integration-tools .chart-grid {
+    stroke: var(--rule);
+    stroke-width: 0.8;
+  }
+
+  .integration-tools .chart-prevclose {
+    stroke: var(--ink-faint);
+    stroke-width: 0.9;
+    stroke-dasharray: 3 3;
+  }
+
+  .integration-tools .chart-line {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .integration-tools .chart.is-up .chart-line {
+    stroke: var(--up);
+  }
+
+  .integration-tools .chart.is-down .chart-line {
+    stroke: var(--down);
+  }
+
+  .integration-tools .chart.is-flat .chart-line {
+    stroke: var(--ink-muted);
+  }
+
+  .integration-tools .chart-point {
+    stroke: var(--paper);
+    stroke-width: 1.5;
+  }
+
+  .integration-tools .chart.is-up .chart-point {
+    fill: var(--up);
+  }
+
+  .integration-tools .chart.is-down .chart-point {
+    fill: var(--down);
+  }
+
+  .integration-tools .chart.is-flat .chart-point {
+    fill: var(--ink-muted);
+  }
+
+  .integration-tools .chart-candle-wick {
+    stroke-width: 1;
+  }
+
+  .integration-tools .chart-candle-body {
+    stroke-width: 0.8;
+  }
+
+  .integration-tools .chart-candle.is-up .chart-candle-wick,
+  .integration-tools .chart-candle.is-up .chart-candle-body {
+    stroke: var(--up-deep);
+    fill: var(--up);
+  }
+
+  .integration-tools .chart-candle.is-down .chart-candle-wick,
+  .integration-tools .chart-candle.is-down .chart-candle-body {
+    stroke: var(--down-deep);
+    fill: var(--down);
+  }
+
+  .integration-tools .chart-tick {
+    position: absolute;
+    left: 0;
+    width: 66px;
+    transform: translateY(-50%);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .integration-tools .chart-current {
+    position: absolute;
+    right: 0;
+    width: 68px;
+    padding-left: 4px;
+    transform: translateY(-50%);
+    font-size: var(--step--1);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .integration-tools .chart.is-up .chart-current {
+    color: var(--up-deep);
+  }
+
+  .integration-tools .chart.is-down .chart-current {
+    color: var(--down-deep);
+  }
+
+  .integration-tools .chart-axis {
+    display: none;
+  }
+
+  /* ------------------------------------------------------------- 호가 */
+
+  .integration-tools .book {
+    display: flex;
+    flex-direction: column;
+    font-size: var(--step-0);
+    min-width: 0;
+    width: 100%;
+    container-type: inline-size;
+  }
+
+  .integration-tools .book-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0 6px 6px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+
+  .integration-tools .book-summary-ask {
+    color: var(--down-deep);
+  }
+
+  .integration-tools .book-summary-buy {
+    color: var(--up-deep);
+  }
+
+  .integration-tools .book-header,
+  .integration-tools .book-row {
+    display: grid;
+    grid-template-columns: minmax(54px, 1fr) minmax(54px, 1fr) minmax(76px, 1.2fr) minmax(54px, 1fr) minmax(54px, 1fr);
+    align-items: center;
+    gap: 4px;
+  }
+
+  .integration-tools .book-header > *,
+  .integration-tools .book-row > * {
+    min-width: 0;
+  }
+
+  .integration-tools .book-header {
+    padding: 0 4px 5px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    text-align: center;
+    line-height: 1.15;
+  }
+
+  .integration-tools .book-header > * {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .integration-tools .book-ladder {
+    border-top: var(--rule-width) solid var(--rule);
+  }
+
+  .integration-tools .book-row {
+    position: relative;
+    min-height: 30px;
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .integration-tools .book-cell {
+    position: relative;
+    min-width: 0;
+    height: 30px;
+    overflow: hidden;
+  }
+
+  .integration-tools .book-cell.is-ask {
+    text-align: right;
+  }
+
+  .integration-tools .book-cell.is-bid {
+    text-align: left;
+  }
+
+  .integration-tools .book-bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: var(--radius-pill);
+    pointer-events: none;
+  }
+
+  .integration-tools .book-cell.is-ask .book-bar {
+    right: 0;
+    background: color-mix(in oklab, var(--down) 14%, transparent);
+  }
+
+  .integration-tools .book-cell.is-bid .book-bar {
+    left: 0;
+    background: color-mix(in oklab, var(--up) 14%, transparent);
+  }
+
+  .integration-tools .book-cell .book-qty {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    padding: 5px 6px;
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+
+  .integration-tools .book-price {
+    min-width: 0;
+    padding: 0;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .integration-tools .book-price-button {
+    width: 100%;
+    padding: 5px 2px;
+    color: var(--ink);
+    background: transparent;
+    border-radius: var(--radius-xs);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .integration-tools .book-price-button.is-clickable:hover,
+  .integration-tools .book-price-button.is-clickable:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -1px;
+  }
+
+  .integration-tools .book-price-button.is-ask {
+    color: var(--down-deep);
+  }
+
+  .integration-tools .book-price-button.is-bid {
+    color: var(--up-deep);
+  }
+
+  .integration-tools .book-price-button.is-best {
+    font-weight: 800;
+  }
+
+  .integration-tools .book-cumulative {
+    padding: 5px 2px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .integration-tools .book-cumulative.is-ask {
+    color: color-mix(in oklab, var(--down-deep) 75%, var(--ink-muted));
+  }
+
+  .integration-tools .book-cumulative.is-bid {
+    color: color-mix(in oklab, var(--up-deep) 75%, var(--ink-muted));
+  }
+
+  .integration-tools .book-empty {
+    min-width: 0;
+  }
+
+  .integration-tools .book-cell.is-ask .book-qty {
+    color: var(--down-deep);
+  }
+
+  .integration-tools .book-cell.is-bid .book-qty {
+    color: var(--up-deep);
+  }
+
+  .integration-tools .book-row.is-best .book-cell {
+    background: color-mix(in oklab, var(--ink-faint) 24%, transparent);
+  }
+
+  .integration-tools .book-current-row {
+    display: grid;
+    grid-template-columns: auto auto auto 1fr;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 3px 0;
+    border-block: var(--rule-width) solid var(--rule-ink);
+    background: var(--sunken);
+  }
+
+  .integration-tools .book-current-label {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+
+  .integration-tools .book-current-price {
+    font-size: var(--step-1);
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .integration-tools .book-current-row .delta {
+    white-space: nowrap;
+  }
+
+  .integration-tools .book-spread {
+    margin-top: 5px;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    text-align: center;
+  }
+
+  @container (max-width: 320px) {
+    .integration-tools .book-header,
+    .integration-tools .book-row {
+      grid-template-columns: minmax(0, 1fr) minmax(72px, auto) minmax(0, 1fr);
+      gap: 2px;
+    }
+
+    .integration-tools .book-header > :first-child,
+    .integration-tools .book-header > :last-child,
+    .integration-tools .book-row .book-cumulative {
+      display: none;
+    }
+
+    .integration-tools .book-row.is-ask .book-empty:last-child,
+    .integration-tools .book-row.is-bid .book-empty:first-child {
+      display: none;
+    }
+  }
+
+  /* ------------------------------------------------------------- 체결 */
+
+  .integration-tools .tape-strength {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-bottom: var(--space-2);
+  }
+
+  .integration-tools .tape-label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .integration-tools .tape-strength .bar {
+    flex: 1;
+  }
+
+  .integration-tools .tape-list {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .integration-tools .tape-list li {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: 3px 0;
+    border-top: var(--rule-width) solid var(--rule);
+    font-size: var(--step-0);
+  }
+
+  .integration-tools .tape-time {
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .tape-price {
+    min-width: 76px;
+    text-align: right;
+  }
+
+  .integration-tools .tape-price.is-buy {
+    color: var(--up-deep);
+  }
+
+  .integration-tools .tape-price.is-sell {
+    color: var(--down-deep);
+  }
+
+  .integration-tools .tape-qty {
+    margin-left: auto;
+    color: var(--ink-muted);
+  }
+
+  /* ------------------------------------------------------------- 주문 */
+
+  .integration-tools .ticket-side {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+
+  .integration-tools .side-button {
+    flex: 1;
+    padding: 9px 0;
+    font-size: var(--step-1);
+    font-weight: 700;
+    color: var(--ink-muted);
+    background: var(--sunken);
+    border-radius: var(--radius);
+  }
+
+  .integration-tools .side-button:hover {
+    color: var(--ink);
+  }
+
+  .integration-tools .side-button.is-buy.is-active {
+    background: var(--up);
+    color: var(--paper);
+  }
+
+  .integration-tools .side-button.is-sell.is-active {
+    background: var(--down);
+    color: var(--paper);
+  }
+
+  .integration-tools .side-button.is-type.is-active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .integration-tools .ticket-field {
+    margin-bottom: var(--space-3);
+  }
+
+  .integration-tools .ticket-field label {
+    display: block;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    margin-bottom: 4px;
+  }
+
+  .integration-tools .ticket-input {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    border: var(--rule-width) solid var(--rule-ink);
+    border-radius: var(--radius);
+    padding: 0 8px;
+    background: var(--paper);
+  }
+
+  .integration-tools .ticket-input input {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    border: none;
+    background: none;
+    font-size: var(--step-3);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .integration-tools .ticket-input input:focus-visible {
+    /* frontend-apex-ignore: focus-outline-removed -- 감싸는 상자가 :focus-within 으로 같은 초점 표시를 그린다 */
+    outline: none;
+  }
+
+  .integration-tools .ticket-input:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  .integration-tools .ticket-unit {
+    font-size: var(--step-0);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .ticket-hint {
+    margin-top: 5px;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .ticket-ratios {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: 6px;
+  }
+
+  .integration-tools .ticket-summary {
+    border-top: var(--rule-width) solid var(--rule);
+    margin-bottom: var(--space-2);
+  }
+
+  .integration-tools .ticket-summary > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 5px 0;
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .integration-tools .ticket-summary dt {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .ticket-summary dd {
+    font-size: var(--step-0);
+  }
+
+  .integration-tools .ticket-note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    margin-bottom: var(--space-3);
+  }
+
+  .integration-tools .submit-button {
+    width: 100%;
+    padding: 11px 0;
+    font-size: var(--step-2);
+    font-weight: 700;
+    color: var(--paper);
+    border-radius: var(--radius);
+  }
+
+  .integration-tools .submit-button.is-buy {
+    background: var(--up);
+  }
+
+  .integration-tools .submit-button.is-sell {
+    background: var(--down);
+  }
+
+  .integration-tools .submit-button:hover:not(:disabled) {
+    filter: brightness(0.92);
+  }
+
+  .integration-tools .submit-button:disabled {
+    background: var(--sunken);
+    color: var(--ink-faint);
+  }
+
+  .integration-tools .ticket-message {
+    min-height: 20px;
+    margin-top: var(--space-2);
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .integration-tools .ticket-message.is-error {
+    color: var(--up-deep);
+  }
+
+  .integration-tools .fill-list li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 5px 0;
+    border-bottom: var(--rule-width) solid var(--rule);
+    font-size: var(--step-0);
+  }
+
+  .integration-tools .fill-time {
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .fill-amount {
+    margin-left: auto;
+    color: var(--ink-muted);
+  }
+}
+
+@layer responsive {
+  @media (max-width: 720px) {
+    .integration-tools .detail-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .integration-tools .detail-grid > .panel:only-child {
+      grid-column: auto;
+    }
+
+    .integration-tools .detail-trade-grid,
+    .integration-tools .detail-trade-quotes,
+    .integration-tools .detail-info-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .integration-tools .detail-trade-quotes {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    .integration-tools .detail-trade-grid > section[aria-labelledby="detail-order"],
+    .integration-tools .detail-trade-grid > section[aria-labelledby="detail-holding"],
+    .integration-tools .detail-trade-quotes {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    .integration-tools .chart-plot {
+      padding-left: 0;
+      padding-right: 60px;
+      height: 168px;
+    }
+
+    .integration-tools .chart-toolbar {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .integration-tools .chart-range-control {
+      flex-wrap: nowrap;
+      max-width: 100%;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .integration-tools .chart-tick {
+      display: none;
+    }
+
+    .integration-tools .chart-axis {
+      padding-inline: 0 60px;
+    }
+
+    .integration-tools .ticket-ratios {
+      gap: var(--space-2);
+    }
+
+    .integration-tools .ticket-ratios .text-button {
+      min-width: 52px;
+      justify-content: center;
+    }
+
+    .integration-tools .book-header,
+    .integration-tools .book-row {
+      grid-template-columns: minmax(48px, 1fr) minmax(48px, 1fr) minmax(72px, 1.2fr) minmax(48px, 1fr) minmax(48px, 1fr);
+      gap: 2px;
+    }
+
+    .integration-tools .book-header {
+      font-size: var(--step--2);
+    }
+
+    .integration-tools .book-cell .book-qty {
+      padding-inline: 2px;
+    }
+
+    .integration-tools .book-price-button {
+      padding-inline: 0;
+    }
+
+    .integration-tools .side-button {
+      padding: 11px 0;
+    }
+  }
+}
+
+@layer layout {
+  .integration-tools .content:has(.stock-detail-page) { max-width: 1600px; padding-top: 20px; }
+  .integration-tools .page-stack:has(> .stock-detail-page) { gap: 10px; }
+  .integration-tools .stock-detail-page { padding-bottom: 86px; }
+  .integration-tools .stock-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    gap: 28px;
+    align-items: start;
+  }
+  .integration-tools .stock-detail-main,
+  .integration-tools .stock-detail-sidebar { display: flex; min-width: 0; flex-direction: column; gap: 18px; }
+  .integration-tools .stock-detail-sidebar { padding-left: 24px; border-left: var(--rule-width) solid var(--rule); }
+}
+
+@layer component {
+  .integration-tools .stock-detail-head { margin-bottom: 12px; }
+  .integration-tools .stock-detail-head .detail-name { font-size: 23px; }
+  .integration-tools .stock-detail-ident-text { min-width: 0; }
+  .integration-tools .stock-detail-price { margin-top: 16px; }
+  .integration-tools .stock-detail-price .detail-price-value { font-size: 34px; line-height: 1.3; }
+  .integration-tools .stock-detail-change { margin-top: 3px; font-size: 15px; }
+  .integration-tools .stock-detail-change > span { color: var(--ink-muted); }
+  .integration-tools .stock-detail-change.is-up strong { color: var(--up-deep); }
+  .integration-tools .stock-detail-change.is-down strong { color: var(--down-deep); }
+  .integration-tools .stock-detail-change.is-flat strong { color: var(--ink-muted); }
+  .integration-tools .stock-detail-page .panel { box-shadow: none; }
+  .integration-tools .stock-detail-page .panel-head { background: var(--paper); }
+  .integration-tools .stock-detail-sidebar .stat-grid { grid-template-columns: minmax(0, 1fr); }
+  .integration-tools .stock-detail-sidebar .stat-grid > div { padding: 7px 0; }
+  .integration-tools .stock-detail-sidebar .stat-grid > div:last-child { border-bottom: 0; }
+  .integration-tools .stock-detail-sidebar .tape-list { max-height: 166px; }
+  .integration-tools .stock-detail-sidebar .tape-list li { padding: 5px 0; }
+  .integration-tools .stock-chart-card { min-width: 0; padding: 20px; border: var(--rule-width) solid var(--rule); border-radius: 18px; background: var(--paper); }
+  .integration-tools .stock-session-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 20px; margin-top: 24px; padding-top: 18px; border-top: var(--rule-width) solid var(--rule); }
+  .integration-tools .stock-session-stats > div { min-width: 0; }
+  .integration-tools .stock-session-stats dt { color: var(--ink-muted); font-size: 12px; }
+  .integration-tools .stock-session-stats dd { margin-top: 2px; font-size: 14px; font-weight: 600; }
+  .integration-tools .stock-series-chart .chart-toolbar { flex-wrap: nowrap; margin-bottom: 0; gap: 16px; }
+  .integration-tools .stock-series-chart .chart-range-control { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 4px; }
+  .integration-tools .stock-series-chart .chart-mode-control { flex: none; flex-wrap: nowrap; }
+  .integration-tools .stock-series-chart .chart-control-button { border: 0; border-radius: 0; background: none; padding: 4px 6px; font-size: 13px; min-height: 32px; }
+  .integration-tools .stock-series-chart .chart-control-button.is-active { color: var(--ink); font-weight: 800; }
+  .integration-tools .stock-series-chart .chart-control-button:hover { color: var(--ink); background: var(--sunken); }
+  .integration-tools .stock-series-chart .chart-readout { display: flex; align-items: center; justify-content: center; min-height: 64px; padding: 8px 0 12px; text-align: center; }
+  .integration-tools .stock-series-chart .chart-status { margin: 0; font-size: 12px; }
+  .integration-tools .chart-hover-readout { display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+  .integration-tools .chart-hover-readout time { color: var(--ink-muted); font-size: 12px; }
+  .integration-tools .chart-hover-readout strong { color: var(--ink); font-size: 23px; font-weight: 800; line-height: 1.25; }
+  .integration-tools .chart-hover-ohlc { font-size: 11px; color: var(--ink-muted); }
+  .integration-tools .stock-series-chart .chart-plot { height: clamp(340px, 42vh, 500px); padding: 0 70px 0 0; }
+  .integration-tools .chart-canvas { position: relative; width: 100%; height: 100%; cursor: crosshair; touch-action: pan-y; }
+  .integration-tools .stock-series-chart .chart-plot svg { overflow: hidden; }
+  .integration-tools .stock-series-chart.is-up { color: var(--up); }
+  .integration-tools .stock-series-chart.is-down { color: var(--down); }
+  .integration-tools .stock-series-chart.is-flat { color: var(--ink-muted); }
+  .integration-tools .stock-series-chart .chart-line { stroke-width: 2.3; }
+  .integration-tools .chart-extreme { position: absolute; left: 8px; color: var(--ink-muted); font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; }
+  .integration-tools .chart-extreme.is-high { transform: translateY(calc(-100% - 7px)); }
+  .integration-tools .chart-extreme.is-low { transform: translateY(7px); }
+  .integration-tools .chart-last-dot,
+  .integration-tools .chart-hover-dot { position: absolute; width: 9px; height: 9px; border: 2px solid var(--paper); border-radius: 50%; background: currentColor; transform: translate(-50%, -50%); pointer-events: none; }
+  .integration-tools .chart-hover-dot { width: 11px; height: 11px; box-shadow: 0 0 0 5px color-mix(in oklab, currentColor 15%, transparent); }
+  .integration-tools .chart-crosshair { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--ink-faint); pointer-events: none; }
+  .integration-tools .stock-series-chart .chart-current { width: 68px; font-size: 12px; }
+  .integration-tools .chart-timeline { display: flex; justify-content: space-between; gap: 12px; padding: 16px 70px 0 0; color: var(--ink-muted); font-size: 11px; }
+  .integration-tools .stock-purchase-bar { position: fixed; z-index: 100; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; padding: 14px 24px max(14px, env(safe-area-inset-bottom)); border-top: var(--rule-width) solid var(--rule); background: var(--paper); }
+  .integration-tools .stock-trade-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; width: 100%; max-width: 1120px; }
+  .integration-tools .stock-trade-actions.has-holding { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .integration-tools .stock-purchase-button { width: 100%; min-height: 52px; border-radius: 12px; background: #f43f5e; color: white; font-size: 17px; font-weight: 750; box-shadow: 0 4px 14px rgb(244 63 94 / 18%); }
+  .integration-tools .stock-purchase-button:hover { background: #e73553; }
+  .integration-tools .stock-purchase-button.is-sell { background: var(--down-deep); }
+  .integration-tools .stock-purchase-button.is-sell:hover { background: color-mix(in oklab, var(--down-deep) 88%, black); }
+  .integration-tools .stock-purchase-button:focus-visible { outline-offset: -4px; }
+  .integration-tools .stock-order-dialog { position: fixed; inset: 0; width: min(460px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: var(--rule-width) solid var(--rule); border-radius: 20px; color: var(--ink); background: var(--paper); box-shadow: var(--shadow-float); overflow: hidden; }
+  .integration-tools .stock-order-dialog::backdrop { background: rgb(25 22 30 / 26%); backdrop-filter: blur(2px); }
+  .integration-tools .stock-order-dialog-content { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); }
+  .integration-tools .stock-order-dialog-head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: var(--rule-width) solid var(--rule); }
+  .integration-tools .stock-order-dialog-head h2 { font-size: 18px; }
+  .integration-tools .stock-order-dialog-head p { margin-top: 2px; color: var(--ink-muted); font-size: 12px; }
+  .integration-tools .stock-order-close { flex: none; width: 34px; height: 34px; border-radius: 8px; color: var(--ink-muted); font-size: 25px; line-height: 1; }
+  .integration-tools .stock-order-close:hover { background: var(--sunken); color: var(--ink); }
+  .integration-tools .stock-order-dialog-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px; }
+}
+
+@layer responsive {
+  @media (max-width: 960px) {
+    .integration-tools .stock-detail-layout { display: flex; flex-direction: column; gap: 18px; }
+    .integration-tools .stock-detail-main { display: contents; }
+    .integration-tools .stock-chart-card { width: 100%; order: 0; }
+    .integration-tools .stock-detail-sidebar { width: 100%; order: 1; padding-left: 0; border-left: 0; }
+    .integration-tools .stock-detail-main > .detail-tabs { width: 100%; order: 2; }
+    .integration-tools .stock-detail-main > .panel { width: 100%; order: 3; }
+    .integration-tools .stock-detail-sidebar .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 600px) {
+    .integration-tools .stock-detail-head .detail-name { font-size: 19px; }
+    .integration-tools .stock-detail-price { margin-top: 18px; }
+    .integration-tools .stock-detail-price .detail-price-value { font-size: 30px; }
+    .integration-tools .stock-detail-change { font-size: 13px; }
+    .integration-tools .stock-chart-card { padding: 14px 12px; }
+    .integration-tools .stock-series-chart .chart-toolbar { flex-direction: column; align-items: stretch; gap: 4px; }
+    .integration-tools .stock-series-chart .chart-range-control { width: 100%; max-width: 100%; }
+    .integration-tools .stock-series-chart .chart-mode-control { align-self: flex-end; }
+    .integration-tools .stock-series-chart .chart-readout { min-height: 76px; }
+    .integration-tools .stock-series-chart .chart-plot { height: 280px; padding-right: 60px; }
+    .integration-tools .stock-series-chart .chart-current { width: 58px; font-size: 11px; }
+    .integration-tools .chart-hover-readout strong { font-size: 21px; }
+    .integration-tools .chart-hover-ohlc { font-size: 10px; }
+    .integration-tools .chart-timeline { padding-right: 60px; font-size: 10px; }
+    .integration-tools .stock-session-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+    .integration-tools .stock-detail-sidebar .stat-grid { grid-template-columns: minmax(0, 1fr); }
+    .integration-tools .stock-purchase-bar { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
+    .integration-tools .stock-purchase-button { min-height: 48px; font-size: 16px; }
+    .integration-tools .stock-order-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); margin: auto 8px 8px; }
+    .integration-tools .stock-order-dialog-content { max-height: calc(100dvh - 18px); }
+    .integration-tools .stock-order-dialog-head { padding: 16px; }
+    .integration-tools .stock-order-dialog-body { padding: 18px 16px; }
+  }
+}
+
+@layer component {
+  .integration-tools .price {
+    display: inline-block;
+    padding: 1px 3px;
+    margin: -1px -3px;
+  }
+
+  .integration-tools .delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--step--1);
+    line-height: 1.2;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .integration-tools .delta-arrow {
+    /* frontend-apex-ignore: tiny-ui-text -- 장식 글리프이며 방향은 부호와 색이 함께 전달한다 */
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  .integration-tools .delta.is-up {
+    color: var(--up-deep);
+  }
+
+  .integration-tools .delta.is-down {
+    color: var(--down-deep);
+  }
+
+  .integration-tools .delta.is-flat {
+    color: var(--flat);
+  }
+
+  .integration-tools .code-badge {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 21px;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-sm);
+    background: var(--paper);
+    /* frontend-apex-ignore: tiny-ui-text -- 종목 코드 각인 배지. 옆에 같은 이름이 있고 aria-hidden */
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .code-badge.is-large {
+    width: 46px;
+    height: 34px;
+    border-radius: var(--radius);
+    font-size: var(--step-1);
+    font-weight: 600;
+  }
+
+  .integration-tools .code-badge.is-small {
+    width: 26px;
+    height: 18px;
+    /* frontend-apex-ignore: tiny-ui-text -- 좁은 레일에서 쓰는 축소형 각인 배지 */
+    font-size: 9px;
+  }
+
+  .integration-tools .game-icon {
+    flex: none;
+    display: block;
+    width: 46px;
+    height: 46px;
+    border: 1px solid color-mix(in oklab, var(--rule-ink) 70%, transparent);
+    border-radius: 14px;
+    object-fit: cover;
+    box-shadow: 0 2px 8px color-mix(in oklab, var(--ink) 10%, transparent);
+  }
+
+  .integration-tools .game-icon-table {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    box-shadow: 0 1px 4px color-mix(in oklab, var(--ink) 9%, transparent);
+  }
+
+  .integration-tools .game-icon-news {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    box-shadow: 0 1px 3px color-mix(in oklab, var(--ink) 8%, transparent);
+  }
+
+  .integration-tools .game-icon-fallback {
+    display: grid;
+    place-items: center;
+    background: var(--sunken);
+    color: var(--ink-muted);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+
+  .integration-tools .code-text {
+    font-size: var(--step--2);
+    letter-spacing: 0.04em;
+  }
+
+  /* ------------------------------------------------------------- 시세표 */
+
+  .integration-tools .quote-table {
+    font-size: var(--step-1);
+  }
+
+  .integration-tools .quote-table thead th {
+    padding: 6px 8px;
+    background: var(--sunken);
+    border-bottom: var(--rule-width) solid var(--rule);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .integration-tools .quote-table tbody th,
+  .integration-tools .quote-table tbody td {
+    padding: 6px 8px;
+    border-bottom: var(--rule-width) solid var(--rule);
+    vertical-align: middle;
+  }
+
+  .integration-tools .quote-table tbody tr {
+    cursor: pointer;
+  }
+
+  .integration-tools .quote-table tbody tr:hover {
+    background: var(--sunken);
+  }
+
+  .integration-tools .quote-table tbody tr.is-selected {
+    background: var(--brand-wash);
+  }
+
+  .integration-tools .quote-table tbody tr.is-selected .cell-name {
+    box-shadow: inset 3px 0 0 var(--brand);
+  }
+
+  .integration-tools .quote-table tbody tr.is-selected .name-text {
+    font-weight: 700;
+  }
+
+  .integration-tools .quote-table .cell-price,
+  .integration-tools .quote-table .cell-rate,
+  .integration-tools .quote-table .cell-volume,
+  .integration-tools .quote-table td.num {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .integration-tools .quote-table .cell-chart {
+    width: 96px;
+  }
+
+  .integration-tools .quote-table .cell-watch {
+    width: 34px;
+    text-align: center;
+  }
+
+  /* 홈과 시장의 시세표는 모든 열을 같은 왼쪽 기준선에 맞춘다. */
+  .integration-tools .market-quote-table thead th,
+  .integration-tools .market-quote-table tbody th,
+  .integration-tools .market-quote-table tbody td,
+  .integration-tools .market-quote-table .cell-price,
+  .integration-tools .market-quote-table .cell-rate,
+  .integration-tools .market-quote-table .cell-volume,
+  .integration-tools .market-quote-table .cell-watch,
+  .integration-tools .market-quote-table td.num {
+    text-align: left;
+  }
+
+  /* 셀 안쪽의 링크·칩·거래량 묶음도 같은 왼쪽 시작점에 맞춘다. */
+  .integration-tools .market-quote-table .name-link {
+    justify-content: flex-start;
+  }
+
+  .integration-tools .market-quote-table .sort-button {
+    text-align: left;
+  }
+
+  /* 시장 시세표의 등락 칩은 캡슐 없이 평평한 텍스트(색·화살표·퍼센트 유지) */
+  .integration-tools .market-list .market-quote-table .chip {
+    height: auto;
+    padding: 0;
+    background: transparent;
+    border-color: transparent;
+  }
+
+  /* 시장 시세표: 현재가·등락 열은 머리글·본문 모두 열 안에서 가로 중앙 정렬 */
+  .integration-tools .market-list .market-quote-table thead th.cell-price,
+  .integration-tools .market-list .market-quote-table thead th.cell-rate,
+  .integration-tools .market-list .market-quote-table .cell-price,
+  .integration-tools .market-list .market-quote-table .cell-rate {
+    text-align: center;
+  }
+
+  /* 넓은 표에서 열 폭을 배분한다. 종목이 남은 폭을 독차지해 숫자 열이
+     오른쪽에 뭉치는 것을 막는다. */
+  .integration-tools .market-quote-table .cell-name {
+    width: 36%;
+  }
+
+  .integration-tools .market-quote-table .cell-price {
+    width: 15%;
+  }
+
+  .integration-tools .market-quote-table .cell-rate {
+    width: 15%;
+  }
+
+  .integration-tools .market-quote-table .cell-volume {
+    width: 17%;
+  }
+
+  /* 거래량 막대는 열 폭을 다 써서 상대 거래량을 읽게 한다. */
+  .integration-tools .market-quote-table .volume-cell {
+    align-items: stretch;
+    width: 100%;
+    min-width: 88px;
+  }
+
+  /* 시장 시세표의 거래량 보조 막대는 숨기고 숫자로만 보여준다. */
+  .integration-tools .market-list .market-quote-table .volume-bar {
+    display: none;
+  }
+
+  .integration-tools .sort-button {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .integration-tools .sort-button:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .integration-tools .sort-button.is-active {
+    color: var(--brand-wine);
+    font-weight: 700;
+  }
+
+  .integration-tools .sort-note {
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .name-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    text-decoration: none;
+  }
+
+  .integration-tools .name-link:hover .name-text {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .integration-tools .name-stack {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.35;
+  }
+
+  .integration-tools .name-text {
+    font-size: var(--step-1);
+  }
+
+  .integration-tools .name-sub {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .watch-button {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    font-size: var(--step-3);
+    line-height: 1;
+    color: var(--ink-faint);
+  }
+
+  .integration-tools .watch-button:hover {
+    color: var(--ink);
+  }
+
+  .integration-tools .watch-button[aria-pressed="true"] {
+    color: var(--amber);
+  }
+
+  .integration-tools .watch-button.is-text {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--chip-height);
+    gap: 4px;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-xs);
+    padding: 3px 8px;
+  }
+
+  .integration-tools .watch-button.is-text:hover {
+    border-color: var(--ink);
+  }
+
+  .integration-tools .watch-button.is-text.is-on {
+    color: var(--amber-deep);
+    border-color: color-mix(in oklab, var(--amber) 45%, transparent);
+    background: var(--amber-wash);
+  }
+
+  .integration-tools .volume-cell {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: 74px;
+  }
+
+  .integration-tools .volume-value {
+    font-size: var(--step-0);
+  }
+
+  .integration-tools .volume-bar {
+    width: 58px;
+    height: 4px;
+  }
+
+  .integration-tools .spark {
+    display: block;
+    width: 88px;
+    height: 26px;
+  }
+
+  .integration-tools .spark-line {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+  }
+
+  /* 경로 아래 옅은 면: 세션 등락을 색 면적으로 읽는다. */
+  .integration-tools .spark-area {
+    stroke: none;
+  }
+
+  .integration-tools .spark-base {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+  }
+
+  .integration-tools .spark.is-up .spark-line {
+    stroke: var(--up);
+  }
+
+  .integration-tools .spark.is-up .spark-area {
+    fill: color-mix(in oklab, var(--up) 13%, transparent);
+  }
+
+  .integration-tools .spark.is-up .spark-dot {
+    fill: var(--up);
+  }
+
+  .integration-tools .spark.is-down .spark-line {
+    stroke: var(--down);
+  }
+
+  .integration-tools .spark.is-down .spark-area {
+    fill: color-mix(in oklab, var(--down) 13%, transparent);
+  }
+
+  .integration-tools .spark.is-down .spark-dot {
+    fill: var(--down);
+  }
+
+  .integration-tools .spark.is-flat .spark-line {
+    stroke: var(--ink-muted);
+  }
+
+  .integration-tools .spark.is-flat .spark-area {
+    fill: color-mix(in oklab, var(--ink-muted) 10%, transparent);
+  }
+
+  .integration-tools .spark.is-flat .spark-dot {
+    fill: var(--ink-muted);
+  }
+
+  .integration-tools .holdings-table .cell-name {
+    min-width: 200px;
+  }
+
+  /* 보유 표의 모든 열은 같은 중앙 기준선을 공유한다. */
+  .integration-tools .holdings-table thead th:not(:first-child),
+  .integration-tools .holdings-table tbody td:not(:first-child) {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /*
+   * 지표 띠: 카드 네 장이 아니라 계기 하나다. 칸은 괘선으로만 나누고
+   * 색은 값(등락·거래량)에만 붙는다.
+   */
+
+  .integration-tools .index-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    background: var(--paper);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .integration-tools .index-tile {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 112px;
+    padding: var(--space-3);
+  }
+
+  .integration-tools .index-tile + .index-tile {
+    border-left: var(--rule-width) solid var(--rule);
+  }
+
+  .integration-tools .index-label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-size: var(--step--1);
+    font-weight: 700;
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .index-note {
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .index-value {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-size: var(--step-4);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .integration-tools .index-value.is-name {
+    font-size: var(--step-2);
+    font-weight: 600;
+  }
+
+  .integration-tools .index-value.is-name a {
+    text-decoration: none;
+  }
+
+  .integration-tools .index-value.is-name a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .integration-tools .index-divider {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  .integration-tools .index-value .is-up {
+    color: var(--up-deep);
+  }
+
+  .integration-tools .index-value .is-down {
+    color: var(--down-deep);
+  }
+
+  .integration-tools .index-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 26px;
+  }
+
+  .integration-tools .index-sub {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .breadth {
+    flex: 1;
+    height: 8px;
+  }
+
+  /* ------------------------------------------------------------- 등락 보드 */
+
+  .integration-tools .movers {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+
+  .integration-tools .mover-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-bottom: 5px;
+    font-size: var(--step-0);
+    font-weight: 700;
+  }
+
+  /* 소제목 막대는 글자 높이를 따른다(기본 18px는 12px 글자보다 크다). */
+  .integration-tools .mover-title .panel-mark {
+    height: 0.95em;
+  }
+
+  .integration-tools .mover-count {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  .integration-tools .panel-mark.is-up {
+    background: var(--up);
+  }
+
+  .integration-tools .panel-mark.is-down {
+    background: var(--down);
+  }
+
+  /* 등락 흐름 항목 사이 실선은 쓰지 않는다. */
+  .integration-tools .mover-list li + li {
+    border-top: none;
+  }
+
+  .integration-tools .mover-row {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px 0;
+    text-decoration: none;
+  }
+
+  .integration-tools .mover-row:hover {
+    background: var(--sunken);
+  }
+
+  .integration-tools .mover-rank {
+    font-size: var(--step--1);
+    color: var(--ink-faint);
+  }
+
+  .integration-tools .mover-name {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .integration-tools .mover-name-text {
+    font-size: var(--step-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .integration-tools .mover-bar {
+    height: 4px;
+    border-radius: var(--radius-pill);
+  }
+
+  .integration-tools .mover-price {
+    font-size: var(--step-1);
+    text-align: right;
+  }
+
+  /* ------------------------------------------------------------- 필터 */
+
+  .integration-tools .controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+    background: var(--paper);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius);
+  }
+
+  .integration-tools .control-group {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  .integration-tools .filter-button {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: var(--step-0);
+    color: var(--ink-muted);
+    padding: 3px 0 2px;
+    border-bottom: 2px solid transparent;
+  }
+
+  .integration-tools .filter-button:hover {
+    color: var(--ink);
+  }
+
+  .integration-tools .filter-button.is-active {
+    color: var(--brand-wine);
+    font-weight: 700;
+    border-bottom-color: var(--brand);
+  }
+
+  .integration-tools .filter-button .num {
+    font-size: var(--step--1);
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .control-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .integration-tools .control-field label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .control-field input {
+    width: 210px;
+    height: 28px;
+    padding: 0 8px;
+    background: var(--paper);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-xs);
+    font-size: var(--step-0);
+  }
+
+  .integration-tools .control-field input:focus-visible {
+    border-color: var(--brand);
+  }
+
+  .integration-tools .control-field input::placeholder {
+    color: var(--ink-faint);
+  }
+}
+
+@layer layout {
+  .integration-tools .market-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  .integration-tools .market-layout.has-detail {
+    grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr);
+  }
+
+  .integration-tools .market-left-column {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .integration-tools .market-list,
+  .integration-tools .market-detail,
+  .integration-tools .market-detail-chart {
+    min-width: 0;
+  }
+
+  .integration-tools .market-layout.has-detail > .market-left-column {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .integration-tools .market-layout.has-detail > .market-detail {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .integration-tools .market-list-market-data {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    /* 종목표 아래에서 오른쪽 주문 패널의 시작선과 맞춘다. */
+    margin-top: 275px;
+    align-items: start;
+  }
+
+  .integration-tools .market-list-market-data > .panel {
+    min-width: 0;
+  }
+}
+
+@layer responsive {
+  @media (max-width: 1080px) {
+    .integration-tools .market-layout.has-detail {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .integration-tools .market-layout.has-detail > .market-left-column,
+    .integration-tools .market-layout.has-detail > .market-detail {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    .integration-tools .market-detail {
+      order: -1;
+    }
+
+    .integration-tools .market-list-market-data {
+      grid-template-columns: minmax(0, 1fr);
+      margin-top: var(--space-3);
+    }
+
+    .integration-tools .index-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .integration-tools .index-tile:nth-child(even) {
+      border-left: var(--rule-width) solid var(--rule);
+    }
+
+    .integration-tools .index-tile:nth-child(n + 3) {
+      border-top: var(--rule-width) solid var(--rule);
+    }
+  }
+
+  @media (max-width: 720px) {
+    .integration-tools .index-strip {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .integration-tools .index-tile + .index-tile {
+      border-left: 0;
+      border-top: var(--rule-width) solid var(--rule);
+    }
+
+    .integration-tools .movers {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-4);
+    }
+
+    .integration-tools .control-field {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .integration-tools .control-field input {
+      width: 100%;
+    }
+
+    .integration-tools .spark {
+      width: 64px;
+    }
+
+    /* 터치 환경에서 누를 수 있는 영역을 24px 이상으로 키운다. */
+    .integration-tools .quote-table .cell-watch {
+      width: 40px;
+    }
+
+    .integration-tools .watch-button {
+      display: inline-grid;
+      place-items: center;
+      min-width: 34px;
+      min-height: 34px;
+    }
+
+    .integration-tools .watch-button.is-text {
+      display: inline-flex;
+      min-width: 0;
+      min-height: 34px;
+    }
+
+    .integration-tools .filter-button {
+      align-items: center;
+      min-height: 34px;
+      padding-bottom: 0;
+    }
+
+    .integration-tools .text-button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+    }
+
+    /* 앱처럼 좁은 화면에서도 종목명은 한 줄로 읽고, 표 전체를 가로로 넘긴다. */
+    .integration-tools .market-quote-table .cell-name {
+      width: 175px;
+      min-width: 175px;
+      white-space: nowrap;
+    }
+
+    .integration-tools .market-quote-table .name-link,
+    .integration-tools .market-quote-table .name-text,
+    .integration-tools .market-quote-table .name-sub {
+      white-space: nowrap;
+    }
+
+    .integration-tools .market-quote-table .name-link {
+      min-width: 0;
+    }
+
+    .integration-tools .market-quote-table .name-stack {
+      min-width: 0;
+      max-width: 175px;
+    }
+
+    .integration-tools .market-quote-table .name-sub {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+@layer component {
+  .integration-tools .sector-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .integration-tools .sector-card {
+    min-width: 0;
+    padding: var(--space-3);
+    background: var(--sunken);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius-sm);
+  }
+
+  .integration-tools .sector-head,
+  .integration-tools .sector-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .integration-tools .sector-head h3 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--step-0);
+  }
+
+  .integration-tools .sector-count,
+  .integration-tools .sector-volume,
+  .integration-tools .sector-leader {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .integration-tools .sector-value {
+    margin-top: var(--space-2);
+  }
+
+  .integration-tools .sector-leader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: var(--space-2);
+  }
+
+  .integration-tools .sector-leader a {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .integration-tools .mission-reset-note {
+    margin-bottom: var(--space-2);
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .integration-tools .mission-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .integration-tools .mission-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 9px 0;
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .integration-tools .mission-row:last-child {
+    border-bottom: 0;
+  }
+
+  .integration-tools .mission-check {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border: var(--rule-width) solid var(--rule-ink);
+    border-radius: 50%;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .integration-tools .mission-row.is-done .mission-check {
+    color: var(--up-deep);
+    border-color: var(--up-deep);
+  }
+
+  .integration-tools .mission-copy {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .integration-tools .mission-copy h3 {
+    font-size: var(--step-0);
+  }
+
+  .integration-tools .mission-copy p,
+  .integration-tools .mission-status {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+
+  .integration-tools .mission-action {
+    flex: 0 0 auto;
+    color: var(--brand-wine);
+    font-size: var(--step--1);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .integration-tools .mission-action:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .integration-tools .mission-action-disabled {
+    color: var(--ink-muted);
+    cursor: not-allowed;
+  }
+
+  /*
+   * 전광판. 둥근 칩을 쌓은 카드 벽이 아니라 시세 테이프다 — 한 종목이 한 열이고,
+   * 열은 세로 괘선으로만 나뉜다. 이름·가격·등락이 판 전체에서 같은 자리에 서므로
+   * 15개의 셀이 하나의 계기처럼 읽힌다.
+   */
+
+  .integration-tools .board {
+    --tape-rule: color-mix(in oklab, var(--paper) 10%, transparent);
+    /* 어두운 면에서는 종이와 다른 틱 색을 쓴다. */
+    --tick-up: oklch(0.97 0.13 88);
+    --tick-up-bg: oklch(0.34 0.055 84);
+    --tick-down: oklch(0.95 0.09 250);
+    --tick-down-bg: oklch(0.34 0.05 250);
+
+    padding: var(--space-3) 0 var(--space-2);
+    background: var(--board);
+    border-radius: var(--radius);
+  }
+
+  .integration-tools .board-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: 0 var(--space-3) var(--space-2);
+  }
+
+  .integration-tools .board-title {
+    font-size: var(--step-1);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--paper);
+  }
+
+  .integration-tools .board-meta {
+    margin-left: auto;
+    font-size: var(--step--1);
+    color: var(--board-label);
+  }
+
+  /*
+   * 괘선은 셀이 아니라 판에 긋는다. 열 폭마다 1px 세로선, 15종목이 꽉 차는
+   * 행마다 1px 가로선. -1px 이동으로 판 바깥쪽 두 줄은 지운다.
+   */
+  .integration-tools .board-tape {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    background-image:
+      linear-gradient(to right, var(--tape-rule) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--tape-rule) 1px, transparent 1px);
+    background-size: 20% 33.3333%;
+    background-position: -1px -1px;
+  }
+
+  .integration-tools .board-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    height: 100%;
+    padding: 7px var(--space-3) 8px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* 어두운 면 위의 상호작용은 흰 잉크를 옅게 겹친다. */
+  .integration-tools .board-cell:hover {
+    background: color-mix(in oklab, var(--paper) 7%, transparent);
+  }
+
+  .integration-tools .board-name {
+    font-size: var(--step--1);
+    color: var(--board-label);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .integration-tools .board-price {
+    display: inline-block;
+    font-size: var(--step-3);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--led);
+  }
+
+  /*
+   * 전광판의 서명. 값이 바뀌면 그 자리 글자만 마운트가 갈리고, 밝은 LED 색에서
+   * 제 색으로 돌아온다. 나머지 자리는 정지해 있으므로 움직인 자리만 읽힌다.
+   */
+  .integration-tools .digit {
+    display: inline-block;
+  }
+
+  .integration-tools .digit.is-up {
+    animation: digit-blink-up 460ms ease-out;
+  }
+
+  .integration-tools .digit.is-down {
+    animation: digit-blink-down 460ms ease-out;
+  }
+
+  @keyframes digit-blink-up {
+    from {
+      color: var(--tick-up);
+    }
+    to {
+      color: var(--led);
+    }
+  }
+
+  @keyframes digit-blink-down {
+    from {
+      color: var(--tick-down);
+    }
+    to {
+      color: var(--led);
+    }
+  }
+
+  .integration-tools .board-delta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    font-size: var(--step--1);
+  }
+
+  .integration-tools .board-delta.is-up {
+    color: var(--led-up);
+  }
+
+  .integration-tools .board-delta.is-down {
+    color: var(--led-down);
+  }
+
+  .integration-tools .board-delta.is-flat {
+    color: var(--board-label);
+  }
+
+  .integration-tools .board-arrow {
+    /* frontend-apex-ignore: tiny-ui-text -- 장식 글리프이며 방향은 부호와 색이 함께 전달한다 */
+    font-size: 9px;
+    line-height: 1;
+  }
+}
+
+@layer responsive {
+  @media (max-width: 1080px) {
+    .integration-tools .board-tape {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      /* 3열 × 5행 */
+      background-size: 33.3333% 20%;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .integration-tools .sector-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .integration-tools .sector-card {
+      padding: var(--space-2);
+    }
+
+    .integration-tools .board {
+      padding: var(--space-2) 0;
+    }
+
+    .integration-tools .board-head {
+      padding-inline: var(--space-2);
+    }
+
+    .integration-tools .board-tape {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      /* 2열 × 8행(마지막 행은 1종목) */
+      background-size: 50% 12.5%;
+    }
+
+    .integration-tools .board-cell {
+      padding: 6px var(--space-2) 7px;
+    }
+
+    .integration-tools .board-price {
+      font-size: var(--step-2);
+    }
+
+    .integration-tools .board-meta {
+      display: none;
+    }
+  }
+}
+
+@layer component {
+  .integration-tools .stock-name-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .integration-tools .stock-name-group > .name-link { flex: 1; min-width: 0; }
+  .integration-tools .restriction-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-height: var(--chip-height);
+    padding: 3px 8px;
+    border: 1px solid var(--notice-rule);
+    border-radius: 6px;
+    background: var(--notice-bg);
+    color: var(--notice-ink);
+    font: 700 11px/1.3 var(--font-ui);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .integration-tools .restriction-badge.is-circuit {
+    border-color: var(--up-deep);
+    background: var(--up-wash);
+    color: var(--up-deep);
+  }
+  .integration-tools .restriction-badge:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .integration-tools .restriction-popover {
+    position: fixed;
+    z-index: 1800;
+    width: min(340px, calc(100vw - 16px));
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    padding: 16px;
+    border: var(--rule-width) solid var(--rule);
+    border-radius: 12px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: var(--shadow-float);
+    font: 400 13px/1.6 var(--font-ui);
+    white-space: normal;
+    text-align: left;
+  }
+  .integration-tools .restriction-popover-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .integration-tools .restriction-popover-head > button { flex-shrink: 0; width: 34px; height: 34px; font-size: 23px; }
+  .integration-tools .restriction-popover p { margin-top: 10px; overflow-wrap: anywhere; }
+  .integration-tools .restriction-countdown { font-weight: 700; color: var(--notice-ink); font-variant-numeric: tabular-nums; }
+  .integration-tools .restriction-time { color: var(--ink-muted); font-size: 12px; }
+  .integration-tools .ticket-restriction { margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--notice-rule); border-radius: 8px; background: var(--notice-bg); color: var(--notice-ink); line-height: 1.5; }
+  .integration-tools .board-value-link { display: flex; flex-direction: column; gap: 2px; text-decoration: none; }
+  .integration-tools .board-cell .stock-name-group { gap: 4px; }
+  @media (pointer: coarse) { .integration-tools .restriction-badge { min-height: 34px; } }
+}
+
+@layer component {
+  /* ---------------------------------------------------------------- 패널 */
+
+  /*
+   * 구획은 하나의 패널 층위만 쓴다: 흰 면 + 1px 괘선 + 무채색 머리.
+   * 구획마다 색을 달리하면 색이 정보가 아니라 벽지가 된다. 색은 값에만 쓴다.
+   */
+  .integration-tools .panel {
+    background: var(--paper);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+
+  .integration-tools .panel-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 12px var(--space-4) 11px;
+    background: color-mix(in oklab, var(--paper) 78%, var(--sunken));
+    border-bottom: var(--rule-width) solid var(--rule);
+  }
+
+  .integration-tools .panel-mark {
+    flex: none;
+    width: 5px;
+    height: 18px;
+    border-radius: var(--radius-pill);
+    background: var(--brand);
+  }
+
+  .integration-tools .panel-title {
+    font-size: var(--step-0);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .integration-tools .panel-meta {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .integration-tools .panel-action {
+    margin-left: auto;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    text-decoration: none;
+    border-bottom: var(--rule-width) solid var(--rule);
+    white-space: nowrap;
+  }
+
+  .integration-tools .panel-action:hover {
+    color: var(--brand-deep);
+    border-color: var(--brand);
+  }
+
+  .integration-tools .panel-body {
+    padding: var(--space-3);
+  }
+
+  /* ---------------------------------------------------------------- 칩 */
+
+  .integration-tools .chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: var(--chip-height);
+    gap: 3px;
+    padding: 2px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font-size: var(--step--1);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .integration-tools .chip.is-up {
+    color: var(--up-deep);
+    background: var(--up-wash);
+    border-color: color-mix(in oklab, var(--up) 22%, transparent);
+  }
+
+  .integration-tools .chip.is-down {
+    color: var(--down-deep);
+    background: var(--down-wash);
+    border-color: color-mix(in oklab, var(--down) 22%, transparent);
+  }
+
+  .integration-tools .chip.is-flat {
+    color: var(--ink-muted);
+    background: var(--sunken);
+    border-color: var(--rule);
+  }
+
+  .integration-tools .chip.is-solid-up {
+    color: var(--paper);
+    background: var(--up);
+  }
+
+  .integration-tools .chip.is-solid-down {
+    color: var(--paper);
+    background: var(--down);
+  }
+
+  /* ---------------------------------------------------------------- 막대 */
+
+  .integration-tools .bar {
+    position: relative;
+    height: 6px;
+    background: var(--sunken);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .integration-tools .bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--ink-faint);
+  }
+
+  .integration-tools .bar-fill.is-up {
+    background: var(--up);
+  }
+
+  .integration-tools .bar-fill.is-down {
+    background: var(--down);
+  }
+}

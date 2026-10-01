@@ -1,0 +1,232 @@
+/*
+ * ssokdex-frontend 원본 UI 마이그레이션 스타일.
+ * MarketHead · Spotlight · split(인기 종목/속보) · 내 보유 표 · 컴팩트 속보 목록.
+ * 다른 페이지 스타일을 침범하지 않게 마지막에 import 하고,
+ * 뉴스 컴팩트 목록은 .news-compact 스코프로만 적용한다.
+ */
+
+@layer component {
+  /* 홈 2단: 인기 종목 | 속보 */
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: var(--space-7);
+    align-items: start;
+  }
+
+  /* 시장 요약 헤드: 지수 하나와 내 자산 하나 */
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+  }
+
+  .head-label {
+    font-size: var(--step-1);
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+
+  .head-value {
+    margin-top: 2px;
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: -0.055em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .head-value.is-small {
+    font-size: var(--step-5);
+    letter-spacing: -0.04em;
+  }
+
+  .head-sub {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-top: var(--space-2);
+  }
+
+  .head-me {
+    text-align: right;
+  }
+
+  .head-me .head-sub {
+    justify-content: flex-end;
+  }
+
+  /* 많이 오른 게임: 아트워크 타일 */
+  .spot {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+
+  .spot-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    text-decoration: none;
+  }
+
+  .spot-item .game-icon-xl {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    border-radius: 22%;
+    object-fit: cover;
+    object-position: center 30%;
+    background: var(--sunken);
+  }
+
+  .spot-item:hover .game-icon-xl {
+    opacity: 0.88;
+  }
+
+  .spot-name {
+    font-size: var(--step-1);
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .game-icon-xl {
+    width: 80px;
+    height: 80px;
+    border-radius: 22%;
+  }
+
+  .game-icon-large {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+  }
+
+  /* 내 보유 표(원본 .table) */
+  .table {
+    font-size: var(--step-1);
+  }
+
+  .table th,
+  .table td {
+    padding: 8px 12px;
+    vertical-align: middle;
+  }
+
+  .table thead th {
+    padding-block: 6px;
+    font-size: var(--step-0);
+    font-weight: 600;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .table tbody tr {
+    cursor: pointer;
+    transition: background 80ms linear;
+  }
+
+  .table tbody tr:hover {
+    background: var(--sunken);
+  }
+
+  .table tbody tr > :first-child {
+    border-radius: 10px 0 0 10px;
+  }
+
+  .table tbody tr > :last-child {
+    border-radius: 0 10px 10px 0;
+  }
+
+  .table .cell-num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .table .cell-name {
+    min-width: 200px;
+  }
+
+  /* 컴팩트 속보 목록: 아이콘 · 제목 · (이름 · 시간) · 등락 */
+  .news-compact .news-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .news-compact .news-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .news-compact .news-title {
+    font-size: var(--step-2);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .news-compact .news-title a {
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+
+  .news-compact .news-title a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .news-compact .news-meta {
+    display: block;
+    margin-top: 2px;
+    font-size: var(--step-0);
+    color: var(--ink-muted);
+  }
+
+  /* 하단 상태 푸터(원본 StatusBar): 모의 시세 안내 · 계좌 초기화 */
+  .statusbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    width: 100%;
+    max-width: var(--page);
+    margin: 0 auto;
+    padding: var(--space-5);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+}
+
+@layer responsive {
+  @media (max-width: 1080px) {
+    .split {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .spot {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 720px) {
+    .head-value {
+      font-size: 44px;
+    }
+
+    .head-me {
+      text-align: left;
+    }
+
+    .statusbar {
+      padding-inline: var(--space-4);
+    }
+  }
+}
