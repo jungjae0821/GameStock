@@ -225,20 +225,31 @@ const LOADING_CHARACTERS = [
   },
 ] as const;
 
+function shuffledIndices(length: number): number[] {
+  const indices = Array.from({ length }, (_, index) => index);
+  for (let index = indices.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [indices[index], indices[swapIndex]] = [indices[swapIndex], indices[index]];
+  }
+  return indices;
+}
+
 export function BackendLoadingScreen() {
-  const [index, setIndex] = useState(
-    () => Math.floor(Date.now() / 4000) % LOADING_CHARACTERS.length,
-  );
+  // 화면이 열릴 때마다 전체 캐릭터 순서를 새로 섞고, 섞인 순서대로 한 번씩 보여준다.
+  const [characterOrder] = useState(() => shuffledIndices(LOADING_CHARACTERS.length));
+  const [orderIndex, setOrderIndex] = useState(0);
   /* 공식 URL 배열을 순서대로 시도하고, 모두 실패하면 CSS 실루엣으로 마무리한다. */
   const [artStep, setArtStep] = useState(0);
 
   useEffect(() => {
     const timer = window.setInterval(
-      () => setIndex((current) => (current + 1) % LOADING_CHARACTERS.length),
+      () => setOrderIndex((current) => (current + 1) % characterOrder.length),
       4000,
     );
     return () => window.clearInterval(timer);
-  }, []);
+  }, [characterOrder.length]);
+
+  const index = characterOrder[orderIndex] ?? 0;
 
   // 캐릭터가 바뀌면 첫 공식 URL부터 다시 시도한다.
   useEffect(() => {

@@ -695,7 +695,7 @@
   .backend-loading-status {
     margin: 0;
     color: var(--ink-muted);
-    font-size: var(--step--1);
+    font-size: var(--step-1);
   }
 
   /* 전신 일러스트 무대: 영역 높이를 고정해 이미지 로드 여부와 무관하게 레이아웃을 유지한다. */
@@ -752,15 +752,15 @@
   /* 캐릭터별 한 줄 문구: 길이가 달라도 다음 요소의 위치가 흔들리지 않게 높이를 고정 */
   .backend-loading-line {
     margin: 0;
-    min-height: 1.7em;
+    min-height: 2.2em;
     color: var(--ink-muted);
-    font-size: var(--step-1);
+    font-size: var(--step-2);
   }
 
   .backend-loading-copy {
     margin: 0;
     color: var(--ink);
-    font-size: var(--step-1);
+    font-size: var(--step-3);
   }
 
   .backend-loading-copy strong {
