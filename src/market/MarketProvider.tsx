@@ -145,10 +145,12 @@ export function MarketProvider({ children }: { children: ReactNode }) {
             const watch = await apiFetch<{ stockCode: string }[]>("/api/watchlist");
             if (firebaseAuth.currentUser?.uid !== refreshingUid) return;
             // 조회 시작 이후 토글이 있었거나 아직 끝나지 않은 토글이 남아 있으면
-            // 이 응답은 토글 이전 서버 상태일 수 있으므로 버리고 낙관 상태를 유지한다.
+            // 이 응답은 토글 이전 서버 상태일 수 있으므로 watch만 버리고 낙관 상태를 유지한다.
+            // (시세 갱신은 계속 적용된다)
             const togglesSettled = watchSettledSeq.current >= watchMutationSeq.current;
-            if (watchMutationSeq.current !== watchQuerySeq || !togglesSettled) return;
-            watchRef.current = watch.map((item) => item.stockCode);
+            if (watchMutationSeq.current === watchQuerySeq && togglesSettled) {
+              watchRef.current = watch.map((item) => item.stockCode);
+            }
           } catch {
             /* 공개 시세는 로그인 API가 실패해도 계속 표시한다. */
           }

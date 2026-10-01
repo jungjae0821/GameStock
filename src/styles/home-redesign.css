@@ -154,6 +154,17 @@
     border-color: transparent;
   }
 
+  /* 홈 표의 보조 막대는 숨긴다: 비중·거래량은 숫자로만 읽는다. */
+  .hx-home .holdings-table .volume-bar,
+  .hx-home .market-quote-table .volume-bar {
+    display: none;
+  }
+
+  /* 등락 흐름의 종목명 아래 막대도 숨기고 이름·가격·등락만 남긴다. */
+  .hx-home .mover-bar {
+    display: none;
+  }
+
   /* ------------------------------------------------------------- 본문 그리드 */
 
   .hx-body {

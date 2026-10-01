@@ -81,7 +81,7 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
       <div className="page-title">
         <h1>시장</h1>
         <span className="page-meta num">
-          {counts.all}종목 · {codes.length}종목 표시
+          {counts.all}종목
         </span>
       </div>
 

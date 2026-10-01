@@ -463,7 +463,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--space-4);
-    align-items: start;
+    /* 두 패널을 행 높이까지 늘려 아래 끝선을 맞춘다. 내용은 각 패널 위에 그대로 둔다. */
+    align-items: stretch;
     min-width: 0;
   }
 

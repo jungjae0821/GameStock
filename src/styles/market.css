@@ -223,8 +223,9 @@
     min-width: 88px;
   }
 
-  .market-quote-table .volume-bar {
-    width: 100%;
+  /* 시장 시세표의 거래량 보조 막대는 숨기고 숫자로만 보여준다. */
+  .market-list .market-quote-table .volume-bar {
+    display: none;
   }
 
   .sort-button {
