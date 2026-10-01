@@ -18,6 +18,10 @@ import java.util.concurrent.ThreadLocalRandom;
 @Component
 public class BotTradingScheduler {
     private static final Logger log = LoggerFactory.getLogger(BotTradingScheduler.class);
+    private static final long LIQUIDITY_MIN_DELAY_MS = 3_000;
+    private static final long LIQUIDITY_MAX_DELAY_MS = 18_000;
+    private static final long PARTICIPANT_MIN_DELAY_MS = 4_000;
+    private static final long PARTICIPANT_MAX_DELAY_MS = 20_000;
     private final MarketService market;
     private final TaskScheduler scheduler;
     private final List<ScheduledFuture<?>> tasks = new ArrayList<>();
@@ -33,13 +37,13 @@ public class BotTradingScheduler {
         for (String code : market.botStockCodes()) {
             for (String side : List.of("BUY", "SELL")) {
                 schedule("liquidity:" + code + ":" + side,
-                        () -> market.liquidityBotAction(code, side), 3_000, 18_000);
+                        () -> market.liquidityBotAction(code, side), LIQUIDITY_MIN_DELAY_MS, LIQUIDITY_MAX_DELAY_MS);
             }
         }
         for (String username : market.participantBotUsernames()) {
-            schedule(username, () -> market.participantBotAction(username), 8_000, 40_000);
+            schedule(username, () -> market.participantBotAction(username), PARTICIPANT_MIN_DELAY_MS, PARTICIPANT_MAX_DELAY_MS);
         }
-        log.info("Started {} independent bot schedules: liquidity 3-18s, participants 8-40s", tasks.size());
+        log.info("Started {} independent bot schedules: liquidity 3-18s, participants 4-20s", tasks.size());
     }
 
     private void schedule(String name, Runnable action, long minimumMs, long maximumMs) {

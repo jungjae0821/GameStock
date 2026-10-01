@@ -91,7 +91,23 @@ public class MarketService {
             new TraderBotProfile("trader_bot_01", "주식하는 슈엔", TraderStyle.MOMENTUM),
             new TraderBotProfile("trader_bot_02", "고점에 물린 드레이크", TraderStyle.CONTRARIAN),
             new TraderBotProfile("trader_bot_03", "물타기 실패한 라플라스", TraderStyle.VALUE),
-            new TraderBotProfile("trader_bot_04", "빚투하는 맥스웰", TraderStyle.INTRADAY));
+            new TraderBotProfile("trader_bot_04", "빚투하는 맥스웰", TraderStyle.INTRADAY),
+            new TraderBotProfile("trader_bot_05", "추세 타는 아리스", TraderStyle.MOMENTUM),
+            new TraderBotProfile("trader_bot_06", "하락장 줍는 시로코", TraderStyle.CONTRARIAN),
+            new TraderBotProfile("trader_bot_07", "저평가만 보는 호시노", TraderStyle.VALUE),
+            new TraderBotProfile("trader_bot_08", "장중 매매 카즈사", TraderStyle.INTRADAY),
+            new TraderBotProfile("trader_bot_09", "뉴스 따라가는 유즈", TraderStyle.MOMENTUM),
+            new TraderBotProfile("trader_bot_10", "반등 기다리는 라피", TraderStyle.CONTRARIAN),
+            new TraderBotProfile("trader_bot_11", "분할매수 미야코", TraderStyle.VALUE),
+            new TraderBotProfile("trader_bot_12", "마감 전 매매 벨", TraderStyle.INTRADAY),
+            new TraderBotProfile("trader_bot_13", "돌파 매수 조던", TraderStyle.MOMENTUM),
+            new TraderBotProfile("trader_bot_14", "고점 탈출 파머", TraderStyle.CONTRARIAN),
+            new TraderBotProfile("trader_bot_15", "현금 지키는 히카리", TraderStyle.VALUE),
+            new TraderBotProfile("trader_bot_16", "초단타 아니스", TraderStyle.INTRADAY),
+            new TraderBotProfile("trader_bot_17", "차트 믿는 미야비", TraderStyle.MOMENTUM),
+            new TraderBotProfile("trader_bot_18", "역추세 타는 엘렌", TraderStyle.CONTRARIAN),
+            new TraderBotProfile("trader_bot_19", "조용히 모으는 엔비", TraderStyle.VALUE),
+            new TraderBotProfile("trader_bot_20", "오전만 거래하는 시시아", TraderStyle.INTRADAY));
     private static final int USER_ORDER_WINDOW_SECONDS = 10;
     private static final int USER_ORDER_LIMIT = 20;
     private static final int DUPLICATE_ORDER_WINDOW_SECONDS = 2;
@@ -1036,7 +1052,7 @@ public class MarketService {
                 afterMatch.status(), portfolioUnsafe(userId), execution.fee(), execution.status(), execution.settlementAt());
     }
 
-    @Scheduled(fixedRate = 5_000)
+    @Scheduled(fixedRate = 3_000)
     @Transactional
     public synchronized void maintainMarket() {
         acquireMarketLock();
