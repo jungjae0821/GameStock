@@ -255,7 +255,7 @@ export function MyPage() {
         <div className="feature-columns">
           <section>
             <h3 className="feature-heading">관심종목</h3>
-            {watchlist.length === 0 ? <p className="empty is-inline">관심종목이 없습니다. 시장에서 별표를 눌러 담아봐.</p> : (
+            {watchlist.length === 0 ? <p className="empty is-inline">관심종목이 없습니다. 시장에서 별표를 눌러 담아 보세요.</p> : (
               <ul className="feature-list">
                 {watchlist.map((item) => (
                   <li key={item.stockCode}>

@@ -79,7 +79,7 @@ export function RankingPage() {
         <span className="page-meta num">{ranking.length}명</span>
       </div>
 
-      <Panel id="ranking-board" title="" hideHeader>
+      <Panel id="ranking-board" hideHeader>
         {loading ? (
           <p className="empty is-inline">랭킹을 불러오는 중…</p>
         ) : error ? (

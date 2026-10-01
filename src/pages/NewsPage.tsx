@@ -37,7 +37,7 @@ export function NewsPage() {
 
       <div className="news-layout">
         <nav className="news-rail" aria-label="종목별 소식">
-          <Panel id="news-rail" title="종목별">
+          <Panel id="news-rail" title="종목별 소식">
             <ul>
               <li>
                 <button

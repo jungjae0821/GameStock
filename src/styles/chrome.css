@@ -15,112 +15,16 @@
     outline: none;
   }
 
-  .split {
-    display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-    gap: var(--space-4);
-    align-items: start;
-    margin-bottom: var(--space-4);
-  }
-
-  .split-main,
-  .split-side {
-    min-width: 0;
-  }
-
-  .split-main {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .home-layout {
-    margin-bottom: 0;
-  }
-
-  .home-layout > .split-side {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  /* 시세표와 등락 흐름은 한 열에 고정하고, 데이터 수가 바뀌어도 패널이
-     갑자기 접히지 않도록 최소 높이를 유지한다. */
-  .home-movers {
-    min-height: 250px;
-  }
-
-  .home-movers .panel-body {
-    min-height: 190px;
-  }
-
   .page-stack {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
   }
 
-  .portfolio-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 
-  .portfolio-cell {
-    padding: var(--space-2) var(--space-3) var(--space-2) 0;
-  }
-
-  .portfolio-cell + .portfolio-cell {
-    border-left: 1px solid var(--rule);
-    padding-left: var(--space-3);
-  }
-
-  .portfolio-cell dt {
-    font-size: var(--step--1);
-    color: var(--ink-muted);
-  }
-
-  .portfolio-cell:nth-child(-n + 3) dt {
-    font-size: var(--step-2);
-  }
-
-  .portfolio-value {
-    display: inline-block;
-    font-size: var(--step-4);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-
-  .portfolio-note {
-    margin-top: 2px;
-    font-size: var(--step--1);
-    color: var(--ink-muted);
-  }
-
-  @media (max-width: 1080px) {
-    .split {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .portfolio-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .portfolio-cell:nth-child(odd) {
-      padding-left: 0;
-      border-left: none;
-    }
-
-    .portfolio-cell:nth-child(n + 3) {
-      border-top: 1px solid var(--rule);
-    }
-  }
 }
 
 @layer component {
-  .home-movers .panel-head {
-    padding-inline: var(--space-3);
-  }
-
   .mission-toast {
     position: fixed;
     left: 50%;
@@ -792,47 +696,6 @@
     30% { opacity: 1; transform: translateY(-3px); }
   }
 
-  .statusbar {
-    position: static;
-    z-index: 20;
-    background: transparent;
-    border-top: none;
-  }
-
-  .statusbar-inner {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2) var(--space-3);
-    flex-wrap: wrap;
-    width: 100%;
-    max-width: var(--page);
-    margin: 0 auto;
-    padding: 5px var(--space-5);
-    min-height: 34px;
-    padding-block: 9px;
-  }
-
-  .status-line {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-left: auto;
-    font-size: var(--step--1);
-    color: var(--ink-muted);
-  }
-
-  .status-sep {
-    width: 1px;
-    height: 10px;
-    margin-left: var(--space-2);
-    background: var(--rule);
-  }
-
-  .status-note {
-    font-size: var(--step--1);
-    color: var(--ink-muted);
-  }
-
   .page-title {
     display: flex;
     align-items: baseline;
@@ -857,8 +720,7 @@
       padding: var(--space-4) var(--space-3) var(--space-6);
     }
 
-    .topbar-inner,
-    .statusbar-inner {
+    .topbar-inner {
       padding-inline: var(--space-3);
     }
 
@@ -900,10 +762,6 @@
       right: -4px;
     }
 
-    .portfolio-value {
-      font-size: var(--step-3);
-    }
-
     .feature-columns {
       grid-template-columns: minmax(0, 1fr);
       gap: var(--space-4);
@@ -918,9 +776,5 @@
       overflow-x: clip;
     }
 
-    .statusbar .text-button {
-      min-width: 52px;
-      justify-content: center;
-    }
   }
 }

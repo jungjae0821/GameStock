@@ -4,7 +4,7 @@ import { useRoute } from "../router";
 
 interface Props {
   id: string;
-  title: string;
+  title?: string;
   meta?: string;
   action?: { label: string; to: string };
   hideHeader?: boolean;
