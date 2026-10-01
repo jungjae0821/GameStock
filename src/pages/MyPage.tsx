@@ -143,6 +143,8 @@ export function MyPage() {
       setAlerts((current) => [created, ...current]);
       setAlertPrice("");
       setMessage("가격 알림을 저장했습니다.");
+      // 앱(WebView) 안에서만: 첫 알림 저장 때 네이티브 알림 권한을 물어본다.
+      window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "PRICE_ALERT_ADDED" }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "가격 알림 저장에 실패했습니다.");
     }
@@ -241,6 +243,7 @@ export function MyPage() {
                 {saving ? "저장 중…" : "저장"}
               </button>
             </div>
+            <p className="mypage-hint">서비스에서 사용할 닉네임을 2~50자로 입력해 주세요.</p>
             {message && <p className="mypage-message" role="status">{message}</p>}
           </div>
         )}

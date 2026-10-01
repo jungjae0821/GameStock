@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.gamestock.mobile"
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-notifications"
     ]
   }
 }

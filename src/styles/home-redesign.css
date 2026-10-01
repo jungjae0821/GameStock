@@ -30,6 +30,14 @@
     gap: 6px;
   }
 
+  /* 총자산 손익 칩만 캡슐 없이 평평한 텍스트. 색·화살표·금액·퍼센트는 유지. */
+  .hx-asset-total .chip {
+    height: auto;
+    padding: 0;
+    background: transparent;
+    border-color: transparent;
+  }
+
   .hx-asset-label {
     font-size: var(--step--1);
     font-weight: 600;

@@ -5,6 +5,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import { initializeApp } from 'firebase/app';
 import { GoogleAuthProvider, getAuth, getReactNativePersistence, initializeAuth, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { Alert, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { API_BASE_URL, MARKET_SOCKET_URL, FIREBASE_CONFIG, GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID, WEB_APP_URL } from './src/config';
@@ -28,6 +29,7 @@ catch { firebaseAuth = getAuth(firebaseApp); }
 const LANGUAGE_KEY = 'gamestock-language';
 const THEME_KEY = 'gamestock-theme';
 const MOBILE_AUTH_STATE_KEY = 'gamestock-mobile-auth-state';
+const PRICE_ALERT_PERMISSION_KEY = 'gamestock-price-alert-permission-asked';
 const LOCALES = { ko: 'ko-KR', ja: 'ja-JP', en: 'en-US' };
 const TEXT = {
   ja: {
@@ -122,6 +124,22 @@ function WebMirrorScreen() {
     } catch {
       return;
     }
+    // 마이페이지에서 가격 알림을 처음 저장했을 때만 네이티브 알림 권한을 묻는다.
+    // 거부 여부와 무관하게 웹 쪽 저장 흐름은 계속된다.
+    if (message?.type === 'PRICE_ALERT_ADDED') {
+      void (async () => {
+        try {
+          const asked = await AsyncStorage.getItem(PRICE_ALERT_PERMISSION_KEY);
+          if (asked === '1') return;
+          await AsyncStorage.setItem(PRICE_ALERT_PERMISSION_KEY, '1');
+          await Notifications.requestPermissionsAsync();
+        } catch {
+          // 권한 확인 실패는 알림 저장 자체에 영향을 주지 않는다.
+        }
+      })();
+      return;
+    }
+
     if (message?.type !== 'GOOGLE_LOGIN') return;
 
     void (async () => {

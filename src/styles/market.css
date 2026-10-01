@@ -182,6 +182,22 @@
     text-align: left;
   }
 
+  /* 시장 시세표의 등락 칩은 캡슐 없이 평평한 텍스트(색·화살표·퍼센트 유지) */
+  .market-list .market-quote-table .chip {
+    height: auto;
+    padding: 0;
+    background: transparent;
+    border-color: transparent;
+  }
+
+  /* 시장 시세표: 현재가·등락 열은 머리글·본문 모두 열 안에서 가로 중앙 정렬 */
+  .market-list .market-quote-table thead th.cell-price,
+  .market-list .market-quote-table thead th.cell-rate,
+  .market-list .market-quote-table .cell-price,
+  .market-list .market-quote-table .cell-rate {
+    text-align: center;
+  }
+
   /* 넓은 표에서 열 폭을 배분한다. 종목이 남은 폭을 독차지해 숫자 열이
      오른쪽에 뭉치는 것을 막는다. */
   .market-quote-table .cell-name {

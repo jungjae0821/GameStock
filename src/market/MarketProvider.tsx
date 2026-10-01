@@ -121,6 +121,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<MarketSnapshot>(fallbackSnapshot);
   const [serverAvailable, setServerAvailable] = useState(false);
   const watchRef = useRef<string[]>([]);
+  /* 토글 요청과 2초 watchlist 조회의 경쟁 상태를 가리는 번호.
+     mutation은 토글 때마다, settled은 그 요청이 끝날 때 따라 잡는다. */
+  const watchMutationSeq = useRef(0);
+  const watchSettledSeq = useRef(0);
   const hasServerSnapshotRef = useRef(false);
 
   useEffect(() => {
@@ -137,8 +141,13 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         if (firebaseAuth.currentUser) {
           try {
             portfolio = await apiFetch<BackendPortfolio>("/api/portfolio");
+            const watchQuerySeq = watchMutationSeq.current;
             const watch = await apiFetch<{ stockCode: string }[]>("/api/watchlist");
             if (firebaseAuth.currentUser?.uid !== refreshingUid) return;
+            // 조회 시작 이후 토글이 있었거나 아직 끝나지 않은 토글이 남아 있으면
+            // 이 응답은 토글 이전 서버 상태일 수 있으므로 버리고 낙관 상태를 유지한다.
+            const togglesSettled = watchSettledSeq.current >= watchMutationSeq.current;
+            if (watchMutationSeq.current !== watchQuerySeq || !togglesSettled) return;
             watchRef.current = watch.map((item) => item.stockCode);
           } catch {
             /* 공개 시세는 로그인 API가 실패해도 계속 표시한다. */
@@ -273,9 +282,22 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     toggleWatch: (code) => {
       if (!requireSignIn()) return;
       const exists = watchRef.current.includes(code);
-      watchRef.current = exists ? watchRef.current.filter((item) => item !== code) : [...watchRef.current, code];
+      const previous = watchRef.current;
+      const optimistic = exists ? previous.filter((item) => item !== code) : [...previous, code];
+      watchRef.current = optimistic;
       setSnapshot((current) => ({ ...current, watch: watchRef.current }));
-      void apiFetch(`/api/watchlist/${code}`, { method: exists ? "DELETE" : "PUT" }).catch(() => undefined);
+      const seq = ++watchMutationSeq.current;
+      void apiFetch(`/api/watchlist/${code}`, { method: exists ? "DELETE" : "PUT" })
+        .catch(() => {
+          // 실패한 토글은 다음 조회가 서버 값을 따르기 전까지 화면에 머무르지 않게 되돌린다.
+          if (watchRef.current === optimistic) {
+            watchRef.current = previous;
+            setSnapshot((current) => ({ ...current, watch: watchRef.current }));
+          }
+        })
+        .finally(() => {
+          if (watchSettledSeq.current < seq) watchSettledSeq.current = seq;
+        });
     },
     claimMissionReward: async (missionId) => {
       const claimant = firebaseAuth.currentUser;
