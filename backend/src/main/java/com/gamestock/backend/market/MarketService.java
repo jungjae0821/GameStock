@@ -72,6 +72,12 @@ public class MarketService {
     private static final long TRADER_BOT_STARTING_CASH = 1_000_000L;
     private static final int TRADER_BOT_MAX_OPEN_ORDERS = 3;
     private static final int TRADER_BOT_MAX_ORDER_QUANTITY = 50;
+    /**
+     * Participant bots should periodically return inventory to the book.  The
+     * strategy may still prefer buying, but a held position gets a human-like
+     * chance to become a sell order so one-sided LP inventory can recover.
+     */
+    private static final double PARTICIPANT_HOLDING_SELL_FLOOR = 0.28;
     private static final List<TraderBotProfile> TRADER_BOT_PROFILES = List.of(
             new TraderBotProfile("trader_bot_01", "주식하는 슈엔", TraderStyle.MOMENTUM, 0.78, 0.32),
             new TraderBotProfile("trader_bot_02", "고점에 물린 드레이크", TraderStyle.CONTRARIAN, 0.28, 0.12),
@@ -1164,7 +1170,7 @@ public class MarketService {
         boolean hasShares = availableQuantity(userId, stockId(stock.code())) > 0;
         double fairGap = (fairValuePrice(stock.code(), new NewsBias(0, false)) - stock.price())
                 / (double) Math.max(1L, stock.price());
-        return switch (style) {
+        String strategySide = switch (style) {
             case MOMENTUM -> fairGap >= 0 ? "BUY" : (hasShares ? "SELL" : "BUY");
             case CONTRARIAN -> fairGap >= 0.004 && hasShares ? "SELL" : "BUY";
             case VALUE -> fairGap <= -0.006 ? "BUY" : fairGap >= 0.006 && hasShares ? "SELL"
@@ -1172,6 +1178,20 @@ public class MarketService {
             case INTRADAY -> Math.abs(fairGap) < 0.002
                     ? (tickRandom.nextBoolean() && hasShares ? "SELL" : "BUY")
                     : fairGap > 0 && hasShares ? "SELL" : "BUY";
+        };
+        if (hasShares && "BUY".equals(strategySide)
+                && tickRandom.nextDouble() < participantHoldingSellProbability(style)) {
+            return "SELL";
+        }
+        return strategySide;
+    }
+
+    private double participantHoldingSellProbability(TraderStyle style) {
+        return switch (style) {
+            case MOMENTUM -> PARTICIPANT_HOLDING_SELL_FLOOR;
+            case CONTRARIAN -> PARTICIPANT_HOLDING_SELL_FLOOR + 0.10;
+            case VALUE -> PARTICIPANT_HOLDING_SELL_FLOOR + 0.06;
+            case INTRADAY -> PARTICIPANT_HOLDING_SELL_FLOOR + 0.14;
         };
     }
 
