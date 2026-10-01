@@ -17,7 +17,8 @@
     /* 표면: 무채색 종이. */
     --canvas: #fff;
     --paper: oklch(1 0 0);
-    --sunken: oklch(0.975 0 0); /* neutral table head / zebra */
+    /* 라이트모드는 모든 표면을 순백으로 통일한다: 표 머리·카드·구획 배경도 흰색. */
+    --sunken: #fff;
     --rule: oklch(0.91 0 0); /* neutral divider */
     --rule-ink: oklch(0.32 0.035 330); /* warm ink line */
 

@@ -184,13 +184,14 @@
 
   /* ------------------------------------------------------------- 카드 */
 
+  /* 홈에서는 카드 박스를 두르지 않는다: 제목과 내용이 흰 바탕에 바로 놓인다. */
   .hx-card {
     --hx-card-inset: var(--space-5);
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
   }
 
   .hx-card-head {
@@ -283,13 +284,15 @@
   }
 
   /* 장르 카드에 살짝 인터랙션을 얹는다. */
+  /* 홈의 장르 타일도 박스 없이 평면으로: 배경·테두리를 걷어낸다. */
   .hx-home .sector-card {
-    transition: border-color 150ms ease, transform 150ms ease;
+    background: transparent;
+    border: none;
+    transition: background-color 150ms ease;
   }
 
   .hx-home .sector-card:hover {
-    border-color: var(--brand);
-    transform: translateY(-1px);
+    background: var(--brand-wash);
   }
 
   .hx-home .sector-leader a:hover {

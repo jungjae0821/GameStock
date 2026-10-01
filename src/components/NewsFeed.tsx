@@ -75,7 +75,6 @@ function NewsRow({ item }: { item: NewsItem }) {
   return (
     <li className="news-item">
       <div className="news-meta">
-        <span className="news-source">{item.source}</span>
         <span className="news-game">
           <GameIcon code={item.code} name={listing?.name ?? item.code} size="news" />
           <span className="news-listing">{listing?.name ?? item.code}</span>
