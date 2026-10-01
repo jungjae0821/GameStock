@@ -39,7 +39,7 @@ export function GameIndexBoard() {
     .slice(0, 6);
 
   return (
-    <Panel id="game-index" title="장르 지수" meta="장르별 평균 등락 · 거래량순">
+    <Panel id="game-index" title="장르 지수">
       <div className="sector-grid">
         {rows.map((sector) => (
           <article className="sector-card" key={sector.name}>

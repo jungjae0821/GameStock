@@ -84,13 +84,6 @@
 
   .login-button:hover { background: color-mix(in oklab, var(--ink) 8%, transparent); }
 
-  /* 구글 버튼만 브랜드 핑크 실선으로 구분한다. */
-  .login-button.is-google { border-color: var(--login-accent); }
-
-  .login-button.is-google:hover {
-    background: color-mix(in oklab, var(--login-accent) 14%, transparent);
-  }
-
   .login-button:disabled { opacity: 0.55; cursor: not-allowed; }
 
   .login-google-badge {

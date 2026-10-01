@@ -1,10 +1,10 @@
-import { Chip, rateTone } from "./Chip";
+import { rateTone } from "./Chip";
 import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { RestrictionBadge } from "./RestrictionBadge";
-import { dayLabel, kstDateTime, rate, trendArrow } from "../market/format";
+import { dayLabel, kstDateTime, rate } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
-import { newsEffect, sessionRate } from "../market/selectors";
+import { newsEffect } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
 import type { NewsItem } from "../market/types";
 
@@ -63,41 +63,34 @@ function NewsRow({ item }: { item: NewsItem }) {
   const snapshot = useMarket();
   const listing = LISTING_BY_CODE[item.code];
   const quote = snapshot.quotes[item.code];
-  // 서버 뉴스에는 발행 시점 대비 현재가 변화율이 함께 온다.
-  // 대체 엔진처럼 해당 값이 없는 경우에만 기존 가격 차이 계산을 사용한다.
-  const effect = item.priceChangeRatio ?? newsEffect(item.priceAtPublish, quote);
-  const ratio = quote ? sessionRate(quote) : 0;
-  const effectTone = rateTone(effect);
   const isUpdateNote = item.source === "업데이트 노트";
   const updateBody = isUpdateNote
     ? (item.description ?? item.title).replace(/\n출처:\s*https?:\/\/x\.com\/\S+\s*$/, "").trim()
     : "";
+  // 소식이 실제 가격을 움직인 정도. 서버가 발행 시점 대비 변화율을 주면 그 값을 쓰고,
+  // 대체 엔진처럼 없는 경우 발행 시점 가격과 현재가 차이를 계산한다.
+  const effect = item.priceChangeRatio ?? newsEffect(item.priceAtPublish, quote);
+  const effectTone = rateTone(effect);
 
   return (
     <li className="news-item">
       <div className="news-meta">
-        <time className="num" dateTime={new Date(item.at).toISOString()}>
+        <span className="news-source">{item.source}</span>
+        <span className="news-game">
+          <GameIcon code={item.code} name={listing?.name ?? item.code} size="news" />
+          <span className="news-listing">{listing?.name ?? item.code}</span>
+        </span>
+        <RestrictionBadge code={item.code} />
+        <span className={`news-effect is-${effectTone}`}>
+          소식 후 <span className="num">{rate(effect)}</span>
+        </span>
+        <time className="num news-time" dateTime={new Date(item.at).toISOString()}>
           {kstDateTime(item.at)}
         </time>
-        <span className="news-source">{item.source}</span>
       </div>
       <h3 className="news-title">
         <Link to={`/market/${item.code}`}>{isUpdateNote ? updateBody : item.title}</Link>
       </h3>
-      <div className="news-foot">
-        <Chip className="news-game">
-          <GameIcon code={item.code} name={listing?.name ?? item.code} size="news" />
-          <span className="news-listing">{listing?.name ?? item.code}</span>
-        </Chip>
-        <RestrictionBadge code={item.code} />
-        <Chip tone={rateTone(ratio)}>
-          <span aria-hidden="true">{trendArrow(ratio)}</span>
-          <span className="num">{rate(ratio)}</span>
-        </Chip>
-        <span className={`news-effect is-${effectTone}`}>
-          소식 후 <span className="num">{rate(effect)}</span>
-        </span>
-      </div>
     </li>
   );
 }

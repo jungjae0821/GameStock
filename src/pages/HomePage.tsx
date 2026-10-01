@@ -139,13 +139,12 @@ export function HomePage() {
 
       <div className="hx-body">
         <div className="hx-main">
-          <HxCard id="hx-index" title="장르 지수" meta="장르별 평균 등락" embed>
+          <HxCard id="hx-index" title="장르 지수" embed>
             <GameIndexBoard />
           </HxCard>
           <HxCard
             id="hx-quotes"
             title="실시간 시세"
-            meta={`거래량 상위 ${top.length}종목`}
             action={{ label: "전체 시장", to: "/market" }}
             flush
           >
@@ -156,7 +155,7 @@ export function HomePage() {
               onSelect={(code) => navigate(`/market/${code}`)}
             />
           </HxCard>
-          <HxCard id="hx-movers" title="등락 흐름" meta="세션 등락률 기준" grow>
+          <HxCard id="hx-movers" title="등락 흐름" grow>
             <MoverBoard />
           </HxCard>
         </div>
@@ -164,7 +163,6 @@ export function HomePage() {
           <HxCard
             id="hx-news"
             title="주요 뉴스"
-            meta={`${visibleNews.length}건`}
             action={{ label: "전체 뉴스", to: "/news" }}
           >
             <NewsFeed items={visibleNews.slice(0, 6)} />
