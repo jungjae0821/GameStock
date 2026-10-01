@@ -95,7 +95,7 @@ const LOADING_CHARACTERS = [
       "https://schaledb.com/images/student/portrait/10038.webp",
       "https://schaledb.com/images/student/lobby/10038.webp",
     ],
-    line: "RABBIT1. 서버가 열릴때까지 규율대로 차분히 기다리겠습니다.",
+    line: "여기는 RABBIT 1. 서버가 열릴때까지 규율대로 차분히 기다리겠습니다.",
   },
   {
     name: "카즈사",
@@ -286,7 +286,7 @@ export function BackendLoadingScreen() {
           {particle} 서버를 기다리고 있어요!
         </p>
         <p className="backend-loading-line">{line}</p>
-        <p className="backend-loading-status">백엔드 연결 중…</p>
+        <p className="backend-loading-status">서버 연결 중…</p>
         <span className="backend-loading-dots" aria-hidden="true">
           <i />
           <i />

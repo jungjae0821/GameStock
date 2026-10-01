@@ -135,10 +135,16 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const watchSettledSeq = useRef(0);
   const hasServerSnapshotRef = useRef(false);
   const activeDetailCodeRef = useRef<string | null>(null);
+  const refreshInFlightRef = useRef(false);
+  const detailRefreshInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
+      // A slow request must not overlap the next two-second poll. Overlapping
+      // retries make a short backend restart look like a request storm.
+      if (refreshInFlightRef.current) return;
+      refreshInFlightRef.current = true;
       const refreshingUid = firebaseAuth.currentUser?.uid;
       try {
         const [stocks, events, market] = await Promise.all([
@@ -195,7 +201,12 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         }
         void refreshDetails();
       } catch {
-        if (!cancelled) setServerAvailable(false);
+        // Keep the last usable snapshot on transient backend failures. The
+        // loading screen is only for the initial connection; replacing an
+        // already-rendered app on every failed poll causes visible flicker.
+        if (!cancelled && !hasServerSnapshotRef.current) setServerAvailable(false);
+      } finally {
+        refreshInFlightRef.current = false;
       }
     };
     const refreshDetails = async () => {
@@ -203,52 +214,58 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       // Order books and recent trades are only needed on a stock detail page.
       // Fetching every listing here made every route issue 30 requests per second.
       if (!code) return;
-      const entries = await Promise.all([code].map(async (code) => {
-        try {
-          const [book, trades] = await Promise.all([
-            apiFetch<BackendOrderBook>(`/api/stocks/${code}/orderbook`),
-            apiFetch<BackendTrade[]>(`/api/stocks/${code}/trades`),
-          ]);
-          return [code, { book, trades }] as const;
-        } catch {
-          return null;
-        }
-      }));
-      if (cancelled) return;
-      setSnapshot((current) => {
-        const quotes = { ...current.quotes };
-        let changed = false;
-        const sameLevels = (left: Quote["asks"], right: Quote["asks"]) =>
-          left.length === right.length && left.every((level, index) => level.price === right[index]?.price && level.qty === right[index]?.qty);
-        const samePrints = (left: Quote["prints"], right: Quote["prints"]) =>
-          left.length === right.length && left.every((print, index) => {
-            const other = right[index];
-            return other && print.at === other.at && print.price === other.price && print.qty === other.qty && print.side === other.side;
-          });
-        for (const entry of entries) {
-          if (!entry) continue;
-          const [code, detail] = entry;
-          const quote = quotes[code];
-          if (!quote) continue;
-          const asks = (detail.book.asks ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
-          const bids = (detail.book.bids ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
-          const prints = (detail.trades ?? []).map((trade) => ({
-            at: serverTimestamp(trade.createdAt) || Date.now(),
-            price: trade.price,
-            qty: trade.quantity,
-            side: trade.side.toUpperCase() === "BUY" ? "buy" as const : "sell" as const,
-          }));
-          if (sameLevels(quote.asks, asks) && sameLevels(quote.bids, bids) && samePrints(quote.prints, prints)) continue;
-          quotes[code] = {
-            ...quote,
-            asks,
-            bids,
-            prints,
-          };
-          changed = true;
-        }
-        return changed ? { ...current, quotes, updatedAt: Date.now() } : current;
-      });
+      if (detailRefreshInFlightRef.current) return;
+      detailRefreshInFlightRef.current = true;
+      try {
+        const entries = await Promise.all([code].map(async (code) => {
+          try {
+            const [book, trades] = await Promise.all([
+              apiFetch<BackendOrderBook>(`/api/stocks/${code}/orderbook`),
+              apiFetch<BackendTrade[]>(`/api/stocks/${code}/trades`),
+            ]);
+            return [code, { book, trades }] as const;
+          } catch {
+            return null;
+          }
+        }));
+        if (cancelled) return;
+        setSnapshot((current) => {
+          const quotes = { ...current.quotes };
+          let changed = false;
+          const sameLevels = (left: Quote["asks"], right: Quote["asks"]) =>
+            left.length === right.length && left.every((level, index) => level.price === right[index]?.price && level.qty === right[index]?.qty);
+          const samePrints = (left: Quote["prints"], right: Quote["prints"]) =>
+            left.length === right.length && left.every((print, index) => {
+              const other = right[index];
+              return other && print.at === other.at && print.price === other.price && print.qty === other.qty && print.side === other.side;
+            });
+          for (const entry of entries) {
+            if (!entry) continue;
+            const [code, detail] = entry;
+            const quote = quotes[code];
+            if (!quote) continue;
+            const asks = (detail.book.asks ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
+            const bids = (detail.book.bids ?? []).slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
+            const prints = (detail.trades ?? []).map((trade) => ({
+              at: serverTimestamp(trade.createdAt) || Date.now(),
+              price: trade.price,
+              qty: trade.quantity,
+              side: trade.side.toUpperCase() === "BUY" ? "buy" as const : "sell" as const,
+            }));
+            if (sameLevels(quote.asks, asks) && sameLevels(quote.bids, bids) && samePrints(quote.prints, prints)) continue;
+            quotes[code] = {
+              ...quote,
+              asks,
+              bids,
+              prints,
+            };
+            changed = true;
+          }
+          return changed ? { ...current, quotes, updatedAt: Date.now() } : current;
+        });
+      } finally {
+        detailRefreshInFlightRef.current = false;
+      }
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 2000);
@@ -342,7 +359,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   return (
     <ApiContext.Provider value={api}>
       <SnapshotContext.Provider value={snapshot}>
-        {serverAvailable ? children : <BackendLoadingScreen />}
+        {serverAvailable || hasServerSnapshotRef.current ? children : <BackendLoadingScreen />}
       </SnapshotContext.Provider>
     </ApiContext.Provider>
   );
