@@ -17,7 +17,7 @@
     margin: calc(var(--space-6) * -1) 0 calc(var(--space-7) * -1);
     padding: 56px var(--space-4) 64px;
     border-radius: var(--radius-lg);
-    background: var(--board);
+    background: var(--paper);
     overflow: hidden;
   }
 
@@ -30,8 +30,8 @@
     /* 니케 공식 도로롱 아트(ShiftUp)를 기존 검은 무대 전체에 꽉 채워 깔고
        살짝 흐려 카드에 시선을 모은다. */
     background: url("/characters/dororong.webp") center 22% / cover no-repeat;
-    transform: scale(1.03);
-    filter: blur(2.5px) saturate(0.95);
+    transform: scale(1.02);
+    filter: blur(1.2px);
     pointer-events: none;
   }
 
@@ -40,8 +40,8 @@
     position: absolute;
     inset: 0;
     background: radial-gradient(120% 90% at 50% 42%,
-      oklch(0.22 0.03 320 / 30%) 0%,
-      oklch(0.15 0.025 320 / 62%) 100%);
+      oklch(0.22 0.03 320 / 14%) 0%,
+      oklch(0.15 0.025 320 / 42%) 100%);
   }
 
   /* ------------------------------------------------------------- 카드 */
