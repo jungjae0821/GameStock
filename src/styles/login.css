@@ -1,47 +1,17 @@
 /*
  * 로그인 화면 — 372.ro식 카드형 페이지.
- * 니케 공식 '도로롱' 전신 아트(ShiftUp, Summer Full)를 흐리게 깔고
- * 414px 흰 카드 하나를 중앙에 놓는다. 마케팅 카피 없이
- * 제목·설명·버튼·나중에 동선만 남긴다.
+ * 배경 장식 없이 조용한 종이 바탕 위에 414px 흰 카드 하나를 중앙에 놓는다.
+ * 마케팅 카피 없이 제목·설명·버튼·나중에 동선만 남긴다.
  */
 
 @layer component {
   .login-page {
     --login-accent: #ec4899;
-    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: calc(100dvh - var(--bar));
-    /* .content 의 기본 여백을 상쇄해 전광판 무대를 화면에 꽉 채운다. */
-    margin: calc(var(--space-6) * -1) 0 calc(var(--space-7) * -1);
     padding: 56px var(--space-4) 64px;
-    border-radius: var(--radius-lg);
-    background: var(--paper);
-    overflow: hidden;
-  }
-
-  /* --------------------------------------------- 도로롱 배경(장식) */
-
-  .login-backdrop {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    /* 니케 공식 도로롱 아트(ShiftUp)를 기존 검은 무대 전체에 꽉 채워 깔고
-       살짝 흐려 카드에 시선을 모은다. */
-    background: url("/characters/dororong.webp") center 22% / cover no-repeat;
-    transform: scale(1.02);
-    filter: blur(1.2px);
-    pointer-events: none;
-  }
-
-  /* 카드 쪽으로 시선을 모으는 어둡힘막 */
-  .login-backdrop-dim {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(120% 90% at 50% 42%,
-      oklch(0.22 0.03 320 / 14%) 0%,
-      oklch(0.15 0.025 320 / 42%) 100%);
   }
 
   /* ------------------------------------------------------------- 카드 */

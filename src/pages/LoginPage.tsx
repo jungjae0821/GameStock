@@ -160,9 +160,6 @@ export function LoginPage({ method }: { method: LoginMethod }) {
   const isEmailForm = method === "email" || method === "register" || method === "reset";
   return (
     <section className="login-page" aria-labelledby="login-title">
-      <div className="login-backdrop" aria-hidden="true">
-        <div className="login-backdrop-dim" />
-      </div>
       <div className="login-panel">
         {!mobileReturnUri && (
           <Link className="login-close" to={MARKET_PATH(null)} aria-label="로그인을 닫고 시장으로 가기">
