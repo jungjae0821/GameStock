@@ -218,26 +218,27 @@
     flex: 0 0 auto;
   }
 
+  /* 다크모드·마이페이지·메뉴 버튼은 박스 없이 평면 아이콘으로 둔다. */
   .account-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     min-height: var(--chip-height);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-xs);
-    background: var(--paper);
+    border: none;
+    border-radius: var(--radius-pill);
+    background: transparent;
     color: var(--ink-muted);
-    padding: 4px 8px;
+    padding: 4px 6px;
     font: inherit;
     font-size: var(--step--1);
     line-height: 1;
     cursor: pointer;
+    transition: color 150ms ease;
   }
 
   .account-button:hover:not(:disabled) {
-    color: var(--ink);
-    border-color: var(--brand);
+    color: var(--brand-deep);
   }
 
   .menu-wrap {
