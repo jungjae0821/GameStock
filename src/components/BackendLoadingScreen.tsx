@@ -128,7 +128,7 @@ const LOADING_CHARACTERS = [
     name: "라피",
     particle: "가",
     images: [
-      "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/d/db/Rapi_%28Red_Hood%29_FB.png/revision/latest?cb=20241208132313",
+      "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/3/37/Rapi_Red_Hood_FB.png/revision/latest?cb=20241226095800",
       "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/c/c5/Rapi_Red_Hood_MI.png/revision/latest?cb=20241226095930",
     ],
     line: "지휘관, 조금만 기다려주시면 서버가 열릴겁니다. 그전까지 저와...아무것도 아닙니다.",
@@ -236,7 +236,9 @@ function shuffledIndices(length: number): number[] {
 
 export function BackendLoadingScreen() {
   // 화면이 열릴 때마다 전체 캐릭터 순서를 새로 섞고, 섞인 순서대로 한 번씩 보여준다.
-  const [characterOrder] = useState(() => shuffledIndices(LOADING_CHARACTERS.length));
+  const [characterOrder] = useState(() =>
+    shuffledIndices(LOADING_CHARACTERS.length),
+  );
   const [orderIndex, setOrderIndex] = useState(0);
   /* 공식 URL 배열을 순서대로 시도하고, 모두 실패하면 CSS 실루엣으로 마무리한다. */
   const [artStep, setArtStep] = useState(0);
