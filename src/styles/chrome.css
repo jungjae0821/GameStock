@@ -620,7 +620,6 @@
   }
 
   /* 마이페이지의 표들은 공통 규칙보다 우선해 헤더와 모든 셀을 중앙에 맞춘다. */
-  table.mypage-holdings-table td,
   table.mypage-trades-table th,
   table.mypage-trades-table td,
   table.mypage-orders-table th,

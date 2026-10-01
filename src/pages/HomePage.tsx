@@ -65,7 +65,6 @@ function AssetSummary() {
       id="hx-asset-title"
       title="내 자산"
       meta={auth.ready && auth.user ? "시작 자본 100만 원 대비" : undefined}
-      action={auth.ready && auth.user ? { label: "자산 보기", to: "/mypage" } : undefined}
     >
       {!auth.ready ? (
         <p className="hx-asset-empty" role="status">로그인 상태를 확인하고 있어요…</p>
@@ -89,19 +88,19 @@ function AssetSummary() {
               </Chip>
             </div>
             <dl className="hx-asset-breakdown">
-              <div>
+              <div className="hx-asset-line">
                 <dt>예수금</dt>
                 <dd>
                   <PriceCell value={money.cash} />
                 </dd>
               </div>
-              <div>
+              <div className="hx-asset-line">
                 <dt>주식 평가액</dt>
                 <dd>
                   <PriceCell value={money.stockValue} />
                 </dd>
               </div>
-              <div>
+              <div className="hx-asset-line">
                 <dt>보유 종목</dt>
                 <dd className="num">{rows.length}종목</dd>
               </div>

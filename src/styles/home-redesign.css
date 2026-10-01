@@ -13,11 +13,13 @@
 
   /* --------------------------------------------------------- 내 자산 */
 
+  /* 요약 두 열: 왼쪽 총 자산, 오른쪽 breakdown. 오른쪽 열은 카드 후반부(약 55%)에서 시작해
+     충분한 폭을 쓰고, 두 열은 상단과 행간이 고정된다. */
   .hx-asset-overview {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--space-4) var(--space-7);
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: var(--space-4) var(--space-6);
+    align-items: start;
     padding-bottom: var(--space-4);
   }
 
@@ -46,21 +48,32 @@
 
   .hx-asset-breakdown {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3) var(--space-6);
+    flex-direction: column;
+    gap: var(--space-3);
     margin: 0;
+    min-width: 0;
   }
 
-  .hx-asset-breakdown dt {
-    font-size: var(--step--1);
+  .hx-asset-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+
+  .hx-asset-line dt {
+    flex: none;
+    font-size: var(--step-1);
     color: var(--ink-muted);
   }
 
-  .hx-asset-breakdown dd {
-    margin: 2px 0 0;
+  .hx-asset-line dd {
+    margin: 0;
     font-size: var(--step-2);
     font-weight: 700;
     color: var(--ink);
+    text-align: right;
     font-variant-numeric: tabular-nums;
   }
 
@@ -260,11 +273,15 @@
     }
 
     .hx-asset-overview {
-      align-items: flex-start;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .hx-asset-value {
       font-size: 27px;
+    }
+
+    .hx-asset-line dd {
+      white-space: nowrap;
     }
 
     .hx-body,
