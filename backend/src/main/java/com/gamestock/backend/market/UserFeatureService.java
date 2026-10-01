@@ -61,6 +61,7 @@ public class UserFeatureService {
         insertDefault("UMA", "육성"); insertDefault("UMA", "서브컬처"); insertDefault("UMA", "라이브서비스");
         insertDefault("BA", "학원"); insertDefault("BA", "수집형"); insertDefault("BA", "라이브서비스");
         insertDefault("GOV", "RPG"); insertDefault("GOV", "수집형"); insertDefault("GOV", "액션");
+        insertDefault("ZZZ", "액션"); insertDefault("ZZZ", "서브컬처"); insertDefault("ZZZ", "라이브서비스");
     }
 
     private void insertDefault(String code, String tag) {

@@ -136,6 +136,7 @@ public class MarketService {
         insertGameIfMissing("우마무스메 프리티더비", "Cygames", "RPG");
         insertGameIfMissing("블루 아카이브", "Nexon", "RPG");
         insertGameIfMissing("승리의 여신: 니케", "ShiftUp", "RPG");
+        insertGameIfMissing("젠레스 존 제로", "HoYoverse", "액션");
 
         renameExistingStock("NEXA", "UMA", "네사: 크로니클", "우마무스메 프리티더비");
         renameExistingStock("STAR", "BA", "스타라이트 아레나", "블루 아카이브");
@@ -145,6 +146,7 @@ public class MarketService {
         insertStock("UMA", "우마무스메 프리티더비", 12_450L);
         insertStock("BA", "블루 아카이브", 8_230L);
         insertStock("GOV", "승리의 여신: 니케", 21_430L);
+        insertStock("ZZZ", "젠레스 존 제로", 27_150L);
         ensureTraderBots();
         userFeatures.ensureTables();
         userFeatures.ensureDefaultTags();

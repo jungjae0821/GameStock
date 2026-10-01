@@ -3,6 +3,7 @@ const ICON_BY_CODE: Record<string, string> = {
   GOV: "/game-icons/gov.png",
   UMA: "/game-icons/uma.png",
   BA: "/game-icons/ba.png",
+  ZZZ: "/game-icons/zzz.png",
 };
 
 export function GameIcon({

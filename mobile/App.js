@@ -13,7 +13,8 @@ import { API_BASE_URL, MARKET_SOCKET_URL, FIREBASE_CONFIG, GOOGLE_WEB_CLIENT_ID,
 const GAME_ICONS = {
   UMA: require('./assets/game-icons/UMA.png'),
   BA: require('./assets/game-icons/BA.png'),
-  GOV: require('./assets/game-icons/GOV.png')
+  GOV: require('./assets/game-icons/GOV.png'),
+  ZZZ: require('./assets/game-icons/ZZZ.png')
 };
 const CHART_RANGES = [
   ['5m', '5분'], ['10m', '10분'], ['30m', '30분'], ['1h', '1시간'],

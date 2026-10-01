@@ -45,7 +45,10 @@ final class NewsRelevance {
                     List.of("학생", "학원", "총력전", "스토리", "선생님", "넥슨게임즈", "대결전", "페스")),
             "GOV", new GameProfile(
                     List.of("승리의 여신 니케", "승리의 여신: 니케", "니케", "goddess of victory nikke", "nikke"),
-                    List.of("지휘관", "방주", "스쿼드", "니케 캐릭터", "시프트업", "드레이크", "레이드", "컬래버", "4주년", "제재", "부정행위", "보안", "이용 제한")));
+                    List.of("지휘관", "방주", "스쿼드", "니케 캐릭터", "시프트업", "드레이크", "레이드", "컬래버", "4주년", "제재", "부정행위", "보안", "이용 제한")),
+            "ZZZ", new GameProfile(
+                    List.of("젠레스 존 제로", "젠레스존제로", "젠존제", "zenless zone zero"),
+                    List.of("호요버스", "hoyoverse", "뉴에리두", "로프꾼", "에이전트", "요원", "방부", "w-엔진", "공동")));
 
     private NewsRelevance() { }
 
