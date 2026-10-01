@@ -65,9 +65,9 @@
   .stock-series-chart .chart-current { width: 68px; font-size: 12px; }
   .chart-timeline { display: flex; justify-content: space-between; gap: 12px; padding: 16px 70px 0 0; color: var(--ink-muted); font-size: 11px; }
   .stock-purchase-bar { position: fixed; z-index: 100; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; padding: 14px 24px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--rule); background: var(--paper); }
-  .stock-trade-actions { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 1120px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 14px rgb(244 63 94 / 18%); }
+  .stock-trade-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; width: 100%; max-width: 1120px; }
   .stock-trade-actions.has-holding { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stock-purchase-button { width: 100%; min-height: 52px; background: #f43f5e; color: white; font-size: 17px; font-weight: 750; }
+  .stock-purchase-button { width: 100%; min-height: 52px; border-radius: 12px; background: #f43f5e; color: white; font-size: 17px; font-weight: 750; box-shadow: 0 4px 14px rgb(244 63 94 / 18%); }
   .stock-purchase-button:hover { background: #e73553; }
   .stock-purchase-button.is-sell { background: var(--down-deep); }
   .stock-purchase-button.is-sell:hover { background: color-mix(in oklab, var(--down-deep) 88%, black); }
