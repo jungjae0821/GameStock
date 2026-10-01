@@ -1224,6 +1224,13 @@ public class MarketService {
         long price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
         price = botQuotePrice(botPriceBand(code), side, price);
         long idStock = stockId(code);
+        // Keep a visible ladder around the spread. Independent random quotes
+        // still occur, but most replenishment fills the next legal tick beside
+        // the current best LP quote instead of skipping 20~30 won levels.
+        if (tickRandom.nextDouble() < 0.72) {
+            price = adjacentBotQuotePrice(code, side, price);
+            price = botQuotePrice(botPriceBand(code), side, price);
+        }
         if (botPriceLevelOccupied(idStock, side, price)) return;
         ensureBotInventory(code, id);
         int quantity = dynamicBotQuantity(code, side, newsBias, false);
@@ -1443,6 +1450,24 @@ public class MarketService {
                   AND o.status = 'OPEN' AND u.password_hash = 'BOT'
                 """, (rs, row) -> new LiquidityDepth(rs.getInt(1), rs.getLong(2)), stockId(code), side);
         return rows.isEmpty() ? new LiquidityDepth(0, 0) : rows.get(0);
+    }
+
+    private long adjacentBotQuotePrice(String code, String side, long fallback) {
+        long stockId = stockId(code);
+        List<Long> edge = jdbc.query("""
+                SELECT o.price
+                FROM orders o JOIN users u ON u.id = o.user_id
+                WHERE o.stock_id = ? AND o.side = ? AND o.order_type = 'LIMIT'
+                  AND o.status = 'OPEN' AND u.password_hash = 'BOT'
+                ORDER BY o.price """ + ("BUY".equals(side) ? "DESC" : "ASC") + " LIMIT 1",
+                (rs, row) -> rs.getLong(1), stockId, side);
+        if (edge.isEmpty()) return fallback;
+        long candidate = "BUY".equals(side) ? previousTickPrice(edge.get(0)) : nextTickPrice(edge.get(0));
+        for (int attempt = 0; attempt < 5; attempt++) {
+            if (!botPriceLevelOccupied(stockId, side, candidate)) return candidate;
+            candidate = "BUY".equals(side) ? previousTickPrice(candidate) : nextTickPrice(candidate);
+        }
+        return fallback;
     }
 
     private boolean botPriceLevelOccupied(long stockId, String side, long price) {
