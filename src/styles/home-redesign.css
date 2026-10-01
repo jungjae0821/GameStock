@@ -122,6 +122,30 @@
     background: color-mix(in oklab, var(--brand-deep) 90%, black);
   }
 
+  /* --------------------------------------------------------- 홈 표 전용 */
+
+  /* 실시간 시세표: 현재가·등락 열만 열 안에서 가로 중앙 정렬(머리글 포함) */
+  .hx-home .market-quote-table thead th.cell-price,
+  .hx-home .market-quote-table thead th.cell-rate,
+  .hx-home .market-quote-table .cell-price,
+  .hx-home .market-quote-table .cell-rate {
+    text-align: center;
+  }
+
+  .hx-home .market-quote-table .cell-price .sort-button,
+  .hx-home .market-quote-table .cell-rate .sort-button {
+    text-align: center;
+  }
+
+  /* 홈 두 표(실시간 시세·보유 주식)의 등락 칩은 캡슐 배경·테두리 없이 평평한 텍스트.
+     색·화살표·수익률은 그대로. 자산 요약 칩 등 다른 Chip은 건드리지 않는다. */
+  .hx-home .quote-table .chip {
+    height: auto;
+    padding: 0;
+    background: transparent;
+    border-color: transparent;
+  }
+
   /* ------------------------------------------------------------- 본문 그리드 */
 
   .hx-body {
