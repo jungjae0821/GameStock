@@ -146,8 +146,8 @@ const LOADING_CHARACTERS = [
     name: "드레이크",
     particle: "가",
     images: [
-      "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/d/d7/Drake_FB.png/revision/latest?cb=20211211235146",
-      "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/e/e9/Drake_MI.png/revision/latest?cb=20231123052326",
+      "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/1/17/Drake_Great_Villain_FB.png/revision/latest?cb=20260908021534",
+      "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/b/bb/Drake_Great_Villain_MI.png/revision/latest?cb=20260908021520",
     ],
     line: "네놈! 서버가 열리는걸 가만히 기다려라! ...라고 말하고 싶지만, 나도 기다리기 싫다.",
   },
