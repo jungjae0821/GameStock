@@ -167,15 +167,22 @@ export class MarketEngine {
       if (!quote) continue;
       const z = this.gauss();
       const shock = this.shocks.get(listing.code);
+      /* 모든 종목이 같은 틱에 움직이지 않는다: 활동성에 따라 이번 틱에 움직일 종목을 뽑는다. */
+      const moves = this.rng() < 0.5 + listing.activity * 0.09 || shock != null;
       const impulse = shock ? shock.direction * shock.per : 0;
       const reversion = Math.log(quote.prevClose / quote.price) * MEAN_REVERSION;
-      const drift = z * TICK_SIGMA * (1 + listing.activity * 0.2) + impulse + reversion;
-      quote.price = Math.min(quote.limitUp, Math.max(quote.limitDown, roundToTick(quote.price * Math.exp(drift))));
+      const drift = moves ? z * TICK_SIGMA * (1 + listing.activity * 0.2) + impulse + reversion : 0;
+      /* 가격은 항상 호가 단위로만 움직인다. 틱 미만 변화는 한 단위로 밀어준다. */
+      const target = roundToTick(quote.price * Math.exp(drift));
+      quote.price = Math.min(quote.limitUp, Math.max(quote.limitDown,
+        target !== quote.price ? target
+        : moves && Math.abs(drift) > 0.0005 ? (drift > 0 ? nextTickPrice(quote.price) : previousTickPrice(quote.price))
+        : quote.price));
       quote.high = Math.max(quote.high, quote.price);
       quote.low = Math.min(quote.low, quote.price);
       const step = Math.round(listing.activity * 620 * (0.35 + Math.abs(z) * 1.4 + (shock ? 1.5 : 0)) * (0.7 + this.rng() * 0.6));
       quote.volume += step;
-      quote.trades += Math.max(1, Math.round(step / (9 + this.rng() * 7)));
+      quote.trades += Math.max(1, Math.round(step / (6 + this.rng() * 5)));
       quote.series.push(quote.price);
       if (quote.series.length > SERIES_LIMIT) quote.series.splice(0, quote.series.length - SERIES_LIMIT);
 
@@ -185,7 +192,7 @@ export class MarketEngine {
       const buyStep = Math.round(step * buyShare);
       quote.buyVolume += buyStep;
       quote.sellVolume += step - buyStep;
-      const prints = 1 + Math.floor(this.rng() * 3);
+      const prints = 2 + Math.floor(this.rng() * 4);
       for (let i = 0; i < prints; i += 1) {
         const side: TradePrint["side"] = this.rng() < buyShare ? "buy" : "sell";
         const at = now - (prints - i - 1) * 420;
@@ -197,7 +204,7 @@ export class MarketEngine {
         const print: TradePrint = {
           at,
           price: i === 0 ? quote.price : printPrice,
-          qty: Math.max(1, Math.round((step / prints) * (0.5 + this.rng()))),
+          qty: Math.max(1, Math.round((step / prints) * (0.9 + this.rng() * 1.7))),
           side,
         };
         print.price = Math.min(quote.limitUp, Math.max(quote.limitDown, print.price));

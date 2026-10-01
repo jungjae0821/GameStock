@@ -90,11 +90,9 @@ export function OrderBook({ code, onPriceSelect }: Props) {
           </div>
         ))}
         <div className="book-current-row" role="row" aria-label={`현재가 ${won(quote.price)}`}>
-          <span className="book-current-line" aria-hidden="true" />
           <span className="book-current-label">현재가</span>
           <span className="book-current-price num">{won(quote.price)}</span>
           <Delta change={change} ratio={sessionRate(quote)} showAmount={false} />
-          <span className="book-current-line" aria-hidden="true" />
         </div>
         {bidRows.map((row) => (
           <div className={`book-row is-bid${row.best ? " is-best" : ""}`} role="row" key={`bid-${row.price}`}>

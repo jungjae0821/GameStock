@@ -110,7 +110,7 @@
     z-index: 40;
     padding: var(--space-2) var(--space-3);
     background: var(--paper);
-    border: 1px solid var(--rule-ink);
+    border: var(--rule-width) solid var(--rule-ink);
     font-size: var(--step--1);
     text-decoration: none;
   }
@@ -140,7 +140,7 @@
     padding: var(--space-5) 0;
     font-size: var(--step-0);
     color: var(--ink-muted);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: var(--rule-width) solid var(--rule);
   }
 
   .empty.is-inline {

@@ -17,6 +17,7 @@
     /* 표면: 무채색 종이. */
     --canvas: #fff;
     --paper: oklch(1 0 0);
+    --rule-width: 1px;
     /* 라이트모드는 모든 표면을 순백으로 통일한다: 표 머리·카드·구획 배경도 흰색. */
     --sunken: #fff;
     --rule: oklch(0.91 0 0); /* neutral divider */
@@ -107,6 +108,7 @@
     /* 완전 검정에 가까운 무채색 표면. 색조를 걷어내 순수 블랙으로 둔다. */
     --canvas: #000;
     --paper: #0d0d10;
+    --rule-width: 2px;
     --sunken: #17171b;
     --rule: #2c2c31;
     --rule-ink: oklch(0.72 0.01 330);

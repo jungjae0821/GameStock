@@ -54,7 +54,7 @@
     top: 0;
     z-index: 20;
     background: color-mix(in oklab, var(--paper) 94%, transparent);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: var(--rule-width) solid var(--rule);
     backdrop-filter: blur(14px);
   }
 
@@ -187,7 +187,7 @@
     min-width: 220px;
     padding: 6px;
     background: var(--paper);
-    border: 1px solid var(--rule-ink);
+    border: var(--rule-width) solid var(--rule-ink);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-float);
   }
@@ -196,7 +196,7 @@
     padding: 8px 10px;
     color: var(--ink-muted);
     font-size: var(--step--1);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: var(--rule-width) solid var(--rule);
     overflow-wrap: anywhere;
   }
 
@@ -224,7 +224,7 @@
     gap: 2px;
     margin-top: 4px;
     padding: 9px 10px 7px;
-    border-top: 1px solid var(--rule);
+    border-top: var(--rule-width) solid var(--rule);
     color: var(--ink-muted);
     font-size: var(--step--1);
   }
@@ -264,7 +264,7 @@
   .ranking-table thead th {
     padding: 8px var(--space-2);
     background: var(--sunken);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: var(--rule-width) solid var(--rule);
     color: var(--ink-muted);
     font-size: var(--step--1);
     font-weight: 500;
@@ -289,7 +289,7 @@
   .ranking-table tbody th,
   .ranking-table tbody td {
     padding: 13px var(--space-2);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: var(--rule-width) solid var(--rule);
     vertical-align: middle;
   }
 
@@ -411,7 +411,7 @@
     justify-content: space-between;
     gap: var(--space-2);
     padding: 8px 0;
-    border-bottom: 1px solid var(--rule);
+    border-bottom: var(--rule-width) solid var(--rule);
   }
 
   .feature-list li:last-child {
@@ -450,7 +450,7 @@
   .alert-form select,
   .alert-form input {
     min-height: 34px;
-    border: 1px solid var(--rule-ink);
+    border: var(--rule-width) solid var(--rule-ink);
     border-radius: var(--radius-sm);
     padding: 6px 8px;
     background: var(--paper);
@@ -486,7 +486,7 @@
   .mypage-form-row input {
     flex: 1;
     min-width: 0;
-    border: 1px solid var(--rule-ink);
+    border: var(--rule-width) solid var(--rule-ink);
     border-radius: var(--radius-sm);
     padding: 7px 9px;
     background: var(--paper);
@@ -504,7 +504,7 @@
     gap: var(--space-1);
     min-height: var(--chip-height);
     height: var(--chip-height);
-    border: 1px solid var(--rule-ink);
+    border: var(--rule-width) solid var(--rule-ink);
     border-radius: var(--radius-xs);
     padding: 7px 12px;
     background: var(--ink);

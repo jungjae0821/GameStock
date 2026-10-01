@@ -47,7 +47,6 @@ export function NewsPage() {
                   onClick={() => setCode(null)}
                 >
                   <span className="rail-name">전체</span>
-                  <span className="rail-count num">{visibleNews.length}</span>
                 </button>
               </li>
               {rail.map((item) => (
@@ -60,7 +59,6 @@ export function NewsPage() {
                   >
                     <GameIcon code={item} name={LISTING_BY_CODE[item]?.name ?? item} size="news" />
                     <span className="rail-name">{LISTING_BY_CODE[item]?.name ?? item}</span>
-                    <span className="rail-count num">{counts.get(item) ?? 0}</span>
                   </button>
                   <RestrictionBadge code={item} />
                 </li>

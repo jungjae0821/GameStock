@@ -86,7 +86,15 @@ export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down"
   const y = (price: number) => ((hi - price) / (hi - lo)) * 100;
   const firstAt = samples[0]?.at ?? 0;
   const lastAt = samples.at(-1)?.at ?? firstAt;
-  const x = (at: number) => lastAt > firstAt ? 2 + ((at - firstAt) / (lastAt - firstAt)) * 96 : 50;
+  /* 캔들은 봉 간격을 균등하게(시간 불균형에 따른 뭉침 방지), 선형은 실제 시간 비율로 배치한다. */
+  const slot = samples.length > 0 ? 96 / samples.length : 96;
+  const x = (at: number) => {
+    if (mode === "candle") {
+      const index = samples.findIndex((sample) => sample.at === at);
+      return 2 + slot * (index + 0.5);
+    }
+    return lastAt > firstAt ? 2 + ((at - firstAt) / (lastAt - firstAt)) * 96 : 50;
+  };
   const points = samples.map((sample) => ({ x: x(sample.at), y: y(sample.price) }));
   const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(3)} ${point.y.toFixed(3)}`).join(" ");
   const area = points.length > 1 ? `${path} L ${points.at(-1)!.x} 100 L ${points[0].x} 100 Z` : "";
@@ -102,6 +110,11 @@ export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down"
     if (!samples.length) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const fraction = Math.max(0, Math.min(1, ((event.clientX - bounds.left) / bounds.width * 100 - 2) / 96));
+    if (mode === "candle") {
+      const index = Math.max(0, Math.min(samples.length - 1, Math.floor(fraction / slot)));
+      setHoveredAt(samples[index].at);
+      return;
+    }
     const target = firstAt + fraction * (lastAt - firstAt);
     let nearest = samples[0];
     for (const sample of samples) {
@@ -162,7 +175,7 @@ export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down"
               const candle = sample.candle;
               if (!candle) return null;
               const bodyTop = Math.min(y(candle.openPrice), y(candle.closePrice));
-              const width = Math.max(0.25, Math.min(2.5, 65 / Math.max(1, samples.length)));
+              const width = Math.max(0.3, Math.min(2.4, slot * 0.55));
               return <g key={sample.at} className={`chart-candle ${candle.closePrice >= candle.openPrice ? "is-up" : "is-down"}`}>
                 <line className="chart-candle-wick" x1={x(sample.at)} x2={x(sample.at)} y1={y(candle.highPrice)} y2={y(candle.lowPrice)} vectorEffect="non-scaling-stroke" />
                 <rect className="chart-candle-body" x={x(sample.at) - width / 2} y={bodyTop} width={width} height={Math.max(0.35, Math.abs(y(candle.closePrice) - y(candle.openPrice)))} />

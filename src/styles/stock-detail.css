@@ -10,7 +10,7 @@
   }
   .stock-detail-main,
   .stock-detail-sidebar { display: flex; min-width: 0; flex-direction: column; gap: 18px; }
-  .stock-detail-sidebar { padding-left: 24px; border-left: 1px solid var(--rule); }
+  .stock-detail-sidebar { padding-left: 24px; border-left: var(--rule-width) solid var(--rule); }
 }
 
 @layer component {
@@ -31,8 +31,8 @@
   .stock-detail-sidebar .stat-grid > div:last-child { border-bottom: 0; }
   .stock-detail-sidebar .tape-list { max-height: 166px; }
   .stock-detail-sidebar .tape-list li { padding: 5px 0; }
-  .stock-chart-card { min-width: 0; padding: 20px; border: 1px solid var(--rule); border-radius: 18px; background: var(--paper); }
-  .stock-session-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 20px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--rule); }
+  .stock-chart-card { min-width: 0; padding: 20px; border: var(--rule-width) solid var(--rule); border-radius: 18px; background: var(--paper); }
+  .stock-session-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 20px; margin-top: 24px; padding-top: 18px; border-top: var(--rule-width) solid var(--rule); }
   .stock-session-stats > div { min-width: 0; }
   .stock-session-stats dt { color: var(--ink-muted); font-size: 12px; }
   .stock-session-stats dd { margin-top: 2px; font-size: 14px; font-weight: 600; }
@@ -64,7 +64,7 @@
   .chart-crosshair { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--ink-faint); pointer-events: none; }
   .stock-series-chart .chart-current { width: 68px; font-size: 12px; }
   .chart-timeline { display: flex; justify-content: space-between; gap: 12px; padding: 16px 70px 0 0; color: var(--ink-muted); font-size: 11px; }
-  .stock-purchase-bar { position: fixed; z-index: 100; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; padding: 14px 24px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--rule); background: var(--paper); }
+  .stock-purchase-bar { position: fixed; z-index: 100; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; padding: 14px 24px max(14px, env(safe-area-inset-bottom)); border-top: var(--rule-width) solid var(--rule); background: var(--paper); }
   .stock-trade-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; width: 100%; max-width: 1120px; }
   .stock-trade-actions.has-holding { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stock-purchase-button { width: 100%; min-height: 52px; border-radius: 12px; background: #f43f5e; color: white; font-size: 17px; font-weight: 750; box-shadow: 0 4px 14px rgb(244 63 94 / 18%); }
@@ -72,10 +72,10 @@
   .stock-purchase-button.is-sell { background: var(--down-deep); }
   .stock-purchase-button.is-sell:hover { background: color-mix(in oklab, var(--down-deep) 88%, black); }
   .stock-purchase-button:focus-visible { outline-offset: -4px; }
-  .stock-order-dialog { position: fixed; inset: 0; width: min(460px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: 1px solid var(--rule); border-radius: 20px; color: var(--ink); background: var(--paper); box-shadow: var(--shadow-float); overflow: hidden; }
+  .stock-order-dialog { position: fixed; inset: 0; width: min(460px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: var(--rule-width) solid var(--rule); border-radius: 20px; color: var(--ink); background: var(--paper); box-shadow: var(--shadow-float); overflow: hidden; }
   .stock-order-dialog::backdrop { background: rgb(25 22 30 / 26%); backdrop-filter: blur(2px); }
   .stock-order-dialog-content { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); }
-  .stock-order-dialog-head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--rule); }
+  .stock-order-dialog-head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: var(--rule-width) solid var(--rule); }
   .stock-order-dialog-head h2 { font-size: 18px; }
   .stock-order-dialog-head p { margin-top: 2px; color: var(--ink-muted); font-size: 12px; }
   .stock-order-close { flex: none; width: 34px; height: 34px; border-radius: 8px; color: var(--ink-muted); font-size: 25px; line-height: 1; }
