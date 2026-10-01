@@ -1,7 +1,8 @@
 /*
  * 로그인 화면 — 372.ro식 카드형 페이지.
- * 흐리고 어두워진 시장 장면(장식, aria-hidden) 위에 414px 흰 카드 하나를
- * 중앙에 놓는다. 마케팅 카피 없이 제목·설명·버튼·나중에 동선만 남긴다.
+ * 니케 공식 '도로롱' 전신 아트(ShiftUp, Summer Full)를 흐리게 깔고
+ * 414px 흰 카드 하나를 중앙에 놓는다. 마케팅 카피 없이
+ * 제목·설명·버튼·나중에 동선만 남긴다.
  */
 
 @layer component {
@@ -20,97 +21,27 @@
     overflow: hidden;
   }
 
-  /* --------------------------------------------------- 흐려진 시장 장면 */
+  /* --------------------------------------------- 도로롱 배경(장식) */
 
   .login-backdrop {
     position: absolute;
     inset: 0;
     overflow: hidden;
-    transform: scale(1.04);
-    filter: blur(7px);
+    /* 니케 공식 도로롱 아트(ShiftUp)를 기존 검은 무대 전체에 꽉 채워 깔고
+       살짝 흐려 카드에 시선을 모은다. */
+    background: url("/characters/dororong.webp") center 22% / cover no-repeat;
+    transform: scale(1.03);
+    filter: blur(2.5px) saturate(0.95);
     pointer-events: none;
   }
 
-  .login-scene {
-    position: absolute;
-    inset: -30px;
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
-    gap: 14px;
-    padding: 28px;
-  }
-
-  .login-scene-strip,
-  .login-scene-card {
-    border-radius: 14px;
-    background: oklch(1 0 0 / 8%);
-    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 6%);
-  }
-
-  .login-scene-strip {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px 32px;
-    padding: 18px 26px;
-    font-size: 17px;
-    font-weight: 700;
-    color: oklch(0.94 0.01 300 / 88%);
-  }
-
-  .login-scene-index b { margin-left: 6px; font-weight: 700; }
-  .login-scene .is-up { color: var(--led-up); }
-  .login-scene .is-down { color: var(--led-down); }
-
-  .login-scene-card.is-hero {
-    grid-column: 1;
-    grid-row: 2 / span 2;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 26px;
-  }
-
-  .login-scene-card.is-list { grid-column: 2; grid-row: 2; }
-  .login-scene-card.is-side { grid-column: 2; grid-row: 3; }
-
-  .login-scene-card.is-list,
-  .login-scene-card.is-side {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-evenly;
-    padding: 12px 26px;
-  }
-
-  .login-scene-name { font-size: 15px; font-weight: 600; color: var(--board-label); }
-  .login-scene-price { font-size: 36px; font-weight: 800; letter-spacing: -0.01em; color: oklch(0.96 0.02 84); }
-
-  .login-scene-spark {
-    margin-top: auto;
-    height: 78px;
-    border-radius: 8px;
-    background:
-      repeating-linear-gradient(90deg,
-        oklch(0.86 0.14 84 / 50%) 0 12px,
-        transparent 12px 26px) center / 100% 62% no-repeat,
-      repeating-linear-gradient(90deg,
-        oklch(0.86 0.14 84 / 24%) 0 12px,
-        transparent 12px 26px) center / 100% 100% no-repeat;
-  }
-
-  .login-scene-row { display: flex; align-items: baseline; gap: 12px; font-size: 15px; }
-  .login-scene-row b { font-weight: 600; color: oklch(0.94 0.01 300 / 85%); }
-  .login-scene-row em { margin-left: auto; font-style: normal; font-weight: 600; color: oklch(0.94 0.01 300 / 62%); }
-  .login-scene-row i { min-width: 54px; font-style: normal; font-weight: 700; text-align: right; }
-
   /* 카드 쪽으로 시선을 모으는 어둡힘막 */
-  .login-scene-dim {
+  .login-backdrop-dim {
     position: absolute;
     inset: 0;
     background: radial-gradient(120% 90% at 50% 42%,
-      oklch(0.22 0.03 320 / 36%) 0%,
-      oklch(0.15 0.025 320 / 74%) 100%);
+      oklch(0.22 0.03 320 / 30%) 0%,
+      oklch(0.15 0.025 320 / 62%) 100%);
   }
 
   /* ------------------------------------------------------------- 카드 */
@@ -285,11 +216,6 @@
   @media (max-width: 560px) {
     .login-panel { padding: 26px 20px; border-radius: 16px; }
     .login-header h1 { font-size: 23px; }
-    .login-scene-card.is-side,
-    .login-scene-index:last-child { display: none; }
-    .login-scene-strip { gap: 12px 20px; font-size: 15px; padding: 16px 20px; }
-    .login-scene-price { font-size: 28px; }
-    .login-scene-spark { height: 56px; }
   }
 
   @media (prefers-reduced-motion: reduce) {

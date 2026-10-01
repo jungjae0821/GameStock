@@ -31,36 +31,6 @@ function GoogleIcon() {
   );
 }
 
-type SceneRow = { name: string; price: string; delta: string; dir: "up" | "down" };
-
-/* 로그인 카드 뒤에 흐리게 깔리는 시장 장면(장식). aria-hidden이라 읽히지 않는다. */
-const SCENE_LIST: SceneRow[] = [
-  { name: "닌텐도", price: "412,500", delta: "+2.4%", dir: "up" },
-  { name: "밸브", price: "87,200", delta: "+5.1%", dir: "up" },
-  { name: "넥슨", price: "18,340", delta: "-1.2%", dir: "down" },
-  { name: "크래프톤", price: "236,900", delta: "+0.8%", dir: "up" },
-];
-const SCENE_SIDE: SceneRow[] = [
-  { name: "프롬소프트", price: "301,000", delta: "+3.6%", dir: "up" },
-  { name: "스마일게이트", price: "52,700", delta: "-0.4%", dir: "down" },
-  { name: "시프트업", price: "64,150", delta: "+7.9%", dir: "up" },
-  { name: "엠게임", price: "41,220", delta: "-2.3%", dir: "down" },
-];
-
-function SceneRows({ rows }: { rows: typeof SCENE_LIST }) {
-  return (
-    <>
-      {rows.map((row) => (
-        <span className="login-scene-row" key={row.name}>
-          <b>{row.name}</b>
-          <em className="num">{row.price}</em>
-          <i className={row.dir}>{row.delta}</i>
-        </span>
-      ))}
-    </>
-  );
-}
-
 export function LoginPage({ method }: { method: LoginMethod }) {
   const { user, ready } = useAuthUser();
   const [email, setEmail] = useState("");
@@ -191,21 +161,7 @@ export function LoginPage({ method }: { method: LoginMethod }) {
   return (
     <section className="login-page" aria-labelledby="login-title">
       <div className="login-backdrop" aria-hidden="true">
-        <div className="login-scene">
-          <p className="login-scene-strip">
-            <span className="login-scene-index">코스피 2,742.10 <b className="num is-up">▲ +1.8%</b></span>
-            <span className="login-scene-index">코스닥 861.45 <b className="num is-down">▼ -0.6%</b></span>
-            <span className="login-scene-index">게임지수 3,148.72 <b className="num is-up">▲ +3.1%</b></span>
-          </p>
-          <div className="login-scene-card is-hero">
-            <span className="login-scene-name">오늘의 시장</span>
-            <span className="login-scene-price num">3,148.72</span>
-            <span className="login-scene-spark" />
-          </div>
-          <div className="login-scene-card is-list"><SceneRows rows={SCENE_LIST} /></div>
-          <div className="login-scene-card is-side"><SceneRows rows={SCENE_SIDE} /></div>
-        </div>
-        <div className="login-scene-dim" />
+        <div className="login-backdrop-dim" />
       </div>
       <div className="login-panel">
         {!mobileReturnUri && (
