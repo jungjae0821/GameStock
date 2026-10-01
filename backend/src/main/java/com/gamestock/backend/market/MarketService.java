@@ -43,52 +43,29 @@ public class MarketService {
             "watch", 10_000L);
     /** GameStock charges a small, transparent 0.10% commission per side. */
     private static final double TRADING_FEE_RATE = 0.001;
-    /** A normal bot matching cycle may move the current price by at most +/-0.5%. */
-    private static final double BOT_PRICE_STEP_RATE = 0.005;
-    /** A bot may react up to +/-1% during a special-news matching cycle. */
-    private static final double BOT_SPECIAL_PRICE_STEP_RATE = 0.01;
-    /** Per-headline news influence limits. */
+    /** Per-headline news influence limits used to update fair value only. */
     private static final double NEWS_SINGLE_BASE_RATE = 0.02;
     private static final double NEWS_SINGLE_SPECIAL_RATE = 0.05;
     private static final double NEWS_MAJOR_INCIDENT_RATE = 0.10;
-    /** Portion of the aggregate news move applied directly to the reference price. */
-    private static final double NEWS_DIRECT_RATE_SHARE = 0.40;
-    /** News tilts bot order sizes while preserving both buy and sell liquidity. */
-    private static final double BOT_NEWS_SIZE_SENSITIVITY = 3.0;
-    /** Bot executions move the quote only partially; the exact share varies per tick. */
-    private static final double BOT_TRADE_IMPACT_MIN = 0.12;
-    private static final double BOT_TRADE_IMPACT_MAX = 0.42;
-    /** Keep an internal cushion below the bot band so automated flow cannot pin a limit. */
-    private static final double BOT_LIMIT_HEADROOM_RATE = 0.01;
-    private static final double BOT_NEAR_LIMIT_POSITION = 0.75;
-    private static final double BOT_LIMIT_REVERSAL_PROBABILITY = 0.62;
-    /** Twenty-four-hour aggregate news influence limits. */
-    private static final double NEWS_24H_BASE_RATE = 0.05;
-    private static final double NEWS_24H_SPECIAL_RATE = 0.10;
-    /** Occasionally let one bot submit a larger liquidity-sized order so the
-     * tape has natural bursts without allowing an unbounded quantity. */
-    private static final double BOT_BURST_PROBABILITY = 0.04;
-    /** Keep bot quotes visible without letting bot volume feed back into huge orders. */
-    private static final double BOT_NORMAL_VOLUME_PARTICIPATION = 0.02;
-    private static final double BOT_BURST_VOLUME_PARTICIPATION = 0.06;
-    private static final int BOT_NORMAL_ORDER_MAX = 900;
-    private static final int BOT_BURST_ORDER_MAX = 1_800;
-    private static final int BOT_INITIAL_INVENTORY = 400;
-    /** A bot can choose to wait instead of submitting an order at every decision time. */
-    private static final double BOT_ACTIVE_ACTION_PROBABILITY = 0.78;
-    private static final double BOT_LIMIT_ORDER_PROBABILITY = 0.82;
+    private static final double NEWS_AGGREGATE_BASE_RATE = 0.05;
+    private static final double NEWS_AGGREGATE_SPECIAL_RATE = 0.10;
+    /** The LP is one finite account shared by both sides of every book. */
+    private static final String LP_USERNAME = "liquidity_provider";
+    private static final long LP_STARTING_CASH = 50_000_000L;
+    private static final int LP_INITIAL_INVENTORY = 400;
+    private static final int LP_TARGET_INVENTORY = 400;
+    private static final long LP_TARGET_VISIBLE_DEPTH = 100L;
+    private static final int LP_MIN_QUOTE_LEVELS = 1;
+    private static final int LP_MAX_QUOTE_LEVELS = 4;
+    private static final int LP_MAX_OPEN_ORDERS_PER_SIDE = 14;
     /** Scores are produced by NewsFeedService's -10..+10 classifier. */
     private static final double NEWS_SPECIAL_IMPACT_THRESHOLD = 6.0;
     private static final double NEWS_MAJOR_INCIDENT_IMPACT_THRESHOLD = -8.0;
-    private static final int MAX_BOT_OPEN_ORDERS_PER_SIDE = 14;
-    /** LP keeps both sides visible even when one independent side schedule is consumed first. */
+    /** LP keeps both sides visible when finite cash and inventory allow it. */
     private static final int LP_MIN_OPEN_ORDERS_PER_SIDE = 2;
     private static final long LP_MIN_OPEN_QUANTITY_PER_SIDE = 20L;
     private static final double LP_MAX_SIDE_IMBALANCE = 4.0;
-    private static final int LP_REBALANCE_ATTEMPTS = 3;
-    /** Keep the first few legal levels visible around the last traded price. */
-    private static final int LP_NEAR_QUOTE_LEVELS = 3;
-    private static final int LP_MAX_NEAR_QUOTE_DISTANCE_TICKS = 4;
+    private static final int LP_REBALANCE_ATTEMPTS = 2;
     private static final int BOT_ORDER_LIFETIME_MINUTES = 20;
     /** Human-like participant bots use the normal user order path and ranking. */
     private static final String TRADER_BOT_PASSWORD = "TRADER";
@@ -96,26 +73,64 @@ public class MarketService {
     private static final int TRADER_BOT_MAX_OPEN_ORDERS = 3;
     private static final int TRADER_BOT_MAX_ORDER_QUANTITY = 50;
     private static final List<TraderBotProfile> TRADER_BOT_PROFILES = List.of(
-            new TraderBotProfile("trader_bot_01", "주식하는 슈엔", TraderStyle.MOMENTUM),
-            new TraderBotProfile("trader_bot_02", "고점에 물린 드레이크", TraderStyle.CONTRARIAN),
-            new TraderBotProfile("trader_bot_03", "물타기 실패한 라플라스", TraderStyle.VALUE),
-            new TraderBotProfile("trader_bot_04", "빚투하는 맥스웰", TraderStyle.INTRADAY),
-            new TraderBotProfile("trader_bot_05", "추세 타는 아리스", TraderStyle.MOMENTUM),
-            new TraderBotProfile("trader_bot_06", "하락장 줍는 시로코", TraderStyle.CONTRARIAN),
-            new TraderBotProfile("trader_bot_07", "저평가만 보는 호시노", TraderStyle.VALUE),
-            new TraderBotProfile("trader_bot_08", "장중 매매 카즈사", TraderStyle.INTRADAY),
-            new TraderBotProfile("trader_bot_09", "뉴스 따라가는 유즈", TraderStyle.MOMENTUM),
-            new TraderBotProfile("trader_bot_10", "반등 기다리는 라피", TraderStyle.CONTRARIAN),
-            new TraderBotProfile("trader_bot_11", "분할매수 미야코", TraderStyle.VALUE),
-            new TraderBotProfile("trader_bot_12", "마감 전 매매 벨", TraderStyle.INTRADAY),
-            new TraderBotProfile("trader_bot_13", "돌파 매수 조던", TraderStyle.MOMENTUM),
-            new TraderBotProfile("trader_bot_14", "고점 탈출 파머", TraderStyle.CONTRARIAN),
-            new TraderBotProfile("trader_bot_15", "현금 지키는 히카리", TraderStyle.VALUE),
-            new TraderBotProfile("trader_bot_16", "초단타 아니스", TraderStyle.INTRADAY),
-            new TraderBotProfile("trader_bot_17", "차트 믿는 미야비", TraderStyle.MOMENTUM),
-            new TraderBotProfile("trader_bot_18", "역추세 타는 엘렌", TraderStyle.CONTRARIAN),
-            new TraderBotProfile("trader_bot_19", "조용히 모으는 엔비", TraderStyle.VALUE),
-            new TraderBotProfile("trader_bot_20", "오전만 거래하는 시시아", TraderStyle.INTRADAY));
+            new TraderBotProfile("trader_bot_01", "주식하는 슈엔", TraderStyle.MOMENTUM, 0.78, 0.32),
+            new TraderBotProfile("trader_bot_02", "고점에 물린 드레이크", TraderStyle.CONTRARIAN, 0.28, 0.12),
+            new TraderBotProfile("trader_bot_03", "물타기 실패한 라플라스", TraderStyle.VALUE, 0.10, 0.05),
+            new TraderBotProfile("trader_bot_04", "빚투하는 맥스웰", TraderStyle.INTRADAY, 0.86, 0.40),
+            new TraderBotProfile("trader_bot_05", "추세 타는 아리스", TraderStyle.MOMENTUM, 0.62, 0.24),
+            new TraderBotProfile("trader_bot_06", "하락장 줍는 시로코", TraderStyle.CONTRARIAN, 0.48, 0.20),
+            new TraderBotProfile("trader_bot_07", "저평가만 보는 호시노", TraderStyle.VALUE, 0.16, 0.08),
+            new TraderBotProfile("trader_bot_08", "장중 매매 카즈사", TraderStyle.INTRADAY, 0.72, 0.32),
+            new TraderBotProfile("trader_bot_09", "뉴스 따라가는 유즈", TraderStyle.MOMENTUM, 0.70, 0.28),
+            new TraderBotProfile("trader_bot_10", "반등 기다리는 라피", TraderStyle.CONTRARIAN, 0.34, 0.15),
+            new TraderBotProfile("trader_bot_11", "분할매수 미야코", TraderStyle.VALUE, 0.08, 0.04),
+            new TraderBotProfile("trader_bot_12", "마감 전 매매 벨", TraderStyle.INTRADAY, 0.82, 0.36),
+            new TraderBotProfile("trader_bot_13", "돌파 매수 조던", TraderStyle.MOMENTUM, 0.88, 0.38),
+            new TraderBotProfile("trader_bot_14", "고점 탈출 파머", TraderStyle.CONTRARIAN, 0.42, 0.17),
+            new TraderBotProfile("trader_bot_15", "현금 지키는 히카리", TraderStyle.VALUE, 0.05, 0.02),
+            new TraderBotProfile("trader_bot_16", "초단타 아니스", TraderStyle.INTRADAY, 0.94, 0.50),
+            new TraderBotProfile("trader_bot_17", "차트 믿는 미야비", TraderStyle.MOMENTUM, 0.66, 0.25),
+            new TraderBotProfile("trader_bot_18", "역추세 타는 엘렌", TraderStyle.CONTRARIAN, 0.30, 0.12),
+            new TraderBotProfile("trader_bot_19", "조용히 모으는 엔비", TraderStyle.VALUE, 0.12, 0.06),
+            new TraderBotProfile("trader_bot_20", "오전만 거래하는 시시아", TraderStyle.INTRADAY, 0.58, 0.24));
+    /** Pattern inputs shape fair value; they never write the last-trade quote. */
+    private static final List<PatternSpec> PATTERN_SPECS = List.of(
+            new PatternSpec("좁은 박스", PatternFamily.RANGE, 0.0000, 0.0005, 0.0008, false, 8, 18),
+            new PatternSpec("넓은 박스", PatternFamily.RANGE, 0.0000, 0.0012, 0.0015, false, 8, 22),
+            new PatternSpec("상승 박스", PatternFamily.RANGE, 0.0002, 0.0007, 0.0010, false, 8, 20),
+            new PatternSpec("하락 박스", PatternFamily.RANGE, -0.0002, 0.0007, 0.0010, false, 8, 20),
+            new PatternSpec("수렴 삼각", PatternFamily.RANGE, 0.0001, 0.0006, 0.0018, false, 10, 24),
+            new PatternSpec("확장 삼각", PatternFamily.RANGE, -0.0001, 0.0015, 0.0020, false, 8, 18),
+            new PatternSpec("깃발 횡보", PatternFamily.RANGE, 0.0002, 0.0008, -0.0012, false, 7, 17),
+            new PatternSpec("긴축 횡보", PatternFamily.RANGE, 0.0000, 0.0004, -0.0007, false, 9, 24),
+            new PatternSpec("완만한 상승", PatternFamily.TREND, 0.0010, 0.0008, 0.0005, false, 8, 22),
+            new PatternSpec("완만한 하락", PatternFamily.TREND, -0.0010, 0.0008, -0.0005, false, 8, 22),
+            new PatternSpec("계단식 상승", PatternFamily.TREND, 0.0013, 0.0010, 0.0010, false, 7, 18),
+            new PatternSpec("계단식 하락", PatternFamily.TREND, -0.0013, 0.0010, -0.0010, false, 7, 18),
+            new PatternSpec("상승 채널", PatternFamily.TREND, 0.0016, 0.0009, 0.0012, false, 10, 25),
+            new PatternSpec("하락 채널", PatternFamily.TREND, -0.0016, 0.0009, -0.0012, false, 10, 25),
+            new PatternSpec("모멘텀 상승", PatternFamily.TREND, 0.0022, 0.0014, 0.0015, false, 6, 16),
+            new PatternSpec("모멘텀 하락", PatternFamily.TREND, -0.0022, 0.0014, -0.0015, false, 6, 16),
+            new PatternSpec("상승 쐐기", PatternFamily.TREND, 0.0007, 0.0012, -0.0018, false, 8, 20),
+            new PatternSpec("하락 쐐기", PatternFamily.TREND, -0.0007, 0.0012, 0.0018, false, 8, 20),
+            new PatternSpec("갭 상승 흉내", PatternFamily.BREAKOUT, 0.0030, 0.0018, 0.0010, true, 4, 12),
+            new PatternSpec("갭 하락 흉내", PatternFamily.BREAKOUT, -0.0030, 0.0018, -0.0010, true, 4, 12),
+            new PatternSpec("저항 돌파", PatternFamily.BREAKOUT, 0.0026, 0.0015, 0.0016, true, 5, 14),
+            new PatternSpec("지지 이탈", PatternFamily.BREAKOUT, -0.0026, 0.0015, -0.0016, true, 5, 14),
+            new PatternSpec("삼각 상방 돌파", PatternFamily.BREAKOUT, 0.0020, 0.0013, 0.0022, true, 6, 16),
+            new PatternSpec("삼각 하방 이탈", PatternFamily.BREAKOUT, -0.0020, 0.0013, -0.0022, true, 6, 16),
+            new PatternSpec("거래량 돌파", PatternFamily.BREAKOUT, 0.0035, 0.0022, 0.0012, true, 3, 10),
+            new PatternSpec("돌파 실패", PatternFamily.BREAKOUT, -0.0004, 0.0025, -0.0020, true, 4, 11),
+            new PatternSpec("고점 반전", PatternFamily.REVERSAL, -0.0018, 0.0015, -0.0014, false, 5, 15),
+            new PatternSpec("저점 반전", PatternFamily.REVERSAL, 0.0018, 0.0015, 0.0014, false, 5, 15),
+            new PatternSpec("쌍봉 반전", PatternFamily.REVERSAL, -0.0012, 0.0017, -0.0010, false, 7, 18),
+            new PatternSpec("쌍바닥 반전", PatternFamily.REVERSAL, 0.0012, 0.0017, 0.0010, false, 7, 18),
+            new PatternSpec("추세 실패", PatternFamily.REVERSAL, -0.0005, 0.0020, 0.0017, false, 6, 17),
+            new PatternSpec("되돌림 성공", PatternFamily.REVERSAL, 0.0008, 0.0013, -0.0014, false, 6, 17),
+            new PatternSpec("고변동 상승", PatternFamily.VOLATILE, 0.0010, 0.0030, 0.0020, false, 5, 15),
+            new PatternSpec("고변동 하락", PatternFamily.VOLATILE, -0.0010, 0.0030, -0.0020, false, 5, 15),
+            new PatternSpec("무작위 급등락", PatternFamily.VOLATILE, 0.0000, 0.0035, 0.0000, false, 4, 13),
+            new PatternSpec("변동성 수축 후 확장", PatternFamily.VOLATILE, 0.0003, 0.0026, 0.0015, true, 5, 14));
     private static final int USER_ORDER_WINDOW_SECONDS = 10;
     private static final int USER_ORDER_LIMIT = 20;
     private static final int DUPLICATE_ORDER_WINDOW_SECONDS = 2;
@@ -131,6 +146,7 @@ public class MarketService {
     private Random tickRandom = new Random(20260910L);
     private final long runtimeNoise = System.nanoTime();
     private long demoUserId;
+    private final Map<String, FairValueState> fairValues = new HashMap<>();
 
     public MarketService(ApplicationEventPublisher events, JdbcTemplate jdbc, UserFeatureService userFeatures,
                          TradingProtectionService protection) {
@@ -178,6 +194,11 @@ public class MarketService {
         seedDailySummaries();
         protection.ensureTables();
         normalizeOpenOrderPrices();
+        fairValues.clear();
+        for (String code : botStockCodes()) {
+            Stock stock = findStock(code);
+            if (stock != null) fairValues.put(code, newFairValueState(stock.price()));
+        }
 
         removeDefaultEvents();
         initializeNewsPriceState();
@@ -1069,7 +1090,7 @@ public class MarketService {
         settleDuePayments();
         expireOrders();
         advanceTradingProtections();
-        for (String code : botStockCodes()) applyNewsPriceDrift(code, recentNewsBias(code));
+        for (String code : botStockCodes()) advanceFairValue(code, recentNewsBias(code));
         events.publishEvent(new MarketChangedEvent(snapshot()));
     }
 
@@ -1097,19 +1118,10 @@ public class MarketService {
         if (!protection.marketStatus().open()) return;
         NewsBias newsBias = recentNewsBias(code);
         TradingRestriction restriction = protection.restriction(code);
-        if (restriction != null) {
-            if (restriction.limitOrdersAllowed()) createBotOrder(code, side, newsBias);
-        } else if (tickRandom.nextDouble() < BOT_ACTIVE_ACTION_PROBABILITY) {
-            if (tickRandom.nextDouble() < BOT_LIMIT_ORDER_PROBABILITY) createBotOrder(code, side, newsBias);
-            boolean preferred = side.equals(burstSide(code, newsBias));
-            if (tickRandom.nextDouble() < (preferred ? 0.45 : 0.20)) {
-                boolean burst = tickRandom.nextDouble() < BOT_BURST_PROBABILITY;
-                int burstQuantity = burst ? dynamicBotQuantity(code, side, newsBias, true) : 0;
-                long orderId = createBotMarketOrder(code, side, newsBias, burstQuantity);
-                MatchSummary matched = matchOrders(code);
-                if (orderId > 0) cancelRemainingMarket(orderId);
-                if (matched.hasTrades()) moveBotPrice(code, matched.vwap(), matched.totalQuantity(), newsBias.special());
-            }
+        if (restriction == null || restriction.limitOrdersAllowed()) {
+            replaceLiquidityQuotes(code, side, newsBias);
+            MatchSummary matched = matchOrders(code);
+            if (matched.hasTrades()) moveToPrice(code, matched.lastTradePrice(), matched.totalQuantity());
         }
         trimBotLiquidity(code);
         rebalanceBotLiquidity(code, newsBias);
@@ -1140,26 +1152,34 @@ public class MarketService {
         Stock stock = findStock(code);
         OrderBook book = orderBook(code);
         String side = traderSide(profile.style(), stock, book, userId);
-        int quantity = traderQuantity(stock, userId, side);
+        int quantity = traderQuantity(profile, stock, userId, side);
         if (quantity <= 0) return false;
-        boolean market = tickRandom.nextDouble() < 0.18;
-        Long price = market ? null : traderLimitPrice(profile.style(), stock, book, side);
+        boolean market = tickRandom.nextDouble() < profile.marketOrderProbability();
+        Long price = market ? null : traderLimitPrice(profile, stock, book, side);
         order(new OrderRequest(code, side, quantity, market ? "MARKET" : "LIMIT", price), userId);
         return true;
     }
 
     private String traderSide(TraderStyle style, Stock stock, OrderBook book, long userId) {
         boolean hasShares = availableQuantity(userId, stockId(stock.code())) > 0;
+        double fairGap = (fairValuePrice(stock.code(), new NewsBias(0, false)) - stock.price())
+                / (double) Math.max(1L, stock.price());
         return switch (style) {
-            case MOMENTUM -> stock.changePercent() >= 0 ? "BUY" : (hasShares ? "SELL" : "BUY");
-            case CONTRARIAN -> stock.changePercent() >= 0 && hasShares ? "SELL" : "BUY";
-            case VALUE -> tickRandom.nextDouble() < 0.58 && hasShares ? "SELL" : "BUY";
-            case INTRADAY -> tickRandom.nextBoolean() && hasShares ? "SELL" : "BUY";
+            case MOMENTUM -> fairGap >= 0 ? "BUY" : (hasShares ? "SELL" : "BUY");
+            case CONTRARIAN -> fairGap >= 0.004 && hasShares ? "SELL" : "BUY";
+            case VALUE -> fairGap <= -0.006 ? "BUY" : fairGap >= 0.006 && hasShares ? "SELL"
+                    : (tickRandom.nextBoolean() && hasShares ? "SELL" : "BUY");
+            case INTRADAY -> Math.abs(fairGap) < 0.002
+                    ? (tickRandom.nextBoolean() && hasShares ? "SELL" : "BUY")
+                    : fairGap > 0 && hasShares ? "SELL" : "BUY";
         };
     }
 
-    private int traderQuantity(Stock stock, long userId, String side) {
-        int requested = 5 + tickRandom.nextInt(TRADER_BOT_MAX_ORDER_QUANTITY - 4);
+    private int traderQuantity(TraderBotProfile profile, Stock stock, long userId, String side) {
+        int maxRequested = Math.max(6, Math.min(TRADER_BOT_MAX_ORDER_QUANTITY,
+                6 + (int) Math.round(profile.aggression() * (TRADER_BOT_MAX_ORDER_QUANTITY - 6))));
+        int minRequested = profile.aggression() >= 0.70 ? 6 : 3;
+        int requested = minRequested + tickRandom.nextInt(maxRequested - minRequested + 1);
         if ("SELL".equals(side)) {
             return Math.min(requested, Math.max(0, availableQuantity(userId, stockId(stock.code()))));
         }
@@ -1168,42 +1188,35 @@ public class MarketService {
         return Math.min(requested, (int) Math.min(Integer.MAX_VALUE, availableCash / perShare));
     }
 
-    private long traderLimitPrice(TraderStyle style, Stock stock, OrderBook book, String side) {
-        long tick = tickSize(stock.price());
-        boolean aggressive = tickRandom.nextDouble() < traderAggression(style);
+    private long traderLimitPrice(TraderBotProfile profile, Stock stock, OrderBook book, String side) {
+        long referencePrice = fairValuePrice(stock.code(), new NewsBias(0, false));
+        long tick = tickSize(referencePrice);
+        boolean aggressive = tickRandom.nextDouble() < profile.aggression();
         PriceBand dailyBand = dailyPriceBand(stock.code());
         if ("BUY".equals(side)) {
-            long bestBid = book.bids().isEmpty() ? floorToTick(stock.price() - tick) : book.bids().get(0).price();
+            long bestBid = book.bids().isEmpty() ? floorToTick(referencePrice - tick) : book.bids().get(0).price();
             if (aggressive) {
-                // Some participants pay the ask (or one tick above it) so
-                // buys are not always parked below the current market.
-                long bestAsk = book.asks().isEmpty() ? nextTickPrice(stock.price()) : book.asks().get(0).price();
-                long price = bestAsk + (tickRandom.nextBoolean() ? 0 : tick);
+                // Bold participants cross several ticks when needed instead
+                // of leaving every buy below the middle of the book.
+                long bestAsk = book.asks().isEmpty() ? nextTickPrice(referencePrice) : book.asks().get(0).price();
+                int maxCrossTicks = profile.aggression() >= 0.80 ? 4 : profile.aggression() >= 0.50 ? 2 : 1;
+                long price = bestAsk + tick * tickRandom.nextInt(maxCrossTicks + 1);
                 return floorToTick(dailyBand.clamp(price));
             }
-            long price = tickRandom.nextDouble() < 0.55 ? bestBid : stock.price() - tick * (1 + tickRandom.nextInt(3));
+            long price = tickRandom.nextDouble() < 0.55 ? bestBid : referencePrice - tick * (1 + tickRandom.nextInt(4));
             return floorToTick(dailyBand.clamp(Math.max(tick, price)));
         }
-        long bestAsk = book.asks().isEmpty() ? ceilToTick(stock.price() + tick) : book.asks().get(0).price();
+        long bestAsk = book.asks().isEmpty() ? ceilToTick(referencePrice + tick) : book.asks().get(0).price();
         if (aggressive) {
-            // Some participants hit the bid (or one tick below it), creating
-            // realistic cheap sells instead of making every seller wait above
-            // the market for a buyer.
-            long bestBid = book.bids().isEmpty() ? previousTickPrice(stock.price()) : book.bids().get(0).price();
-            long price = bestBid - (tickRandom.nextBoolean() ? 0 : tick);
+            // Bold sellers cross several ticks into the bid and can execute
+            // immediately, while cautious sellers keep a visible ask ladder.
+            long bestBid = book.bids().isEmpty() ? previousTickPrice(referencePrice) : book.bids().get(0).price();
+            int maxCrossTicks = profile.aggression() >= 0.80 ? 4 : profile.aggression() >= 0.50 ? 2 : 1;
+            long price = bestBid - tick * tickRandom.nextInt(maxCrossTicks + 1);
             return ceilToTick(dailyBand.clamp(price));
         }
-        long price = tickRandom.nextDouble() < 0.55 ? bestAsk : stock.price() + tick * (1 + tickRandom.nextInt(3));
+        long price = tickRandom.nextDouble() < 0.55 ? bestAsk : referencePrice + tick * (1 + tickRandom.nextInt(4));
         return ceilToTick(dailyBand.clamp(price));
-    }
-
-    private double traderAggression(TraderStyle style) {
-        return switch (style) {
-            case MOMENTUM -> 0.32;
-            case CONTRARIAN -> 0.24;
-            case VALUE -> 0.18;
-            case INTRADAY -> 0.45;
-        };
     }
 
     private void trimTraderOrders(long userId) {
@@ -1222,30 +1235,34 @@ public class MarketService {
     }
 
     private void createBotOrder(String code, String side, NewsBias newsBias, Long preferredPrice) {
-        long id = ensureBot(code, side);
+        long id = ensureLiquidityProvider(code);
         Stock stock = findStock(code);
+        long fairPrice = fairValuePrice(code, newsBias);
+        long tick = tickSize(fairPrice);
+        OrderBook book = orderBook(code);
+        long visibleDepth = sideDepth(book, side);
+        if (visibleDepth >= LP_TARGET_VISIBLE_DEPTH) return;
+        int spreadTicks = preferredPrice == null
+                ? 1 + tickRandom.nextInt(Math.max(1, 1 + (int) Math.round(fairValueVolatility(code) * 3)))
+                : Math.max(1, (int) Math.round(Math.abs(preferredPrice - fairPrice) / (double) Math.max(1L, tick)));
+        long inventory = availableQuantity(id, stockId(code));
+        long inventorySkewTicks = Math.round((inventory - LP_TARGET_INVENTORY)
+                / (double) LP_TARGET_INVENTORY * (2.0 + fairValueVolatility(code) * 3.0));
         long price;
         if (preferredPrice != null) {
-            price = botQuotePrice(botPriceBand(code), side, preferredPrice);
+            price = preferredPrice;
+        } else if ("BUY".equals(side)) {
+            price = fairPrice - tick * Math.max(1, spreadTicks + inventorySkewTicks);
         } else {
-            double offset = 0.002 + tickRandom.nextDouble() * 0.006;
-            // 뉴스로 이동한 기준가 주변에 호가를 내고, 뉴스 방향의 수량을 조금 더 크게 준다.
-            double fairPrice = stock.price() * (1 + newsBias.rate());
-            double rawPrice = fairPrice * ("BUY".equals(side) ? 1 - offset : 1 + offset);
-            price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
-            price = botQuotePrice(botPriceBand(code), side, price);
-            // Keep a visible ladder around the spread. Independent random quotes
-            // still occur, but most replenishment fills the next legal tick beside
-            // the current best LP quote instead of skipping 20~30 won levels.
-            if (tickRandom.nextDouble() < 0.72) {
-                price = adjacentBotQuotePrice(code, side, price);
-                price = botQuotePrice(botPriceBand(code), side, price);
-            }
+            price = fairPrice + tick * Math.max(1, spreadTicks - inventorySkewTicks);
         }
+        price = "BUY".equals(side) ? floorToTick(price) : ceilToTick(price);
+        price = botQuotePrice(botPriceBand(code), side, price);
+        if (quoteWouldCrossOpposite(book, side, price)) return;
         long idStock = stockId(code);
         if (botPriceLevelOccupied(idStock, side, price)) return;
-        ensureBotInventory(code, id);
-        int quantity = dynamicBotQuantity(code, side, newsBias, false);
+        if ("SELL".equals(side)) seedLiquidityInventory(code, id);
+        int quantity = dynamicBotQuantity(code, side);
         if (quantity <= 0) return;
         if ("BUY".equals(side)) {
             long amount = price * quantity;
@@ -1259,86 +1276,31 @@ public class MarketService {
         }
     }
 
-    private long createBotMarketOrder(String code, String side, NewsBias newsBias) {
-        return createBotMarketOrder(code, side, newsBias, 0);
-    }
-
-    private long createBotMarketOrder(String code, String side, NewsBias newsBias, int burstQuantity) {
-        long id = ensureBot(code, side);
-        long idStock = stockId(code);
-        ensureBotInventory(code, id);
-        int quantity = burstQuantity > 0 ? Math.min(burstQuantity, dynamicBotQuantity(code, side, newsBias, true))
-                : dynamicBotQuantity(code, side, newsBias, false);
-        if (quantity <= 0) return 0;
-        jdbc.update("INSERT INTO orders (user_id, stock_id, side, order_type, price, quantity, remaining_quantity, reserved_cash, reserved_quantity, status, expires_at) VALUES (?, ?, ?, 'MARKET', NULL, ?, ?, 0, 0, 'OPEN', NULL)", id, idStock, side, quantity, quantity);
-        return jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-    }
-
-    private String burstSide(String code, NewsBias newsBias) {
-        // Follow a strong headline direction most of the time, but retain a
-        // small chance of the opposite side to avoid a deterministic tape.
-        if (newsBias.rate() > 0.01) {
-            if (botBandPosition(code) >= BOT_NEAR_LIMIT_POSITION)
-                return tickRandom.nextDouble() < BOT_LIMIT_REVERSAL_PROBABILITY ? "SELL" : "BUY";
-            return tickRandom.nextDouble() < 0.68 ? "BUY" : "SELL";
-        }
-        if (newsBias.rate() < -0.01) {
-            if (botBandPosition(code) <= 1.0 - BOT_NEAR_LIMIT_POSITION)
-                return tickRandom.nextDouble() < BOT_LIMIT_REVERSAL_PROBABILITY ? "BUY" : "SELL";
-            return tickRandom.nextDouble() < 0.68 ? "SELL" : "BUY";
-        }
-        return tickRandom.nextBoolean() ? "BUY" : "SELL";
-    }
-
-    /** 0 is the bot lower band, 1 is the bot upper band. */
-    private double botBandPosition(String code) {
-        PriceBand band = botPriceBand(code);
-        long span = band.upperPrice() - band.lowerPrice();
-        if (span <= 0) return 0.5;
-        return Math.max(0.0, Math.min(1.0,
-                (findStock(code).price() - band.lowerPrice()) / (double) span));
-    }
-
-    /**
-     * Order size follows one-hour market liquidity and the bot's actual
-     * cash/holdings. There is no arbitrary fixed 3..64 order cap.
-     */
-    private int dynamicBotQuantity(String code, String side, NewsBias newsBias, boolean burst) {
+    /** Order size follows user-only recent liquidity and finite LP resources. */
+    private int dynamicBotQuantity(String code, String side) {
         long stockId = stockId(code);
         Stock stock = findStock(code);
+        long lpId = ensureLiquidityProvider(code);
         Long recentVolume = jdbc.queryForObject("""
                 SELECT COALESCE(SUM(quantity), 0) FROM trades
                 WHERE stock_id = ? AND created_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 HOUR)
-                """, Long.class, stockId);
+                  AND buyer_id <> ? AND seller_id <> ?
+                """, Long.class, stockId, lpId, lpId);
         long observedVolume = recentVolume == null ? 0L : Math.max(0L, recentVolume);
-        double participation = burst ? BOT_BURST_VOLUME_PARTICIPATION : BOT_NORMAL_VOLUME_PARTICIPATION;
-        long liquidityQuantity = observedVolume > 0
-                ? Math.max(2L, Math.round(observedVolume * participation))
-                : 6L + tickRandom.nextInt(15);
-        double noise = 0.45 + tickRandom.nextDouble() * 1.10;
-        long desired = Math.max(1L, Math.round(liquidityQuantity * noise));
-        double directionalRate = "BUY".equals(side) ? newsBias.rate() : -newsBias.rate();
-        double newsMultiplier = 1.0 + Math.max(-0.35, Math.min(0.45, directionalRate * BOT_NEWS_SIZE_SENSITIVITY));
-        long orderCap = burst ? BOT_BURST_ORDER_MAX : BOT_NORMAL_ORDER_MAX;
-        long requested = Math.min(orderCap, Math.max(1L, Math.round(desired * newsMultiplier)));
-        long botId = ensureBot(code, side);
-        if ("SELL".equals(side)) ensureBotInventory(code, botId);
+        long desired = observedVolume > 0
+                ? Math.max(4L, Math.round(observedVolume * (0.02 + tickRandom.nextDouble() * 0.03)))
+                : 8L + tickRandom.nextInt(18);
+        long requested = Math.min(120L, Math.max(2L,
+                Math.round(desired * (0.65 + tickRandom.nextDouble() * 0.80))));
+        if ("SELL".equals(side)) seedLiquidityInventory(code, lpId);
         long available = "BUY".equals(side)
-                ? availableCash(botId) / Math.max(1L, Math.round(stock.price() * (1.0 + TRADING_FEE_RATE)))
-                : availableQuantity(botId, stockId);
+                ? availableCash(lpId) / Math.max(1L, Math.round(stock.price() * (1.0 + TRADING_FEE_RATE)))
+                : availableQuantity(lpId, stockId);
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, Math.min(requested, available)));
     }
 
-    /**
-     * Keep a synthetic market-maker inventory available for sell-side liquidity.
-     *
-     * Bot accounts are not real investors, so their inventory is a liquidity
-     * budget rather than a finite user balance. Refill only the amount below
-     * the target after a sell is executed; this preserves the constraint that
-     * every sell is backed by holdings while preventing the ask side from
-     * permanently disappearing after the initial seed is consumed.
-     */
-    private void ensureBotInventory(String code, long userId) {
+    /** Seed finite inventory once; a later sale is never replenished automatically. */
+    private void seedLiquidityInventory(String code, long userId) {
         long id = stockId(code);
         List<HoldingState> holdings = jdbc.query("""
                 SELECT quantity, settled_quantity, average_price, realized_profit_loss
@@ -1352,38 +1314,13 @@ public class MarketService {
             jdbc.update("""
                     INSERT INTO portfolios (user_id, stock_id, quantity, settled_quantity, average_price, realized_profit_loss)
                     VALUES (?, ?, ?, ?, ?, 0)
-                    """, userId, id, BOT_INITIAL_INVENTORY, BOT_INITIAL_INVENTORY, findStock(code).price());
-            return;
+                    """, userId, id, LP_INITIAL_INVENTORY, LP_INITIAL_INVENTORY, findStock(code).price());
         }
-
-        HoldingState holding = holdings.get(0);
-        int refill = BOT_INITIAL_INVENTORY - holding.quantity();
-        if (refill <= 0) return;
-
-        long refillPrice = findStock(code).price();
-        int nextQuantity = holding.quantity() + refill;
-        long nextAveragePrice = nextQuantity == 0
-                ? refillPrice
-                : Math.round(((double) holding.averagePrice() * holding.quantity()
-                + (double) refillPrice * refill) / nextQuantity);
-        jdbc.update("""
-                UPDATE portfolios
-                SET quantity = quantity + ?,
-                    settled_quantity = COALESCE(settled_quantity, quantity) + ?,
-                    average_price = ?
-                WHERE user_id = ? AND stock_id = ?
-                """, refill, refill, nextAveragePrice, userId, id);
     }
 
-    /** Keep a one-tick spread at the bot band's edges so a bot never freezes
-     * the market by posting both sides at the same boundary price. */
+    /** Keep automated quotes inside the legal band while allowing edge orders. */
     private long botQuotePrice(PriceBand band, String side, long rounded) {
-        if ("BUY".equals(side)) {
-            long upper = Math.max(band.lowerPrice(), previousTickPrice(band.upperPrice()));
-            return Math.max(band.lowerPrice(), Math.min(upper, rounded));
-        }
-        long lower = Math.min(band.upperPrice(), nextTickPrice(band.lowerPrice()));
-        return Math.min(band.upperPrice(), Math.max(lower, rounded));
+        return band.clamp(rounded);
     }
 
     private void trimBotLiquidity(String code) {
@@ -1392,13 +1329,13 @@ public class MarketService {
             List<BotOpenOrder> openOrders = jdbc.query("""
                     SELECT o.id, o.price FROM orders o JOIN users u ON u.id = o.user_id
                     WHERE o.stock_id = ? AND o.side = ? AND o.order_type = 'LIMIT'
-                      AND o.status = 'OPEN' AND u.password_hash = 'BOT'
+                      AND o.status = 'OPEN' AND u.username = ?
                     ORDER BY o.created_at DESC, o.id DESC
-                    """, (rs, row) -> new BotOpenOrder(rs.getLong("id"), rs.getLong("price")), stockId, side);
+                    """, (rs, row) -> new BotOpenOrder(rs.getLong("id"), rs.getLong("price")), stockId, side, LP_USERNAME);
             Set<Long> occupiedPrices = new HashSet<>();
             int kept = 0;
             for (BotOpenOrder order : openOrders) {
-                if (kept >= MAX_BOT_OPEN_ORDERS_PER_SIDE || !occupiedPrices.add(order.price())) {
+                if (kept >= LP_MAX_OPEN_ORDERS_PER_SIDE || !occupiedPrices.add(order.price())) {
                     cancelOrderInternal(order.id());
                     continue;
                 }
@@ -1410,9 +1347,9 @@ public class MarketService {
             List<Long> oversizedOrders = jdbc.query("""
                     SELECT o.id FROM orders o JOIN users u ON u.id = o.user_id
                     WHERE o.stock_id = ? AND o.side = ? AND o.order_type = 'LIMIT'
-                      AND o.status = 'OPEN' AND u.password_hash = 'BOT'
+                      AND o.status = 'OPEN' AND u.username = ?
                       AND o.remaining_quantity > ?
-                    """, (rs, row) -> rs.getLong(1), stockId, side, BOT_BURST_ORDER_MAX);
+                    """, (rs, row) -> rs.getLong(1), stockId, side, LP_USERNAME, 120);
             for (Long orderId : oversizedOrders) cancelOrderInternal(orderId);
 
             // Orders created before the shorter lifetime was introduced should
@@ -1420,24 +1357,36 @@ public class MarketService {
             List<Long> staleOrders = jdbc.query("""
                     SELECT o.id FROM orders o JOIN users u ON u.id = o.user_id
                     WHERE o.stock_id = ? AND o.order_type = 'LIMIT' AND o.status = 'OPEN'
-                      AND u.password_hash = 'BOT'
+                      AND u.username = ?
                       AND o.created_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 20 MINUTE)
-                    """, (rs, row) -> rs.getLong(1), stockId);
+                    """, (rs, row) -> rs.getLong(1), stockId, LP_USERNAME);
             for (Long orderId : staleOrders) cancelOrderInternal(orderId);
         }
     }
 
-    /**
-     * Keep the synthetic LP genuinely two-sided. BUY and SELL schedules are
-     * intentionally independent, so a fill or an expired quote can otherwise
-     * leave one side of the book empty until its next random turn. Refill the
-     * missing side and correct severe quantity imbalance without touching user
-     * orders or forcing the two sides to have identical depth.
-     */
+    /** Cancel and replace the selected side around fair value, like an LP quote engine. */
+    private void replaceLiquidityQuotes(String code, String side, NewsBias newsBias) {
+        cancelLiquidityQuotes(code, side);
+        int levels = LP_MIN_QUOTE_LEVELS + tickRandom.nextInt(LP_MAX_QUOTE_LEVELS - LP_MIN_QUOTE_LEVELS + 1);
+        for (int level = 0; level < levels; level++) {
+            if (sideDepth(orderBook(code), side) >= LP_TARGET_VISIBLE_DEPTH) break;
+            createBotOrder(code, side, newsBias);
+        }
+    }
+
+    private void cancelLiquidityQuotes(String code, String side) {
+        List<Long> ids = jdbc.query("""
+                SELECT o.id FROM orders o JOIN users u ON u.id = o.user_id
+                WHERE u.username = ? AND o.stock_id = ? AND o.side = ?
+                  AND o.order_type = 'LIMIT' AND o.status = 'OPEN'
+                """, (rs, row) -> rs.getLong(1), LP_USERNAME, stockId(code), side);
+        ids.forEach(this::cancelOrderInternal);
+    }
+
+    /** Depth is measured before adding a quote; thin books get a larger budget. */
     private void rebalanceBotLiquidity(String code, NewsBias newsBias) {
         TradingRestriction restriction = protection.restriction(code);
         if (restriction != null && !restriction.limitOrdersAllowed()) return;
-        ensureNearBotQuotes(code, newsBias);
         for (int attempt = 0; attempt < LP_REBALANCE_ATTEMPTS; attempt++) {
             LiquidityDepth buy = botLiquidityDepth(code, "BUY");
             LiquidityDepth sell = botLiquidityDepth(code, "SELL");
@@ -1455,29 +1404,6 @@ public class MarketService {
         }
     }
 
-    /**
-     * A side can have plenty of total depth while still leaving a wide empty
-     * area next to the spread. Fill only the missing near levels so old or
-     * intentionally wider quotes do not hide the inside market.
-     */
-    private void ensureNearBotQuotes(String code, NewsBias newsBias) {
-        long reference = findStock(code).price();
-        long stockId = stockId(code);
-        OrderBook book = orderBook(code);
-        for (String side : List.of("BUY", "SELL")) {
-            long target = floorToTick(reference);
-            for (int level = 1; level <= LP_NEAR_QUOTE_LEVELS; level++) {
-                target = "BUY".equals(side)
-                        ? previousTickPrice(target)
-                        : nextTickPrice(target);
-                target = botQuotePrice(botPriceBand(code), side, target);
-                if (botPriceLevelOccupied(stockId, side, target)
-                        || quoteWouldCrossOpposite(book, side, target)) continue;
-                createBotOrder(code, side, newsBias, target);
-            }
-        }
-    }
-
     private boolean quoteWouldCrossOpposite(OrderBook book, String side, long price) {
         if ("BUY".equals(side)) {
             return !book.asks().isEmpty() && price >= book.asks().get(0).price();
@@ -1485,49 +1411,27 @@ public class MarketService {
         return !book.bids().isEmpty() && price <= book.bids().get(0).price();
     }
 
+    private long sideDepth(OrderBook book, String side) {
+        List<OrderBookLevel> levels = "BUY".equals(side) ? book.bids() : book.asks();
+        return levels.stream().mapToLong(OrderBookLevel::quantity).sum();
+    }
+
     private LiquidityDepth botLiquidityDepth(String code, String side) {
         List<LiquidityDepth> rows = jdbc.query("""
                 SELECT COUNT(*), COALESCE(SUM(o.remaining_quantity), 0)
                 FROM orders o JOIN users u ON u.id = o.user_id
                 WHERE o.stock_id = ? AND o.side = ? AND o.order_type = 'LIMIT'
-                  AND o.status = 'OPEN' AND u.password_hash = 'BOT'
-                """, (rs, row) -> new LiquidityDepth(rs.getInt(1), rs.getLong(2)), stockId(code), side);
+                  AND o.status = 'OPEN' AND u.username = ?
+                """, (rs, row) -> new LiquidityDepth(rs.getInt(1), rs.getLong(2)), stockId(code), side, LP_USERNAME);
         return rows.isEmpty() ? new LiquidityDepth(0, 0) : rows.get(0);
-    }
-
-    private long adjacentBotQuotePrice(String code, String side, long fallback) {
-        long stockId = stockId(code);
-        long reference = findStock(code).price();
-        long referenceTick = tickSize(reference);
-        List<Long> edge = jdbc.query("""
-                SELECT o.price
-                FROM orders o JOIN users u ON u.id = o.user_id
-                WHERE o.stock_id = ? AND o.side = ? AND o.order_type = 'LIMIT'
-                  AND o.status = 'OPEN' AND u.password_hash = 'BOT'
-                ORDER BY o.price """ + ("BUY".equals(side) ? "DESC" : "ASC") + " LIMIT 1",
-                (rs, row) -> rs.getLong(1), stockId, side);
-        long candidate;
-        if (edge.isEmpty() || Math.abs(edge.get(0) - reference) > referenceTick * LP_MAX_NEAR_QUOTE_DISTANCE_TICKS) {
-            // A moving market can leave an old quote far from the new price.
-            // Start the replenishment at the current inside level so the
-            // spread does not remain wide until the old order expires.
-            candidate = "BUY".equals(side) ? floorToTick(reference) : nextTickPrice(floorToTick(reference));
-        } else {
-            candidate = "BUY".equals(side) ? previousTickPrice(edge.get(0)) : nextTickPrice(edge.get(0));
-        }
-        for (int attempt = 0; attempt < 5; attempt++) {
-            if (!botPriceLevelOccupied(stockId, side, candidate)) return candidate;
-            candidate = "BUY".equals(side) ? previousTickPrice(candidate) : nextTickPrice(candidate);
-        }
-        return fallback;
     }
 
     private boolean botPriceLevelOccupied(long stockId, String side, long price) {
         Integer count = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM orders o JOIN users u ON u.id = o.user_id
                 WHERE o.stock_id = ? AND o.side = ? AND o.price = ?
-                  AND o.order_type = 'LIMIT' AND o.status = 'OPEN' AND u.password_hash = 'BOT'
-                """, Integer.class, stockId, side, price);
+                  AND o.order_type = 'LIMIT' AND o.status = 'OPEN' AND u.username = ?
+                """, Integer.class, stockId, side, price, LP_USERNAME);
         return count != null && count > 0;
     }
 
@@ -1536,10 +1440,10 @@ public class MarketService {
                 Long.class, username, TRADER_BOT_PASSWORD);
     }
 
-    private long ensureBot(String code, String side) {
-        String username = "bot_" + code + "_" + side.toLowerCase(Locale.ROOT);
-        jdbc.update("INSERT IGNORE INTO users (username, password_hash, nickname, cash) VALUES (?, 'BOT', ?, 1000000000)", username, "봇 " + code + " " + side);
-        return jdbc.queryForObject("SELECT id FROM users WHERE username = ?", Long.class, username);
+    private long ensureLiquidityProvider(String code) {
+        jdbc.update("INSERT IGNORE INTO users (username, password_hash, nickname, cash) VALUES (?, 'BOT', ?, ?)",
+                LP_USERNAME, "유동성 공급자", LP_STARTING_CASH);
+        return jdbc.queryForObject("SELECT id FROM users WHERE username = ?", Long.class, LP_USERNAME);
     }
 
     private void advanceTradingProtections() {
@@ -1608,6 +1512,11 @@ public class MarketService {
             MatchRow buy = topAuctionOrder(stockId, "BUY", price, bots.contains(price));
             MatchRow sell = topAuctionOrder(stockId, "SELL", price, bots.contains(price));
             if (buy == null || sell == null) break;
+            if (buy.userId() == sell.userId()) {
+                MatchRow alternativeSell = topAuctionOrder(stockId, "SELL", price, bots.contains(price), buy.userId());
+                if (alternativeSell == null) break;
+                sell = alternativeSell;
+            }
             int quantity = Math.min(buy.remainingQuantity(), sell.remainingQuantity());
             if (!canSettle(buy, sell, quantity, price, stockId)) {
                 if (buy.reservedCash() == 0 && availableCash(buy.userId()) < price * quantity + feeFor(price * quantity)) cancelOrderInternal(buy.id());
@@ -1623,8 +1532,14 @@ public class MarketService {
     }
 
     private MatchRow topAuctionOrder(long stockId, String side, long price, boolean botsAllowed) {
+        return topAuctionOrder(stockId, side, price, botsAllowed, 0L);
+    }
+
+    private MatchRow topAuctionOrder(long stockId, String side, long price, boolean botsAllowed,
+                                     long excludedUserId) {
         String comparison = "BUY".equals(side) ? ">=" : "<=";
         String priority = "BUY".equals(side) ? "DESC" : "ASC";
+        String excluded = excludedUserId > 0 ? " AND o.user_id <> ? " : "";
         List<MatchRow> rows = jdbc.query("""
                 SELECT o.id, o.user_id, o.price, o.quantity, o.remaining_quantity, o.order_type,
                        o.created_at, o.reserved_cash, o.reserved_quantity, o.side,
@@ -1633,8 +1548,11 @@ public class MarketService {
                 WHERE o.stock_id = ? AND o.side = ? AND o.status = 'OPEN'
                   AND o.order_type = 'LIMIT' AND o.remaining_quantity > 0 AND o.price
                 """ + comparison + " ? " + (botsAllowed ? "" : "AND u.password_hash <> 'BOT' ")
+                + excluded
                 + "ORDER BY o.price " + priority + ", o.created_at, o.id LIMIT 1",
-                this::auctionRow, stockId, side, price);
+                this::auctionRow, excludedUserId > 0
+                        ? new Object[]{stockId, side, price, excludedUserId}
+                        : new Object[]{stockId, side, price});
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -1653,6 +1571,11 @@ public class MarketService {
             MatchRow buy = topOrder(id, "BUY");
             MatchRow sell = topOrder(id, "SELL");
             if (buy == null || sell == null) return summary;
+            if (buy.userId() == sell.userId()) {
+                MatchRow alternativeSell = topOrder(id, "SELL", buy.userId());
+                if (alternativeSell == null) return summary;
+                sell = alternativeSell;
+            }
             boolean buyMarket = "MARKET".equals(buy.orderType());
             boolean sellMarket = "MARKET".equals(sell.orderType());
             if (!buyMarket && !sellMarket && buy.price() < sell.price()) return summary;
@@ -1683,9 +1606,11 @@ public class MarketService {
                 tradePrice = sell.price();
             }
 
-            // 시장가는 372.ro처럼 현재가 기준 ±10%의 반대 호가까지만 순서대로 훑는다.
-            // 범위를 벗어난 지정가와는 체결하지 않아 한 번의 시장가 주문이 시세를 급격히 건너뛰지 않는다.
-            PriceBand marketBand = marketExecutionBand(findStock(code).price());
+            // 사용자 시장가는 현재가 주변을 제한하지만, 두 자동화 봇이
+            // 직접 맞붙는 경우에는 오늘의 상·하한까지 체결을 허용한다.
+            PriceBand marketBand = buy.bot() && sell.bot()
+                    ? dailyBand
+                    : marketExecutionBand(findStock(code).price());
             if (buyMarket && !marketBand.contains(tradePrice)) {
                 if (buy.bot()) cancelOrderInternal(buy.id());
                 else if (sell.bot()) cancelOrderInternal(sell.id());
@@ -1723,11 +1648,22 @@ public class MarketService {
     }
 
     private MatchRow topOrder(long stockId, String side) {
+        return topOrder(stockId, side, 0L);
+    }
+
+    private MatchRow topOrder(long stockId, String side, long excludedUserId) {
         String priceOrder = "BUY".equals(side) ? "o.price DESC" : "o.price ASC";
+        String userFilter = excludedUserId > 0 ? " AND o.user_id <> ? " : "";
         String sql = "SELECT o.id, o.user_id, COALESCE(o.price, 0), o.quantity, o.remaining_quantity, o.order_type, o.created_at, COALESCE(o.reserved_cash, 0), COALESCE(o.reserved_quantity, 0), o.side, (u.password_hash = 'BOT') AS is_bot "
                 + "FROM orders o JOIN users u ON u.id = o.user_id WHERE o.stock_id = ? AND o.side = ? AND o.status = 'OPEN' AND o.remaining_quantity > 0 "
+                + userFilter
                 + "ORDER BY CASE WHEN o.order_type = 'MARKET' THEN 1 ELSE 0 END DESC, " + priceOrder + ", o.created_at ASC, o.id ASC LIMIT 1";
-        List<MatchRow> rows = jdbc.query(sql, (rs, row) -> new MatchRow(
+        List<MatchRow> rows = excludedUserId > 0
+                ? jdbc.query(sql, (rs, row) -> new MatchRow(
+                rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4), rs.getInt(5),
+                rs.getString(6), databaseInstant(rs.getTimestamp(7)), rs.getLong(8), rs.getInt(9), rs.getString(10),
+                rs.getBoolean(11)), stockId, side, excludedUserId)
+                : jdbc.query(sql, (rs, row) -> new MatchRow(
                 rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4), rs.getInt(5),
                 rs.getString(6), databaseInstant(rs.getTimestamp(7)), rs.getLong(8), rs.getInt(9), rs.getString(10),
                 rs.getBoolean(11)), stockId, side);
@@ -2306,7 +2242,8 @@ public class MarketService {
                               String orderType, long reservedCash, int reservedQuantity) { }
     private record OrderReservation(long id, long userId, long reservedCash) { }
     private record BotOpenOrder(long id, long price) { }
-    private record TraderBotProfile(String username, String nickname, TraderStyle style) { }
+    private record TraderBotProfile(String username, String nickname, TraderStyle style,
+                                    double aggression, double marketOrderProbability) { }
     private enum TraderStyle { MOMENTUM, CONTRARIAN, VALUE, INTRADAY }
     private record OpenLimitOrder(long id, long userId, String stockCode, String side, long price,
                                   int remainingQuantity, long reservedCash, boolean bot) { }
@@ -2336,6 +2273,22 @@ public class MarketService {
     private record RecentNews(String title, String description, double impact, double recency) { }
     private record NewsInfluence(double rate, boolean special) { }
     private record NewsBias(double rate, boolean special) { }
+    private enum PatternFamily { RANGE, TREND, BREAKOUT, REVERSAL, VOLATILE }
+    private record PatternSpec(String name, PatternFamily family, double drift, double volatility,
+                               double pressure, boolean breakout, int minSteps, int maxSteps) { }
+    private static final class FairValueState {
+        private double value;
+        private double appliedNewsBias;
+        private double volatilityScale = 1.0;
+        private int remainingSteps;
+        private int elapsedSteps;
+        private PatternSpec pattern;
+
+        private FairValueState(double value, PatternSpec pattern) {
+            this.value = value;
+            this.pattern = pattern;
+        }
+    }
 
     private Stock findStock(String code) {
         return stocks().stream().filter(stock -> stock.code().equals(code)).findFirst().orElse(null);
@@ -2348,12 +2301,6 @@ public class MarketService {
 
     private long stockId(String code) {
         return jdbc.queryForObject("SELECT id FROM stocks WHERE stock_code = ?", Long.class, code);
-    }
-
-    private void move(String code, double movement, int volume) {
-        Stock old = findStock(code);
-        long requested = Math.max(100, Math.round(old.price() * (1 + movement / 100)));
-        moveToPrice(code, requested, volume);
     }
 
     private long dailyReferencePrice(String code) {
@@ -2392,61 +2339,74 @@ public class MarketService {
                 """, price, price, Math.max(0, volume), code);
     }
 
-    private void moveBotPrice(String code, long requestedPrice, long volume, boolean specialNews) {
-        Stock current = findStock(code);
-        double impactShare = BOT_TRADE_IMPACT_MIN
-                + tickRandom.nextDouble() * (BOT_TRADE_IMPACT_MAX - BOT_TRADE_IMPACT_MIN);
-        long blendedPrice = Math.round(current.price()
-                + (requestedPrice - current.price()) * impactShare);
-        double stepRate = specialNews ? BOT_SPECIAL_PRICE_STEP_RATE : BOT_PRICE_STEP_RATE;
-        long maxStep = Math.max(tickSize(current.price()), Math.round(current.price() * stepRate));
-        long stepLower = Math.max(100, current.price() - maxStep);
-        long stepUpper = current.price() + maxStep;
-        long bounded = Math.max(stepLower, Math.min(stepUpper, blendedPrice));
-        bounded = bounded >= current.price() ? ceilToTick(bounded) : floorToTick(bounded);
-        PriceBand botBand = botPriceBand(code);
-        long headroom = Math.max(tickSize(botBand.referencePrice()) * 2,
-                Math.round(botBand.referencePrice() * BOT_LIMIT_HEADROOM_RATE));
-        long internalLower = Math.min(botBand.upperPrice(), botBand.lowerPrice() + headroom);
-        long internalUpper = Math.max(botBand.lowerPrice(), botBand.upperPrice() - headroom);
-        bounded = Math.max(internalLower, Math.min(internalUpper, bounded));
-        moveToPrice(code, bounded, volume);
+    /** Update fair value only. The database quote changes only in moveToPrice after a fill. */
+    private void advanceFairValue(String code, NewsBias newsBias) {
+        Stock stock = findStock(code);
+        if (stock == null) return;
+        FairValueState state = fairValues.computeIfAbsent(code, ignored -> newFairValueState(stock.price()));
+        if (state.remainingSteps <= 0) {
+            state.pattern = nextPattern(state.pattern);
+            state.remainingSteps = state.pattern.minSteps()
+                    + tickRandom.nextInt(state.pattern.maxSteps() - state.pattern.minSteps() + 1);
+            state.elapsedSteps = 0;
+            state.volatilityScale = 0.65 + tickRandom.nextDouble() * 0.85;
+        }
+        double newsDelta = newsBias.rate() - state.appliedNewsBias;
+        if (Math.abs(newsDelta) > 0.000001) {
+            state.value *= 1.0 + Math.max(-0.08, Math.min(0.08, newsDelta * 0.85));
+            state.appliedNewsBias = newsBias.rate();
+        }
+        double progress = state.elapsedSteps / (double) Math.max(1, state.remainingSteps);
+        double shape = state.pattern.drift() * state.volatilityScale;
+        shape += Math.sin(progress * Math.PI * 2.0) * state.pattern.pressure() * state.volatilityScale;
+        double noise = (tickRandom.nextDouble() * 2.0 - 1.0)
+                * state.pattern.volatility() * state.volatilityScale;
+        if (state.pattern.breakout() && state.elapsedSteps == 0
+                && tickRandom.nextDouble() > 0.58) {
+            shape *= -0.55;
+        }
+        state.value = dailyPriceBand(code).clamp(Math.max(100L,
+                Math.round(state.value * (1.0 + shape + noise))));
+        state.elapsedSteps++;
+        state.remainingSteps--;
     }
 
-    /**
-     * Applies the change in the aggregate 24-hour news bias directly to the
-     * reference price. The state table makes this idempotent: a restart or a
-     * repeated scheduler tick cannot apply the same headline twice.
-     * News moves price only (volume remains zero); order matching separately
-     * records actual traded volume and VWAP.
-     */
-    private void applyNewsPriceDrift(String code, NewsBias newsBias) {
-        if (!protection.continuous(code)) return;
-        long id = stockId(code);
-        Double previous = jdbc.queryForObject(
-                "SELECT applied_bias FROM news_price_state WHERE stock_id = ?",
-                Double.class, id);
-        if (previous == null) {
-            jdbc.update("INSERT IGNORE INTO news_price_state (stock_id, applied_bias) VALUES (?, ?)",
-                    id, newsBias.rate());
-            return;
+    private FairValueState newFairValueState(long price) {
+        PatternSpec pattern = nextPattern(null);
+        FairValueState state = new FairValueState(price, pattern);
+        state.remainingSteps = pattern.minSteps();
+        return state;
+    }
+
+    private PatternSpec nextPattern(PatternSpec previous) {
+        if (previous != null && previous.breakout() && tickRandom.nextDouble() > 0.58) {
+            for (PatternSpec candidate : PATTERN_SPECS) {
+                if (candidate.family() == PatternFamily.REVERSAL) return candidate;
+            }
         }
-        double next = newsBias.rate();
-        double delta = next - previous;
-        // Keep sub-tick changes pending so news recency decay is not lost.
-        // The applied value advances only when the accumulated delta is large
-        // enough to move at least one meaningful price increment.
-        if (Math.abs(delta) < 0.00005) return;
-        Stock current = findStock(code);
-        if (current == null) return;
-        long requested = Math.max(100, Math.round(current.price() * (1.0 + delta * NEWS_DIRECT_RATE_SHARE)));
-        long nextPrice = delta >= 0 ? ceilToTick(requested) : floorToTick(requested);
-        jdbc.update("UPDATE news_price_state SET applied_bias = ?, updated_at = CURRENT_TIMESTAMP WHERE stock_id = ?",
-                next, id);
-        if (nextPrice != current.price()) {
-            moveToPrice(code, nextPrice, 0);
-            protection.observeSyntheticMove(code, current.price(), findStock(code).price());
+        if (previous != null && previous.family() == PatternFamily.RANGE && tickRandom.nextDouble() < 0.38) {
+            for (PatternSpec candidate : PATTERN_SPECS) {
+                if (candidate.family() == PatternFamily.BREAKOUT) return candidate;
+            }
         }
+        if (previous != null && previous.family() == PatternFamily.TREND && tickRandom.nextDouble() < 0.28) {
+            for (PatternSpec candidate : PATTERN_SPECS) {
+                if (candidate.family() == PatternFamily.REVERSAL) return candidate;
+            }
+        }
+        return PATTERN_SPECS.get(tickRandom.nextInt(PATTERN_SPECS.size()));
+    }
+
+    private long fairValuePrice(String code, NewsBias ignored) {
+        Stock stock = findStock(code);
+        if (stock == null) return 100;
+        FairValueState state = fairValues.computeIfAbsent(code, key -> newFairValueState(stock.price()));
+        return Math.max(100L, Math.round(state.value));
+    }
+
+    private double fairValueVolatility(String code) {
+        FairValueState state = fairValues.get(code);
+        return state == null ? 0.5 : state.pattern.volatility() * state.volatilityScale;
     }
 
     private NewsBias recentNewsBias(String code) {
@@ -2474,7 +2434,7 @@ public class MarketService {
             total += influence.rate();
             special |= influence.special();
         }
-        double aggregateLimit = special ? NEWS_24H_SPECIAL_RATE : NEWS_24H_BASE_RATE;
+        double aggregateLimit = special ? NEWS_AGGREGATE_SPECIAL_RATE : NEWS_AGGREGATE_BASE_RATE;
         return new NewsBias(Math.max(-aggregateLimit, Math.min(aggregateLimit, total)), special);
     }
 
