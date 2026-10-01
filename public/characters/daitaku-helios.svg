@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 560" role="img">
+  <defs>
+    <linearGradient id="helios-hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6D8AC"/>
+      <stop offset="1" stop-color="#E9AE72"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="180" cy="528" rx="88" ry="12" fill="#2b1a24" opacity="0.08"/>
+  <path d="M180 92 C118 92 100 148 104 214 C107 286 94 330 88 372 L272 372 C266 330 253 286 256 214 C260 148 242 92 180 92 Z" fill="url(#helios-hair)"/>
+  <path d="M250 330 C296 330 312 372 300 420 C294 446 278 462 262 466 C276 442 282 412 270 388 C262 372 248 362 240 356 Z" fill="#E9AE72"/>
+  <path d="M258 348 C288 356 296 390 288 416 C284 432 274 444 264 450 C272 428 274 402 264 384 C258 372 250 364 244 358 Z" fill="#F6D8AC"/>
+  <rect x="150" y="398" width="24" height="106" rx="12" fill="#F8DCC6"/>
+  <rect x="186" y="398" width="24" height="106" rx="12" fill="#F8DCC6"/>
+  <rect x="150" y="442" width="24" height="62" rx="11" fill="#FFFFFF"/>
+  <rect x="186" y="442" width="24" height="62" rx="11" fill="#FFFFFF"/>
+  <rect x="150" y="442" width="24" height="8" rx="4" fill="#F59B45"/>
+  <rect x="186" y="442" width="24" height="8" rx="4" fill="#F59B45"/>
+  <path d="M144 500 h30 a10 10 0 0 1 10 10 v8 a8 8 0 0 1 -8 8 h-38 a8 8 0 0 1 -8 -8 v-4 a14 14 0 0 1 14 -14 Z" fill="#F59B45"/>
+  <path d="M186 500 h30 a14 14 0 0 1 14 14 v4 a8 8 0 0 1 -8 8 h-38 a8 8 0 0 1 -8 -8 v-8 a10 10 0 0 1 10 -10 Z" fill="#FFFFFF" stroke="#E3E0DB" stroke-width="2"/>
+  <path d="M128 336 L232 336 L246 404 Q180 422 114 404 Z" fill="#F59B45"/>
+  <path d="M150 336 L162 414 M180 336 L180 418 M210 336 L198 414" stroke="#E08632" stroke-width="3" fill="none" opacity="0.55"/>
+  <path d="M142 240 Q180 226 218 240 L230 340 Q180 356 130 340 Z" fill="#FFFFFF"/>
+  <path d="M142 240 Q180 226 218 240 L221 268 Q180 256 139 268 Z" fill="#F59B45"/>
+  <path d="M180 250 l6 12 13 2 -9 9 2 13 -12 -6 -12 6 2 -13 -9 -9 13 -2 Z" fill="#F6D8AC"/>
+  <rect x="118" y="248" width="20" height="90" rx="10" fill="#F8DCC6"/>
+  <circle cx="128" cy="344" r="10" fill="#F8DCC6"/>
+  <g transform="rotate(26 226 246)">
+    <rect x="222" y="212" width="20" height="88" rx="10" fill="#F8DCC6"/>
+    <circle cx="232" cy="306" r="10" fill="#F8DCC6"/>
+  </g>
+  <rect x="170" y="198" width="20" height="26" rx="9" fill="#F8DCC6"/>
+  <path d="M138 92 C130 66 138 46 152 40 C160 58 158 78 152 94 Z" fill="#E9AE72"/>
+  <path d="M222 92 C230 66 222 46 208 40 C200 58 202 78 208 94 Z" fill="#E9AE72"/>
+  <path d="M146 88 C142 72 146 60 152 54 C157 66 156 78 152 90 Z" fill="#F3BFA0"/>
+  <path d="M214 88 C218 72 214 60 208 54 C203 66 204 78 208 90 Z" fill="#F3BFA0"/>
+  <circle cx="180" cy="152" r="50" fill="#F8DCC6"/>
+  <path d="M130 138 C132 108 152 96 180 96 C208 96 228 108 230 138 C230 148 222 152 216 142 C206 128 192 122 180 122 C168 122 154 128 144 142 C138 152 130 148 130 138 Z" fill="url(#helios-hair)"/>
+  <path d="M178 96 C176 82 182 70 192 64 C190 78 188 88 188 96 Z" fill="#E9AE72"/>
+  <path d="M132 140 C126 168 128 196 136 214 C118 208 112 176 118 152 Z" fill="url(#helios-hair)"/>
+  <path d="M228 140 C234 168 232 196 224 214 C242 208 248 176 242 152 Z" fill="url(#helios-hair)"/>
+  <path d="M150 142 q10 -6 20 0" stroke="#B47B48" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M190 142 q10 -6 20 0" stroke="#B47B48" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <ellipse cx="160" cy="158" rx="9" ry="11" fill="#5C7A3C"/>
+  <ellipse cx="200" cy="158" rx="9" ry="11" fill="#5C7A3C"/>
+  <circle cx="163" cy="154" r="3" fill="#FFFFFF"/>
+  <circle cx="203" cy="154" r="3" fill="#FFFFFF"/>
+  <ellipse cx="146" cy="172" rx="8" ry="4" fill="#F6B4A0" opacity="0.7"/>
+  <ellipse cx="214" cy="172" rx="8" ry="4" fill="#F6B4A0" opacity="0.7"/>
+  <path d="M172 180 q8 8 16 0" stroke="#B47B48" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

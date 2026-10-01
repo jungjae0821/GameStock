@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 560" role="img">
+  <defs>
+    <linearGradient id="shiroko-hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#DCE4EE"/>
+      <stop offset="1" stop-color="#B9C6D8"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="180" cy="528" rx="88" ry="12" fill="#2b1a24" opacity="0.08"/>
+  <ellipse cx="180" cy="66" rx="34" ry="10" fill="none" stroke="#8FD3F4" stroke-width="5" opacity="0.9"/>
+  <path d="M180 92 C120 92 102 146 106 208 C109 274 98 316 94 350 L266 350 C262 316 251 274 254 208 C258 146 240 92 180 92 Z" fill="url(#shiroko-hair)"/>
+  <g transform="rotate(-18 180 260)">
+    <rect x="120" y="252" width="124" height="9" rx="4" fill="#3A4356"/>
+    <rect x="210" y="246" width="30" height="20" rx="5" fill="#2C3346"/>
+    <rect x="160" y="259" width="14" height="18" rx="4" fill="#3A4356"/>
+  </g>
+  <rect x="150" y="392" width="24" height="110" rx="12" fill="#F8DCC6"/>
+  <rect x="186" y="392" width="24" height="110" rx="12" fill="#F8DCC6"/>
+  <rect x="150" y="436" width="24" height="66" rx="11" fill="#2E3440"/>
+  <rect x="186" y="436" width="24" height="66" rx="11" fill="#2E3440"/>
+  <path d="M144 498 h32 a10 10 0 0 1 10 10 v8 a8 8 0 0 1 -8 8 h-40 a8 8 0 0 1 -8 -8 v-4 a14 14 0 0 1 14 -14 Z" fill="#3A4356"/>
+  <path d="M184 498 h32 a14 14 0 0 1 14 14 v4 a8 8 0 0 1 -8 8 h-40 a8 8 0 0 1 -8 -8 v-8 a10 10 0 0 1 10 -10 Z" fill="#3A4356"/>
+  <path d="M130 330 L230 330 L242 396 Q180 412 118 396 Z" fill="#59616E"/>
+  <path d="M180 330 L180 408 M150 330 L142 402 M210 330 L218 402" stroke="#4B5260" stroke-width="3" opacity="0.6"/>
+  <path d="M140 238 Q180 224 220 238 L232 336 Q180 350 128 336 Z" fill="#2F3748"/>
+  <path d="M170 232 L180 250 L190 232 L188 322 L172 322 Z" fill="#FFFFFF"/>
+  <path d="M164 236 L172 250 L166 258 L156 244 Z" fill="#414B60"/>
+  <path d="M196 236 L188 250 L194 258 L204 244 Z" fill="#414B60"/>
+  <rect x="118" y="246" width="20" height="90" rx="10" fill="#2F3748"/>
+  <circle cx="128" cy="342" r="9" fill="#F8DCC6"/>
+  <rect x="222" y="246" width="20" height="86" rx="10" fill="#2F3748"/>
+  <circle cx="232" cy="336" r="9" fill="#F8DCC6"/>
+  <rect x="170" y="198" width="20" height="26" rx="9" fill="#F8DCC6"/>
+  <circle cx="180" cy="152" r="50" fill="#F8DCC6"/>
+  <path d="M130 136 C132 106 152 94 180 94 C208 94 228 106 230 136 C230 146 222 150 216 140 C206 126 192 120 180 120 C168 120 154 126 144 140 C138 150 130 146 130 136 Z" fill="url(#shiroko-hair)"/>
+  <path d="M132 138 C126 164 128 190 136 206 C118 200 112 170 118 148 Z" fill="url(#shiroko-hair)"/>
+  <path d="M228 138 C234 164 232 190 224 206 C242 200 248 170 242 148 Z" fill="url(#shiroko-hair)"/>
+  <path d="M236 168 C240 196 238 220 232 236 L216 232 C224 214 226 192 224 174 Z" fill="url(#shiroko-hair)"/>
+  <path d="M148 152 q12 -4 22 1" stroke="#7E8CA0" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M190 153 q10 -5 22 -1" stroke="#7E8CA0" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <ellipse cx="160" cy="162" rx="9" ry="10" fill="#6FA8C9"/>
+  <ellipse cx="200" cy="162" rx="9" ry="10" fill="#6FA8C9"/>
+  <circle cx="163" cy="158" r="3" fill="#FFFFFF"/>
+  <circle cx="203" cy="158" r="3" fill="#FFFFFF"/>
+  <path d="M174 184 q6 3 12 0" stroke="#8A97A8" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>
