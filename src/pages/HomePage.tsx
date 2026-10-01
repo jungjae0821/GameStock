@@ -64,7 +64,6 @@ function AssetSummary() {
     <HxCard
       id="hx-asset-title"
       title="내 자산"
-      meta={auth.ready && auth.user ? "시작 자본 100만 원 대비" : undefined}
     >
       {!auth.ready ? (
         <p className="hx-asset-empty" role="status">로그인 상태를 확인하고 있어요…</p>
@@ -145,7 +144,6 @@ export function HomePage() {
           <HxCard
             id="hx-quotes"
             title="실시간 시세"
-            action={{ label: "전체 시장", to: "/market" }}
             flush
           >
             <QuoteTable

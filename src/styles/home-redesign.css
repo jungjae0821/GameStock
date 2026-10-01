@@ -89,7 +89,6 @@
   .hx-asset-holdings {
     margin: var(--space-4) calc(var(--space-5) * -1) calc(var(--space-5) * -1);
     padding: var(--space-4) var(--space-5) 0;
-    border-top: 1px solid var(--rule);
   }
 
   .hx-asset-holdings h3 {
@@ -154,10 +153,17 @@
     border-color: transparent;
   }
 
-  /* 홈 표의 보조 막대는 숨긴다: 비중·거래량은 숫자로만 읽는다. */
+  /* 홈 표의 보조 막대는 숨기고, 행 아래 실선도 걷어낸다. */
   .hx-home .holdings-table .volume-bar,
   .hx-home .market-quote-table .volume-bar {
     display: none;
+  }
+
+  .hx-home .holdings-table tbody th,
+  .hx-home .holdings-table tbody td,
+  .hx-home .market-quote-table tbody th,
+  .hx-home .market-quote-table tbody td {
+    border-bottom: none;
   }
 
   /* 등락 흐름의 종목명 아래 막대도 숨기고 이름·가격·등락만 남긴다. */

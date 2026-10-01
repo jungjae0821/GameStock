@@ -534,8 +534,9 @@
     background: var(--down);
   }
 
+  /* 등락 흐름 항목 사이 실선은 쓰지 않는다. */
   .mover-list li + li {
-    border-top: 1px solid var(--rule);
+    border-top: none;
   }
 
   .mover-row {
