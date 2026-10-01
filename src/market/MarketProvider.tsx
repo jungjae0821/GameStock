@@ -37,7 +37,7 @@ type BackendEvent = {
   priceDirection?: string;
 };
 type BackendPosition = { stockCode: string; quantity: number; averagePrice: number };
-type BackendPortfolio = { cash: number; positions: BackendPosition[]; realizedProfitLoss?: number };
+type BackendPortfolio = { cash: number; positions: BackendPosition[]; realizedProfitLoss?: number; attendanceRewardCash?: number };
 type BackendMissionReward = { rewardCash: number; awarded: boolean; portfolio: BackendPortfolio; missions: DailyMissionStatus };
 
 const SnapshotContext = createContext<MarketSnapshot | null>(null);
@@ -50,13 +50,19 @@ function fallbackSnapshot(): MarketSnapshot {
 }
 
 function toPortfolio(value?: BackendPortfolio): Portfolio {
-  if (!value) return { cash: INITIAL_CASH, positions: {}, fills: [], realized: 0 };
+  if (!value) return { cash: INITIAL_CASH, positions: {}, fills: [], realized: 0, attendanceRewardCash: 0 };
   const positions: Record<string, Position> = {};
   for (const item of value.positions ?? []) {
     if (!LISTING_BY_CODE[item.stockCode] || item.quantity < 1) continue;
     positions[item.stockCode] = { code: item.stockCode, qty: item.quantity, avgCost: item.averagePrice };
   }
-  return { cash: value.cash, positions, fills: [], realized: value.realizedProfitLoss ?? 0 };
+  return {
+    cash: value.cash,
+    positions,
+    fills: [],
+    realized: value.realizedProfitLoss ?? 0,
+    attendanceRewardCash: value.attendanceRewardCash ?? 0,
+  };
 }
 
 function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: BackendPortfolio, watch: string[] = [], market?: BackendMarketStatus): MarketSnapshot {

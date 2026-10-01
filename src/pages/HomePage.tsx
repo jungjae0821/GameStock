@@ -97,6 +97,9 @@ function AssetSummary() {
                 <dt>주식 평가액</dt>
                 <dd>
                   <PriceCell value={money.stockValue} />
+                  <span className="hx-asset-percent">
+                    {money.total > 0 ? `(${((money.stockValue / money.total) * 100).toFixed(1)}%)` : "(0.0%)"}
+                  </span>
                 </dd>
               </div>
               <div className="hx-asset-line">

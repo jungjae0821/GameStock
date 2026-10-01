@@ -18,7 +18,8 @@ export function totals(snapshot: MarketSnapshot): Totals {
     if (quote) stockValue += quote.price * position.qty;
   }
   const total = snapshot.portfolio.cash + stockValue;
-  const pnl = total - INITIAL_CASH;
+  const attendanceRewardCash = snapshot.portfolio.attendanceRewardCash ?? 0;
+  const pnl = total - INITIAL_CASH - attendanceRewardCash;
   return { cash: snapshot.portfolio.cash, stockValue, total, pnl, pnlRate: pnl / INITIAL_CASH };
 }
 

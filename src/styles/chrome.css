@@ -541,6 +541,7 @@
 
   /* flush 패널 안 빈 상태 문구가 왼쪽 테두리에 붙지 않게 한다(표가 있을 때는 영향 없음) */
   #mypage-open-orders .empty.is-inline {
+    margin-block: var(--space-4);
     padding-inline: var(--space-4);
   }
 

@@ -3,10 +3,9 @@ import { Link } from "./Link";
 import type { Route } from "../router";
 import { firebaseAuth } from "../lib/firebase";
 import { onAuthStateChanged, signInWithCustomToken, signOut, type User } from "firebase/auth";
-import { openLoginPrompt, requireSignIn } from "../lib/auth";
+import { openLoginPrompt } from "../lib/auth";
 import { apiFetch } from "../lib/api";
 import { useEffect, useRef, useState } from "react";
-import { navigate } from "../router";
 
 
 /* 탑바 아이콘: 이모지 대신 현재 글자색을 따르는 선 아이콘을 쓴다. */
@@ -27,15 +26,6 @@ function MoonIcon() {
   );
 }
 
-function UserIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-      <circle cx="10" cy="6.5" r="3.2" />
-      <path d="M3.8 17c.8-3 3.2-4.5 6.2-4.5s5.4 1.5 6.2 4.5" />
-    </svg>
-  );
-}
-
 function MenuIcon() {
   return (
     <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -48,6 +38,7 @@ const NAV = [
   { label: "시장", to: "/market", match: "market" },
   { label: "뉴스", to: "/news", match: "news" },
   { label: "랭킹", to: "/ranking", match: "ranking" },
+  { label: "마이", to: "/mypage", match: "mypage" },
 ] as const;
 
 type TemperatureReading = {
@@ -195,15 +186,6 @@ export function Topbar({ route }: { route: Route }) {
             onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
           >
             <span aria-hidden="true">{theme === "dark" ? <SunIcon /> : <MoonIcon />}</span>
-          </button>
-          <button
-            type="button"
-            className="account-button icon-button"
-            aria-label="마이페이지"
-            title="마이페이지"
-            onClick={() => { setMenuOpen(false); if (requireSignIn("/mypage")) navigate("/mypage"); }}
-          >
-            <span aria-hidden="true"><UserIcon /></span>
           </button>
           <div className="menu-wrap" ref={menuRef}>
             <button

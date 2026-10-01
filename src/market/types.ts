@@ -131,6 +131,8 @@ export interface Portfolio {
   fills: Fill[];
   /** 실현 손익. 매도 체결에서만 갱신된다. */
   realized: number;
+  /** 출석 보상으로 지급된 현금. 투자 수익률에서는 제외한다. */
+  attendanceRewardCash?: number;
 }
 
 export interface MarketSnapshot {

@@ -81,6 +81,11 @@ public class MarketService {
     private static final double NEWS_SPECIAL_IMPACT_THRESHOLD = 6.0;
     private static final double NEWS_MAJOR_INCIDENT_IMPACT_THRESHOLD = -8.0;
     private static final int MAX_BOT_OPEN_ORDERS_PER_SIDE = 14;
+    /** LP keeps both sides visible even when one independent side schedule is consumed first. */
+    private static final int LP_MIN_OPEN_ORDERS_PER_SIDE = 2;
+    private static final long LP_MIN_OPEN_QUANTITY_PER_SIDE = 20L;
+    private static final double LP_MAX_SIDE_IMBALANCE = 4.0;
+    private static final int LP_REBALANCE_ATTEMPTS = 3;
     private static final int BOT_ORDER_LIFETIME_MINUTES = 20;
     /** Human-like participant bots use the normal user order path and ranking. */
     private static final String TRADER_BOT_PASSWORD = "TRADER";
@@ -502,6 +507,7 @@ public class MarketService {
                 SELECT u.nickname, NULL AS profile_image_url, u.cash,
                        COALESCE((SELECT SUM(o.reserved_cash) FROM orders o WHERE o.user_id = u.id AND o.status = 'OPEN'), 0) AS reserved_cash,
                        COALESCE((SELECT SUM(st.gross_amount - st.seller_fee) FROM settlements st WHERE st.seller_id = u.id AND st.status = 'PENDING'), 0) AS unsettled_cash,
+                       COALESCE((SELECT SUM(ar.reward_cash) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0) AS attendance_reward_cash,
                        COALESCE(SUM(CASE WHEN p.quantity > 0 THEN p.quantity * s.current_price ELSE 0 END), 0) AS asset_value
                 FROM users u
                 LEFT JOIN portfolios p ON p.user_id = u.id
@@ -516,8 +522,9 @@ public class MarketService {
             long cash = rs.getLong("cash");
             long reservedCash = rs.getLong("reserved_cash");
             long unsettledCash = rs.getLong("unsettled_cash");
+            long attendanceRewardCash = rs.getLong("attendance_reward_cash");
             long totalAsset = cash + reservedCash + unsettledCash + assetValue;
-            double changePercent = (totalAsset - STARTING_CASH) * 100.0 / STARTING_CASH;
+            double changePercent = (totalAsset - STARTING_CASH - attendanceRewardCash) * 100.0 / STARTING_CASH;
             return new RankingEntry(0, rs.getString("nickname"), rs.getString("profile_image_url"), totalAsset, assetValue, cash, changePercent);
         });
         List<RankingEntry> ranked = new ArrayList<>(entries.size());
@@ -1102,6 +1109,7 @@ public class MarketService {
             }
         }
         trimBotLiquidity(code);
+        rebalanceBotLiquidity(code, newsBias);
         events.publishEvent(new MarketChangedEvent(snapshot()));
     }
 
@@ -1372,6 +1380,43 @@ public class MarketService {
                     """, (rs, row) -> rs.getLong(1), stockId);
             for (Long orderId : staleOrders) cancelOrderInternal(orderId);
         }
+    }
+
+    /**
+     * Keep the synthetic LP genuinely two-sided. BUY and SELL schedules are
+     * intentionally independent, so a fill or an expired quote can otherwise
+     * leave one side of the book empty until its next random turn. Refill the
+     * missing side and correct severe quantity imbalance without touching user
+     * orders or forcing the two sides to have identical depth.
+     */
+    private void rebalanceBotLiquidity(String code, NewsBias newsBias) {
+        TradingRestriction restriction = protection.restriction(code);
+        if (restriction != null && !restriction.limitOrdersAllowed()) return;
+        for (int attempt = 0; attempt < LP_REBALANCE_ATTEMPTS; attempt++) {
+            LiquidityDepth buy = botLiquidityDepth(code, "BUY");
+            LiquidityDepth sell = botLiquidityDepth(code, "SELL");
+            boolean refillBuy = buy.orders() < LP_MIN_OPEN_ORDERS_PER_SIDE
+                    || buy.quantity() < LP_MIN_OPEN_QUANTITY_PER_SIDE;
+            boolean refillSell = sell.orders() < LP_MIN_OPEN_ORDERS_PER_SIDE
+                    || sell.quantity() < LP_MIN_OPEN_QUANTITY_PER_SIDE;
+            if (buy.quantity() > 0 && sell.quantity() > 0) {
+                refillBuy |= buy.quantity() > Math.round(sell.quantity() * LP_MAX_SIDE_IMBALANCE);
+                refillSell |= sell.quantity() > Math.round(buy.quantity() * LP_MAX_SIDE_IMBALANCE);
+            }
+            if (!refillBuy && !refillSell) return;
+            if (refillBuy) createBotOrder(code, "BUY", newsBias);
+            if (refillSell) createBotOrder(code, "SELL", newsBias);
+        }
+    }
+
+    private LiquidityDepth botLiquidityDepth(String code, String side) {
+        List<LiquidityDepth> rows = jdbc.query("""
+                SELECT COUNT(*), COALESCE(SUM(o.remaining_quantity), 0)
+                FROM orders o JOIN users u ON u.id = o.user_id
+                WHERE o.stock_id = ? AND o.side = ? AND o.order_type = 'LIMIT'
+                  AND o.status = 'OPEN' AND u.password_hash = 'BOT'
+                """, (rs, row) -> new LiquidityDepth(rs.getInt(1), rs.getLong(2)), stockId(code), side);
+        return rows.isEmpty() ? new LiquidityDepth(0, 0) : rows.get(0);
     }
 
     private boolean botPriceLevelOccupied(long stockId, String side, long price) {
@@ -2162,6 +2207,7 @@ public class MarketService {
     private enum TraderStyle { MOMENTUM, CONTRARIAN, VALUE, INTRADAY }
     private record OpenLimitOrder(long id, long userId, String stockCode, String side, long price,
                                   int remainingQuantity, long reservedCash, boolean bot) { }
+    private record LiquidityDepth(int orders, long quantity) { }
     private record HoldingState(int quantity, int settledQuantity, long averagePrice, long realizedProfitLoss) { }
     private record PendingSettlement(long id, long buyerId, long sellerId, long stockId, int quantity,
                                      long grossAmount, long sellerFee) { }
@@ -2379,9 +2425,14 @@ public class MarketService {
                 SELECT COALESCE(SUM(COALESCE(realized_profit_loss, 0)), 0)
                 FROM portfolios WHERE user_id = ?
                 """, Long.class, userId);
+        long attendanceRewardCash = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(reward_cash), 0)
+                FROM attendance_rewards
+                WHERE user_id = ?
+                """, Long.class, userId);
         long assetValue = positions.stream().mapToLong(Position::marketValue).sum();
         return new Portfolio(cash, assetValue, cash + reservedCash + unsettledCash + assetValue,
-                positions, unsettledCash, unsettledAssetValue, totalFees, realizedProfitLoss);
+                positions, unsettledCash, unsettledAssetValue, totalFees, realizedProfitLoss, attendanceRewardCash);
     }
 
     private long currentPrice(String code) {

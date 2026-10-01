@@ -85,6 +85,13 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .hx-asset-percent {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
   /* 보유 주식 표는 실시간 시세표와 같은 언어: 괘선은 전체 폭, 표는 카드 끝까지 붙인다. */
   .hx-asset-holdings {
     margin: var(--space-4) calc(var(--space-5) * -1) calc(var(--space-5) * -1);
