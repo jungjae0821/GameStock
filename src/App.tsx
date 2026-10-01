@@ -6,8 +6,9 @@ import { NewsPage } from "./pages/NewsPage";
 import { RankingPage } from "./pages/RankingPage";
 import { MyPage } from "./pages/MyPage";
 import { LoginPage } from "./pages/LoginPage";
-import { requestLogin, useAuthUser } from "./lib/auth";
 import { MissionRewardToast } from "./components/MissionRewardToast";
+import { LoginModal } from "./components/LoginModal";
+import { openLoginPrompt, useAuthUser } from "./lib/auth";
 import { LISTING_BY_CODE } from "./market/universe";
 import { useRoute } from "./router";
 import type { Route } from "./router";
@@ -31,7 +32,7 @@ export default function App() {
   const previous = useRef(route);
 
   useEffect(() => {
-    if (route.name === "mypage" && auth.ready && !auth.user) requestLogin("/mypage", true);
+    if (route.name === "mypage" && auth.ready && !auth.user) openLoginPrompt("/mypage");
   }, [route, auth.ready, auth.user]);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function App() {
         {route.name === "login" && <LoginPage method={route.method} />}
       </main>
       <MissionRewardToast />
+      <LoginModal />
     </div>
   );
 }

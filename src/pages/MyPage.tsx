@@ -6,7 +6,7 @@ import { MissionBoard } from "../components/MissionBoard";
 import { RestrictionBadge } from "../components/RestrictionBadge";
 import { apiFetch } from "../lib/api";
 import { firebaseAuth } from "../lib/firebase";
-import { requestLogin } from "../lib/auth";
+import { openLoginPrompt } from "../lib/auth";
 import { LISTING_BY_CODE, LISTINGS } from "../market/universe";
 import { clock, serverTimestamp, won } from "../market/format";
 
@@ -218,7 +218,7 @@ export function MyPage() {
         <Panel id="mypage-login" title="로그인 필요">
           <div className="empty is-inline">
             <p>닉네임과 프로필은 로그인 후 확인할 수 있습니다.</p>
-            <button type="button" className="mypage-button" onClick={() => requestLogin("/mypage")}>
+            <button type="button" className="mypage-button" onClick={() => openLoginPrompt("/mypage")}>
               로그인 방법 선택
             </button>
           </div>

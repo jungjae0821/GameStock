@@ -9,7 +9,7 @@ import { MoverBoard } from "../components/MoverBoard";
 import { NewsFeed } from "../components/NewsFeed";
 import { PriceCell } from "../components/PriceCell";
 import { QuoteTable } from "../components/QuoteTable";
-import { loginPath, useAuthUser } from "../lib/auth";
+import { openLoginPrompt, useAuthUser } from "../lib/auth";
 import { useMarket } from "../market/MarketProvider";
 import { holdings, sortCodes, totals } from "../market/selectors";
 import { navigate } from "../router";
@@ -71,9 +71,9 @@ function AssetSummary() {
       ) : !auth.user ? (
         <div className="hx-asset-login">
           <p className="hx-asset-empty">로그인하고 내 자산과 보유 주식 수익률을 확인하세요.</p>
-          <Link className="hx-asset-login-button" to={loginPath("choose", "/")}>
+          <button type="button" className="hx-asset-login-button" onClick={() => openLoginPrompt("/")}>
             <span aria-hidden="true">→</span> 로그인하기
-          </Link>
+          </button>
         </div>
       ) : (
         <>

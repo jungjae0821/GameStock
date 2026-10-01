@@ -3,7 +3,7 @@ import { Link } from "./Link";
 import type { Route } from "../router";
 import { firebaseAuth } from "../lib/firebase";
 import { onAuthStateChanged, signInWithCustomToken, signOut, type User } from "firebase/auth";
-import { requestLogin, requireSignIn } from "../lib/auth";
+import { openLoginPrompt, requireSignIn } from "../lib/auth";
 import { apiFetch } from "../lib/api";
 import { useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
@@ -87,7 +87,7 @@ export function Topbar({ route }: { route: Route }) {
 
   useEffect(() => {
     const handleLoginRequest = () => {
-      if (!firebaseAuth.currentUser) requestLogin();
+      if (!firebaseAuth.currentUser) openLoginPrompt();
     };
     window.addEventListener("gamestock-request-login", handleLoginRequest);
     return () => window.removeEventListener("gamestock-request-login", handleLoginRequest);
@@ -190,7 +190,7 @@ export function Topbar({ route }: { route: Route }) {
                     </button>
                   </>
                 ) : (
-                  <button type="button" className="menu-item menu-login" role="menuitem" onClick={() => { setMenuOpen(false); requestLogin(); }}>
+                  <button type="button" className="menu-item menu-login" role="menuitem" onClick={() => { setMenuOpen(false); openLoginPrompt(); }}>
                     로그인
                   </button>
                 )}

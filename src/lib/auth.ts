@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { firebaseAuth } from "./firebase";
 import { navigate, type LoginMethod } from "../router";
@@ -39,8 +39,43 @@ export function requestLogin(next?: string, replace = false): void {
 
 export function requireSignIn(next?: string): boolean {
   if (firebaseAuth.currentUser) return true;
-  requestLogin(next);
+  openLoginPrompt(next ?? "/");
   return false;
+}
+
+/* ── 화면 이동 없이 현재 화면 위에 띄우는 로그인 모달 상태 ── */
+
+type LoginPrompt = { next: string } | null;
+let loginPrompt: LoginPrompt = null;
+const loginPromptListeners = new Set<() => void>();
+
+export function useLoginPrompt(): LoginPrompt {
+  return useSyncExternalStore(
+    (listener) => {
+      loginPromptListeners.add(listener);
+      return () => loginPromptListeners.delete(listener);
+    },
+    () => loginPrompt,
+    () => loginPrompt,
+  );
+}
+
+export function openLoginPrompt(next = "/"): void {
+  // 앱(WebView) 셸에서는 기존처럼 /login 화면으로 이동한다(딥링크 콜백 흐름 유지).
+  if (document.documentElement.dataset.appShell === "mobile") {
+    requestLogin(next);
+    return;
+  }
+  const target = safeReturnPath(next);
+  if (loginPrompt?.next === target) return;
+  loginPrompt = { next: target };
+  for (const listener of loginPromptListeners) listener();
+}
+
+export function closeLoginPrompt(): void {
+  if (!loginPrompt) return;
+  loginPrompt = null;
+  for (const listener of loginPromptListeners) listener();
 }
 
 export function authErrorMessage(error: unknown): string {
