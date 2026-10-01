@@ -8,6 +8,42 @@ import { apiFetch } from "../lib/api";
 import { useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
 
+
+/* 탑바 아이콘: 이모지 대신 현재 글자색을 따르는 선 아이콘을 쓴다. */
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <circle cx="10" cy="10" r="4" />
+      <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M15.7 4.3l-1.4 1.4M5.7 14.3l-1.4 1.4" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16.5 12.5A7 7 0 0 1 7.5 3.5a7 7 0 1 0 9 9z" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <circle cx="10" cy="6.5" r="3.2" />
+      <path d="M3.8 17c.8-3 3.2-4.5 6.2-4.5s5.4 1.5 6.2 4.5" />
+    </svg>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M3.5 6h13M3.5 10h13M3.5 14h13" />
+    </svg>
+  );
+}
+
 const NAV = [
   { label: "시장", to: "/market", match: "market" },
   { label: "뉴스", to: "/news", match: "news" },
@@ -158,7 +194,7 @@ export function Topbar({ route }: { route: Route }) {
             title={theme === "dark" ? "라이트모드로 변경" : "다크모드로 변경"}
             onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
           >
-            <span aria-hidden="true">{theme === "dark" ? "☀️" : "🌙"}</span>
+            <span aria-hidden="true">{theme === "dark" ? <SunIcon /> : <MoonIcon />}</span>
           </button>
           <button
             type="button"
@@ -167,7 +203,7 @@ export function Topbar({ route }: { route: Route }) {
             title="마이페이지"
             onClick={() => { setMenuOpen(false); if (requireSignIn("/mypage")) navigate("/mypage"); }}
           >
-            <span aria-hidden="true">👤</span>
+            <span aria-hidden="true"><UserIcon /></span>
           </button>
           <div className="menu-wrap" ref={menuRef}>
             <button
@@ -178,7 +214,7 @@ export function Topbar({ route }: { route: Route }) {
               aria-haspopup="menu"
               onClick={() => setMenuOpen((open) => !open)}
             >
-              <span aria-hidden="true">☰</span>
+              <span aria-hidden="true"><MenuIcon /></span>
             </button>
             {menuOpen && (
               <div className="menu-panel" role="menu" aria-label="부가 기능">

@@ -20,10 +20,10 @@ function readRankingCache(): RankingEntry[] {
   }
 }
 
-const medalByRank: Record<number, { emoji: string; label: string; className: string }> = {
-  1: { emoji: "🥇", label: "금메달", className: "is-gold" },
-  2: { emoji: "🥈", label: "은메달", className: "is-silver" },
-  3: { emoji: "🥉", label: "동메달", className: "is-bronze" },
+const medalByRank: Record<number, { rank: number; label: string; className: string }> = {
+  1: { rank: 1, label: "1위", className: "is-gold" },
+  2: { rank: 2, label: "2위", className: "is-silver" },
+  3: { rank: 3, label: "3위", className: "is-bronze" },
 };
 
 export function RankingPage() {
@@ -114,7 +114,7 @@ export function RankingPage() {
                             role="img"
                             aria-label={medalByRank[entry.rank].label}
                           >
-                            {medalByRank[entry.rank].emoji}
+                            <span className="num">{medalByRank[entry.rank].rank}</span>
                           </span>
                         )}
                         {!medalByRank[entry.rank] && <span>{entry.rank}</span>}

@@ -3,7 +3,6 @@ import { GameIcon } from "../components/GameIcon";
 import { NewsFeed } from "../components/NewsFeed";
 import { Panel } from "../components/Panel";
 import { RestrictionBadge } from "../components/RestrictionBadge";
-import { tickLabel } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { LISTING_BY_CODE } from "../market/universe";
 import { VISIBLE_NEWS_SOURCES, type NewsSource } from "../market/types";
@@ -32,7 +31,7 @@ export function NewsPage() {
       <div className="page-title">
         <h1>뉴스</h1>
         <span className="page-meta num">
-          {visibleNews.length}건 · {tickLabel(snapshot.tickMs)}마다 시세 갱신
+          {visibleNews.length}건
         </span>
       </div>
 
