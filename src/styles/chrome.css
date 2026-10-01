@@ -458,6 +458,25 @@
     gap: var(--space-5);
   }
 
+  /* 마이페이지 두 단 행: 미션(왼쪽 50%) · 관심종목·알림(오른쪽 50%) */
+  .mypage-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+    min-width: 0;
+  }
+
+  .mypage-row > .panel {
+    min-width: 0;
+  }
+
+  /* 오른쪽 카드는 폭이 좁아 관심종목과 알림을 세로로 쌓는다 */
+  .mypage-row .feature-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
   .feature-heading {
     margin-bottom: var(--space-2);
     font-size: var(--step-0);
@@ -596,16 +615,11 @@
     font-size: var(--step--1);
   }
 
-  .mypage-holdings-table {
-    min-width: 680px;
-  }
-
   .mypage-orders-table {
     min-width: 860px;
   }
 
-  /* 마이페이지의 두 표는 공통 규칙보다 우선해 헤더와 모든 셀을 중앙에 맞춘다. */
-  table.mypage-holdings-table th,
+  /* 마이페이지의 표들은 공통 규칙보다 우선해 헤더와 모든 셀을 중앙에 맞춘다. */
   table.mypage-holdings-table td,
   table.mypage-trades-table th,
   table.mypage-trades-table td,
@@ -616,14 +630,11 @@
   }
 
   /* 행 제목(th)과 종목명도 별도 스타일에 밀리지 않도록 다시 고정한다. */
-  table.mypage-holdings-table .cell-name,
   table.mypage-trades-table tbody th,
   table.mypage-orders-table tbody th {
     text-align: center;
   }
 
-  .mypage-holdings-table thead th:not(:first-child),
-  .mypage-holdings-table tbody td:not(:first-child),
   .mypage-orders-table thead th:not(:first-child),
   .mypage-orders-table tbody td:not(:first-child) {
     text-align: center;
@@ -786,6 +797,15 @@
     .feature-columns {
       grid-template-columns: minmax(0, 1fr);
       gap: var(--space-4);
+    }
+
+    .mypage-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .mypage-page {
+      min-width: 0;
+      overflow-x: clip;
     }
 
     .statusbar .text-button {

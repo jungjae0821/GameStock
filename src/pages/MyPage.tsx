@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Panel } from "../components/Panel";
 import { Link } from "../components/Link";
+import { MissionBoard } from "../components/MissionBoard";
 import { RestrictionBadge } from "../components/RestrictionBadge";
 import { apiFetch } from "../lib/api";
 import { firebaseAuth } from "../lib/firebase";
@@ -14,17 +15,6 @@ type Profile = {
   email: string;
   profileCompleted: boolean;
   resetAvailable: boolean;
-};
-
-type Portfolio = {
-  positions: Array<{
-    stockCode: string;
-    quantity: number;
-    averagePrice: number;
-    marketValue: number;
-    profitLoss: number;
-    profitLossPercent: number;
-  }>;
 };
 
 type CompletedTrade = {
@@ -60,7 +50,6 @@ type PriceAlert = { id: number; stockCode: string; targetPrice: number; active: 
 export function MyPage() {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [completedTrades, setCompletedTrades] = useState<CompletedTrade[]>([]);
   const [openOrders, setOpenOrders] = useState<ActiveOrder[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
@@ -78,7 +67,6 @@ export function MyPage() {
   useEffect(() => {
     if (!user) {
       setProfile(null);
-      setPortfolio(null);
       setCompletedTrades([]);
       setOpenOrders([]);
       setWatchlist([]);
@@ -90,17 +78,15 @@ export function MyPage() {
     setMessage("");
     void Promise.all([
       apiFetch<Profile>("/api/profile"),
-      apiFetch<Portfolio>("/api/portfolio"),
       apiFetch<CompletedTrade[]>("/api/settlements"),
       apiFetch<ActiveOrder[]>("/api/orders"),
       apiFetch<WatchlistEntry[]>("/api/watchlist"),
       apiFetch<PriceAlert[]>("/api/price-alerts"),
     ])
-      .then(([nextProfile, nextPortfolio, nextTrades, nextOpenOrders, nextWatchlist, nextAlerts]) => {
+      .then(([nextProfile, nextTrades, nextOpenOrders, nextWatchlist, nextAlerts]) => {
         if (!active) return;
         setProfile(nextProfile);
         setNickname(nextProfile.nickname ?? "");
-        setPortfolio(nextPortfolio);
         setCompletedTrades(nextTrades.slice(0, 5));
         setOpenOrders(nextOpenOrders);
         setWatchlist(nextWatchlist);
@@ -117,22 +103,20 @@ export function MyPage() {
     };
   }, [user]);
 
-  // 평가 손익·평가액은 현재가를 따라가야 하므로 마이페이지에서만
-  // 포트폴리오 값을 1초마다 갱신한다. 닉네임/프로필은 입력 중 값이
-  // 덮어써지지 않도록 위의 초기 조회에서만 읽는다.
+  // 최근 체결과 미체결 주문은 1초마다 갱신한다. 닉네임/프로필은 입력 중
+  // 값이 덮어써지지 않도록 위의 초기 조회에서만 읽는다.
   useEffect(() => {
     if (!user) return;
     let active = true;
     const refreshPortfolio = async () => {
       try {
-        const [nextPortfolio, nextTrades] = await Promise.all([
-          apiFetch<Portfolio>("/api/portfolio"),
+        const [nextTrades, nextOrders] = await Promise.all([
           apiFetch<CompletedTrade[]>("/api/settlements"),
+          apiFetch<ActiveOrder[]>("/api/orders"),
         ]);
         if (active) {
-          setPortfolio(nextPortfolio);
           setCompletedTrades(nextTrades.slice(0, 5));
-          setOpenOrders(await apiFetch<ActiveOrder[]>("/api/orders"));
+          setOpenOrders(nextOrders);
         }
       } catch {
         // 일시적인 네트워크 오류가 있어도 마지막 손익을 유지한다.
@@ -214,8 +198,6 @@ export function MyPage() {
     setMessage("");
     try {
       await apiFetch("/api/account/reset", { method: "DELETE" });
-      const next = await apiFetch<Portfolio>("/api/portfolio");
-      setPortfolio(next);
       setCompletedTrades([]);
       setProfile((current) => current ? { ...current, resetAvailable: false } : current);
       setMessage("계좌를 초기화했습니다. 시작 금액 1,000,000원으로 돌아갔습니다.");
@@ -230,9 +212,10 @@ export function MyPage() {
     return (
       <div className="page-stack mypage-page">
         <div className="page-title"><h1>마이페이지</h1></div>
+        <MissionBoard />
         <Panel id="mypage-login" title="로그인 필요">
           <div className="empty is-inline">
-            <p>닉네임과 보유 주식은 로그인 후 확인할 수 있습니다.</p>
+            <p>닉네임과 프로필은 로그인 후 확인할 수 있습니다.</p>
             <button type="button" className="mypage-button" onClick={() => requestLogin("/mypage")}>
               로그인 방법 선택
             </button>
@@ -242,12 +225,10 @@ export function MyPage() {
     );
   }
 
-  const positions = portfolio?.positions ?? [];
   return (
     <div className="page-stack mypage-page">
       <div className="page-title">
         <h1>마이페이지</h1>
-        <span className="page-meta">{profile?.email ?? user.email ?? "로그인 계정"}</span>
       </div>
 
       <Panel id="mypage-profile" title="프로필">
@@ -265,7 +246,9 @@ export function MyPage() {
         )}
       </Panel>
 
-      <Panel id="mypage-watch-alerts" title="관심종목·가격 알림" meta={`${watchlist.length}종목 · ${alerts.length}건`}>
+      <div className="mypage-row">
+        <MissionBoard />
+        <Panel id="mypage-watch-alerts" title="관심종목·가격 알림" meta={`${watchlist.length}종목 · ${alerts.length}건`}>
         <div className="feature-columns">
           <section>
             <h3 className="feature-heading">관심종목</h3>
@@ -302,6 +285,7 @@ export function MyPage() {
           </section>
         </div>
       </Panel>
+      </div>
 
       <Panel id="mypage-open-orders" title="미체결 주문" meta={`${openOrders.length}건`} flush>
         {openOrders.length === 0 ? (
@@ -335,35 +319,6 @@ export function MyPage() {
                     <td><button type="button" className="text-button" onClick={() => void cancelOrder(order.id)}>취소</button></td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Panel>
-
-      <Panel id="mypage-holdings" title="보유 주식" meta={`${positions.length}종목`} flush>
-        {positions.length === 0 ? (
-          <p className="empty is-inline">보유 중인 주식이 없습니다.</p>
-        ) : (
-          <div className="table-scroll">
-            <table className="quote-table mypage-holdings-table">
-              <caption className="vh">종목별 보유 수량</caption>
-              <thead><tr><th scope="col">종목</th><th scope="col">보유 수량</th><th scope="col">평균 단가</th><th scope="col">평가액</th><th scope="col">평가 손익</th></tr></thead>
-              <tbody>
-                {positions.map((position) => {
-                  const listing = LISTING_BY_CODE[position.stockCode];
-                  return (
-                    <tr key={position.stockCode}>
-                      <th scope="row" className="cell-name"><span className="stock-name-group">{listing?.name ?? position.stockCode}<RestrictionBadge code={position.stockCode} /></span></th>
-                      <td className="num">{position.quantity.toLocaleString("ko-KR")}주</td>
-                      <td className="num">{won(position.averagePrice)}</td>
-                      <td className="num">{won(position.marketValue)}</td>
-                      <td className={`num ${position.profitLoss < 0 ? "mypage-loss" : position.profitLoss > 0 ? "mypage-profit" : ""}`}>
-                        {won(position.profitLoss)} ({position.profitLossPercent.toFixed(2)}%)
-                      </td>
-                    </tr>
-                  );
-                })}
               </tbody>
             </table>
           </div>

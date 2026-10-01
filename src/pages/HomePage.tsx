@@ -5,7 +5,6 @@ import { Delta } from "../components/Delta";
 import { GameIndexBoard } from "../components/GameIndexBoard";
 import { HoldingsTable } from "../components/HoldingsTable";
 import { Link } from "../components/Link";
-import { MissionBoard } from "../components/MissionBoard";
 import { MoverBoard } from "../components/MoverBoard";
 import { NewsFeed } from "../components/NewsFeed";
 import { PriceCell } from "../components/PriceCell";
@@ -26,7 +25,7 @@ interface CardProps {
   action?: { label: string; to: string };
   /** 표처럼 본문을 카드 테두리에 붙일 때 true. */
   flush?: boolean;
-  /** Panel 머리를 감싼 재사용 컴포넌트(GameIndexBoard·MissionBoard)의 머리를 숨기고 카드 머리로 대체한다. */
+  /** Panel 머리를 감싼 재사용 컴포넌트(GameIndexBoard)의 머리를 숨기고 카드 머리로 대체한다. */
   embed?: boolean;
   /** 실시간 갱신으로 높이가 변하지 않게 본문 최소 높이를 둔다. */
   grow?: boolean;
@@ -170,9 +169,6 @@ export function HomePage() {
             action={{ label: "전체 뉴스", to: "/news" }}
           >
             <NewsFeed items={visibleNews.slice(0, 6)} />
-          </HxCard>
-          <HxCard id="hx-mission" title="오늘의 투자 미션" embed>
-            <MissionBoard />
           </HxCard>
         </div>
       </div>
