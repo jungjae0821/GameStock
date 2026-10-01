@@ -15,7 +15,7 @@ npx expo start
 로그인이 필요한 기능을 누르면 `/login`에서 방법을 선택합니다. 이메일 로그인·회원가입·비밀번호 찾기는 공용 웹 화면에서 처리합니다.
 이메일과 비밀번호는 앱이나 서비스 DB에 별도로 저장하지 않으며 Firebase SDK가 인증합니다.
 
-Google을 선택하면 기본 브라우저의 `/login/google` 페이지에서 인증한 뒤 `gamestock://auth/callback` 딥링크로 돌아옵니다.
+Google을 선택하면 기본 브라우저의 `/login/google` 페이지에서 인증하고, **앱 로그인 완료하기**를 누르면 `gamestock://auth/callback` 딥링크로 돌아옵니다.
 백엔드는 Firebase ID 토큰을 2분 동안 한 번만 쓸 수 있는 코드로 교환하고, 앱은 그 코드를 Custom Token으로 바꿔 WebView에 전달합니다.
 로그인이 완료되면 원래 보던 서비스 화면으로 돌아갑니다. 현재 공용 웹 방식은 앱에 iOS·Android Google Client ID를 직접 넣지 않아도 되며,
 `app.json`의 `scheme`은 인증 결과가 앱으로 돌아오는 주소에 사용됩니다. 실물 기기의 전체 인증 흐름은 별도 확인이 필요합니다.

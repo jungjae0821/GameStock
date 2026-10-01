@@ -51,10 +51,11 @@ export function LoginPage({ method }: { method: LoginMethod }) {
   }, [next, mobileReturnUri, mobileAuthState]);
 
   useEffect(() => {
-    if (!ready || !user || completionStarted.current) return;
+    // Visiting a browser-to-app URL alone must never issue a login exchange code.
+    if (!ready || !user || mobileReturnUri || completionStarted.current) return;
     completionStarted.current = true;
     void finishSession();
-  }, [ready, user, finishSession]);
+  }, [ready, user, mobileReturnUri, finishSession]);
 
   useEffect(() => {
     setPassword("");
@@ -95,7 +96,7 @@ export function LoginPage({ method }: { method: LoginMethod }) {
     } catch (failure) {
       setError(authErrorMessage(failure));
     } finally {
-      if (!firebaseAuth.currentUser) setBusy(false);
+      if (!firebaseAuth.currentUser || mobileReturnUri) setBusy(false);
     }
   };
 
@@ -131,7 +132,7 @@ export function LoginPage({ method }: { method: LoginMethod }) {
     } catch (failure) {
       setError(authErrorMessage(failure));
     } finally {
-      if (method === "reset" || !firebaseAuth.currentUser) setBusy(false);
+      if (method === "reset" || !firebaseAuth.currentUser || mobileReturnUri) setBusy(false);
     }
   };
 
@@ -145,8 +146,8 @@ export function LoginPage({ method }: { method: LoginMethod }) {
         </header>
         {!ready ? <p className="login-status" role="status">로그인 상태를 확인하고 있어요.</p> : user ? (
           <div className="login-options">
-            <p className="login-status" role="status">{busy ? "계정을 연결하고 있어요…" : "로그인은 완료됐습니다. 계정 연결을 다시 시도해 주세요."}</p>
-            {error && <button type="button" className="login-button is-primary" onClick={() => void finishSession()} disabled={busy}>다시 연결하기</button>}
+            <p className="login-status" role="status">{busy ? "계정을 연결하고 있어요…" : mobileReturnUri ? "이 계정으로 앱에 로그인할 수 있습니다." : "로그인은 완료됐습니다. 계정 연결을 다시 시도해 주세요."}</p>
+            {(error || mobileReturnUri) && <button type="button" className="login-button is-primary" onClick={() => void finishSession()} disabled={busy}>{error ? "다시 연결하기" : "앱 로그인 완료하기"}</button>}
           </div>
         ) : (
           <>

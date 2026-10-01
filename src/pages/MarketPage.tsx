@@ -8,6 +8,7 @@ import { sessionRate, sortCodes } from "../market/selectors";
 import type { SortDirection, SortKey } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
 import { navigate } from "../router";
+import { requireSignIn } from "../lib/auth";
 
 type View = "all" | "up" | "down" | "watch";
 
@@ -92,7 +93,10 @@ export function MarketPage({ ticker }: { ticker: string | null }) {
               type="button"
               className={`filter-button${view === item.id ? " is-active" : ""}`}
               aria-pressed={view === item.id}
-              onClick={() => setView(item.id)}
+              onClick={() => {
+                if (item.id === "watch" && !requireSignIn("/market")) return;
+                setView(item.id);
+              }}
             >
               {item.label}
               <span className="num">{counts[item.id]}</span>
