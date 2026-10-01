@@ -217,7 +217,7 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
             <div className="login-options">
               <button type="button" className="login-button is-google" onClick={() => void googleLogin()} disabled={busy}>
                 <span className="login-google-badge" aria-hidden="true"><GoogleIcon /></span>
-                {nativeWaiting ? "브라우저에서 로그인 중…" : busy ? "로그인 중…" : "Google로 계속하기"}
+                {nativeWaiting ? "브라우저에서 로그인 중…" : busy ? "로그인 중…" : "Google로 로그인하기"}
               </button>
               {method === "choose" && methodLink("email", "이메일·비밀번호로 로그인", "login-button")}
               {method === "choose" && !mobileReturnUri && (modal ? (
