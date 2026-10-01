@@ -167,10 +167,10 @@ public class MarketService {
         renameExistingStock("MOMO", "GOV", "모모 팜", "승리의 여신: 니케");
         removeExistingStock("VOID", "보이드 러너");
 
-        insertStock("UMA", "우마무스메 프리티더비", 12_450L);
-        insertStock("BA", "블루 아카이브", 8_230L);
-        insertStock("GOV", "승리의 여신: 니케", 21_430L);
-        insertStock("ZZZ", "젠레스 존 제로", 27_150L);
+        insertStock("UMA", "우마무스메 프리티더비", 10_000L);
+        insertStock("BA", "블루 아카이브", 10_000L);
+        insertStock("GOV", "승리의 여신: 니케", 10_000L);
+        insertStock("ZZZ", "젠레스 존 제로", 10_000L);
         ensureTraderBots();
         userFeatures.ensureTables();
         userFeatures.ensureDefaultTags();
@@ -301,7 +301,7 @@ public class MarketService {
         jdbc.update("""
                 INSERT IGNORE INTO stocks (game_id, stock_code, current_price, previous_price, total_volume)
                 SELECT id, ?, ?, ?, ? FROM games WHERE name = ?
-                """, code, price, price, 120_000L, name);
+                """, code, price, price, 0L, name);
     }
 
     private void insertGameIfMissing(String name, String developer, String genre) {
