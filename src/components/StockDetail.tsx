@@ -14,6 +14,7 @@ import { rate, signedWon, won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
+import { requireSignIn } from "../lib/auth";
 import { VISIBLE_NEWS_SOURCES } from "../market/types";
 
 export function StockDetail({ code }: { code: string }) {
@@ -40,6 +41,7 @@ export function StockDetail({ code }: { code: string }) {
   const holdingQty = position?.qty ?? 0;
 
   const openOrder = (side: "buy" | "sell", price: number | null = null) => {
+    if (!requireSignIn(`/market/${code}`)) return;
     setOrderSide(side);
     setSelectedLimitPrice(price);
     setOrderOpen(true);

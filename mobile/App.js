@@ -130,6 +130,9 @@ function WebMirrorScreen() {
       try {
         await AsyncStorage.setItem(MOBILE_AUTH_STATE_KEY, state);
         const authUrl = new URL(webUrl);
+        authUrl.pathname = '/login/google';
+        authUrl.searchParams.set('next', typeof message.next === 'string' ? message.next : '/');
+        authUrl.searchParams.delete('app-shell');
         authUrl.searchParams.set('mobileAuth', '1');
         authUrl.searchParams.set('returnUri', redirectUri);
         authUrl.searchParams.set('state', state);

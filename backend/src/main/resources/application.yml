@@ -23,7 +23,7 @@ server:
 gamestock:
   cors-origin: ${GAMESTOCK_CORS_ORIGIN:http://localhost:8080}
   auth:
-    # Firebase 로그인은 항상 필요하며, 아래 값과 일치하는 Google 계정만 ADMIN으로 승격한다.
+    # Firebase UID 또는 확인된 이메일이 아래 값과 일치하는 계정만 ADMIN으로 승격한다.
     admin-google-uid: ${GAMESTOCK_ADMIN_GOOGLE_UID:}
     admin-google-email: ${GAMESTOCK_ADMIN_GOOGLE_EMAIL:}
   simulation:

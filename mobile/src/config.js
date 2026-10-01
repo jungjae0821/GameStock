@@ -21,7 +21,7 @@ export const FIREBASE_CONFIG = {
   appId: "1:957680390567:web:8f0d60ea888daae68e2682",
 };
 // 예전 네이티브 인증 화면과의 호환성을 위해 남겨둔 값이다.
-// 현재 WebView 로그인은 외부 웹 브라우저의 Firebase Google 로그인과 딥링크를 사용한다.
+// Google 로그인은 외부 브라우저와 딥링크, 이메일 로그인은 공통 웹 화면을 사용한다.
 export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
 export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 export const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "";

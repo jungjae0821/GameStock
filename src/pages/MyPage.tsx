@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { onAuthStateChanged, signInWithPopup, type User } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { Panel } from "../components/Panel";
 import { Link } from "../components/Link";
 import { RestrictionBadge } from "../components/RestrictionBadge";
 import { apiFetch } from "../lib/api";
-import { firebaseAuth, googleProvider } from "../lib/firebase";
+import { firebaseAuth } from "../lib/firebase";
+import { requestLogin } from "../lib/auth";
 import { LISTING_BY_CODE, LISTINGS } from "../market/universe";
 import { clock, serverTimestamp, won } from "../market/format";
 
@@ -232,8 +233,8 @@ export function MyPage() {
         <Panel id="mypage-login" title="로그인 필요">
           <div className="empty is-inline">
             <p>닉네임과 보유 주식은 로그인 후 확인할 수 있습니다.</p>
-            <button type="button" className="mypage-button" onClick={() => void signInWithPopup(firebaseAuth, googleProvider)}>
-              Google 로그인
+            <button type="button" className="mypage-button" onClick={() => requestLogin("/mypage")}>
+              로그인 방법 선택
             </button>
           </div>
         </Panel>

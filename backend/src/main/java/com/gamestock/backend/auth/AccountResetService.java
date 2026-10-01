@@ -30,7 +30,7 @@ public class AccountResetService {
                 .stream().findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("계정을 찾을 수 없습니다."));
         if (state.resetUsedAt() != null)
-            throw new IllegalArgumentException("인생 리셋은 Google 계정당 한 번만 사용할 수 있습니다.");
+            throw new IllegalArgumentException("인생 리셋은 계정당 한 번만 사용할 수 있습니다.");
 
         // Pending T+1 entries are matured first, so counterparties receive the
         // money/shares they are owed before this account is cleared.

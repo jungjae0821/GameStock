@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     private final AuthService auth;
     public AuthController(AuthService auth) { this.auth = auth; }
-    @PostMapping("/google")
-    public AuthService.LoginUser googleLogin(@RequestHeader(value = "Authorization", required = false) String authorization) {
+    @PostMapping({"/login", "/google"})
+    public AuthService.LoginUser login(@RequestHeader(value = "Authorization", required = false) String authorization) {
         return auth.login(authorization);
     }
 

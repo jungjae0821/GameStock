@@ -5,12 +5,19 @@ export type Route =
   | { name: "market"; ticker: string | null }
   | { name: "news" }
   | { name: "ranking" }
-  | { name: "mypage" };
+  | { name: "mypage" }
+  | { name: "login"; method: LoginMethod };
+
+export type LoginMethod = "choose" | "google" | "email" | "register" | "reset";
 
 const listeners = new Set<() => void>();
 
 function parse(pathname: string): Route {
   const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] === "login") {
+    const method = parts[1];
+    return { name: "login", method: method === "google" || method === "email" || method === "register" || method === "reset" ? method : "choose" };
+  }
   if (parts[0] === "market") return { name: "market", ticker: parts[1] ? parts[1].toUpperCase() : null };
   if (parts[0] === "news") return { name: "news" };
   if (parts[0] === "ranking") return { name: "ranking" };
@@ -18,13 +25,14 @@ function parse(pathname: string): Route {
   return { name: "home" };
 }
 
-let cachedPath = typeof window === "undefined" ? "/" : window.location.pathname;
-let cachedRoute = parse(cachedPath);
+let cachedPath = typeof window === "undefined" ? "/" : window.location.pathname + window.location.search;
+let cachedRoute = parse(typeof window === "undefined" ? "/" : window.location.pathname);
 
 function getRoute(): Route {
-  if (window.location.pathname !== cachedPath) {
-    cachedPath = window.location.pathname;
-    cachedRoute = parse(cachedPath);
+  const path = window.location.pathname + window.location.search;
+  if (path !== cachedPath) {
+    cachedPath = path;
+    cachedRoute = parse(window.location.pathname);
   }
   return cachedRoute;
 }
@@ -43,9 +51,15 @@ export function useRoute(): Route {
   return useSyncExternalStore(subscribe, getRoute, getRoute);
 }
 
-export function navigate(to: string): void {
+export function navigate(to: string, options: { replace?: boolean } = {}): void {
+  if (document.documentElement.dataset.appShell === "mobile") {
+    const target = new URL(to, window.location.origin);
+    target.searchParams.set("app-shell", "1");
+    to = target.pathname + target.search;
+  }
   if (to === window.location.pathname + window.location.search) return;
-  window.history.pushState(null, "", to);
+  if (options.replace) window.history.replaceState(null, "", to);
+  else window.history.pushState(null, "", to);
   for (const listener of listeners) listener();
 }
 

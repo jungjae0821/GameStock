@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { firebaseAuth } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
+import { requireSignIn } from "../lib/auth";
 import { MarketEngine } from "./engine";
 import { serverTimestamp } from "./format";
 import { LISTING_BY_CODE, roundToTick } from "./universe";
@@ -47,7 +48,7 @@ function fallbackSnapshot(): MarketSnapshot {
 }
 
 function toPortfolio(value?: BackendPortfolio): Portfolio {
-  if (!value) return fallbackSnapshot().portfolio;
+  if (!value) return { cash: 0, positions: {}, fills: [], realized: 0 };
   const positions: Record<string, Position> = {};
   for (const item of value.positions ?? []) {
     if (!LISTING_BY_CODE[item.stockCode] || item.quantity < 1) continue;
@@ -125,6 +126,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
+      const refreshingUid = firebaseAuth.currentUser?.uid;
       try {
         const [stocks, events, market] = await Promise.all([
           apiFetch<BackendStock[]>("/api/stocks"),
@@ -136,12 +138,13 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           try {
             portfolio = await apiFetch<BackendPortfolio>("/api/portfolio");
             const watch = await apiFetch<{ stockCode: string }[]>("/api/watchlist");
+            if (firebaseAuth.currentUser?.uid !== refreshingUid) return;
             watchRef.current = watch.map((item) => item.stockCode);
           } catch {
             /* 공개 시세는 로그인 API가 실패해도 계속 표시한다. */
           }
         }
-        if (!cancelled) {
+        if (!cancelled && firebaseAuth.currentUser?.uid === refreshingUid) {
           const nextSnapshot = toSnapshot(stocks, events, portfolio, watchRef.current, market);
           // The two-second quote refresh must not clear the one-second detail
           // data while the order book/trade requests are in flight. Keeping
@@ -226,7 +229,11 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 2000);
     const detailTimer = window.setInterval(() => void refreshDetails(), 1000);
-    const unsubscribe = onAuthStateChanged(firebaseAuth, () => void refresh());
+    const unsubscribe = onAuthStateChanged(firebaseAuth, () => {
+      watchRef.current = [];
+      setSnapshot((current) => ({ ...current, watch: [], portfolio: toPortfolio() }));
+      void refresh();
+    });
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -242,6 +249,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       return side === "buy" ? Math.floor(snapshot.portfolio.cash / quote.price) : snapshot.portfolio.positions[code]?.qty ?? 0;
     },
     placeOrder: async (request) => {
+      if (!requireSignIn(`/market/${request.code}`)) return { ok: false, message: "로그인 후 주문할 수 있습니다." };
       try {
         const result = await apiFetch<{ message?: string; price?: number }>("/api/orders", {
           method: "POST",
@@ -263,6 +271,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       }
     },
     toggleWatch: (code) => {
+      if (!requireSignIn()) return;
       const exists = watchRef.current.includes(code);
       watchRef.current = exists ? watchRef.current.filter((item) => item !== code) : [...watchRef.current, code];
       setSnapshot((current) => ({ ...current, watch: watchRef.current }));
@@ -270,7 +279,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     },
     claimMissionReward: async (missionId) => {
       const claimant = firebaseAuth.currentUser;
-      if (!claimant) throw new Error("미션 보상은 로그인 후 받을 수 있습니다.");
+      if (!claimant) {
+        requireSignIn();
+        throw new Error("미션 보상은 로그인 후 받을 수 있습니다.");
+      }
       const result = await apiFetch<BackendMissionReward>(`/api/missions/${encodeURIComponent(missionId)}/reward`, { method: "POST" });
       if (firebaseAuth.currentUser?.uid === claimant.uid) {
         setSnapshot((current) => ({
@@ -282,12 +294,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       return { rewardCash: result.rewardCash, awarded: result.awarded, missions: result.missions };
     },
     reset: () => {
-      if (firebaseAuth.currentUser) {
-        void apiFetch("/api/account/reset", { method: "DELETE" }).then(() => window.location.reload()).catch(() => undefined);
-      } else {
-        fallbackEngine.reset();
-        setSnapshot(fallbackSnapshot());
-      }
+      if (!requireSignIn()) return;
+      void apiFetch("/api/account/reset", { method: "DELETE" }).then(() => window.location.reload()).catch(() => undefined);
     },
   }), [snapshot]);
 

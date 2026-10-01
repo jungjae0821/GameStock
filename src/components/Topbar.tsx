@@ -2,10 +2,11 @@ import { BrandMark } from "./BrandMark";
 import { Link } from "./Link";
 import type { Route } from "../router";
 import { clock } from "../market/format";
-import { firebaseAuth, googleProvider } from "../lib/firebase";
-import { onAuthStateChanged, signInWithCustomToken, signInWithPopup, signOut, type User } from "firebase/auth";
+import { firebaseAuth } from "../lib/firebase";
+import { onAuthStateChanged, signInWithCustomToken, signOut, type User } from "firebase/auth";
+import { requestLogin, requireSignIn } from "../lib/auth";
 import { apiFetch } from "../lib/api";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
 
 const NAV = [
@@ -41,14 +42,6 @@ declare global {
 const THEME_STORAGE_KEY = "gamestock-theme";
 type Theme = "light" | "dark";
 
-function mobileReturnUriFromLocation(): string | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("mobileAuth") !== "1") return null;
-  const returnUri = params.get("returnUri");
-  return returnUri && /^(gamestock|exp):\/\//.test(returnUri) ? returnUri : null;
-}
-
 function readTheme(): Theme {
   if (typeof window === "undefined") return "light";
   return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
@@ -58,13 +51,10 @@ export function Topbar({ route }: { route: Route }) {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [now, setNow] = useState(() => Date.now());
-  const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [nickname, setNickname] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<TemperatureReading | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const mobileReturnUri = mobileReturnUriFromLocation();
-  const mobileAuthState = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("state");
 
   const loadProfile = async () => {
     if (!firebaseAuth.currentUser) return;
@@ -73,7 +63,7 @@ export function Topbar({ route }: { route: Route }) {
       setNickname(profile.nickname?.trim() || null);
     } catch {
       // 로그인 직후에는 백엔드 계정 생성보다 메뉴 렌더가 먼저 될 수 있다.
-      // 메뉴를 다시 열 때 재시도하므로 Google 표시명으로 대체하지 않는다.
+      // 메뉴를 다시 열 때 재시도하므로 인증 계정의 표시명으로 대체하지 않는다.
     }
   };
 
@@ -87,14 +77,10 @@ export function Topbar({ route }: { route: Route }) {
     const handleNativeAuth = (event: Event) => {
       const detail = (event as CustomEvent<NativeAuthEvent>).detail;
       if (!detail) return;
-      if (detail.type === "GOOGLE_AUTH_ERROR") {
-        setBusy(false);
-        return;
-      }
+      if (detail.type === "GOOGLE_AUTH_ERROR") return;
 
       void signInWithCustomToken(firebaseAuth, detail.customToken)
-        .catch(() => undefined)
-        .finally(() => setBusy(false));
+        .catch(() => window.dispatchEvent(new CustomEvent("gamestock-login-error", { detail: "앱 로그인을 완료하지 못했습니다. 다시 시도해 주세요." })));
     };
 
     window.addEventListener("gamestock-native-auth", handleNativeAuth);
@@ -106,40 +92,13 @@ export function Topbar({ route }: { route: Route }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const completeMobileHandoff = useCallback(async () => {
-    if (!mobileReturnUri || !mobileAuthState || !firebaseAuth.currentUser) return;
-    const result = await apiFetch<{ code: string }>("/api/auth/mobile/issue", {
-      method: "POST",
-      body: JSON.stringify({ state: mobileAuthState }),
-    });
-    const callback = new URL(mobileReturnUri);
-    callback.searchParams.set("code", result.code);
-    callback.searchParams.set("state", mobileAuthState);
-    window.location.replace(callback.toString());
-  }, [mobileReturnUri, mobileAuthState]);
-
-  const login = useCallback(async () => {
-    setBusy(true);
-    try {
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: "GOOGLE_LOGIN" }));
-        return;
-      }
-      await signInWithPopup(firebaseAuth, googleProvider);
-      await completeMobileHandoff();
-    } finally {
-      if (!window.ReactNativeWebView) setBusy(false);
-    }
-  }, [completeMobileHandoff]);
-
   useEffect(() => {
     const handleLoginRequest = () => {
-      if (firebaseAuth.currentUser || busy) return;
-      void login().catch(() => undefined);
+      if (!firebaseAuth.currentUser) requestLogin();
     };
     window.addEventListener("gamestock-request-login", handleLoginRequest);
     return () => window.removeEventListener("gamestock-request-login", handleLoginRequest);
-  }, [busy, login]);
+  }, []);
 
   const loadTemperature = async () => {
     try {
@@ -227,11 +186,11 @@ export function Topbar({ route }: { route: Route }) {
                     </button>
                   </>
                 ) : (
-                  <button type="button" className="menu-item menu-login" role="menuitem" onClick={() => void login().then(() => setMenuOpen(false))} disabled={busy}>
-                    {busy ? "로그인 중…" : "Google 로그인"}
+                  <button type="button" className="menu-item menu-login" role="menuitem" onClick={() => { setMenuOpen(false); requestLogin(); }}>
+                    로그인
                   </button>
                 )}
-                <button type="button" className="menu-item" role="menuitem" onClick={() => { setMenuOpen(false); navigate("/mypage"); }}>
+                <button type="button" className="menu-item" role="menuitem" onClick={() => { setMenuOpen(false); if (requireSignIn("/mypage")) navigate("/mypage"); }}>
                   마이페이지
                 </button>
                 <button type="button" className="menu-item" role="menuitem" onClick={openRanking}>

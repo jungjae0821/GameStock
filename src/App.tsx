@@ -5,6 +5,8 @@ import { MarketPage } from "./pages/MarketPage";
 import { NewsPage } from "./pages/NewsPage";
 import { RankingPage } from "./pages/RankingPage";
 import { MyPage } from "./pages/MyPage";
+import { LoginPage } from "./pages/LoginPage";
+import { requestLogin, useAuthUser } from "./lib/auth";
 import { MissionRewardToast } from "./components/MissionRewardToast";
 import { LISTING_BY_CODE } from "./market/universe";
 import { useRoute } from "./router";
@@ -18,13 +20,19 @@ function titleFor(route: Route): string {
   if (route.name === "news") return "뉴스 · 씹덕주식";
   if (route.name === "ranking") return "투자 랭킹 · 씹덕주식";
   if (route.name === "mypage") return "마이페이지 · 씹덕주식";
+  if (route.name === "login") return "로그인 · 씹덕주식";
   return "씹덕주식 · 게임 종목 모의 거래소";
 }
 
 export default function App() {
   const route = useRoute();
+  const auth = useAuthUser();
   const main = useRef<HTMLElement>(null);
   const previous = useRef(route);
+
+  useEffect(() => {
+    if (route.name === "mypage" && auth.ready && !auth.user) requestLogin("/mypage", true);
+  }, [route, auth.ready, auth.user]);
 
   useEffect(() => {
     document.title = titleFor(route);
@@ -50,7 +58,8 @@ export default function App() {
         {route.name === "market" && <MarketPage ticker={route.ticker} />}
         {route.name === "news" && <NewsPage />}
         {route.name === "ranking" && <RankingPage />}
-        {route.name === "mypage" && <MyPage />}
+        {route.name === "mypage" && (auth.user ? <MyPage /> : <p className="empty" role="status">로그인 상태를 확인하고 있어요.</p>)}
+        {route.name === "login" && <LoginPage method={route.method} />}
       </main>
       <MissionRewardToast />
     </div>

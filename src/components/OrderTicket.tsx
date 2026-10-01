@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import type { OrderResult } from "../market/types";
+import { requireSignIn } from "../lib/auth";
 
 const RATIOS = [
   { label: "10%", ratio: 0.1 },
@@ -49,6 +50,7 @@ export function OrderTicket({ code, initialSide = "buy", selectedLimitPrice }: {
   };
 
   const submit = async () => {
+    if (!requireSignIn(`/market/${code}`)) return;
     const outcome = await api.placeOrder({
       code,
       side,

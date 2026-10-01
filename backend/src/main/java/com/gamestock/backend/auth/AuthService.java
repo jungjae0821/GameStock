@@ -24,7 +24,7 @@ public class AuthService {
     private final Map<String, PendingMobileCode> mobileCodes = new ConcurrentHashMap<>();
     /**
      * The administrator is still authenticated by Firebase. These optional
-     * allowlists only decide which verified Google identity receives ADMIN on
+     * allowlists only decide which verified Firebase identity receives ADMIN on
      * first login; they never create an unauthenticated bypass.
      */
     @Value("${gamestock.auth.admin-google-uid:}")
@@ -47,6 +47,7 @@ public class AuthService {
         }
     }
 
+    @Transactional
     public LoginUser login(String authorization) { return requireUser(authorization); }
 
     public MobileCode issueMobileCode(String authorization) {
@@ -112,6 +113,8 @@ public class AuthService {
     }
 
     private LoginUser findOrCreate(FirebaseToken token) {
+        // The existing google_uid column stores the Firebase UID for both providers.
+        // Keep that key so existing Google accounts retain their assets and history.
         var existing = jdbc.query("SELECT id, nickname, email, profile_image_url, profile_completed, role FROM users WHERE google_uid = ?",
                 (rs, row) -> new LoginUser(rs.getLong("id"), rs.getString("nickname"), rs.getString("email"), rs.getString("profile_image_url"), 0, 0, !rs.getBoolean("profile_completed"), rs.getString("role")), token.getUid());
         LoginUser user;
@@ -119,18 +122,18 @@ public class AuthService {
         else {
             String email = token.getEmail() == null ? "" : token.getEmail();
             String picture = token.getPicture() == null ? "" : token.getPicture();
-            String username = "google_" + token.getUid();
+            String username = "firebase_" + token.getUid();
             String nickname = defaultNickname();
             for (int attempt = 0; attempt < 10; attempt++) {
                 try {
                     // 신규 계정은 자동 닉네임으로 바로 생성한다. 사용자는 이후
                     // 마이페이지에서 원하는 닉네임으로 자유롭게 변경할 수 있다.
-                    jdbc.update("INSERT INTO users (username, password_hash, nickname, google_uid, email, profile_image_url, profile_completed, cash) VALUES (?, 'GOOGLE', ?, ?, ?, ?, TRUE, 1000000)",
+                    jdbc.update("INSERT INTO users (username, password_hash, nickname, google_uid, email, profile_image_url, profile_completed, cash) VALUES (?, 'FIREBASE', ?, ?, ?, ?, TRUE, 1000000)",
                             username, nickname, token.getUid(), email, picture);
                     break;
                 } catch (DuplicateKeyException error) {
                     // 닉네임 4자리 숫자가 동시에 겹친 경우에만 새 값을 뽑아
-                    // 재시도한다. 같은 Google UID가 먼저 생성된 경우는 아래
+                    // 재시도한다. 같은 Firebase UID가 먼저 생성된 경우는 아래
                     // 조회에서 기존 계정을 그대로 사용한다.
                     if (nicknameExists(nickname)) nickname = defaultNickname();
                     else break;
@@ -151,7 +154,7 @@ public class AuthService {
         String uid = adminGoogleUid == null ? "" : adminGoogleUid.trim();
         String email = adminGoogleEmail == null ? "" : adminGoogleEmail.trim();
         boolean uidMatches = !uid.isBlank() && uid.equals(token.getUid());
-        boolean emailMatches = !email.isBlank() && email.equalsIgnoreCase(token.getEmail() == null ? "" : token.getEmail());
+        boolean emailMatches = token.isEmailVerified() && !email.isBlank() && email.equalsIgnoreCase(token.getEmail() == null ? "" : token.getEmail());
         return uidMatches || emailMatches;
     }
 
