@@ -86,6 +86,8 @@ public class MarketService {
     private static final long LP_MIN_OPEN_QUANTITY_PER_SIDE = 20L;
     private static final double LP_MAX_SIDE_IMBALANCE = 4.0;
     private static final int LP_REBALANCE_ATTEMPTS = 3;
+    /** Keep the first few legal levels visible around the last traded price. */
+    private static final int LP_NEAR_QUOTE_LEVELS = 3;
     private static final int LP_MAX_NEAR_QUOTE_DISTANCE_TICKS = 4;
     private static final int BOT_ORDER_LIFETIME_MINUTES = 20;
     /** Human-like participant bots use the normal user order path and ranking. */
@@ -1216,22 +1218,31 @@ public class MarketService {
     }
 
     private void createBotOrder(String code, String side, NewsBias newsBias) {
+        createBotOrder(code, side, newsBias, null);
+    }
+
+    private void createBotOrder(String code, String side, NewsBias newsBias, Long preferredPrice) {
         long id = ensureBot(code, side);
         Stock stock = findStock(code);
-        double offset = 0.002 + tickRandom.nextDouble() * 0.006;
-        // 뉴스로 이동한 기준가 주변에 호가를 내고, 뉴스 방향의 수량을 조금 더 크게 준다.
-        double fairPrice = stock.price() * (1 + newsBias.rate());
-        double rawPrice = fairPrice * ("BUY".equals(side) ? 1 - offset : 1 + offset);
-        long price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
-        price = botQuotePrice(botPriceBand(code), side, price);
-        long idStock = stockId(code);
-        // Keep a visible ladder around the spread. Independent random quotes
-        // still occur, but most replenishment fills the next legal tick beside
-        // the current best LP quote instead of skipping 20~30 won levels.
-        if (tickRandom.nextDouble() < 0.72) {
-            price = adjacentBotQuotePrice(code, side, price);
+        long price;
+        if (preferredPrice != null) {
+            price = botQuotePrice(botPriceBand(code), side, preferredPrice);
+        } else {
+            double offset = 0.002 + tickRandom.nextDouble() * 0.006;
+            // 뉴스로 이동한 기준가 주변에 호가를 내고, 뉴스 방향의 수량을 조금 더 크게 준다.
+            double fairPrice = stock.price() * (1 + newsBias.rate());
+            double rawPrice = fairPrice * ("BUY".equals(side) ? 1 - offset : 1 + offset);
+            price = "BUY".equals(side) ? floorToTick(rawPrice) : ceilToTick(rawPrice);
             price = botQuotePrice(botPriceBand(code), side, price);
+            // Keep a visible ladder around the spread. Independent random quotes
+            // still occur, but most replenishment fills the next legal tick beside
+            // the current best LP quote instead of skipping 20~30 won levels.
+            if (tickRandom.nextDouble() < 0.72) {
+                price = adjacentBotQuotePrice(code, side, price);
+                price = botQuotePrice(botPriceBand(code), side, price);
+            }
         }
+        long idStock = stockId(code);
         if (botPriceLevelOccupied(idStock, side, price)) return;
         ensureBotInventory(code, id);
         int quantity = dynamicBotQuantity(code, side, newsBias, false);
@@ -1426,6 +1437,7 @@ public class MarketService {
     private void rebalanceBotLiquidity(String code, NewsBias newsBias) {
         TradingRestriction restriction = protection.restriction(code);
         if (restriction != null && !restriction.limitOrdersAllowed()) return;
+        ensureNearBotQuotes(code, newsBias);
         for (int attempt = 0; attempt < LP_REBALANCE_ATTEMPTS; attempt++) {
             LiquidityDepth buy = botLiquidityDepth(code, "BUY");
             LiquidityDepth sell = botLiquidityDepth(code, "SELL");
@@ -1441,6 +1453,36 @@ public class MarketService {
             if (refillBuy) createBotOrder(code, "BUY", newsBias);
             if (refillSell) createBotOrder(code, "SELL", newsBias);
         }
+    }
+
+    /**
+     * A side can have plenty of total depth while still leaving a wide empty
+     * area next to the spread. Fill only the missing near levels so old or
+     * intentionally wider quotes do not hide the inside market.
+     */
+    private void ensureNearBotQuotes(String code, NewsBias newsBias) {
+        long reference = findStock(code).price();
+        long tick = tickSize(reference);
+        long stockId = stockId(code);
+        OrderBook book = orderBook(code);
+        for (String side : List.of("BUY", "SELL")) {
+            for (int level = 1; level <= LP_NEAR_QUOTE_LEVELS; level++) {
+                long target = "BUY".equals(side)
+                        ? floorToTick(reference) - tick * level
+                        : floorToTick(reference) + tick * level;
+                target = botQuotePrice(botPriceBand(code), side, target);
+                if (botPriceLevelOccupied(stockId, side, target)
+                        || quoteWouldCrossOpposite(book, side, target)) continue;
+                createBotOrder(code, side, newsBias, target);
+            }
+        }
+    }
+
+    private boolean quoteWouldCrossOpposite(OrderBook book, String side, long price) {
+        if ("BUY".equals(side)) {
+            return !book.asks().isEmpty() && price >= book.asks().get(0).price();
+        }
+        return !book.bids().isEmpty() && price <= book.bids().get(0).price();
     }
 
     private LiquidityDepth botLiquidityDepth(String code, String side) {
