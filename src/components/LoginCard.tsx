@@ -12,7 +12,7 @@ const TITLES: Record<LoginMethod, string> = {
 };
 
 const DESCRIPTIONS: Record<LoginMethod, string> = {
-  choose: "로그인하면 주문·관심종목·투자 미션을 이용할 수 있어요.",
+  choose: "",
   google: "Google 계정으로 계속 진행합니다.",
   email: "이메일과 비밀번호로 로그인하세요.",
   register: "이메일과 비밀번호로 새 계정을 만듭니다.",
@@ -204,7 +204,7 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
       </div>
       <header className="login-header">
         <h1 id="login-title">{TITLES[method]}</h1>
-        <p>{DESCRIPTIONS[method]}</p>
+        {DESCRIPTIONS[method] && <p>{DESCRIPTIONS[method]}</p>}
       </header>
       {!ready ? <p className="login-status" role="status">로그인 상태를 확인하고 있어요.</p> : user ? (
         <div className="login-options">
@@ -220,11 +220,6 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
                 {nativeWaiting ? "브라우저에서 로그인 중…" : busy ? "로그인 중…" : "Google로 로그인하기"}
               </button>
               {method === "choose" && methodLink("email", "이메일·비밀번호로 로그인", "login-button")}
-              {method === "choose" && !mobileReturnUri && (modal ? (
-                <button type="button" className="login-later" onClick={onDone}>나중에</button>
-              ) : (
-                <Link className="login-later" to={MARKET_PATH(null)}>나중에</Link>
-              ))}
             </div>
           )}
           {isEmailForm && (
@@ -256,7 +251,6 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
       )}
       {error && <p className="login-message is-error" role="alert">{error}</p>}
       {notice && <p className="login-message" role="status">{notice}</p>}
-      <p className="login-footer">시세와 뉴스는 로그인 없이도 볼 수 있어요.</p>
     </div>
   );
 }
