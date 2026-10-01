@@ -1,4 +1,5 @@
 import { Chip } from "./Chip";
+import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { Delta } from "./Delta";
 import { PriceCell } from "./PriceCell";
@@ -34,13 +35,11 @@ export function HoldingsTable({ caption }: { caption: string }) {
               <th scope="row" className="cell-name">
                 <div className="stock-name-group">
                 <Link className="name-link" to={`/market/${row.listing.code}`}>
-                  <span className="code-badge" aria-hidden="true">
-                    {row.listing.code}
-                  </span>
+                  <GameIcon code={row.listing.code} name={row.listing.name} size="table" />
                   <span className="name-stack">
                     <span className="name-text">{row.listing.name}</span>
                     <span className="name-sub">
-                      {row.listing.genre} · {row.listing.publisher}
+                      {row.listing.genre} · {row.listing.publisher} · {row.listing.code}
                     </span>
                   </span>
                 </Link>

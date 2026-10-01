@@ -4,7 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { firebaseAuth } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
 import { requireSignIn } from "../lib/auth";
-import { MarketEngine } from "./engine";
+import { INITIAL_CASH, MarketEngine } from "./engine";
 import { serverTimestamp } from "./format";
 import { LISTING_BY_CODE, roundToTick } from "./universe";
 import type { DailyMissionStatus, MarketSnapshot, OrderRequest, OrderResult, Portfolio, Position, Quote, TradingRestriction } from "./types";
@@ -48,7 +48,7 @@ function fallbackSnapshot(): MarketSnapshot {
 }
 
 function toPortfolio(value?: BackendPortfolio): Portfolio {
-  if (!value) return { cash: 0, positions: {}, fills: [], realized: 0 };
+  if (!value) return { cash: INITIAL_CASH, positions: {}, fills: [], realized: 0 };
   const positions: Record<string, Position> = {};
   for (const item of value.positions ?? []) {
     if (!LISTING_BY_CODE[item.stockCode] || item.quantity < 1) continue;

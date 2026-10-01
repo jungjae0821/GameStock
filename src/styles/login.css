@@ -1,36 +1,299 @@
+/*
+ * 로그인 화면 — 372.ro식 카드형 페이지.
+ * 흐리고 어두워진 시장 장면(장식, aria-hidden) 위에 414px 흰 카드 하나를
+ * 중앙에 놓는다. 마케팅 카피 없이 제목·설명·버튼·나중에 동선만 남긴다.
+ */
+
 @layer component {
-  .login-page { display: flex; justify-content: center; padding: 56px 0 80px; }
-  .login-panel { width: 100%; max-width: 440px; padding: 36px; border: 1px solid var(--rule); border-radius: 16px; background: var(--paper); }
-  .login-header { margin-bottom: 28px; }
-  .login-header h1 { font-size: 26px; font-weight: 750; }
-  .login-header p { margin-top: 8px; color: var(--ink-muted); font-size: 15px; }
-  .login-options, .login-form { display: grid; gap: 16px; }
-  .login-button { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 52px; padding: 12px 16px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); color: var(--ink); text-decoration: none; font-size: 15px; font-weight: 650; }
-  .login-button:hover { background: var(--sunken); }
-  .login-button.is-primary { border-color: var(--brand-deep); background: var(--brand-deep); color: white; }
-  .login-button.is-primary:hover { background: color-mix(in oklab, var(--brand-deep) 90%, black); }
-  .login-button:disabled { opacity: .6; }
-  .login-method-symbol { font-size: 19px; font-weight: 750; }
-  .login-field { display: grid; gap: 8px; }
-  .login-field label { font-size: 14px; font-weight: 600; }
-  .login-field input { min-width: 0; width: 100%; height: 48px; border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; background: var(--paper); color: var(--ink); font-size: 16px; }
+  .login-page {
+    --login-accent: #ec4899;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100dvh - var(--bar));
+    /* .content 의 기본 여백을 상쇄해 전광판 무대를 화면에 꽉 채운다. */
+    margin: calc(var(--space-6) * -1) 0 calc(var(--space-7) * -1);
+    padding: 56px var(--space-4) 64px;
+    border-radius: var(--radius-lg);
+    background: var(--board);
+    overflow: hidden;
+  }
+
+  /* --------------------------------------------------- 흐려진 시장 장면 */
+
+  .login-backdrop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    transform: scale(1.04);
+    filter: blur(7px);
+    pointer-events: none;
+  }
+
+  .login-scene {
+    position: absolute;
+    inset: -30px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+    padding: 28px;
+  }
+
+  .login-scene-strip,
+  .login-scene-card {
+    border-radius: 14px;
+    background: oklch(1 0 0 / 8%);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 6%);
+  }
+
+  .login-scene-strip {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 32px;
+    padding: 18px 26px;
+    font-size: 17px;
+    font-weight: 700;
+    color: oklch(0.94 0.01 300 / 88%);
+  }
+
+  .login-scene-index b { margin-left: 6px; font-weight: 700; }
+  .login-scene .is-up { color: var(--led-up); }
+  .login-scene .is-down { color: var(--led-down); }
+
+  .login-scene-card.is-hero {
+    grid-column: 1;
+    grid-row: 2 / span 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 26px;
+  }
+
+  .login-scene-card.is-list { grid-column: 2; grid-row: 2; }
+  .login-scene-card.is-side { grid-column: 2; grid-row: 3; }
+
+  .login-scene-card.is-list,
+  .login-scene-card.is-side {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    padding: 12px 26px;
+  }
+
+  .login-scene-name { font-size: 15px; font-weight: 600; color: var(--board-label); }
+  .login-scene-price { font-size: 36px; font-weight: 800; letter-spacing: -0.01em; color: oklch(0.96 0.02 84); }
+
+  .login-scene-spark {
+    margin-top: auto;
+    height: 78px;
+    border-radius: 8px;
+    background:
+      repeating-linear-gradient(90deg,
+        oklch(0.86 0.14 84 / 50%) 0 12px,
+        transparent 12px 26px) center / 100% 62% no-repeat,
+      repeating-linear-gradient(90deg,
+        oklch(0.86 0.14 84 / 24%) 0 12px,
+        transparent 12px 26px) center / 100% 100% no-repeat;
+  }
+
+  .login-scene-row { display: flex; align-items: baseline; gap: 12px; font-size: 15px; }
+  .login-scene-row b { font-weight: 600; color: oklch(0.94 0.01 300 / 85%); }
+  .login-scene-row em { margin-left: auto; font-style: normal; font-weight: 600; color: oklch(0.94 0.01 300 / 62%); }
+  .login-scene-row i { min-width: 54px; font-style: normal; font-weight: 700; text-align: right; }
+
+  /* 카드 쪽으로 시선을 모으는 어둡힘막 */
+  .login-scene-dim {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 90% at 50% 42%,
+      oklch(0.22 0.03 320 / 36%) 0%,
+      oklch(0.15 0.025 320 / 74%) 100%);
+  }
+
+  /* ------------------------------------------------------------- 카드 */
+
+  .login-panel {
+    position: relative;
+    width: 100%;
+    max-width: 414px;
+    padding: 34px;
+    border-radius: 20px;
+    background: var(--paper);
+    box-shadow: 0 24px 60px rgb(10 4 12 / 35%), 0 4px 14px rgb(10 4 12 / 20%);
+  }
+
+  .login-panel :focus-visible { outline-color: var(--login-accent); }
+
+  .login-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-pill);
+    color: var(--ink-faint);
+  }
+
+  .login-close:hover { background: var(--sunken); color: var(--ink); }
+
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 22px;
+    font-size: 14px;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  .login-brand .brand-mark { display: block; border-radius: 50%; }
+
+  .login-header { margin-bottom: 24px; }
+  .login-header h1 { font-size: 25px; font-weight: 800; letter-spacing: -0.015em; }
+  .login-header p { margin-top: 8px; color: var(--ink-muted); font-size: 15px; line-height: 1.6; }
+
+  .login-options,
+  .login-form { display: grid; gap: 12px; }
+
+  .login-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 18px;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--paper);
+    color: var(--ink);
+    text-align: center;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 700;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .login-button:hover { background: var(--sunken); border-color: var(--rule-ink); }
+
+  .login-button.is-google,
+  .login-button.is-primary {
+    border-color: transparent;
+    background: var(--login-accent);
+    color: #fff;
+  }
+
+  .login-button.is-google:hover,
+  .login-button.is-primary:hover {
+    border-color: transparent;
+    background: color-mix(in oklab, var(--login-accent) 86%, black);
+  }
+
+  .login-button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .login-google-badge {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+  }
+
+  .login-later {
+    justify-self: center;
+    margin-top: 2px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    text-decoration: none;
+  }
+
+  .login-later:hover { color: var(--brand-deep); text-decoration: underline; text-underline-offset: 3px; }
+
+  .login-field { display: grid; gap: 7px; }
+  .login-field label { font-size: 14px; font-weight: 650; }
+
+  .login-field input {
+    min-width: 0;
+    width: 100%;
+    height: 50px;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 16px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .login-field input:focus-visible {
+    outline: none;
+    border-color: var(--login-accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--login-accent) 22%, transparent);
+  }
+
   .login-password-field { position: relative; }
   .login-password-field input { padding-right: 64px; }
-  .login-password-toggle { position: absolute; top: 0; right: 0; min-width: 60px; height: 48px; font-size: 13px; color: var(--ink-muted); }
-  .login-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 20px; font-size: 14px; }
+
+  .login-password-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 60px;
+    height: 50px;
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+
+  .login-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; font-size: 14px; }
   .login-links a, .login-back { color: var(--ink-muted); text-decoration: underline; text-underline-offset: 3px; }
-  .login-back { display: block; width: fit-content; margin: 20px auto 0; font-size: 14px; }
+  .login-back { display: block; width: fit-content; margin: 18px auto 0; font-size: 14px; }
   .login-links a:hover, .login-back:hover { color: var(--brand-deep); }
-  .login-message { margin-top: 20px; font-size: 14px; }
-  .login-message.is-error { color: var(--up-deep); }
+
+  .login-message { margin-top: 16px; font-size: 14px; line-height: 1.6; }
+  .login-message.is-error { color: var(--up-deep); font-weight: 600; }
   .login-status { font-size: 15px; color: var(--ink-muted); }
-  .login-footer { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--rule); color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
+
+  .login-footer {
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-muted);
+    font-size: 13px;
+  }
 }
 
 @layer responsive {
+  /* 콘텐츠 여백이 좁아지는 지점(720px)에 맞춰 무대 여백도 상쇄한다. */
+  @media (max-width: 720px) {
+    .login-page {
+      min-height: calc(100dvh - 48px);
+      margin-top: calc(var(--space-4) * -1);
+      margin-bottom: calc(var(--space-6) * -1);
+      padding: 40px var(--space-3) 48px;
+      border-radius: 0;
+    }
+  }
+
   @media (max-width: 560px) {
-    .login-page { padding: 24px 0 48px; }
-    .login-panel { padding: 28px 22px; }
-    .login-header h1 { font-size: 24px; }
+    .login-panel { padding: 26px 20px; border-radius: 16px; }
+    .login-header h1 { font-size: 23px; }
+    .login-scene-card.is-side,
+    .login-scene-index:last-child { display: none; }
+    .login-scene-strip { gap: 12px 20px; font-size: 15px; padding: 16px 20px; }
+    .login-scene-price { font-size: 28px; }
+    .login-scene-spark { height: 56px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .login-button,
+    .login-field input { transition: none; }
   }
 }

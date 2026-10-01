@@ -182,8 +182,33 @@
     text-align: left;
   }
 
+  /* 넓은 표에서 열 폭을 배분한다. 종목이 남은 폭을 독차지해 숫자 열이
+     오른쪽에 뭉치는 것을 막는다. */
+  .market-quote-table .cell-name {
+    width: 36%;
+  }
+
+  .market-quote-table .cell-price {
+    width: 15%;
+  }
+
+  .market-quote-table .cell-rate {
+    width: 15%;
+  }
+
+  .market-quote-table .cell-volume {
+    width: 17%;
+  }
+
+  /* 거래량 막대는 열 폭을 다 써서 상대 거래량을 읽게 한다. */
   .market-quote-table .volume-cell {
-    align-items: flex-start;
+    align-items: stretch;
+    width: 100%;
+    min-width: 88px;
+  }
+
+  .market-quote-table .volume-bar {
+    width: 100%;
   }
 
   .sort-button {
@@ -473,6 +498,11 @@
     border-bottom: 1px solid var(--rule);
     font-size: var(--step-0);
     font-weight: 700;
+  }
+
+  /* 소제목 막대는 글자 높이를 따른다(기본 18px는 12px 글자보다 크다). */
+  .mover-title .panel-mark {
+    height: 0.95em;
   }
 
   .mover-count {

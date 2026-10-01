@@ -1,14 +1,65 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, validatePassword } from "firebase/auth";
+import { BrandMark } from "../components/BrandMark";
 import { Link } from "../components/Link";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
 import { authErrorMessage, loginPath, safeReturnPath, useAuthUser } from "../lib/auth";
-import { navigate, type LoginMethod } from "../router";
+import { MARKET_PATH, navigate, type LoginMethod } from "../router";
 
 const TITLES: Record<LoginMethod, string> = {
   choose: "로그인", google: "Google 로그인", email: "이메일 로그인", register: "이메일로 회원가입", reset: "비밀번호 찾기",
 };
+
+const DESCRIPTIONS: Record<LoginMethod, string> = {
+  choose: "로그인하면 주문·관심종목·투자 미션을 이용할 수 있어요.",
+  google: "Google 계정으로 계속 진행합니다.",
+  email: "이메일과 비밀번호로 로그인하세요.",
+  register: "이메일과 비밀번호로 새 계정을 만듭니다.",
+  reset: "가입할 때 사용한 이메일을 입력해 주세요.",
+};
+
+/** Google 브랜드 4색 G 아이콘(장식). */
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 18 18" width="17" height="17" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92a8.78 8.78 0 0 0 2.68-6.62z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z" />
+      <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z" />
+    </svg>
+  );
+}
+
+type SceneRow = { name: string; price: string; delta: string; dir: "up" | "down" };
+
+/* 로그인 카드 뒤에 흐리게 깔리는 시장 장면(장식). aria-hidden이라 읽히지 않는다. */
+const SCENE_LIST: SceneRow[] = [
+  { name: "닌텐도", price: "412,500", delta: "+2.4%", dir: "up" },
+  { name: "밸브", price: "87,200", delta: "+5.1%", dir: "up" },
+  { name: "넥슨", price: "18,340", delta: "-1.2%", dir: "down" },
+  { name: "크래프톤", price: "236,900", delta: "+0.8%", dir: "up" },
+];
+const SCENE_SIDE: SceneRow[] = [
+  { name: "프롬소프트", price: "301,000", delta: "+3.6%", dir: "up" },
+  { name: "스마일게이트", price: "52,700", delta: "-0.4%", dir: "down" },
+  { name: "시프트업", price: "64,150", delta: "+7.9%", dir: "up" },
+  { name: "엠게임", price: "41,220", delta: "-2.3%", dir: "down" },
+];
+
+function SceneRows({ rows }: { rows: typeof SCENE_LIST }) {
+  return (
+    <>
+      {rows.map((row) => (
+        <span className="login-scene-row" key={row.name}>
+          <b>{row.name}</b>
+          <em className="num">{row.price}</em>
+          <i className={row.dir}>{row.delta}</i>
+        </span>
+      ))}
+    </>
+  );
+}
 
 export function LoginPage({ method }: { method: LoginMethod }) {
   const { user, ready } = useAuthUser();
@@ -139,10 +190,38 @@ export function LoginPage({ method }: { method: LoginMethod }) {
   const isEmailForm = method === "email" || method === "register" || method === "reset";
   return (
     <section className="login-page" aria-labelledby="login-title">
+      <div className="login-backdrop" aria-hidden="true">
+        <div className="login-scene">
+          <p className="login-scene-strip">
+            <span className="login-scene-index">코스피 2,742.10 <b className="num is-up">▲ +1.8%</b></span>
+            <span className="login-scene-index">코스닥 861.45 <b className="num is-down">▼ -0.6%</b></span>
+            <span className="login-scene-index">게임지수 3,148.72 <b className="num is-up">▲ +3.1%</b></span>
+          </p>
+          <div className="login-scene-card is-hero">
+            <span className="login-scene-name">오늘의 시장</span>
+            <span className="login-scene-price num">3,148.72</span>
+            <span className="login-scene-spark" />
+          </div>
+          <div className="login-scene-card is-list"><SceneRows rows={SCENE_LIST} /></div>
+          <div className="login-scene-card is-side"><SceneRows rows={SCENE_SIDE} /></div>
+        </div>
+        <div className="login-scene-dim" />
+      </div>
       <div className="login-panel">
+        {!mobileReturnUri && (
+          <Link className="login-close" to={MARKET_PATH(null)} aria-label="로그인을 닫고 시장으로 가기">
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+              <path d="M5.5 5.5l9 9m0-9l-9 9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" fill="none" />
+            </svg>
+          </Link>
+        )}
+        <div className="login-brand">
+          <BrandMark size={26} />
+          <span>씹덕주식</span>
+        </div>
         <header className="login-header">
           <h1 id="login-title">{TITLES[method]}</h1>
-          <p>{method === "choose" ? "로그인 방법을 선택해 주세요." : method === "register" ? "이메일과 비밀번호로 새 계정을 만듭니다." : method === "reset" ? "가입할 때 사용한 이메일을 입력해 주세요." : "로그인 후 원래 보던 화면으로 돌아갑니다."}</p>
+          <p>{DESCRIPTIONS[method]}</p>
         </header>
         {!ready ? <p className="login-status" role="status">로그인 상태를 확인하고 있어요.</p> : user ? (
           <div className="login-options">
@@ -153,11 +232,12 @@ export function LoginPage({ method }: { method: LoginMethod }) {
           <>
             {(method === "choose" || method === "google") && (
               <div className="login-options">
-                <button type="button" className="login-button" onClick={() => void googleLogin()} disabled={busy}>
-                  <span className="login-method-symbol" aria-hidden="true">G</span>
-                  {nativeWaiting ? "브라우저에서 로그인 중…" : busy ? "로그인 중…" : "Google로 로그인"}
+                <button type="button" className="login-button is-google" onClick={() => void googleLogin()} disabled={busy}>
+                  <span className="login-google-badge" aria-hidden="true"><GoogleIcon /></span>
+                  {nativeWaiting ? "브라우저에서 로그인 중…" : busy ? "로그인 중…" : "Google로 계속하기"}
                 </button>
-                {method === "choose" && <Link className="login-button is-primary" to={loginPath("email", next)}>이메일·비밀번호로 로그인</Link>}
+                {method === "choose" && <Link className="login-button" to={loginPath("email", next)}>이메일·비밀번호로 로그인</Link>}
+                {method === "choose" && !mobileReturnUri && <Link className="login-later" to={MARKET_PATH(null)}>나중에</Link>}
               </div>
             )}
             {isEmailForm && (
@@ -189,7 +269,7 @@ export function LoginPage({ method }: { method: LoginMethod }) {
         )}
         {error && <p className="login-message is-error" role="alert">{error}</p>}
         {notice && <p className="login-message" role="status">{notice}</p>}
-        <p className="login-footer">주문·관심종목·투자 미션은 로그인 후 이용할 수 있어요.<br />시세와 뉴스는 로그인 없이 볼 수 있습니다.</p>
+        <p className="login-footer">시세와 뉴스는 로그인 없이도 볼 수 있어요.</p>
       </div>
     </section>
   );
