@@ -7,6 +7,8 @@
 @layer component {
   .login-page {
     --login-accent: #ec4899;
+    /* 구글 버튼 글자색: 라이트에서는 검정, 다크에서는 흰색 */
+    --login-google-ink: #111318;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -89,6 +91,10 @@
     background: var(--login-accent);
     color: #fff;
   }
+
+  .login-button.is-google { color: var(--login-google-ink); }
+
+  :root[data-theme="dark"] .login-page { --login-google-ink: #ffffff; }
 
   .login-button.is-google:hover,
   .login-button.is-primary:hover {

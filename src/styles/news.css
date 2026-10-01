@@ -58,6 +58,14 @@
     text-underline-offset: 3px;
   }
 
+  /* 뉴스 리스트의 종목명·등락은 캡슐 없이 평평한 텍스트로. 색·화살표는 유지. */
+  .news-item .chip {
+    height: auto;
+    padding: 0;
+    background: transparent;
+    border-color: transparent;
+  }
+
   .news-foot {
     display: flex;
     align-items: center;
