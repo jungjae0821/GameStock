@@ -103,11 +103,12 @@
   :root[data-theme="dark"] {
     color-scheme: dark;
 
-    --canvas: oklch(0.17 0.025 310);
-    --paper: oklch(0.235 0.028 315);
-    --sunken: oklch(0.275 0.03 315);
-    --rule: oklch(0.38 0.035 315);
-    --rule-ink: oklch(0.78 0.02 330);
+    /* 완전 검정에 가까운 무채색 표면. 색조를 걷어내 순수 블랙으로 둔다. */
+    --canvas: #000;
+    --paper: #0d0d10;
+    --sunken: #17171b;
+    --rule: #2c2c31;
+    --rule-ink: oklch(0.72 0.01 330);
 
     --ink: oklch(0.94 0.015 285);
     --ink-muted: oklch(0.75 0.02 285);
@@ -130,7 +131,7 @@
     --amber-deep: oklch(0.85 0.12 70);
     --amber-wash: oklch(0.32 0.05 81);
 
-    --board: oklch(0.12 0.02 300);
+    --board: #050507;
     --board-label: oklch(0.78 0.025 330);
     --led: oklch(0.9 0.13 84);
     --led-up: oklch(0.82 0.16 20);

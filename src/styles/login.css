@@ -6,9 +6,6 @@
 
 @layer component {
   .login-page {
-    --login-accent: #ec4899;
-    /* 구글 버튼 글자색: 라이트에서는 검정, 다크에서는 흰색 */
-    --login-google-ink: #111318;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -19,6 +16,13 @@
   /* ------------------------------------------------------------- 카드 */
 
   .login-panel {
+    /* 카드가 페이지와 모달 양쪽에서 쓰이므로 버튼 토큰은 카드에 둔다.
+       구글 버튼은 브랜드 핑크, 기본 동작 버튼은 테마와 반전되는 무채색으로 구분한다. */
+    --login-accent: #ec4899;
+    --login-google-ink: #111318;
+    --login-primary-bg: #221826;
+    --login-primary-ink: #ffffff;
+    --login-primary-hover: #382a3c;
     position: relative;
     width: 100%;
     max-width: 414px;
@@ -26,6 +30,13 @@
     border-radius: 20px;
     background: var(--paper);
     box-shadow: 0 24px 60px rgb(10 4 12 / 35%), 0 4px 14px rgb(10 4 12 / 20%);
+  }
+
+  :root[data-theme="dark"] .login-panel {
+    --login-google-ink: #ffffff;
+    --login-primary-bg: #f4f2f4;
+    --login-primary-ink: #171218;
+    --login-primary-hover: #ffffff;
   }
 
   .login-panel :focus-visible { outline-color: var(--login-accent); }
@@ -85,21 +96,26 @@
 
   .login-button:hover { background: var(--sunken); }
 
-  .login-button.is-google,
-  .login-button.is-primary {
+  .login-button.is-google {
     border-color: transparent;
     background: var(--login-accent);
-    color: #fff;
+    color: var(--login-google-ink);
   }
 
-  .login-button.is-google { color: var(--login-google-ink); }
-
-  :root[data-theme="dark"] .login-page { --login-google-ink: #ffffff; }
-
-  .login-button.is-google:hover,
-  .login-button.is-primary:hover {
+  .login-button.is-google:hover {
     border-color: transparent;
     background: color-mix(in oklab, var(--login-accent) 86%, black);
+  }
+
+  .login-button.is-primary {
+    border-color: transparent;
+    background: var(--login-primary-bg);
+    color: var(--login-primary-ink);
+  }
+
+  .login-button.is-primary:hover {
+    border-color: transparent;
+    background: var(--login-primary-hover);
   }
 
   .login-button:disabled { opacity: 0.55; cursor: not-allowed; }
