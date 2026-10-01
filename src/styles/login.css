@@ -16,13 +16,8 @@
   /* ------------------------------------------------------------- 카드 */
 
   .login-panel {
-    /* 카드가 페이지와 모달 양쪽에서 쓰이므로 버튼 토큰은 카드에 둔다.
-       구글 버튼은 브랜드 핑크, 기본 동작 버튼은 테마와 반전되는 무채색으로 구분한다. */
+    /* 배경색 없이 실선 테두리로 버튼을 구분한다: 구글=브랜드 핑크, 기본=잉크. */
     --login-accent: #ec4899;
-    --login-google-ink: #111318;
-    --login-primary-bg: #221826;
-    --login-primary-ink: #ffffff;
-    --login-primary-hover: #382a3c;
     position: relative;
     width: 100%;
     max-width: 414px;
@@ -30,13 +25,6 @@
     border-radius: 20px;
     background: var(--paper);
     box-shadow: 0 24px 60px rgb(10 4 12 / 35%), 0 4px 14px rgb(10 4 12 / 20%);
-  }
-
-  :root[data-theme="dark"] .login-panel {
-    --login-google-ink: #ffffff;
-    --login-primary-bg: #f4f2f4;
-    --login-primary-ink: #171218;
-    --login-primary-hover: #ffffff;
   }
 
   .login-panel :focus-visible { outline-color: var(--login-accent); }
@@ -83,9 +71,9 @@
     width: 100%;
     min-height: 52px;
     padding: 12px 18px;
-    border: none;
+    border: 1.5px solid var(--ink);
     border-radius: 12px;
-    background: var(--paper);
+    background: transparent;
     color: var(--ink);
     text-align: center;
     text-decoration: none;
@@ -94,28 +82,13 @@
     transition: background-color 0.15s ease, border-color 0.15s ease;
   }
 
-  .login-button:hover { background: var(--sunken); }
+  .login-button:hover { background: color-mix(in oklab, var(--ink) 8%, transparent); }
 
-  .login-button.is-google {
-    border-color: transparent;
-    background: var(--login-accent);
-    color: var(--login-google-ink);
-  }
+  /* 구글 버튼만 브랜드 핑크 실선으로 구분한다. */
+  .login-button.is-google { border-color: var(--login-accent); }
 
   .login-button.is-google:hover {
-    border-color: transparent;
-    background: color-mix(in oklab, var(--login-accent) 86%, black);
-  }
-
-  .login-button.is-primary {
-    border-color: transparent;
-    background: var(--login-primary-bg);
-    color: var(--login-primary-ink);
-  }
-
-  .login-button.is-primary:hover {
-    border-color: transparent;
-    background: var(--login-primary-hover);
+    background: color-mix(in oklab, var(--login-accent) 14%, transparent);
   }
 
   .login-button:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -123,10 +96,8 @@
   .login-google-badge {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: #fff;
+    width: 24px;
+    height: 24px;
   }
 
   /* ------------------------------------------------------- 로그인 모달 */
