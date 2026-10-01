@@ -1140,7 +1140,7 @@ public class MarketService {
         int quantity = traderQuantity(stock, userId, side);
         if (quantity <= 0) return false;
         boolean market = tickRandom.nextDouble() < 0.18;
-        Long price = market ? null : traderLimitPrice(stock, book, side);
+        Long price = market ? null : traderLimitPrice(profile.style(), stock, book, side);
         order(new OrderRequest(code, side, quantity, market ? "MARKET" : "LIMIT", price), userId);
         return true;
     }
@@ -1165,16 +1165,42 @@ public class MarketService {
         return Math.min(requested, (int) Math.min(Integer.MAX_VALUE, availableCash / perShare));
     }
 
-    private long traderLimitPrice(Stock stock, OrderBook book, String side) {
+    private long traderLimitPrice(TraderStyle style, Stock stock, OrderBook book, String side) {
         long tick = tickSize(stock.price());
+        boolean aggressive = tickRandom.nextDouble() < traderAggression(style);
+        PriceBand dailyBand = dailyPriceBand(stock.code());
         if ("BUY".equals(side)) {
             long bestBid = book.bids().isEmpty() ? floorToTick(stock.price() - tick) : book.bids().get(0).price();
+            if (aggressive) {
+                // Some participants pay the ask (or one tick above it) so
+                // buys are not always parked below the current market.
+                long bestAsk = book.asks().isEmpty() ? nextTickPrice(stock.price()) : book.asks().get(0).price();
+                long price = bestAsk + (tickRandom.nextBoolean() ? 0 : tick);
+                return floorToTick(dailyBand.clamp(price));
+            }
             long price = tickRandom.nextDouble() < 0.55 ? bestBid : stock.price() - tick * (1 + tickRandom.nextInt(3));
-            return floorToTick(Math.max(tick, price));
+            return floorToTick(dailyBand.clamp(Math.max(tick, price)));
         }
         long bestAsk = book.asks().isEmpty() ? ceilToTick(stock.price() + tick) : book.asks().get(0).price();
+        if (aggressive) {
+            // Some participants hit the bid (or one tick below it), creating
+            // realistic cheap sells instead of making every seller wait above
+            // the market for a buyer.
+            long bestBid = book.bids().isEmpty() ? previousTickPrice(stock.price()) : book.bids().get(0).price();
+            long price = bestBid - (tickRandom.nextBoolean() ? 0 : tick);
+            return ceilToTick(dailyBand.clamp(price));
+        }
         long price = tickRandom.nextDouble() < 0.55 ? bestAsk : stock.price() + tick * (1 + tickRandom.nextInt(3));
-        return ceilToTick(price);
+        return ceilToTick(dailyBand.clamp(price));
+    }
+
+    private double traderAggression(TraderStyle style) {
+        return switch (style) {
+            case MOMENTUM -> 0.32;
+            case CONTRARIAN -> 0.24;
+            case VALUE -> 0.18;
+            case INTRADAY -> 0.45;
+        };
     }
 
     private void trimTraderOrders(long userId) {
