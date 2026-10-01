@@ -1,7 +1,6 @@
 import { BrandMark } from "./BrandMark";
 import { Link } from "./Link";
 import type { Route } from "../router";
-import { clock } from "../market/format";
 import { firebaseAuth } from "../lib/firebase";
 import { onAuthStateChanged, signInWithCustomToken, signOut, type User } from "firebase/auth";
 import { requestLogin, requireSignIn } from "../lib/auth";
@@ -10,9 +9,9 @@ import { useEffect, useRef, useState } from "react";
 import { navigate } from "../router";
 
 const NAV = [
-  { label: "홈", to: "/", match: "home" },
   { label: "시장", to: "/market", match: "market" },
   { label: "뉴스", to: "/news", match: "news" },
+  { label: "랭킹", to: "/ranking", match: "ranking" },
 ] as const;
 
 type TemperatureReading = {
@@ -50,7 +49,6 @@ function readTheme(): Theme {
 export function Topbar({ route }: { route: Route }) {
   const [user, setUser] = useState<User | null>(firebaseAuth.currentUser);
   const [theme, setTheme] = useState<Theme>(readTheme);
-  const [now, setNow] = useState(() => Date.now());
   const [menuOpen, setMenuOpen] = useState(false);
   const [nickname, setNickname] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<TemperatureReading | null>(null);
@@ -88,11 +86,6 @@ export function Topbar({ route }: { route: Route }) {
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
     const handleLoginRequest = () => {
       if (!firebaseAuth.currentUser) requestLogin();
     };
@@ -106,11 +99,6 @@ export function Topbar({ route }: { route: Route }) {
     } catch {
       setTemperature({ available: false, message: "한강 수온을 불러오지 못했습니다." });
     }
-  };
-
-  const openRanking = () => {
-    setMenuOpen(false);
-    navigate("/ranking");
   };
 
   useEffect(() => {
@@ -161,20 +149,36 @@ export function Topbar({ route }: { route: Route }) {
           ))}
         </nav>
         <div className="topbar-end">
-          {/* 상단에는 현재 시각과 메뉴만 표시한다. */}
-          <span className="topbar-clock num" aria-label={`현재시각: ${clock(now)}`}><span className="topbar-clock-label">현재시각: </span>{clock(now)}</span>
+          {/* 상단에는 모드·메뉴 버튼을 표시한다. */}
+          <button
+            type="button"
+            className="account-button icon-button"
+            aria-label={theme === "dark" ? "라이트모드로 변경" : "다크모드로 변경"}
+            aria-pressed={theme === "dark"}
+            title={theme === "dark" ? "라이트모드로 변경" : "다크모드로 변경"}
+            onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
+          >
+            <span aria-hidden="true">{theme === "dark" ? "☀️" : "🌙"}</span>
+          </button>
+          <button
+            type="button"
+            className="account-button icon-button"
+            aria-label="마이페이지"
+            title="마이페이지"
+            onClick={() => { setMenuOpen(false); if (requireSignIn("/mypage")) navigate("/mypage"); }}
+          >
+            <span aria-hidden="true">👤</span>
+          </button>
           <div className="menu-wrap" ref={menuRef}>
             <button
               type="button"
               className="account-button menu-button"
+              aria-label="메뉴 열기"
               aria-expanded={menuOpen}
               aria-haspopup="menu"
               onClick={() => setMenuOpen((open) => !open)}
             >
-              <span>메뉴</span>
-              <svg className="menu-chevron" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
-                <path d="M3 4.5 6 7.5 9 4.5" />
-              </svg>
+              <span aria-hidden="true">☰</span>
             </button>
             {menuOpen && (
               <div className="menu-panel" role="menu" aria-label="부가 기능">
@@ -190,21 +194,6 @@ export function Topbar({ route }: { route: Route }) {
                     로그인
                   </button>
                 )}
-                <button type="button" className="menu-item" role="menuitem" onClick={() => { setMenuOpen(false); if (requireSignIn("/mypage")) navigate("/mypage"); }}>
-                  마이페이지
-                </button>
-                <button type="button" className="menu-item" role="menuitem" onClick={openRanking}>
-                  랭킹
-                </button>
-                <button
-                  type="button"
-                  className="menu-item menu-theme-toggle"
-                  role="menuitem"
-                  aria-pressed={theme === "dark"}
-                  onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
-                >
-                  {theme === "dark" ? "라이트모드" : "다크모드"}
-                </button>
                 <div className="menu-temperature" role="status" aria-live="polite">
                   <span>한강물 온도 · 선유</span>
                   <strong>{temperature?.available && temperature.temperature != null ? `${temperature.temperature.toFixed(1)}℃` : "조회 중…"}</strong>

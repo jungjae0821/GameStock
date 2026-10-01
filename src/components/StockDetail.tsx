@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Delta } from "./Delta";
 import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
@@ -20,6 +20,10 @@ import { VISIBLE_NEWS_SOURCES } from "../market/types";
 export function StockDetail({ code }: { code: string }) {
   const snapshot = useMarket();
   const api = useMarketApi();
+  useEffect(() => {
+    api.setActiveDetailCode(code);
+    return () => api.setActiveDetailCode(null);
+  }, [api, code]);
   const [tab, setTab] = useState<"news" | "info">("news");
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderSide, setOrderSide] = useState<"buy" | "sell">("buy");

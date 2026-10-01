@@ -11,6 +11,7 @@ const rawApiBase = import.meta.env.PROD
   ? productionApiBase
   : (configuredApiBase ?? localApiBase);
 const API_BASE = rawApiBase.replace(/\/$/, "");
+const API_TIMEOUT_MS = 4_000;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -31,7 +32,14 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   const user = firebaseAuth.currentUser;
   if (user) headers.set("Authorization", `Bearer ${await user.getIdToken()}`);
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...init, headers, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
   if (response.ok) {
     if (response.status === 204) return undefined as T;
     return (await response.json()) as T;

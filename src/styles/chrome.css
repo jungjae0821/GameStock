@@ -245,7 +245,17 @@
   }
 
   .menu-button {
-    min-width: 68px;
+    width: var(--chip-height);
+    min-width: var(--chip-height);
+    padding: 4px;
+    font-size: 18px;
+  }
+
+  .icon-button {
+    width: var(--chip-height);
+    min-width: var(--chip-height);
+    padding: 4px;
+    font-size: 16px;
   }
 
   .menu-chevron {
@@ -667,22 +677,72 @@
     font-size: var(--step--1);
   }
 
-  .connection-fallback {
-    position: fixed;
-    left: 8px;
-    bottom: 42px;
-    z-index: 30;
-    padding: 4px 8px;
-    background: var(--notice-bg);
-    border: 1px solid var(--notice-rule);
-    color: var(--notice-ink);
-    font-size: 11px;
+  .backend-loading {
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: var(--space-6);
+    background: var(--paper);
   }
 
-  .topbar-clock {
-    font-size: var(--step--1);
+  .backend-loading-inner {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-2);
+    text-align: center;
+  }
+
+  .backend-loading-game,
+  .backend-loading-status {
+    margin: 0;
     color: var(--ink-muted);
-    white-space: nowrap;
+    font-size: var(--step--1);
+  }
+
+  .backend-loading-character {
+    display: grid;
+    place-items: center;
+    width: 88px;
+    height: 88px;
+    margin: var(--space-2) 0;
+    border: 1px solid var(--brand);
+    border-radius: 50%;
+    color: var(--brand-wine);
+    background: var(--brand-wash);
+    font-size: 38px;
+    font-weight: 800;
+  }
+
+  .backend-loading-copy {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--step-1);
+  }
+
+  .backend-loading-copy strong {
+    color: var(--brand-wine);
+  }
+
+  .backend-loading-dots {
+    display: inline-flex;
+    gap: 5px;
+    margin-top: var(--space-1);
+  }
+
+  .backend-loading-dots i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--brand);
+    animation: backend-loading-dot 1.2s ease-in-out infinite;
+  }
+
+  .backend-loading-dots i:nth-child(2) { animation-delay: 120ms; }
+  .backend-loading-dots i:nth-child(3) { animation-delay: 240ms; }
+
+  @keyframes backend-loading-dot {
+    0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
   }
 
   .statusbar {
@@ -781,16 +841,8 @@
       font-size: 12px;
     }
 
-    .topbar-clock-label {
-      display: none;
-    }
-
     .topbar-end {
       gap: 6px;
-    }
-
-    .menu-button {
-      min-width: 54px;
     }
 
     .topbar-end .account {

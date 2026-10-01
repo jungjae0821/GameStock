@@ -9,6 +9,17 @@ type RankingEntry = {
   changePercent: number;
 };
 
+const RANKING_CACHE_KEY = "gamestock-ranking-cache";
+
+function readRankingCache(): RankingEntry[] {
+  try {
+    const value = JSON.parse(window.sessionStorage.getItem(RANKING_CACHE_KEY) ?? "null");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
 const medalByRank: Record<number, { emoji: string; label: string; className: string }> = {
   1: { emoji: "🥇", label: "금메달", className: "is-gold" },
   2: { emoji: "🥈", label: "은메달", className: "is-silver" },
@@ -16,8 +27,8 @@ const medalByRank: Record<number, { emoji: string; label: string; className: str
 };
 
 export function RankingPage() {
-  const [ranking, setRanking] = useState<RankingEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [ranking, setRanking] = useState<RankingEntry[]>(readRankingCache);
+  const [loading, setLoading] = useState(() => readRankingCache().length === 0);
   const [error, setError] = useState("");
   const inFlight = useRef(false);
   const hasData = useRef(false);
@@ -35,6 +46,7 @@ export function RankingPage() {
         if (!active) return;
         // 기존 행을 유지한 채 데이터만 교체하므로 갱신 때 표가 깜빡이지 않는다.
         setRanking(entries);
+        try { window.sessionStorage.setItem(RANKING_CACHE_KEY, JSON.stringify(entries)); } catch { /* storage may be disabled */ }
         hasData.current = true;
         setError("");
       } catch {
@@ -49,7 +61,7 @@ export function RankingPage() {
     };
 
     void loadRanking(true);
-    const refreshId = window.setInterval(() => void loadRanking(), 1000);
+    const refreshId = window.setInterval(() => void loadRanking(), 5000);
     return () => {
       active = false;
       window.clearInterval(refreshId);

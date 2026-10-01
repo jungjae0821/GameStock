@@ -8,11 +8,13 @@ import { INITIAL_CASH, MarketEngine } from "./engine";
 import { serverTimestamp } from "./format";
 import { LISTING_BY_CODE, roundToTick } from "./universe";
 import type { DailyMissionStatus, MarketSnapshot, OrderRequest, OrderResult, Portfolio, Position, Quote, TradingRestriction } from "./types";
+import { BackendLoadingScreen } from "../components/BackendLoadingScreen";
 
 export interface MarketApi {
   placeOrder: (request: OrderRequest) => Promise<OrderResult>;
   orderable: (code: string, side: "buy" | "sell") => number;
   toggleWatch: (code: string) => void;
+  setActiveDetailCode: (code: string | null) => void;
   claimMissionReward: (missionId: string) => Promise<{ rewardCash: number; awarded: boolean; missions: DailyMissionStatus }>;
   reset: () => void;
 }
@@ -126,6 +128,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const watchMutationSeq = useRef(0);
   const watchSettledSeq = useRef(0);
   const hasServerSnapshotRef = useRef(false);
+  const activeDetailCodeRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,7 +193,11 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       }
     };
     const refreshDetails = async () => {
-      const entries = await Promise.all(Object.keys(LISTING_BY_CODE).map(async (code) => {
+      const code = activeDetailCodeRef.current;
+      // Order books and recent trades are only needed on a stock detail page.
+      // Fetching every listing here made every route issue 30 requests per second.
+      if (!code) return;
+      const entries = await Promise.all([code].map(async (code) => {
         try {
           const [book, trades] = await Promise.all([
             apiFetch<BackendOrderBook>(`/api/stocks/${code}/orderbook`),
@@ -239,7 +246,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 2000);
-    const detailTimer = window.setInterval(() => void refreshDetails(), 1000);
+    const detailTimer = window.setInterval(() => void refreshDetails(), 2000);
     const unsubscribe = onAuthStateChanged(firebaseAuth, () => {
       watchRef.current = [];
       setSnapshot((current) => ({ ...current, watch: [], portfolio: toPortfolio() }));
@@ -301,6 +308,9 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           if (watchSettledSeq.current < seq) watchSettledSeq.current = seq;
         });
     },
+    setActiveDetailCode: (code) => {
+      activeDetailCodeRef.current = code;
+    },
     claimMissionReward: async (missionId) => {
       const claimant = firebaseAuth.currentUser;
       if (!claimant) {
@@ -326,8 +336,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   return (
     <ApiContext.Provider value={api}>
       <SnapshotContext.Provider value={snapshot}>
-        {children}
-        {!serverAvailable && <span className="connection-fallback" role="status">백엔드 연결 대기 중 · 공개 모의 시세 표시</span>}
+        {serverAvailable ? children : <BackendLoadingScreen />}
       </SnapshotContext.Provider>
     </ApiContext.Provider>
   );
