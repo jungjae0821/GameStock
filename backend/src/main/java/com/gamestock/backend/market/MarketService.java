@@ -1462,14 +1462,14 @@ public class MarketService {
      */
     private void ensureNearBotQuotes(String code, NewsBias newsBias) {
         long reference = findStock(code).price();
-        long tick = tickSize(reference);
         long stockId = stockId(code);
         OrderBook book = orderBook(code);
         for (String side : List.of("BUY", "SELL")) {
+            long target = floorToTick(reference);
             for (int level = 1; level <= LP_NEAR_QUOTE_LEVELS; level++) {
-                long target = "BUY".equals(side)
-                        ? floorToTick(reference) - tick * level
-                        : floorToTick(reference) + tick * level;
+                target = "BUY".equals(side)
+                        ? previousTickPrice(target)
+                        : nextTickPrice(target);
                 target = botQuotePrice(botPriceBand(code), side, target);
                 if (botPriceLevelOccupied(stockId, side, target)
                         || quoteWouldCrossOpposite(book, side, target)) continue;
