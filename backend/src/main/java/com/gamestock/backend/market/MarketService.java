@@ -86,6 +86,7 @@ public class MarketService {
     private static final long LP_MIN_OPEN_QUANTITY_PER_SIDE = 20L;
     private static final double LP_MAX_SIDE_IMBALANCE = 4.0;
     private static final int LP_REBALANCE_ATTEMPTS = 3;
+    private static final int LP_MAX_NEAR_QUOTE_DISTANCE_TICKS = 4;
     private static final int BOT_ORDER_LIFETIME_MINUTES = 20;
     /** Human-like participant bots use the normal user order path and ranking. */
     private static final String TRADER_BOT_PASSWORD = "TRADER";
@@ -1454,6 +1455,8 @@ public class MarketService {
 
     private long adjacentBotQuotePrice(String code, String side, long fallback) {
         long stockId = stockId(code);
+        long reference = findStock(code).price();
+        long referenceTick = tickSize(reference);
         List<Long> edge = jdbc.query("""
                 SELECT o.price
                 FROM orders o JOIN users u ON u.id = o.user_id
@@ -1461,8 +1464,15 @@ public class MarketService {
                   AND o.status = 'OPEN' AND u.password_hash = 'BOT'
                 ORDER BY o.price """ + ("BUY".equals(side) ? "DESC" : "ASC") + " LIMIT 1",
                 (rs, row) -> rs.getLong(1), stockId, side);
-        if (edge.isEmpty()) return fallback;
-        long candidate = "BUY".equals(side) ? previousTickPrice(edge.get(0)) : nextTickPrice(edge.get(0));
+        long candidate;
+        if (edge.isEmpty() || Math.abs(edge.get(0) - reference) > referenceTick * LP_MAX_NEAR_QUOTE_DISTANCE_TICKS) {
+            // A moving market can leave an old quote far from the new price.
+            // Start the replenishment at the current inside level so the
+            // spread does not remain wide until the old order expires.
+            candidate = "BUY".equals(side) ? floorToTick(reference) : nextTickPrice(floorToTick(reference));
+        } else {
+            candidate = "BUY".equals(side) ? previousTickPrice(edge.get(0)) : nextTickPrice(edge.get(0));
+        }
         for (int attempt = 0; attempt < 5; attempt++) {
             if (!botPriceLevelOccupied(stockId, side, candidate)) return candidate;
             candidate = "BUY".equals(side) ? previousTickPrice(candidate) : nextTickPrice(candidate);
