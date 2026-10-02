@@ -447,6 +447,12 @@ public class MarketService {
                 ), s.current_price)
                 WHERE e.event_type = 'NEWS' AND e.price_at_publish IS NULL
                 """);
+        // News is read by stock and type repeatedly during feed rendering and
+        // price-driver calculation. These indexes are also safe for an
+        // existing Railway database because they are created only once.
+        ensureIndex("market_events", "ix_market_events_stock_type_time",
+                "stock_id,event_type,published_at,created_at,id");
+        ensureIndex("market_events", "ix_market_events_stock_title", "stock_id,title");
     }
 
     private void renameExistingStock(String oldCode, String newCode, String oldName, String newName) {
@@ -1524,6 +1530,11 @@ public class MarketService {
         ensureOrderIndex("ix_orders_live_book", "stock_id,status,side,price,created_at,id");
         ensureOrderIndex("ix_orders_expiry", "status,expires_at");
         ensureOrderIndex("ix_orders_user_live", "user_id,status,stock_id");
+        // Batch book loads scan OPEN rows in id order, while expiry cleanup
+        // filters one stock by its deadline. Keep both paths selective as the
+        // Railway order table grows.
+        ensureOrderIndex("ix_orders_open_sequence", "status,id");
+        ensureOrderIndex("ix_orders_stock_expiry", "stock_id,status,expires_at,id");
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS market_price_metrics (
                     stock_id BIGINT PRIMARY KEY, mark_price BIGINT NOT NULL,
@@ -1569,6 +1580,13 @@ public class MarketService {
     private void ensureOrderIndex(String name,String columns) {
         Integer count=jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='orders' AND index_name=?",Integer.class,name);
         if(count==null || count==0) jdbc.execute("CREATE INDEX "+name+" ON orders ("+columns+")");
+    }
+
+    private void ensureIndex(String table, String name, String columns) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=? AND index_name=?",
+                Integer.class, table, name);
+        if (count == null || count == 0) jdbc.execute("CREATE INDEX " + name + " ON " + table + " (" + columns + ")");
     }
 
     private MarketMakerEngine.RiskBook liquidityRiskBook(String code,long lp) {

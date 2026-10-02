@@ -92,7 +92,9 @@ CREATE TABLE market_events (
   published_at TIMESTAMP NULL,
   price_at_publish BIGINT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_events_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
+  CONSTRAINT fk_events_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  INDEX ix_market_events_stock_type_time (stock_id, event_type, published_at, created_at, id),
+  INDEX ix_market_events_stock_title (stock_id, title)
 );
 
 CREATE TABLE orders (
@@ -110,7 +112,12 @@ CREATE TABLE orders (
   expires_at TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id),
-  CONSTRAINT fk_orders_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
+  CONSTRAINT fk_orders_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
+  INDEX ix_orders_live_book (stock_id, status, side, price, created_at, id),
+  INDEX ix_orders_expiry (status, expires_at),
+  INDEX ix_orders_user_live (user_id, status, stock_id),
+  INDEX ix_orders_open_sequence (status, id),
+  INDEX ix_orders_stock_expiry (stock_id, status, expires_at, id)
 );
 
 CREATE TABLE trades (
@@ -136,7 +143,10 @@ CREATE TABLE trades (
   CONSTRAINT fk_trades_seller FOREIGN KEY (seller_id) REFERENCES users(id),
   INDEX ix_trades_stock_time (stock_id, created_at),
   INDEX ix_trades_taker (taker_order_id),
-  INDEX ix_trades_maker (maker_order_id)
+  INDEX ix_trades_maker (maker_order_id),
+  INDEX ix_trades_buyer_fees (buyer_id, created_at, buyer_fee),
+  INDEX ix_trades_seller_fees (seller_id, created_at, seller_fee),
+  INDEX ix_trades_stock_sequence (stock_id, id)
 );
 
 -- 체결 원장. 현재는 체결 즉시 SETTLED로 반영하며, 이전 버전의 PENDING 행도
