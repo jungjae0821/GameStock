@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class BotTradingSchedulerTest {
-    @Test void idleWakeChecksDoNotInvokeTransactionalMatchingOrSeedLpOrders() {
+    @Test void startupSeedsLpOrdersButIdleWakeChecksDoNotRunParticipantBatches() {
         var market=mock(MarketService.class);var timers=mock(TaskScheduler.class);
         when(market.matchingEnabled()).thenReturn(true);
         when(market.botStockCodes()).thenReturn(List.of("A","B"));
@@ -20,7 +20,7 @@ class BotTradingSchedulerTest {
                 .when(timers).schedule(any(Runnable.class),any(Trigger.class));
         var scheduler=new BotTradingScheduler(market,timers);
         try {
-            scheduler.start();assertEquals(4,jobs.size());verify(market,never()).liquidityBotAction(anyString(),anyString());
+            scheduler.start();assertEquals(4,jobs.size());verify(market,times(2)).liquidityBotAction(anyString(),eq("BOTH"));
             jobs.forEach(Runnable::run);verify(market,never()).participantBatch(anyInt());
             when(market.botWorkDue("batch:2")).thenReturn(true);
             jobs.forEach(Runnable::run);verify(market).participantBatch(2);

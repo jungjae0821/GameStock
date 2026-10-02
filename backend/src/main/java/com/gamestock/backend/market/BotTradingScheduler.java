@@ -39,7 +39,7 @@ public class BotTradingScheduler {
         if (!tasks.isEmpty() || !market.matchingEnabled()) return;
         market.maintainScheduledMarket();
         for (String code : market.botStockCodes()) {
-            if(market.batchBotsEnabled()&&market.activeSimulation())market.liquidityBotAction(code,"BOTH");
+            if(market.batchBotsEnabled())market.liquidityBotAction(code,"BOTH");
             if(!market.inlineLiquidity())schedule("liquidity:" + code, () -> market.liquidityBotAction(code, "BOTH"));
         }
         if(market.batchBotsEnabled()) {
