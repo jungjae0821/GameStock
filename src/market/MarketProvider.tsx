@@ -19,7 +19,7 @@ export interface MarketApi {
 }
 
 type BackendStock = { code: string; name: string; genre: string; price: number; changePercent: number; volume: number; restriction?: TradingRestriction | null };
-type BackendMarketStatus = { indexValue: number; tradingDate: string };
+type BackendMarketStatus = { indexValue: number; tradingDate: string; restriction?: TradingRestriction | null };
 type BackendOrderBookLevel = { price: number; quantity: number; orderCount: number };
 type BackendOrderBook = { stockCode: string; bids: BackendOrderBookLevel[]; asks: BackendOrderBookLevel[] };
 type BackendTrade = { side: string; quantity: number; price: number; orderType?: string; createdAt: string };
@@ -103,6 +103,7 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
   const indexValue = market?.indexValue ?? (weight > 0 ? (weighted / weight) * 1000 : 1000);
   return {
     quotes,
+    marketRestriction: market?.restriction ?? null,
     index: { value: indexValue, prevClose: 1000, series: [1000, indexValue], tradingDate: market?.tradingDate },
     codes: stocks.map((stock) => stock.code).filter((code) => Boolean(quotes[code])),
     news: events.map((event, index) => ({

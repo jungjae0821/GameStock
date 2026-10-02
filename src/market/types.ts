@@ -136,6 +136,7 @@ export interface Portfolio {
 }
 
 export interface MarketSnapshot {
+  marketRestriction?: TradingRestriction | null;
   quotes: Record<string, Quote>;
   index: MarketIndex;
   codes: string[];

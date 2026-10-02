@@ -2,6 +2,7 @@ import { Delta } from "./Delta";
 import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { PriceCell } from "./PriceCell";
+import { RestrictionBadge } from "./RestrictionBadge";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
@@ -100,6 +101,7 @@ function QuoteRow({ code, selected, onSelect, watchable }: RowProps) {
         </td>
       )}
       <th scope="row" className="cell-name">
+        <div className="stock-name-group">
         <Link
           className="name-link"
           to={`/market/${code}`}
@@ -112,6 +114,8 @@ function QuoteRow({ code, selected, onSelect, watchable }: RowProps) {
           <GameIcon code={code} />
           <span className="name-text">{listing.name}</span>
         </Link>
+        {(quote.restriction?.kind === "DYNAMIC_VI" || quote.restriction?.kind === "STATIC_VI") && <RestrictionBadge code={code} />}
+        </div>
       </th>
       <td className="cell-num">
         <PriceCell className="num" value={quote.price} />

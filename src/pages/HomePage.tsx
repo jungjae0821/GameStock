@@ -4,6 +4,7 @@ import { NewsFeed } from "../components/NewsFeed";
 import { Panel } from "../components/Panel";
 import { QuoteTable } from "../components/QuoteTable";
 import { Spotlight } from "../components/Spotlight";
+import { CircuitBreakerNotice } from "../components/CircuitBreakerNotice";
 import { useMarket } from "../market/MarketProvider";
 import { holdings, sortCodes, totals } from "../market/selectors";
 import { navigate } from "../router";
@@ -15,6 +16,7 @@ export function HomePage() {
 
   return (
     <div className="page-stack">
+      <CircuitBreakerNotice />
       <h1 className="vh">씹덕주식 홈</h1>
       <MarketHead />
       <Spotlight />
