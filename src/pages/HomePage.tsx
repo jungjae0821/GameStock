@@ -15,7 +15,7 @@ export function HomePage() {
 
   return (
     <div className="page-stack">
-      <h1 className="vh">씹덕주식 홈</h1>
+      <h1 className="vh">슈엔증권 홈</h1>
       <MarketHead />
       <Spotlight />
 

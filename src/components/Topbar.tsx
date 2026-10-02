@@ -13,9 +13,9 @@ export function Topbar({ route }: { route: Route }) {
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <Link className="brand" to="/" aria-label="씹덕주식 홈">
+        <Link className="brand" to="/" aria-label="슈엔증권 홈">
           <BrandMark />
-          <span className="brand-text">씹덕주식</span>
+          <span className="brand-text">슈엔증권</span>
         </Link>
         <nav className="nav" aria-label="주요 화면">
           {NAV.map((item) => {

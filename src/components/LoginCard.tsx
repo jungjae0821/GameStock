@@ -200,7 +200,7 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
       ))}
       <div className="login-brand">
         <BrandMark size={26} />
-        <span>씹덕주식</span>
+        <span>슈엔증권</span>
       </div>
       <header className="login-header">
         <h1 id="login-title">{TITLES[method]}</h1>

@@ -6,7 +6,7 @@ export function BrandMark({ size = 30 }: { size?: number }) {
   return (
     <img
       className="brand-mark"
-      src="/brand/mark-160.png"
+      src="/brand/shuen-mark.png"
       width={size}
       height={size}
       alt=""
