@@ -10,6 +10,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { StatusBar } from "./components/StatusBar";
 import { MissionRewardToast } from "./components/MissionRewardToast";
 import { LoginModal } from "./components/LoginModal";
+import { CircuitBreakerNotice } from "./components/CircuitBreakerNotice";
 import { openLoginPrompt, useAuthUser } from "./lib/auth";
 import { LISTING_BY_CODE } from "./market/universe";
 import { useRoute } from "./router";
@@ -68,6 +69,7 @@ export default function App() {
       <StatusBar />
       <MissionRewardToast />
       <LoginModal />
+      <CircuitBreakerNotice />
     </div>
   );
 }

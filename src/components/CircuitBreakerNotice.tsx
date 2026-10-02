@@ -6,20 +6,44 @@ import type { TradingRestriction } from "../market/types";
 
 // Keep acknowledgements across home/market navigation, but announce each new phase.
 const acknowledged = new Set<string>();
+const HIDE_UNTIL_KEY = "gamestock-circuit-level3-hide-until";
+const KST_OFFSET = 9 * 60 * 60 * 1000;
+const DAY = 24 * 60 * 60 * 1000;
+
+function readHiddenUntil() {
+  try { return Number(localStorage.getItem(HIDE_UNTIL_KEY)) || 0; }
+  catch { return 0; }
+}
 
 export function CircuitBreakerNotice() {
   const restriction = useMarket().marketRestriction;
   const [dismissed, setDismissed] = useState<string | null>(null);
+  const [hiddenUntil, setHiddenUntil] = useState(readHiddenUntil);
+  useEffect(() => {
+    if (hiddenUntil <= Date.now()) return;
+    const timer = window.setTimeout(() => {
+      setHiddenUntil(0);
+      try { localStorage.removeItem(HIDE_UNTIL_KEY); } catch { /* Storage can be disabled. */ }
+    }, Math.min(hiddenUntil - Date.now() + 1, DAY));
+    return () => window.clearTimeout(timer);
+  }, [hiddenUntil]);
   if (restriction?.kind !== "CIRCUIT_BREAKER") return null;
+  if (restriction.level === 3 && hiddenUntil > Date.now()) return null;
   const key = `${restriction.startedAt}:${restriction.level}:${restriction.phase}`;
   if (dismissed === key || acknowledged.has(key)) return null;
-  return <NoticeDialog key={key} restriction={restriction} onClose={() => {
+  const close = () => {
     acknowledged.add(key);
     setDismissed(key);
+  };
+  return <NoticeDialog key={key} restriction={restriction} onClose={close} onConfirm={() => {
+    if (restriction.level !== 3) { close(); return; }
+    const until = (Math.floor((Date.now() + KST_OFFSET) / DAY) + 1) * DAY - KST_OFFSET;
+    try { localStorage.setItem(HIDE_UNTIL_KEY, String(until)); } catch { /* Keep the in-memory preference. */ }
+    setHiddenUntil(until);
   }} />;
 }
 
-function NoticeDialog({ restriction, onClose }: { restriction: TradingRestriction; onClose: () => void }) {
+function NoticeDialog({ restriction, onClose, onConfirm }: { restriction: TradingRestriction; onClose: () => void; onConfirm: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const element = dialog.current;
@@ -47,7 +71,7 @@ function NoticeDialog({ restriction, onClose }: { restriction: TradingRestrictio
         <p>{restriction.reason}</p>
         <p id="circuit-notice-effect">{restriction.effect}</p>
         <p className="restriction-time">{next}<br />{kstDateTime(Date.parse(restriction.endsAt))} (한국시간)</p>
-        <button type="button" className="circuit-notice-confirm" onClick={onClose} autoFocus>확인했어요</button>
+        <button type="button" className="circuit-notice-confirm" onClick={onConfirm} autoFocus>{restriction.level === 3 ? "오늘하루 보지않기" : "확인했어요"}</button>
       </div>
     </dialog>, document.body,
   );
