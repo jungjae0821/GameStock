@@ -46,9 +46,9 @@ public class OrderService {
         return result;
     }
     public CompletableFuture<List<BotActivityEngine.Activity>> submitBotBatch(int shard){
-        if(!running.get()||!botPending.add(shard))return CompletableFuture.completedFuture(List.of());
+        if(!running.get()||!persistence.acceptingWrites()||!botPending.add(shard))return CompletableFuture.completedFuture(List.of());
         var retryPlan=new java.util.concurrent.atomic.AtomicReference<BotBatchPlan>();
-        return persistence.submit(UUID.randomUUID().toString(),BotActivityEngine.Activity[].class,1,()->
+        return persistence.submitBot(shard,UUID.randomUUID().toString(),BotActivityEngine.Activity[].class,1,()->
             market.participantBatch(shard,retryPlan).toArray(BotActivityEngine.Activity[]::new)
         ).handle((activity,error)->{botPending.remove(shard);if(error!=null)throw new CompletionException(error);return List.of(activity);});
     }
