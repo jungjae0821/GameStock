@@ -35,6 +35,28 @@ class NewsAnalysisTest {
     }
 
     @Test
+    void addedListingsRequireTheirCurrentGameAndRejectPreviousNames() {
+        List<String> codes = List.of("GI", "SR", "AK", "WH", "PX", "LT", "ES", "MH", "EL", "PW", "SD");
+        List<String> names = List.of("원신", "붕괴: 스타레일", "명일방주: 엔드필드", "명조: 워더링 웨이브",
+                "쿠키런: 킹덤", "발로란트", "에픽세븐", "카트라이더 러쉬플러스", "오버워치", "팰월드", "트릭컬 리바이브");
+        for (int index = 0; index < codes.size(); index++) {
+            String code = codes.get(index);
+            assertTrue(NewsRelevance.isRelevant(code, names.get(index) + " 신규 업데이트"), code);
+            assertTrue(NewsRelevance.isRelevant(code, names.get(index) + " 서버 장애"), code);
+            assertFalse(NewsRelevance.isRelevant(code, "다른 게임 신규 업데이트"), code);
+        }
+        assertFalse(NewsRelevance.isRelevant("AK", "명일방주 신규 업데이트"));
+        assertFalse(NewsRelevance.isRelevant("PX", "페르소나5: 더 팬텀 X 신규 업데이트"));
+        assertFalse(NewsRelevance.isRelevant("LT", "림버스 컴퍼니 신규 업데이트"));
+        assertFalse(NewsRelevance.isRelevant("MH", "몬스터헌터 와일즈 신규 업데이트"));
+        assertFalse(NewsRelevance.isRelevant("EL", "엘든 링 신규 업데이트"));
+        assertFalse(NewsRelevance.isRelevant("SD", "스타듀 밸리 신규 업데이트"));
+        assertFalse(NewsRelevance.isRelevant("LT", "발로란트 야구 선수 인터뷰"));
+        assertFalse(NewsRelevance.isRelevant("PX", "PC 확대 비율을 바꿀 때 확인할 쿠키런 킹덤 빙고게임 화면 - Calgary Roughnecks"));
+        assertFalse(NewsRelevance.isRelevant("PX", "특수 라운드에만 나오는 쿠키런 킹덤 빙고게임 심벌 정보 - Histoire pour Tous"));
+    }
+
+    @Test
     void handLabelledSentimentSamplesHaveExpectedDirection() {
         List<Sample> samples = List.of(
                 new Sample("우마무스메 대규모 업데이트 흥행", "신규 콘텐츠가 좋은 반응을 얻었다", 1),

@@ -387,10 +387,16 @@ public class MarketService {
                              AND h.recorded_at <= COALESCE(e.published_at, e.created_at)
                            ORDER BY h.recorded_at DESC, h.id DESC LIMIT 1
                        ), s.current_price) AS price_at_publish
-                FROM market_events e LEFT JOIN stocks s ON s.id = e.stock_id
-                WHERE e.event_type = 'NEWS'
+                FROM (
+                    SELECT ranked.* FROM (
+                        SELECT events.*, ROW_NUMBER() OVER (
+                            PARTITION BY stock_id, source
+                            ORDER BY COALESCE(published_at, created_at) DESC, id DESC
+                        ) AS news_rank
+                        FROM market_events events WHERE event_type = 'NEWS'
+                    ) ranked WHERE ranked.news_rank <= 50
+                ) e LEFT JOIN stocks s ON s.id = e.stock_id
             ORDER BY COALESCE(e.published_at, e.created_at) DESC, e.id DESC
-            LIMIT 200
                 """, this::toMarketEvent).stream()
                 .filter(this::isRelevantNews)
                 .toList();
