@@ -17,8 +17,10 @@ public class MarketController {
     private final MarketService market;
     private final AuthService auth;
     private final UserFeatureService userFeatures;
+    private final OrderService orders;
+    private final MarketMetrics metrics;
 
-    public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures) { this.market = market; this.auth = auth; this.userFeatures = userFeatures; }
+    public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures,OrderService orders,MarketMetrics metrics) { this.market = market; this.auth = auth; this.userFeatures = userFeatures;this.orders=orders;this.metrics=metrics; }
 
     @GetMapping("/health") public Map<String, String> health() { return Map.of("status", "ok"); }
     @GetMapping("/stocks") public java.util.List<Stock> stocks() { return market.stocks(); }
@@ -93,13 +95,16 @@ public class MarketController {
 
     @PostMapping("/orders")
     @ResponseStatus(HttpStatus.CREATED)
-    public OrderResult order(@Valid @RequestBody OrderRequest request, @RequestHeader(value = "Authorization", required = false) String authorization) { return market.order(request, auth.requireUser(authorization).id()); }
+    public java.util.concurrent.CompletableFuture<OrderResult> order(@RequestBody OrderRequest request, @RequestHeader(value = "Authorization", required = false) String authorization) { return orders.submit(auth.requireUser(authorization).id(),request); }
 
     @DeleteMapping("/orders/{orderId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void cancelOrder(@PathVariable long orderId, @RequestHeader(value = "Authorization", required = false) String authorization) {
-        market.cancelOrder(orderId, auth.requireUser(authorization).id());
+    public java.util.concurrent.CompletableFuture<Void> cancelOrder(@PathVariable long orderId, @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return orders.cancel(auth.requireUser(authorization).id(),orderId);
     }
+
+    @GetMapping("/market-metrics")
+    public Map<String,Long> metrics(@RequestHeader(value="Authorization",required=false) String authorization){auth.requireAdmin(authorization);return metrics.snapshot();}
 
     // 372.ro식 관심·알림·커뮤니티 기능. 읽기 공개 범위는 기존 시세/뉴스와 동일하고,
     // 변경 작업은 Firebase로 인증된 사용자만 수행할 수 있다.

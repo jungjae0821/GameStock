@@ -3,9 +3,9 @@ spring:
     name: gamestock-backend
   task:
     scheduling:
-      # 외부 RSS·X·수온 조회가 VI·서킷브레이커의 자동 재개를 막지 않게 한다.
+      # 4개 매칭 그룹과 뉴스·유동성·보호장치 작업을 함께 실행한다.
       pool:
-        size: 4
+        size: 8
   datasource:
     # Railway에서는 DB_URL을 지정하거나 MYSQLHOST/MYSQLPORT/MYSQLDATABASE를
     # 서비스 변수로 연결한다. 값이 없으면 기존 로컬 MySQL로 접속한다.
@@ -15,11 +15,41 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       connection-init-sql: "SET time_zone = '+00:00'"
+      data-source-properties:
+        useServerPrepStmts: true
+        cachePrepStmts: true
+        prepStmtCacheSize: 128
+        prepStmtCacheSqlLimit: 65536
 server:
+  shutdown: graceful
   # Railway가 할당한 포트를 우선 사용하고, 로컬에서는 8081을 사용한다.
   port: ${PORT:8081}
   error:
     include-message: always
+market:
+  matching:
+    enabled: ${GAMESTOCK_MATCHING_ENABLED:true}
+  websocket:
+    interval-ms: ${GAMESTOCK_WS_INTERVAL_MS:100}
+  persistence:
+    max-attempts: ${GAMESTOCK_DB_BATCH_ATTEMPTS:4}
+  batch:
+    enabled: ${GAMESTOCK_BATCH_BOTS_ENABLED:true}
+    participants: ${GAMESTOCK_BOT_PARTICIPANTS:6020}
+    target-per-symbol: ${GAMESTOCK_TARGET_FILLS_PER_SYMBOL:300}
+    book-cache: true
+    compact-ledger: true
+    inline-liquidity: true
+    active-cadence-ms: ${GAMESTOCK_ACTIVE_BATCH_MS:100}
+    # 사용자 거래 원장은 유지한다. 봇 전용 상세 로그만 보관 기한 후 집계로 남긴다.
+    detail-retention-minutes: ${GAMESTOCK_BOT_DETAIL_MINUTES:15}
+    adaptive: ${GAMESTOCK_ADAPTIVE_ACTIVITY:true}
+    # 30분 주기 갱신 안에서만 사용하는 매칭 속도. 무접속 상시 체결 목표가 아니다.
+    idle-target-per-symbol: ${GAMESTOCK_IDLE_FILLS_PER_SYMBOL:30}
+    idle-after-ms: ${GAMESTOCK_MARKET_IDLE_AFTER_MS:120000}
+    # 무접속 중에는 30분마다 짧은 실제 매칭만 수행한다. 밀린 체결은 소급 생성하지 않는다.
+    idle-refresh-ms: ${GAMESTOCK_IDLE_REFRESH_MS:1800000}
+    idle-refresh-batches: ${GAMESTOCK_IDLE_REFRESH_BATCHES:5}
 gamestock:
   cors-origin: ${GAMESTOCK_CORS_ORIGIN:http://localhost:8080}
   auth:
@@ -27,8 +57,8 @@ gamestock:
     admin-google-uid: ${GAMESTOCK_ADMIN_GOOGLE_UID:}
     admin-google-email: ${GAMESTOCK_ADMIN_GOOGLE_EMAIL:}
   simulation:
-    # 같은 시드와 DB 스냅샷을 사용하면 봇 틱을 재현할 수 있다.
-    seed: ${GAMESTOCK_SIMULATION_SEED:20260910}
+    # 고정 seed는 초기 프로필/환경을 재현한다. 생략하면 실행마다 무작위 seed를 사용한다.
+    seed: ${GAMESTOCK_SIMULATION_SEED:}
   hangang:
     enabled: ${GAMESTOCK_HANGANG_ENABLED:true}
     site-url: ${GAMESTOCK_HANGANG_SITE_URL:https://xn--939at9l4tgt7l6ps.com/ko}

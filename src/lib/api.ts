@@ -21,6 +21,9 @@ const API_BASES = [...new Set(
     .map((base) => base.replace(/\/$/, "")),
 )];
 
+let connectedApiBase = API_BASES[0];
+export const currentApiBaseUrl = () => connectedApiBase;
+
 export class ApiError extends Error {
   readonly status: number;
 
@@ -41,7 +44,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (user) headers.set("Authorization", `Bearer ${await user.getIdToken()}`);
 
   let lastNetworkError: unknown;
-  for (const base of API_BASES) {
+  const readOnly = !init.method || ["GET", "HEAD", "OPTIONS"].includes(init.method.toUpperCase());
+  // A timed-out mutation may already have committed. Never replay it against another database.
+  for (const base of readOnly ? [...new Set([connectedApiBase, ...API_BASES])] : [connectedApiBase]) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
     const abortFromCaller = () => controller.abort();
@@ -52,6 +57,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     try {
       const response = await fetch(`${base}${path}`, { ...init, headers, signal: controller.signal });
       if (response.ok) {
+        if (connectedApiBase !== base) {
+          connectedApiBase = base;
+          window.dispatchEvent(new Event("gamestock:api-base"));
+        }
         if (response.status === 204) return undefined as T;
         return (await response.json()) as T;
       }

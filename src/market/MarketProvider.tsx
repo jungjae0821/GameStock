@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { firebaseAuth } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
+import { openMarketStream } from "./stream";
 import { requireSignIn } from "../lib/auth";
 import { INITIAL_CASH, MarketEngine } from "./engine";
 import { serverTimestamp } from "./format";
@@ -145,18 +146,57 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const watchSettledSeq = useRef(0);
   const hasServerSnapshotRef = useRef(false);
   const activeDetailCodeRef = useRef<string | null>(null);
+  const streamRef = useRef<ReturnType<typeof openMarketStream> | null>(null);
+  const streamReadyRef = useRef(false);
+  const lastRestRef = useRef(0);
+  const privateRevisionRef = useRef(0);
   const refreshInFlightRef = useRef(false);
   const detailRefreshInFlightRef = useRef(false);
   const snapshotFillsRef = useRef<Portfolio["fills"]>([]);
 
   useEffect(() => {
     let cancelled = false;
+    const stream = openMarketStream((message) => {
+      if (cancelled) return;
+      if (message.type === "MARKET_SYMBOL") {
+        const data = message.payload as { symbol: string; stock: BackendStock; orderbook?: BackendOrderBook; trades?: BackendTrade[] };
+        if (!data?.stock || !LISTING_BY_CODE[data.symbol]) return;
+        setSnapshot((current) => {
+          const old = current.quotes[data.symbol];
+          if (!old) return current;
+          const stock = data.stock;
+          const prices = old.series[old.series.length - 1] === stock.price ? old.series : [...old.series, stock.price].slice(-60);
+          const prints = data.trades?.length ? data.trades.map((trade) => ({
+            at: serverTimestamp(trade.createdAt) || Date.now(), price: trade.price, qty: trade.quantity,
+            side: trade.side.toUpperCase() === "BUY" ? "buy" as const : "sell" as const,
+          })) : old.prints;
+          const levels = (value: BackendOrderBookLevel[]) => value.slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
+          return { ...current, updatedAt: Date.now(), quotes: { ...current.quotes, [data.symbol]: {
+            ...old, price: stock.price, volume: stock.volume, restriction: stock.restriction,
+            high: Math.max(old.high, stock.price), low: Math.min(old.low, stock.price), series: prices, prints,
+            bids: data.orderbook ? levels(data.orderbook.bids) : old.bids, asks: data.orderbook ? levels(data.orderbook.asks) : old.asks,
+          } } };
+        });
+      } else if (["AUTHENTICATED", "ACCOUNT_UPDATED", "PORTFOLIO_UPDATED", "ORDER_CANCELLED", "ORDER_EXPIRED"].includes(message.type)) {
+        const data = message.payload as { portfolio?: BackendPortfolio; settlements?: BackendSettlement[] };
+        if (!firebaseAuth.currentUser || !data?.portfolio) return;
+        privateRevisionRef.current++;
+        if (data.settlements) snapshotFillsRef.current = data.settlements.map((trade) => ({
+          id: trade.id, code: trade.stockCode, side: trade.side.toUpperCase() === "BUY" ? "buy" : "sell",
+          qty: trade.quantity, price: trade.quantity > 0 ? trade.grossAmount / trade.quantity : 0, at: serverTimestamp(trade.createdAt),
+        }));
+        setSnapshot((current) => ({ ...current, portfolio: { ...toPortfolio(data.portfolio), fills: snapshotFillsRef.current }, updatedAt: Date.now() }));
+      }
+    }, (ready) => { streamReadyRef.current = ready; });
+    streamRef.current = stream;
     const refresh = async () => {
       // A slow request must not overlap the next two-second poll. Overlapping
       // retries make a short backend restart look like a request storm.
-      if (refreshInFlightRef.current) return;
+      if (refreshInFlightRef.current || streamReadyRef.current && Date.now() - lastRestRef.current < 30_000) return;
+      lastRestRef.current = Date.now();
       refreshInFlightRef.current = true;
       const refreshingUid = firebaseAuth.currentUser?.uid;
+      const privateRevision = privateRevisionRef.current;
       try {
         const [stocks, events, market] = await Promise.all([
           apiFetch<BackendStock[]>("/api/stocks"),
@@ -198,7 +238,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         if (!cancelled && firebaseAuth.currentUser?.uid === refreshingUid) {
           const nextSnapshot = toSnapshot(stocks, events, portfolio, watchRef.current, market);
           nextSnapshot.portfolio.fills = fills;
-          snapshotFillsRef.current = fills;
+          if (privateRevision === privateRevisionRef.current) snapshotFillsRef.current = fills;
           // The two-second quote refresh must not clear the one-second detail
           // data while the order book/trade requests are in flight. Keeping
           // the previous rows prevents a visible empty-frame flicker.
@@ -222,9 +262,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
               } : { ...quote, series: nextSeries.slice(-60) }];
             }));
             hasServerSnapshotRef.current = true;
-            return { ...nextSnapshot, quotes };
+            return { ...nextSnapshot, quotes, portfolio: privateRevision === privateRevisionRef.current ? nextSnapshot.portfolio : current.portfolio };
           });
           setServerAvailable(true);
+          stream.subscribe(activeDetailCodeRef.current ? [activeDetailCodeRef.current] : nextSnapshot.codes, activeDetailCodeRef.current);
         }
         void refreshDetails();
       } catch {
@@ -240,7 +281,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       const code = activeDetailCodeRef.current;
       // Order books and recent trades are only needed on a stock detail page.
       // Fetching every listing here made every route issue 30 requests per second.
-      if (!code) return;
+      if (!code || streamReadyRef.current) return;
       if (detailRefreshInFlightRef.current) return;
       detailRefreshInFlightRef.current = true;
       try {
@@ -298,6 +339,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     const timer = window.setInterval(() => void refresh(), 2000);
     const detailTimer = window.setInterval(() => void refreshDetails(), 2000);
     const unsubscribe = onAuthStateChanged(firebaseAuth, () => {
+      lastRestRef.current = 0;
       watchRef.current = [];
       snapshotFillsRef.current = [];
       setSnapshot((current) => ({ ...current, watch: [], portfolio: toPortfolio() }));
@@ -305,6 +347,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     });
     return () => {
       cancelled = true;
+      stream.close(); streamRef.current = null;
       window.clearInterval(timer);
       window.clearInterval(detailTimer);
       unsubscribe();
@@ -394,6 +437,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     },
     setActiveDetailCode: (code) => {
       activeDetailCodeRef.current = code;
+      streamRef.current?.subscribe(code ? [code] : snapshot.codes, code);
     },
     claimMissionReward: async (missionId) => {
       const claimant = firebaseAuth.currentUser;
