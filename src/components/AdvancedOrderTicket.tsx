@@ -3,6 +3,7 @@ import { won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import type { OrderResult } from "../market/types";
 import { requireSignIn } from "../lib/auth";
+import { nextTickPrice, previousTickPrice, roundToTick, tickSize } from "../market/universe";
 
 const RATIOS = [
   { label: "10%", ratio: 0.1 },
@@ -23,12 +24,23 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
 
   useEffect(() => {
     if (selectedLimitPrice === undefined || selectedLimitPrice === null) return;
-    setLimitPrice(String(selectedLimitPrice));
+    setLimitPrice(String(roundToTick(selectedLimitPrice)));
     setOrderType("LIMIT");
     setResult(null);
   }, [selectedLimitPrice]);
 
   const quote = snapshot.quotes[code];
+
+  const moveLimitPrice = (direction: "up" | "down") => {
+    if (!quote || (quote.restriction && !quote.restriction.limitOrdersAllowed)) return;
+    const typedPrice = Number(limitPrice);
+    const currentPrice = Number.isFinite(typedPrice) && typedPrice > 0 ? typedPrice : quote.price;
+    const nextPrice = direction === "up" ? nextTickPrice(currentPrice) : previousTickPrice(currentPrice);
+    setOrderType("LIMIT");
+    setLimitPrice(String(nextPrice));
+    setResult(null);
+  };
+
   if (!quote) return null;
 
   const position = snapshot.portfolio.positions[code];
@@ -86,7 +98,7 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
               setResult(null);
               if (orderType === "LIMIT") {
                 const nextSuggested = option === "buy" ? quote.asks[0]?.price ?? quote.price : quote.bids[0]?.price ?? quote.price;
-                setLimitPrice(String(nextSuggested));
+                setLimitPrice(String(roundToTick(nextSuggested)));
               }
             }}
           >
@@ -106,7 +118,7 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
             onClick={() => {
               setOrderType(option);
               setResult(null);
-              if (option === "LIMIT") setLimitPrice(String(suggestedLimit));
+              if (option === "LIMIT") setLimitPrice(String(roundToTick(suggestedLimit)));
             }}
           >
             {option === "MARKET" ? "시장가 즉시" : restriction?.phase === "AUCTION" ? "단일가 지정가" : "호가 지정가"}
@@ -153,8 +165,13 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
               type="number"
               inputMode="numeric"
               min={1}
-              step={1}
+              step={tickSize(Number(limitPrice) > 0 ? Number(limitPrice) : quote.price)}
               value={limitPrice}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+                event.preventDefault();
+                moveLimitPrice(event.key === "ArrowUp" ? "up" : "down");
+              }}
               onChange={(event) => {
                 setLimitPrice(event.target.value);
                 setResult(null);
