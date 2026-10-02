@@ -974,8 +974,16 @@
       min-width: 0;
     }
 
-    .name-text {
+    .table .name-link {
+      min-width: 0;
+    }
+
+    .table .name-text {
+      min-width: 0;
+      overflow: hidden;
       font-size: var(--step-1);
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .watch-button {
