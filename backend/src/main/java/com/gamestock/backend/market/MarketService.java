@@ -1308,6 +1308,7 @@ public class MarketService {
         // Measure live depth before withdrawing our quotes; replacement itself is not a liquidity crisis.
         PriceMetricService.Metrics metrics = metrics(code, 0);
         cancelBotOrders(lp, stockId(code));
+        ensureLiquidityInventory(code, lp);
         OrderBook externalBook=orderBook(code);
         PriceBand band=botPriceBand(code);
         MarketMakerEngine.QuoteConstraints constraints=new MarketMakerEngine.QuoteConstraints(band.lowerPrice(),band.upperPrice(),
@@ -1496,8 +1497,13 @@ public class MarketService {
                 Timestamp.from(clock.instant().plusMillis(4000)),compactLedger);
     }
 
-    /** Seed finite inventory once; a later sale is never replenished automatically. */
-    private void seedLiquidityInventory(String code, long userId) {
+    /**
+     * Seed a new LP lot and restore only a fully depleted lot.
+     *
+     * A non-zero holding remains persistent across restarts, but a zero holding
+     * must not permanently remove the sole public sell-side counterparty.
+     */
+    private void ensureLiquidityInventory(String code, long userId) {
         long id = stockId(code);
         List<HoldingState> holdings = jdbc.query("""
                 SELECT quantity, settled_quantity, average_price, realized_profit_loss
@@ -1512,6 +1518,14 @@ public class MarketService {
                     INSERT INTO portfolios (user_id, stock_id, quantity, settled_quantity, average_price, realized_profit_loss)
                     VALUES (?, ?, ?, ?, ?, 0)
                     """, userId, id, LP_INITIAL_INVENTORY, LP_INITIAL_INVENTORY, findStock(code).price());
+        } else if (holdings.get(0).quantity() <= 0) {
+            // Replenish only after the previous lot is fully consumed. This
+            // preserves ordinary fills and avoids a full production reset.
+            jdbc.update("""
+                    UPDATE portfolios
+                    SET quantity = ?, settled_quantity = ?, average_price = ?
+                    WHERE user_id = ? AND stock_id = ?
+                    """, LP_INITIAL_INVENTORY, LP_INITIAL_INVENTORY, findStock(code).price(), userId, id);
         }
     }
 
@@ -1566,8 +1580,8 @@ public class MarketService {
             for (String code : codes) {
                 long id = stockId(code);
                 Stock stock = findStock(code);
-                seedLiquidityInventory(code,lp);
-                // No reset/refill on restart: persistent opening allocations and trade baselines are retained.
+                ensureLiquidityInventory(code,lp);
+                // Non-zero allocations and trade baselines are retained across restarts.
                 jdbc.update("INSERT IGNORE INTO lp_risk_books VALUES (?,?,?,?,?,?)",
                         id,allocation,baseline,batchEnabled?100:400,1200,stock.price()*1200L);
                 jdbc.update("INSERT IGNORE INTO market_price_metrics (stock_id,mark_price,hidden_fundamental,anchor_price) VALUES (?,?,?,?)",

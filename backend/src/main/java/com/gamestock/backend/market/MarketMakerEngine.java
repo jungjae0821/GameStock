@@ -4,7 +4,7 @@ import java.util.*;
 import static com.gamestock.backend.market.MarketEnvironment.clamp;
 import static com.gamestock.backend.market.PriceLimitPolicy.*;
 
-/** RiskBook is reconstructed from persistent opening allocation and actual fills. No refill/minting. */
+/** RiskBook is reconstructed from persistent allocations and actual fills. */
 public final class MarketMakerEngine {
     public record RiskBook(long cashBudget,int inventory,int targetInventory,int maxInventory,long riskLimit) {}
     public record Quote(String side,double price,int quantity) {}

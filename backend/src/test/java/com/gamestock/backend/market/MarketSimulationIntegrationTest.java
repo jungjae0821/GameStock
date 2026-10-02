@@ -288,6 +288,15 @@ class MarketSimulationIntegrationTest {
         MarketMakerEngine.RiskBook changed=ReflectionTestUtils.invokeMethod(market,"liquidityRiskBook","UMA",lp);
         assertEquals(405,changed.inventory());
     }
+    @Test @Order(1) void fullyDepletedLpInventoryRestoresSellSideLiquidity() {
+        long lp=id("liquidity_provider");
+        jdbc.update("UPDATE portfolios SET quantity=0, settled_quantity=0 WHERE user_id=? AND stock_id=?",lp,stock);
+
+        market.liquidityBotAction("UMA","BOTH");
+
+        assertEquals(400,jdbc.queryForObject("SELECT quantity FROM portfolios WHERE user_id=? AND stock_id=?",Integer.class,lp,stock));
+        assertTrue(jdbc.queryForObject("SELECT COUNT(*) FROM orders WHERE user_id=? AND stock_id=? AND side='SELL' AND status='OPEN'",Integer.class,lp,stock)>0);
+    }
     @Test @Order(1) void lpReplacesBothSidesAtBandBoundaryWithoutChangingLastPrice() {
         jdbc.update("UPDATE stocks SET current_price=11990 WHERE id=?",stock);
         for(int action=0;action<5;action++) market.liquidityBotAction("UMA","BOTH");
