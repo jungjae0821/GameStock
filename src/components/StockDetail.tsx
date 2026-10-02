@@ -1,23 +1,17 @@
-import { useEffect } from "react";
 import { Delta } from "./Delta";
 import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
-import { OrderTicket } from "./OrderTicket";
 import { PriceCell } from "./PriceCell";
 import { ReferenceSeriesChart } from "./ReferenceSeriesChart";
 import { clock, shares, won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
+import { TRADE_PATH } from "../router";
 
 export function StockDetail({ code }: { code: string }) {
   const snapshot = useMarket();
   const api = useMarketApi();
-  const setActiveDetailCode = api.setActiveDetailCode;
-  useEffect(() => {
-    setActiveDetailCode(code);
-    return () => setActiveDetailCode(null);
-  }, [setActiveDetailCode, code]);
   const listing = LISTING_BY_CODE[code];
   const quote = snapshot.quotes[code];
 
@@ -90,11 +84,16 @@ export function StockDetail({ code }: { code: string }) {
         </section>
       )}
 
-      <section aria-labelledby="detail-order">
-        <h3 id="detail-order" className="sub-title">
-          주문
-        </h3>
-        <OrderTicket key={code} code={code} />
+      <section className="detail-trade-cta" aria-labelledby="detail-trade-title">
+        <div>
+          <h3 id="detail-trade-title" className="sub-title">
+            거래
+          </h3>
+          <p>상세 차트와 주문창에서 매수·매도를 진행할 수 있습니다.</p>
+        </div>
+        <Link className="detail-trade-button" to={TRADE_PATH(code)}>
+          거래 화면 열기
+        </Link>
       </section>
 
       {fills.length > 0 && (

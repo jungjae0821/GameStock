@@ -1,7 +1,6 @@
 import { SeriesChart } from "./SeriesChart";
-import { compactWon, shares, won } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
-import { sessionRate, strengthRatio } from "../market/selectors";
+import { sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
 
 export function StockChartPanel({ code }: { code: string }) {
@@ -17,16 +16,6 @@ export function StockChartPanel({ code }: { code: string }) {
   return (
     <section className="stock-chart-card" aria-label={`${listing.name} 가격 차트`}>
       <SeriesChart code={code} tone={tone} />
-      <dl className="stock-session-stats">
-        <div><dt>시가</dt><dd className="num">{won(quote.open)}</dd></div>
-        <div><dt>고가</dt><dd className="num">{won(quote.high)}</dd></div>
-        <div><dt>저가</dt><dd className="num">{won(quote.low)}</dd></div>
-        <div><dt>상한가</dt><dd className="num">{won(quote.limitUp)}</dd></div>
-        <div><dt>거래량</dt><dd className="num">{shares(quote.volume)}</dd></div>
-        <div><dt>거래대금</dt><dd className="num">{compactWon(quote.volume * quote.price)}</dd></div>
-        <div><dt>하한가</dt><dd className="num">{won(quote.limitDown)}</dd></div>
-        <div><dt>체결강도</dt><dd className="num">{Math.round(strengthRatio(quote) * 100)}%</dd></div>
-      </dl>
     </section>
   );
 }
