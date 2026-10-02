@@ -288,10 +288,13 @@ public class MarketService {
         long started=System.nanoTime();
         BatchMarketRepository repository=new BatchMarketRepository(jdbc,compactLedger?botJournal:null);
         BatchOrderBook book=bookCacheEnabled?lane.cache.borrow(repository,now,lane.stocks,lane.users):repository.load(now,lane.stocks,lane.users);
-        if(inlineMarketMaker)for(long stock:book.stocks.keySet())if(!book.lpCashBudgets.containsKey(stock)) {
-            long total=liquidityAllocatedCash(stock,activityLpId);
-            long reserved=book.working(activityLpId,stock).stream().mapToLong(o->o.reservedCash).sum();
-            book.lpCashBudgets.put(stock,total-reserved);
+        if(inlineMarketMaker)for(var stock:book.stocks.values()) {
+            book.restoreLiquidityInventory(activityLpId,stock.id,LP_INITIAL_INVENTORY,stock.last);
+            if(!book.lpCashBudgets.containsKey(stock.id)) {
+                long total=liquidityAllocatedCash(stock.id,activityLpId);
+                long reserved=book.working(activityLpId,stock.id).stream().mapToLong(o->o.reservedCash).sum();
+                book.lpCashBudgets.put(stock.id,total-reserved);
+            }
         }
         long loaded=System.nanoTime();
         if(lane.lastObservation==0 || now-lane.lastObservation>=500) {

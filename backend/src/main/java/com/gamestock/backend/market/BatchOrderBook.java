@@ -96,6 +96,14 @@ final class BatchOrderBook {
         while(!expirations.isEmpty() && expirations.peek().expiresAt<=now)cancel(expirations.remove());
     }
     Holding holding(long user,long stock) {return holdings.getOrDefault(new PositionKey(user,stock),EMPTY);}
+    /** Restore only a fully depleted LP lot before inline quotes are generated. */
+    void restoreLiquidityInventory(long user,long stock,int quantity,long average) {
+        PositionKey key=new PositionKey(user,stock);
+        Holding current=holdings.get(key);
+        if(current!=null && current.quantity()>0)return;
+        holdings.put(key,new Holding(quantity,quantity,average,current==null?0:current.realized()));
+        changedHoldings.add(key);
+    }
     int available(long user,long stock) {return holding(user,stock).settled-reservedSells.getOrDefault(new PositionKey(user,stock),0);}
     List<Order> working(long user,long stock) {
         return List.copyOf(byOwner.getOrDefault(new PositionKey(user,stock),Set.of()));

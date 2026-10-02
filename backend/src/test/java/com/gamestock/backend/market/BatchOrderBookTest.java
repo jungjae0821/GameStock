@@ -84,4 +84,18 @@ class BatchOrderBookTest {
         assertEquals(49980,b.lpCashBudgets.get(1L));assertEquals(25000,b.lpCashBudgets.get(2L));
         b.beginBatch(1004);assertEquals(49980,b.lpCashBudgets.get(1L));
     }
+    @Test void depletedInlineLiquidityInventoryRestoresOnceAndPreservesRealizedProfit() {
+        var b=book(1000000);
+        b.restoreLiquidityInventory(2,1,400,10050);
+        assertEquals(100,b.holding(2,1).quantity());
+
+        var key=new PositionKey(2,1);
+        b.holdings.put(key,new Holding(0,0,0,77));
+        b.restoreLiquidityInventory(2,1,400,10050);
+        assertEquals(new Holding(400,400,10050,77),b.holding(2,1));
+        assertTrue(b.changedHoldings.contains(key));
+
+        b.restoreLiquidityInventory(2,1,400,11000);
+        assertEquals(new Holding(400,400,10050,77),b.holding(2,1));
+    }
 }
