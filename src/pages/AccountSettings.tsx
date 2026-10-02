@@ -16,6 +16,8 @@ type Profile = {
   email: string;
   profileCompleted: boolean;
   resetAvailable: boolean;
+  nicknameChangeAvailable?: boolean;
+  nicknameChangeAvailableAt?: string | null;
 };
 
 type CompletedTrade = {
@@ -62,6 +64,13 @@ export function AccountSettings() {
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [message, setMessage] = useState("");
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const nextNicknameChange = profile?.nicknameChangeAvailableAt ? Date.parse(profile.nicknameChangeAvailableAt) : null;
+  const nicknameLocked = profile?.nicknameChangeAvailable === false && (nextNicknameChange === null || now < nextNicknameChange);
 
   useEffect(() => onAuthStateChanged(firebaseAuth, setUser), []);
 
@@ -233,10 +242,13 @@ export function AccountSettings() {
             <form className="account-form" onSubmit={(event) => { event.preventDefault(); void saveNickname(); }}>
               <label htmlFor="mypage-nickname">닉네임</label>
               <div className="account-input-row">
-                <input id="mypage-nickname" value={nickname} minLength={2} maxLength={50} required onChange={(event) => setNickname(event.target.value)} />
-                <button type="submit" className="account-button is-primary" disabled={saving || !profile}>{saving ? "저장 중…" : "저장"}</button>
+                <input id="mypage-nickname" value={nickname} disabled={nicknameLocked} minLength={2} maxLength={50} required onChange={(event) => setNickname(event.target.value)} />
+                <button type="submit" className="account-button is-primary" disabled={saving || !profile || nicknameLocked || nickname.trim() === profile.nickname}>{saving ? "저장 중…" : "저장"}</button>
               </div>
-              <p className="account-hint">서비스에서 사용할 이름 · 2~50자</p>
+              <p className="account-hint">닉네임은 3일에 한 번 변경할 수 있습니다. · 2~50자</p>
+              {nicknameLocked && nextNicknameChange !== null && <p className="account-hint">
+                다음 변경 가능: {new Date(nextNicknameChange).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} (한국시간)
+              </p>}
             </form>
             <div className="account-identity">
               <span className="account-label">로그인 계정</span>

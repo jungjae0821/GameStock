@@ -12,6 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
 import java.time.Instant;
+import java.time.Clock;
+import java.time.Duration;
+import java.sql.Timestamp;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,6 +24,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AuthService {
     private static final long MOBILE_CODE_TTL_SECONDS = 120;
     private final JdbcTemplate jdbc;
+    private final Clock clock;
     private final Map<String, PendingMobileCode> mobileCodes = new ConcurrentHashMap<>();
     /**
      * The administrator is still authenticated by Firebase. These optional
@@ -32,7 +36,13 @@ public class AuthService {
     @Value("${gamestock.auth.admin-google-email:}")
     private String adminGoogleEmail;
 
-    public AuthService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    @org.springframework.beans.factory.annotation.Autowired
+    public AuthService(JdbcTemplate jdbc) { this(jdbc, Clock.systemUTC()); }
+
+    AuthService(JdbcTemplate jdbc, Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
+    }
 
     @Transactional
     public LoginUser requireUser(String authorization) {
@@ -91,9 +101,20 @@ public class AuthService {
     }
 
     public Profile profile(long userId) {
-        return jdbc.queryForObject("SELECT nickname, email, profile_image_url, profile_completed, reset_used_at FROM users WHERE id = ?",
-                (rs, row) -> new Profile(rs.getString("nickname"), rs.getString("email"),
-                        rs.getString("profile_image_url"), rs.getBoolean("profile_completed"), rs.getTimestamp("reset_used_at") == null), userId);
+        return readProfile(userId, false);
+    }
+
+    private Profile readProfile(long userId, boolean lock) {
+        return jdbc.queryForObject("SELECT nickname, email, profile_image_url, profile_completed, reset_used_at, nickname_changed_at FROM users WHERE id = ?" + (lock ? " FOR UPDATE" : ""),
+                (rs, row) -> {
+                    Timestamp changedAt = rs.getTimestamp("nickname_changed_at");
+                    Instant nextChange = changedAt == null ? null : changedAt.toInstant().plus(Duration.ofDays(3));
+                    return new Profile(rs.getString("nickname"), rs.getString("email"),
+                            rs.getString("profile_image_url"), rs.getBoolean("profile_completed"),
+                            rs.getTimestamp("reset_used_at") == null,
+                            nextChange == null || !clock.instant().isBefore(nextChange),
+                            nextChange == null ? null : nextChange.toString());
+                }, userId);
     }
 
     @Transactional
@@ -103,15 +124,23 @@ public class AuthService {
             throw new IllegalArgumentException("닉네임은 2~50자로 입력해 주세요.");
         String image = update.profileImageUrl() == null ? "" : update.profileImageUrl().trim();
         if (image.length() > 500) throw new IllegalArgumentException("프로필 이미지 주소가 너무 깁니다.");
+        // Serialize concurrent profile changes on the user's row.
+        Profile current = readProfile(userId, true);
+        boolean changed = !nickname.equals(current.nickname());
+        if (changed && !current.nicknameChangeAvailable())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "닉네임은 3일에 한 번 변경할 수 있습니다.");
         try {
-            jdbc.update("UPDATE users SET nickname = ?, profile_image_url = ?, profile_completed = TRUE WHERE id = ?",
-                    nickname, image, userId);
+            if (changed) {
+                jdbc.update("UPDATE users SET nickname = ?, profile_image_url = ?, profile_completed = TRUE, nickname_changed_at = ? WHERE id = ?",
+                        nickname, image, Timestamp.from(clock.instant()), userId);
+            } else {
+                jdbc.update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", image, userId);
+            }
         } catch (DuplicateKeyException error) {
             throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
         }
         return profile(userId);
     }
-
     private LoginUser findOrCreate(FirebaseToken token) {
         // The existing google_uid column stores the Firebase UID for both providers.
         // Keep that key so existing Google accounts retain their assets and history.
@@ -127,7 +156,7 @@ public class AuthService {
             for (int attempt = 0; attempt < 10; attempt++) {
                 try {
                     // 신규 계정은 자동 닉네임으로 바로 생성한다. 사용자는 이후
-                    // 마이페이지에서 원하는 닉네임으로 자유롭게 변경할 수 있다.
+                    // 마이페이지에서 닉네임을 변경할 수 있다. 변경 후에는 3일간 기다린다.
                     jdbc.update("INSERT INTO users (username, password_hash, nickname, google_uid, email, profile_image_url, profile_completed, cash) VALUES (?, 'FIREBASE', ?, ?, ?, ?, TRUE, 1000000)",
                             username, nickname, token.getUid(), email, picture);
                     break;
@@ -195,9 +224,9 @@ public class AuthService {
         }
     }
     public record Profile(String nickname, String email, String profileImageUrl, boolean profileCompleted,
-                          boolean resetAvailable) {
+                          boolean resetAvailable, boolean nicknameChangeAvailable, String nicknameChangeAvailableAt) {
         public Profile(String nickname, String email, String profileImageUrl, boolean profileCompleted) {
-            this(nickname, email, profileImageUrl, profileCompleted, true);
+            this(nickname, email, profileImageUrl, profileCompleted, true, true, null);
         }
     }
     public record ProfileUpdate(String nickname, String profileImageUrl) { }

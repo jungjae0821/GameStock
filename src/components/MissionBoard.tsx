@@ -155,7 +155,7 @@ export function MissionBoard() {
 
   return (
     <Panel id="mission-board" title="오늘의 투자 미션" meta={user && !ready ? (error ? "확인 필요" : "확인 중") : `${count}/${MISSION_IDS.length} 완료`}>
-      <p className="mission-reset-note">한국시간 매일 00:00 초기화</p>
+      <p className="mission-reset-note">미션 수행 완료 시 하루 최대 15만원 획득가능</p>
       {error && <p className="mission-reset-note" role="status">{error}</p>}
       <div className="mission-list">
         {MISSION_IDS.map((id) => {
@@ -166,8 +166,9 @@ export function MissionBoard() {
               <div className="mission-copy">
                 <h3>{mission.title}</h3>
                 <p>{mission.description}</p>
+                <p className="mission-reset-note">완료 보상 50,000원</p>
               </div>
-              {done[id] ? <span className="mission-status">완료</span> : !user ? (
+              {done[id] ? <span className="mission-status">5만원 수령 완료</span> : !user ? (
                 <button
                   type="button"
                   className="mission-action"

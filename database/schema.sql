@@ -7,6 +7,7 @@ CREATE TABLE users (
   username VARCHAR(128) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   nickname VARCHAR(50) NOT NULL UNIQUE,
+  nickname_changed_at TIMESTAMP NULL,
   google_uid VARCHAR(128) NULL UNIQUE,
   email VARCHAR(255) NULL,
   profile_image_url VARCHAR(500) NULL,
