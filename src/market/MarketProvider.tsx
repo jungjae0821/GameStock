@@ -16,7 +16,6 @@ export interface MarketApi {
   toggleWatch: (code: string) => void;
   setActiveDetailCode: (code: string | null) => void;
   claimMissionReward: (missionId: string) => Promise<{ rewardCash: number; awarded: boolean; missions: DailyMissionStatus }>;
-  reset: () => void;
 }
 
 type BackendStock = { code: string; name: string; genre: string; price: number; changePercent: number; volume: number; restriction?: TradingRestriction | null };
@@ -368,10 +367,6 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         }));
       }
       return { rewardCash: result.rewardCash, awarded: result.awarded, missions: result.missions };
-    },
-    reset: () => {
-      if (!requireSignIn()) return;
-      void apiFetch("/api/account/reset", { method: "DELETE" }).then(() => window.location.reload()).catch(() => undefined);
     },
   }), [snapshot]);
 

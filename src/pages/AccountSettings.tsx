@@ -205,14 +205,13 @@ export function AccountSettings() {
   };
 
   const resetAccount = async () => {
-    if (!window.confirm("현금과 보유 주식, 거래 내역을 초기 상태로 되돌릴까요?")) return;
+    if (!window.confirm("현금과 보유 주식, 거래 내역, 투자 미션을 초기 상태로 되돌릴까요?")) return;
     setResetting(true);
     setMessage("");
     try {
       await apiFetch("/api/account/reset", { method: "DELETE" });
-      setCompletedTrades([]);
-      setProfile((current) => current ? { ...current, resetAvailable: false } : current);
-      setMessage("계좌를 초기화했습니다. 시작 금액 1,000,000원으로 돌아갔습니다.");
+      // Reload private views so stale mission completions cannot survive the reset.
+      window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "인생 리셋에 실패했습니다.");
     } finally {
@@ -379,7 +378,7 @@ export function AccountSettings() {
       </details>
 
       <div className="account-reset">
-        <div><h3>인생 리셋</h3><p className="account-hint">시작 자본으로 돌아갑니다. 보유 주식과 거래 기록이 삭제됩니다.</p></div>
+        <div><h3>인생 리셋</h3><p className="account-hint">시작 자본으로 돌아갑니다. 보유 주식과 거래 기록, 투자 미션도 초기화됩니다.</p></div>
         <button type="button" className="account-button is-danger" onClick={() => void resetAccount()} disabled={loading || resetting || !profile || !profile.resetAvailable}>
           {resetting ? "초기화 중…" : "계좌 초기화"}
         </button>
