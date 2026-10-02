@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -19,6 +20,8 @@ public class TradingProtectionService {
     private static final long CB_HALT_SECONDS = 1200;
     private static final long CB_AUCTION_SECONDS = 600;
     private final JdbcTemplate jdbc;
+    // Wall clock in production; replaceable with a synchronized Java/SQL clock in soak tests.
+    private Clock clock = Clock.systemUTC();
 
     public TradingProtectionService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
@@ -66,7 +69,7 @@ public class TradingProtectionService {
     }
 
     public void refreshDay() {
-        LocalDate today = LocalDate.now(SEOUL);
+        LocalDate today = LocalDate.now(clock.withZone(SEOUL));
         jdbc.update("INSERT IGNORE INTO market_protection_state (id, trading_date) VALUES (1, ?)", today);
         MarketState state = marketState();
         if (!today.equals(state.day())) {
@@ -159,7 +162,7 @@ public class TradingProtectionService {
         boolean fixed = Math.abs(price / (double) ref[1] - 1) >= 0.10 - 1e-10;
         if (!dynamic && !fixed) return false;
         String kind = dynamic ? "DYNAMIC_VI" : "STATIC_VI";
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         Instant until = now.plusSeconds(VI_SECONDS);
         jdbc.update("UPDATE stock_protection_state SET vi_type = ?, started_at = ?, ends_at = ? WHERE stock_id = ?",
                 kind, Timestamp.from(now), Timestamp.from(until), ref[0]);
@@ -180,7 +183,7 @@ public class TradingProtectionService {
             jdbc.update("UPDATE market_protection_state SET below_since = NULL WHERE id = 1");
             return;
         }
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         if (state.belowSince() == null) {
             jdbc.update("UPDATE market_protection_state SET below_since = ? WHERE id = 1", Timestamp.from(now));
             return;
@@ -199,7 +202,7 @@ public class TradingProtectionService {
 
     public void advanceMarketPhase() {
         MarketState state = marketState();
-        if ("HALTED".equals(state.phase()) && !Instant.now().isBefore(state.endsAt())) {
+        if ("HALTED".equals(state.phase()) && !clock.instant().isBefore(state.endsAt())) {
             jdbc.update("UPDATE market_protection_state SET phase = 'AUCTION', ends_at = ? WHERE id = 1",
                     Timestamp.from(state.endsAt().plusSeconds(CB_AUCTION_SECONDS)));
         }
@@ -207,7 +210,7 @@ public class TradingProtectionService {
 
     public boolean marketAuctionDue() {
         MarketState state = marketState();
-        return "AUCTION".equals(state.phase()) && !Instant.now().isBefore(state.endsAt());
+        return "AUCTION".equals(state.phase()) && !clock.instant().isBefore(state.endsAt());
     }
 
     public List<String> dueViAuctions() {
@@ -215,7 +218,7 @@ public class TradingProtectionService {
         return jdbc.queryForList("""
                 SELECT s.stock_code FROM stock_protection_state p JOIN stocks s ON s.id = p.stock_id
                 WHERE p.vi_type IS NOT NULL AND p.ends_at <= ? ORDER BY s.id
-                """, String.class, Timestamp.from(Instant.now()));
+                """, String.class, Timestamp.from(clock.instant()));
     }
 
     public void finishAuction(String code, long price) {

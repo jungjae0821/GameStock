@@ -9,8 +9,10 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
     private final MarketSocketHandler handler;
-    public WebSocketConfig(MarketSocketHandler handler) { this.handler = handler; }
+    private final SubscriptionSocketHandler subscriptions;
+    public WebSocketConfig(MarketSocketHandler handler,SubscriptionSocketHandler subscriptions) { this.handler = handler;this.subscriptions=subscriptions; }
     @Override public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(handler, "/ws/market").setAllowedOriginPatterns("*");
+        registry.addHandler(subscriptions,"/ws/stream").setAllowedOriginPatterns("*");
     }
 }
