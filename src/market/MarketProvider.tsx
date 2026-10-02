@@ -12,11 +12,19 @@ import { BackendLoadingScreen } from "../components/BackendLoadingScreen";
 
 export interface MarketApi {
   placeOrder: (request: OrderRequest) => Promise<OrderResult>;
+  cancelOpenOrder: (code: string) => Promise<CancelOrdersResult>;
+  cancelAllOpenOrders: () => Promise<CancelOrdersResult>;
   orderable: (code: string, side: "buy" | "sell") => number;
   toggleWatch: (code: string) => void;
   setActiveDetailCode: (code: string | null) => void;
   claimMissionReward: (missionId: string) => Promise<{ rewardCash: number; awarded: boolean; missions: DailyMissionStatus }>;
 }
+
+export type CancelOrdersResult = {
+  ok: boolean;
+  cancelled: number;
+  message: string;
+};
 
 type BackendStock = { code: string; name: string; genre: string; price: number; changePercent: number; volume: number; restriction?: TradingRestriction | null };
 type BackendMarketStatus = { indexValue: number; tradingDate: string; restriction?: TradingRestriction | null };
@@ -38,6 +46,7 @@ type BackendEvent = {
 type BackendPosition = { stockCode: string; quantity: number; averagePrice: number };
 type BackendPortfolio = { cash: number; positions: BackendPosition[]; realizedProfitLoss?: number; attendanceRewardCash?: number };
 type BackendSettlement = { id: number; stockCode: string; side: string; quantity: number; grossAmount: number; createdAt: string };
+type BackendActiveOrder = { id: number; stockCode: string; status: string };
 type BackendMissionReward = { rewardCash: number; awarded: boolean; portfolio: BackendPortfolio; missions: DailyMissionStatus };
 
 const SnapshotContext = createContext<MarketSnapshot | null>(null);
@@ -328,6 +337,39 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         };
       } catch (error) {
         return { ok: false, message: error instanceof Error ? error.message : "주문 처리에 실패했습니다." };
+      }
+    },
+    cancelOpenOrder: async (code) => {
+      if (!requireSignIn(`/market/${code}`)) return { ok: false, cancelled: 0, message: "로그인 후 주문을 취소할 수 있습니다." };
+      try {
+        const orders = await apiFetch<BackendActiveOrder[]>("/api/orders");
+        const target = orders.find((order) => order.stockCode === code && order.status === "OPEN");
+        if (!target) return { ok: true, cancelled: 0, message: "현재 종목에 취소할 미체결 주문이 없습니다." };
+        await apiFetch(`/api/orders/${target.id}`, { method: "DELETE" });
+        return { ok: true, cancelled: 1, message: "현재 종목의 미체결 주문 1건을 취소했습니다." };
+      } catch (error) {
+        return { ok: false, cancelled: 0, message: error instanceof Error ? error.message : "주문 취소에 실패했습니다." };
+      }
+    },
+    cancelAllOpenOrders: async () => {
+      if (!requireSignIn()) return { ok: false, cancelled: 0, message: "로그인 후 주문을 취소할 수 있습니다." };
+      let cancelled = 0;
+      try {
+        // /api/orders는 화면용으로 최대 5건만 반환하므로, 남은 주문이 없어질 때까지 반복한다.
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          const orders = await apiFetch<BackendActiveOrder[]>("/api/orders");
+          if (orders.length === 0) break;
+          await Promise.all(orders.map((order) => apiFetch(`/api/orders/${order.id}`, { method: "DELETE" })));
+          cancelled += orders.length;
+          if (orders.length < 5) break;
+        }
+        return {
+          ok: true,
+          cancelled,
+          message: cancelled > 0 ? `미체결 주문 ${cancelled}건을 모두 취소했습니다.` : "취소할 미체결 주문이 없습니다.",
+        };
+      } catch (error) {
+        return { ok: false, cancelled, message: error instanceof Error ? error.message : "전체 주문 취소에 실패했습니다." };
       }
     },
     toggleWatch: (code) => {

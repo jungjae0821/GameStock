@@ -18,16 +18,19 @@ export function Topbar({ route }: { route: Route }) {
           <span className="brand-text">씹덕주식</span>
         </Link>
         <nav className="nav" aria-label="주요 화면">
-          {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`nav-link${route.name === item.match ? " is-active" : ""}`}
-              aria-current={route.name === item.match ? "page" : undefined}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {NAV.map((item) => {
+            const isActive = route.name === item.match || (item.match === "market" && route.name === "trade");
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`nav-link${isActive ? " is-active" : ""}`}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
         <Link
           className={`nav-link nav-me${route.name === "mypage" ? " is-active" : ""}`}
