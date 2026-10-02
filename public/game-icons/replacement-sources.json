@@ -18,9 +18,21 @@
     "sourceImage": "https://play-lh.googleusercontent.com/7WntpQt6D18uzI3amQ_SrHYl74se-bQl1PXORC1xUpkc5KtkPPdYcX8WZXOH-NS5BMwlLICJ-CUifGkvsD_C98s=s0-br30"
   },
   {
+    "code": "LT",
+    "file": "lt-valorant.png",
+    "sourcePage": "https://playvalorant.com/ko-kr/",
+    "sourceImage": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/news/cbf4460132cdfeb2a97fad5f9dd25ba0bc058f76-128x128.png?accountingTag=VAL"
+  },
+  {
+    "code": "MH",
+    "file": "mh-kartrush.png",
+    "sourcePage": "https://play.google.com/store/apps/details?id=com.nexon.kart&hl=ko",
+    "sourceImage": "https://play-lh.googleusercontent.com/RrpE9xexrHMDDOY6iel-UPFl-N8J-kL0wmbd1rYCP7Boq8_dPtnasme48dw7Ma1k2GYDsvmSuHqWeMCY_TqVCw=s0-br30"
+  },
+  {
     "code": "EL",
-    "file": "el-overwatch.ico",
-    "sourcePage": "https://overwatch.blizzard.com/ko-kr/",
-    "sourceImage": "https://static.playoverwatch.com/images/favicon.988844a2b97828442775a674abf32ada4f722334.ico"
+    "file": "el-overwatch-symbol.svg",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Overwatch_circle_logo.svg",
+    "sourceImage": "https://commons.wikimedia.org/wiki/Special:FilePath/Overwatch_circle_logo.svg"
   }
 ]

@@ -221,6 +221,13 @@
     height: 80px;
   }
 
+  .game-icon.is-overwatch-symbol {
+    box-sizing: border-box;
+    padding: 4px;
+    object-fit: contain;
+    object-position: center;
+  }
+
   .empty {
     display: flex;
     flex-direction: column;

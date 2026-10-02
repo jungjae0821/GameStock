@@ -20,9 +20,9 @@ public final class StockCatalog {
             new Listing("AK", "명일방주: 엔드필드", "Hypergryph", "전략 RPG"),
             new Listing("WH", "명조: 워더링 웨이브", "Kuro Games", "액션"),
             new Listing("PX", "쿠키런: 킹덤", "Devsisters", "RPG"),
-            new Listing("LT", "림버스 컴퍼니", "Project Moon", "RPG"),
+            new Listing("LT", "발로란트", "Riot Games", "FPS"),
             new Listing("ES", "에픽세븐", "Smilegate", "RPG"),
-            new Listing("MH", "몬스터헌터 와일즈", "Capcom", "액션"),
+            new Listing("MH", "카트라이더 러쉬플러스", "Nexon", "레이싱"),
             new Listing("EL", "오버워치", "Blizzard Entertainment", "FPS"),
             new Listing("PW", "팰월드", "Pocketpair", "생존"),
             new Listing("SD", "트릭컬 리바이브", "EPID Games", "RPG"));
@@ -33,6 +33,8 @@ public final class StockCatalog {
         replaceListing(jdbc, "EL", "엘든 링", "오버워치", "Blizzard Entertainment", "FPS");
         replaceListing(jdbc, "PX", "페르소나5: 더 팬텀 X", "쿠키런: 킹덤", "Devsisters", "RPG");
         replaceListing(jdbc, "SD", "스타듀 밸리", "트릭컬 리바이브", "EPID Games", "RPG");
+        replaceListing(jdbc, "LT", "림버스 컴퍼니", "발로란트", "Riot Games", "FPS");
+        replaceListing(jdbc, "MH", "몬스터헌터 와일즈", "카트라이더 러쉬플러스", "Nexon", "레이싱");
         for (Listing listing : LISTINGS) {
             jdbc.update("""
                     INSERT INTO games (name, developer, genre)
