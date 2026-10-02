@@ -87,6 +87,55 @@ class OrderPipelineIntegrationTest {
         assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM orders WHERE user_id=?",Integer.class,buyer));
         assertEquals(10000000,db.queryForObject("SELECT cash FROM users WHERE id=?",Long.class,buyer));
     }
+    @Test void botReceiptsStayBoundedAndTheLastBatchCannotExecuteTwice(){
+        AtomicInteger executions=new AtomicInteger();String last="";
+        for(int i=0;i<100;i++){
+            last=UUID.randomUUID().toString();
+            int expected=i+1;
+            assertEquals(expected,persistence.submitBot(0,last,Integer.class,1,executions::incrementAndGet).join());
+        }
+        assertEquals(100,persistence.submitBot(0,last,Integer.class,1,executions::incrementAndGet).join());
+        assertEquals(100,executions.get());
+        assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM market_batch_receipts WHERE id='bot:0'",Integer.class));
+        assertTrue(db.queryForObject("SELECT OCTET_LENGTH(payload) FROM market_batch_receipts WHERE id='bot:0'",Integer.class)<200);
+    }
+    @Test void botReceiptRetryRollsBackWithoutReplacingTheLastCommittedResult(){
+        persistence.submitBot(1,"previous-batch",Integer.class,1,()->7).join();
+        AtomicInteger attempts=new AtomicInteger();
+        var task=(java.util.function.Supplier<Integer>)()->{
+            db.update("UPDATE users SET cash=cash-100 WHERE id=?",buyer);
+            if(attempts.incrementAndGet()==1)throw new org.springframework.dao.CannotAcquireLockException("retry bot batch");
+            return 9;
+        };
+        assertEquals(9,persistence.submitBot(1,"retry-batch",Integer.class,1,task).join());
+        assertEquals(9,persistence.submitBot(1,"retry-batch",Integer.class,1,task).join());
+        assertEquals(2,attempts.get());assertEquals(9999900,db.queryForObject("SELECT cash FROM users WHERE id=?",Long.class,buyer));
+        assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM market_batch_receipts WHERE id='bot:1'",Integer.class));
+    }
+    @Test void fullStoragePausesWritesButCleanupCanRunAndRecoveryPreservesBalances(){
+        String expired="expired-"+UUID.randomUUID(),fresh="fresh-"+UUID.randomUUID();
+        db.update("INSERT INTO market_batch_receipts(id,payload,created_at) VALUES (?,'true',CURRENT_TIMESTAMP-INTERVAL 2 HOUR),(?,'true',CURRENT_TIMESTAMP)",expired,fresh);
+        AtomicInteger attempts=new AtomicInteger();long batches=metrics.snapshot().getOrDefault("db.batches",0L);
+        try{
+            var failure=persistence.submit(UUID.randomUUID().toString(),Boolean.class,1,()->{
+                attempts.incrementAndGet();db.update("UPDATE users SET cash=cash-100 WHERE id=?",buyer);
+                throw new org.springframework.jdbc.UncategorizedSQLException("batch","INSERT",new java.sql.SQLException("The table 'market_batch_receipts' is full","HY000",1114));
+            });
+            assertThrows(CompletionException.class,failure::join);assertEquals(1,attempts.get());
+            assertFalse(persistence.acceptingWrites());
+            assertThrows(CompletionException.class,()->persistence.submit(UUID.randomUUID().toString(),Boolean.class,1,()->{attempts.incrementAndGet();return true;}).join());
+            assertTrue(orders.submitBotBatch(0).join().isEmpty());assertEquals(1,attempts.get());
+            assertEquals(batches,metrics.snapshot().getOrDefault("db.batches",0L));
+            persistence.prune();
+            assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM market_batch_receipts WHERE id=?",Integer.class,expired));
+            assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM market_batch_receipts WHERE id=?",Integer.class,fresh));
+            assertEquals(10000000,db.queryForObject("SELECT cash FROM users WHERE id=?",Long.class,buyer));
+        }finally{
+            ((java.util.concurrent.atomic.AtomicLong)ReflectionTestUtils.getField(persistence,"storageRetryAt")).set(0);
+        }
+        assertEquals(true,persistence.submit(UUID.randomUUID().toString(),Boolean.class,1,()->true).join());
+        assertEquals(0,metrics.snapshot().get("persistence.storageBlocked"));
+    }
     @Test void anotherLaneProgressesDuringOneSlowDatabaseBatch()throws Exception{
         CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
         var slow=persistence.submit(UUID.randomUUID().toString(),Boolean.class,1,()->{entered.countDown();try{release.await(5,TimeUnit.SECONDS);}catch(InterruptedException e){throw new RuntimeException(e);}return true;});
