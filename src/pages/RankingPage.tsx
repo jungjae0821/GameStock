@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../lib/api";
+import { DEFAULT_PROFILE_AVATAR } from "../lib/profileAvatars";
 
 type RankingEntry = {
   rank: number;
   nickname: string;
+  profileImageUrl?: string | null;
   totalAsset: number;
   changePercent: number;
 };
@@ -116,7 +118,17 @@ export function RankingPage() {
                         {!medalByRank[entry.rank] && <span>{entry.rank}</span>}
                       </span>
                     </th>
-                    <td className="ranking-page-name">{entry.nickname}</td>
+                    <td className="ranking-page-name">
+                      <span className="ranking-name-cell">
+                        <img
+                          className="ranking-avatar"
+                          src={entry.profileImageUrl || DEFAULT_PROFILE_AVATAR}
+                          alt={`${entry.nickname} 프로필 사진`}
+                          loading="lazy"
+                        />
+                        <span>{entry.nickname}</span>
+                      </span>
+                    </td>
                     <td className={`ranking-page-change num${entry.changePercent > 0 ? " is-up" : entry.changePercent < 0 ? " is-down" : " is-flat"}`}>
                       {entry.changePercent >= 0 ? "+" : ""}{entry.changePercent.toFixed(2)}%
                     </td>

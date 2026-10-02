@@ -122,10 +122,14 @@ public class AuthService {
         String nickname = update.nickname() == null ? "" : update.nickname().trim();
         if (nickname.length() < 2 || nickname.length() > 50)
             throw new IllegalArgumentException("닉네임은 2~50자로 입력해 주세요.");
-        String image = update.profileImageUrl() == null ? "" : update.profileImageUrl().trim();
-        if (image.length() > 500) throw new IllegalArgumentException("프로필 이미지 주소가 너무 깁니다.");
         // Serialize concurrent profile changes on the user's row.
         Profile current = readProfile(userId, true);
+        // Nickname-only updates from older clients must not erase an existing
+        // selected avatar or the Firebase provider photo.
+        String image = update.profileImageUrl() == null
+                ? (current.profileImageUrl() == null ? "" : current.profileImageUrl())
+                : update.profileImageUrl().trim();
+        if (image.length() > 500) throw new IllegalArgumentException("프로필 이미지 주소가 너무 깁니다.");
         boolean changed = !nickname.equals(current.nickname());
         if (changed && !current.nicknameChangeAvailable())
             throw new ResponseStatusException(HttpStatus.CONFLICT, "닉네임은 3일에 한 번 변경할 수 있습니다.");

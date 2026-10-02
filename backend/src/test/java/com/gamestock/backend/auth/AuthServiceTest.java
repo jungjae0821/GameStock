@@ -62,4 +62,19 @@ class AuthServiceTest {
         auth.updateProfile(7L, new AuthService.ProfileUpdate("원래닉네임", "picture"));
         verify(jdbc).update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", "picture", 7L);
     }
+
+    @Test void nicknameOnlyUpdatePreservesExistingProfileImage() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getString("nickname")).thenReturn("원래닉네임");
+        when(rs.getString("profile_image_url")).thenReturn("provider-picture");
+        when(rs.getTimestamp("nickname_changed_at")).thenReturn(null);
+        when(jdbc.queryForObject(anyString(), any(RowMapper.class), eq(7L))).thenAnswer(call ->
+                ((RowMapper<?>) call.getArgument(1)).mapRow(rs, 0));
+        AuthService auth = new AuthService(jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+
+        auth.updateProfile(7L, new AuthService.ProfileUpdate("원래닉네임", null));
+
+        verify(jdbc).update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", "provider-picture", 7L);
+    }
 }

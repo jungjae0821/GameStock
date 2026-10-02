@@ -8,12 +8,14 @@ import { RestrictionBadge } from "../components/RestrictionBadge";
 import { apiFetch } from "../lib/api";
 import { firebaseAuth } from "../lib/firebase";
 import { openLoginPrompt } from "../lib/auth";
+import { DEFAULT_PROFILE_AVATAR, isProfileAvatar, PROFILE_AVATARS } from "../lib/profileAvatars";
 import { LISTING_BY_CODE, LISTINGS } from "../market/universe";
 import { clock, serverTimestamp, won } from "../market/format";
 
 type Profile = {
   nickname: string;
   email: string;
+  profileImageUrl: string | null;
   profileCompleted: boolean;
   resetAvailable: boolean;
   nicknameChangeAvailable?: boolean;
@@ -57,6 +59,7 @@ export function AccountSettings() {
   const [openOrders, setOpenOrders] = useState<ActiveOrder[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
+  const [selectedAvatar, setSelectedAvatar] = useState("");
   const [alertCode, setAlertCode] = useState(LISTINGS[0]?.code ?? "");
   const [alertPrice, setAlertPrice] = useState("");
   const [nickname, setNickname] = useState("");
@@ -81,6 +84,7 @@ export function AccountSettings() {
       setOpenOrders([]);
       setWatchlist([]);
       setAlerts([]);
+      setSelectedAvatar("");
       return;
     }
     let active = true;
@@ -97,6 +101,7 @@ export function AccountSettings() {
         if (!active) return;
         setProfile(nextProfile);
         setNickname(nextProfile.nickname ?? "");
+        setSelectedAvatar(nextProfile.profileImageUrl ?? "");
         setCompletedTrades(nextTrades.slice(0, 5));
         setOpenOrders(nextOpenOrders);
         setWatchlist(nextWatchlist);
@@ -196,9 +201,30 @@ export function AccountSettings() {
       });
       setProfile(next);
       setNickname(next.nickname);
+      setSelectedAvatar(next.profileImageUrl ?? "");
       setMessage("닉네임을 저장했습니다.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "닉네임 저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveAvatar = async () => {
+    if (!profile || !selectedAvatar || selectedAvatar === (profile.profileImageUrl ?? "")) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const next = await apiFetch<Profile>("/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ nickname: profile.nickname, profileImageUrl: selectedAvatar }),
+      });
+      setProfile(next);
+      setNickname(next.nickname);
+      setSelectedAvatar(next.profileImageUrl ?? "");
+      setMessage("랭킹 프사를 저장했습니다.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "랭킹 프사 저장에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -237,6 +263,7 @@ export function AccountSettings() {
       {message && <p className="account-message" role="status">{message}</p>}
       <Panel id="mypage-profile" title="계정 관리" level={3} meta="프로필 · 로그인">
         {loading ? <p className="empty">계정 정보를 불러오는 중…</p> : (
+          <>
           <div className="account-profile-grid">
             <form className="account-form" onSubmit={(event) => { event.preventDefault(); void saveNickname(); }}>
               <label htmlFor="mypage-nickname">닉네임</label>
@@ -255,6 +282,49 @@ export function AccountSettings() {
               <button className="text-button" type="button" onClick={() => void signOut(firebaseAuth).catch(() => setMessage("로그아웃하지 못했습니다. 다시 시도해 주세요."))}>로그아웃</button>
             </div>
           </div>
+          <fieldset className="account-avatar-picker">
+            <legend>랭킹 프사</legend>
+            <p className="account-hint">선택한 캐릭터가 랭킹에서 닉네임 왼쪽에 표시됩니다.</p>
+            {profile?.profileImageUrl && !isProfileAvatar(profile.profileImageUrl) && (
+              <div className="account-avatar-current">
+                <img src={profile.profileImageUrl} alt="현재 계정 프로필 사진" onError={(event) => { event.currentTarget.src = DEFAULT_PROFILE_AVATAR; }} />
+                <span>현재 계정 사진</span>
+              </div>
+            )}
+            <div className="account-avatar-grid" role="group" aria-label="랭킹 프사 선택">
+              {PROFILE_AVATARS.map((avatar) => {
+                const selected = selectedAvatar === avatar.src;
+                return (
+                  <button
+                    key={avatar.id}
+                    type="button"
+                    className={`account-avatar-option${selected ? " is-selected" : ""}`}
+                    aria-pressed={selected}
+                    aria-label={`${avatar.name} 프사 선택`}
+                    title={avatar.description}
+                    onClick={() => setSelectedAvatar(avatar.src)}
+                  >
+                    <img src={avatar.src} alt="" />
+                    <span>{avatar.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="account-avatar-footer">
+              <span className="account-hint">
+                {selectedAvatar ? `${PROFILE_AVATARS.find((avatar) => avatar.src === selectedAvatar)?.name ?? "선택한 캐릭터"} 선택됨` : "캐릭터를 하나 골라 주세요."}
+              </span>
+              <button
+                type="button"
+                className="account-button is-primary"
+                disabled={saving || !profile || !selectedAvatar || selectedAvatar === (profile.profileImageUrl ?? "")}
+                onClick={() => void saveAvatar()}
+              >
+                {saving ? "저장 중…" : "프사 저장"}
+              </button>
+            </div>
+          </fieldset>
+          </>
         )}
       </Panel>
 

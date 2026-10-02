@@ -26,6 +26,10 @@
   .integration-tools .ticket-summary, .integration-tools .ticket-note { font-size: var(--step-0); }
   .integration-ranking th:not(:nth-child(2)), .integration-ranking td:not(:nth-child(2)) { text-align: right; }
   .integration-ranking th:first-child { text-align: left; }
+  .integration-ranking tbody td { vertical-align: middle; }
+  .ranking-name-cell { display: inline-flex; align-items: center; gap: var(--space-3); min-width: 0; text-align: left; }
+  .ranking-name-cell > span { overflow-wrap: anywhere; }
+  .ranking-avatar { width: 42px; height: 42px; flex: 0 0 42px; object-fit: cover; border: 1px solid var(--rule); border-radius: 50%; background: var(--sunken); }
   .integration-ranking .ranking-medal { font-weight: 800; }
   .integration-ranking .is-gold { color: var(--amber-deep); }
   .integration-ranking .is-silver { color: var(--ink-muted); }

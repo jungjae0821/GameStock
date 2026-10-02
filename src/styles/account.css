@@ -33,6 +33,17 @@
   .account-hint { font-size: var(--step-0); color: var(--ink-muted); }
   .account-identity { display: grid; align-content: start; justify-items: start; gap: 6px; min-width: 0; }
   .account-identity p { font-size: var(--step-2); overflow-wrap: anywhere; word-break: break-all; }
+  .account-avatar-picker { display: grid; gap: var(--space-3); min-width: 0; margin: var(--space-6) 0 0; padding: var(--space-5) 0 0; border: 0; border-top: 1px solid var(--rule); }
+  .account-avatar-picker legend { padding: 0; font-size: var(--step-1); font-weight: 700; }
+  .account-avatar-current { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--ink-muted); font-size: var(--step--1); }
+  .account-avatar-current img { width: 32px; height: 32px; object-fit: cover; border: 1px solid var(--rule); border-radius: 50%; }
+  .account-avatar-grid { display: grid; grid-template-columns: repeat(7, minmax(72px, 1fr)); gap: var(--space-2); }
+  .account-avatar-option { display: grid; justify-items: center; gap: 6px; min-width: 0; padding: 7px 5px 8px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--paper); color: var(--ink); font: inherit; font-size: var(--step--1); cursor: pointer; }
+  .account-avatar-option:hover { background: var(--sunken); }
+  .account-avatar-option.is-selected { border-color: var(--brand-deep); box-shadow: 0 0 0 2px color-mix(in oklab, var(--brand-deep) 18%, transparent); background: color-mix(in oklab, var(--brand-deep) 6%, var(--paper)); }
+  .account-avatar-option img { width: 64px; height: 64px; object-fit: cover; border-radius: 50%; }
+  .account-avatar-option span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .account-avatar-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
   .account-message { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); font-size: var(--step-1); }
   .account-alert-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--space-7); }
   .account-alert-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--space-3); margin-bottom: var(--space-2); }
@@ -66,6 +77,8 @@
 @layer responsive {
   @media (max-width: 720px) {
     .account-profile-grid, .account-alert-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+    .account-avatar-grid { grid-template-columns: repeat(4, minmax(70px, 1fr)); }
+    .account-avatar-footer { align-items: flex-start; flex-direction: column; }
     .account-alert-form { grid-template-columns: minmax(0, 1fr); }
     .account-tools-summary { align-items: flex-start; font-size: var(--step-1); }
     .account-tools-summary > span:first-child { max-width: 240px; }
