@@ -383,8 +383,11 @@ public class MarketService {
                 """);
     }
 
-    public synchronized List<Stock> stocks() {
-        return jdbc.query("""
+    // Locking policy: read-only queries below run without the service monitor; each
+    // statement reads committed rows and they touch no mutable fields. Methods that
+    // write or use in-memory simulation state (bots, environments, random) stay synchronized.
+    public List<Stock> stocks() {
+        List<Stock> rows = jdbc.query("""
                 SELECT stock_code, g.name, g.genre, current_price, previous_price, total_volume
                 FROM stocks s JOIN games g ON g.id = s.game_id
                 ORDER BY s.id
@@ -394,10 +397,21 @@ public class MarketService {
                 rs.getString("genre"),
                 rs.getLong("current_price"),
                 changePercent(rs.getLong("current_price"), rs.getLong("previous_price")),
-                rs.getLong("total_volume"), protection.restriction(rs.getString("stock_code"))));
+                rs.getLong("total_volume"), null));
+        return rows.stream().map(this::withRestriction).toList();
     }
 
-    public synchronized List<MarketEvent> marketEvents() {
+    /**
+     * Restrictions are looked up after the stock query has released its connection.
+     * Querying inside a row mapper holds two pooled connections per caller, which
+     * exhausts the pool once several requests run in parallel.
+     */
+    private Stock withRestriction(Stock stock) {
+        return new Stock(stock.code(), stock.name(), stock.genre(), stock.price(), stock.changePercent(),
+                stock.volume(), protection.restriction(stock.code()));
+    }
+
+    public List<MarketEvent> marketEvents() {
         List<MarketEvent> relevant = jdbc.query("""
                 SELECT s.stock_code, e.title, e.impact, e.source, e.description, e.published_at,
                        s.current_price, s.previous_price,
@@ -461,11 +475,11 @@ public class MarketService {
     }
 
     /** GameStock은 장 마감 없이 24시간 주문을 접수하는 게임형 시장이다. */
-    public synchronized MarketStatus marketStatus() {
+    public MarketStatus marketStatus() {
         return protection.marketStatus();
     }
 
-    public synchronized List<MarketEvent> stockNews(String code) {
+    public List<MarketEvent> stockNews(String code) {
         List<MarketEvent> candidates = jdbc.query("""
                 SELECT s.stock_code, e.title, e.impact, e.source, e.description, e.published_at,
                        s.current_price, s.previous_price,
@@ -536,7 +550,7 @@ public class MarketService {
     }
 
     @Transactional(readOnly = true)
-    public synchronized List<RankingEntry> ranking() {
+    public List<RankingEntry> ranking() {
         List<RankingEntry> entries = jdbc.query("""
                 SELECT u.nickname, u.profile_image_url, u.cash,
                        COALESCE((SELECT SUM(o.reserved_cash) FROM orders o WHERE o.user_id = u.id AND o.status = 'OPEN'), 0) AS reserved_cash,
@@ -574,12 +588,12 @@ public class MarketService {
     }
 
     @Transactional(readOnly = true)
-    public synchronized Portfolio portfolio(long userId) {
+    public Portfolio portfolio(long userId) {
         return portfolioUnsafe(userId);
     }
 
     @Transactional(readOnly = true)
-    public synchronized DailyMissionStatus dailyMissions(long userId) {
+    public DailyMissionStatus dailyMissions(long userId) {
         return dailyMissionsAt(userId, clock.instant());
     }
 
@@ -612,7 +626,7 @@ public class MarketService {
     }
 
     @Transactional(readOnly = true)
-    public synchronized List<ActiveOrder> activeOrders(long userId) {
+    public List<ActiveOrder> activeOrders(long userId) {
         return jdbc.query("""
                 SELECT o.id, s.stock_code, o.side, o.quantity, o.remaining_quantity, COALESCE(o.price, 0) AS price,
                        o.status, o.order_type, COALESCE(o.reserved_cash, 0) AS reserved_cash,
@@ -738,7 +752,7 @@ public class MarketService {
     }
 
     @Transactional(readOnly = true)
-    public synchronized List<OrderHistory> orderHistory(String code, long userId) {
+    public List<OrderHistory> orderHistory(String code, long userId) {
         return jdbc.query("""
                 SELECT o.side, o.quantity, o.price, o.status, o.order_type, o.remaining_quantity, o.created_at,
                        COALESCE(SUM(CASE WHEN o.side = 'BUY' THEN t.buyer_fee ELSE t.seller_fee END), 0) AS fee,
@@ -770,7 +784,7 @@ public class MarketService {
 
     /** 모든 사용자의 익명 체결 내역. 개인별 주문 API와 분리해 공개한다. */
     @Transactional(readOnly = true)
-    public synchronized List<PublicTrade> publicTrades(String code) {
+    public List<PublicTrade> publicTrades(String code) {
         List<PublicTrade> result=new ArrayList<>(jdbc.query("""
                 SELECT t.aggressor_side AS side, t.quantity, t.price, taker.order_type, t.created_at
                 FROM trades t
@@ -788,7 +802,7 @@ public class MarketService {
         return result.stream().sorted(Comparator.comparing((PublicTrade trade)->Instant.parse(trade.createdAt())).reversed()).limit(10).toList();
     }
 
-    public synchronized List<PricePoint> priceHistory(String code) {
+    public List<PricePoint> priceHistory(String code) {
         return priceHistory(code, "24h");
     }
 
@@ -798,7 +812,7 @@ public class MarketService {
      * interval fragments. A generous point cap keeps a week view lightweight;
      * the clients down-sample only when the canvas width requires it.
      */
-    public synchronized List<PricePoint> priceHistory(String code, String range) {
+    public List<PricePoint> priceHistory(String code, String range) {
         Instant cutoff = clock.instant().minus(historyWindow(range));
         String table=historyWindow(range).toMinutes()<=15?"bot_trade_seconds":"bot_trade_minutes";
         List<PricePoint> points = jdbc.query("""
@@ -819,7 +833,7 @@ public class MarketService {
     }
 
     /** Returns a bounded OHLC series for the chart ranges shown by the client. */
-    public synchronized List<ChartCandle> chartHistory(String code, String range) {
+    public List<ChartCandle> chartHistory(String code, String range) {
         String normalized = code.toUpperCase(Locale.ROOT);
         if (findStock(normalized) == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
         Duration window = chartWindow(range);
@@ -912,7 +926,7 @@ public class MarketService {
      * stock recently. This deliberately uses existing news, trade, and order
      * tables so the explanation is derived from the same data as the price.
      */
-    public synchronized PriceDrivers priceDrivers(String code) {
+    public PriceDrivers priceDrivers(String code) {
         String normalized = code.toUpperCase(Locale.ROOT);
         Stock stock = findStock(normalized);
         if (stock == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
@@ -1008,7 +1022,7 @@ public class MarketService {
     }
 
     @Transactional(readOnly = true)
-    public synchronized OrderBook orderBook(String code) {
+    public OrderBook orderBook(String code) {
         String normalized = code.toUpperCase(Locale.ROOT);
         if (findStock(normalized) == null) throw new IllegalArgumentException("존재하지 않는 종목입니다.");
         long id = stockId(normalized);
@@ -1026,7 +1040,7 @@ public class MarketService {
     }
 
     @Transactional(readOnly = true)
-    public synchronized MarketSnapshot snapshot() {
+    public MarketSnapshot snapshot() {
         return new MarketSnapshot(stocks(), portfolioUnsafe(demoUserId), marketEvents());
     }
 
@@ -1679,29 +1693,6 @@ public class MarketService {
         return summary;
     }
 
-    private MatchRow topOrder(long stockId, String side) {
-        return topOrder(stockId, side, 0L);
-    }
-
-    private MatchRow topOrder(long stockId, String side, long excludedUserId) {
-        String priceOrder = "BUY".equals(side) ? "o.price DESC" : "o.price ASC";
-        String userFilter = excludedUserId > 0 ? " AND o.user_id <> ? " : "";
-        String sql = "SELECT o.id, o.user_id, COALESCE(o.price, 0), o.quantity, o.remaining_quantity, o.order_type, o.created_at, COALESCE(o.reserved_cash, 0), COALESCE(o.reserved_quantity, 0), o.side, (u.password_hash = 'BOT') AS is_bot "
-                + "FROM orders o JOIN users u ON u.id = o.user_id WHERE o.stock_id = ? AND o.side = ? AND o.status = 'OPEN' AND o.remaining_quantity > 0 "
-                + userFilter
-                + "ORDER BY CASE WHEN o.order_type = 'MARKET' THEN 1 ELSE 0 END DESC, " + priceOrder + ", o.created_at ASC, o.id ASC LIMIT 1";
-        List<MatchRow> rows = excludedUserId > 0
-                ? jdbc.query(sql, (rs, row) -> new MatchRow(
-                rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4), rs.getInt(5),
-                rs.getString(6), databaseInstant(rs.getTimestamp(7)), rs.getLong(8), rs.getInt(9), rs.getString(10),
-                rs.getBoolean(11)), stockId, side, excludedUserId)
-                : jdbc.query(sql, (rs, row) -> new MatchRow(
-                rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4), rs.getInt(5),
-                rs.getString(6), databaseInstant(rs.getTimestamp(7)), rs.getLong(8), rs.getInt(9), rs.getString(10),
-                rs.getBoolean(11)), stockId, side);
-        return rows.isEmpty() ? null : rows.get(0);
-    }
-
     private boolean canSettle(MatchRow buy, MatchRow sell, int quantity, long tradePrice, long stockId) {
         if (!canPayForFill(buy,quantity,tradePrice)) return false;
         return sell.reservedQuantity() > 0 || availableQuantity(sell.userId(), stockId) >= quantity;
@@ -1716,16 +1707,6 @@ public class MarketService {
     private boolean canPayForFill(MatchRow buy,int quantity,long price) {
         long gross=price*quantity;
         return availableCash(buy.userId())+releasedReservation(buy,quantity)>=gross+feeFor(gross);
-    }
-
-    private int affordableFill(long cash,long price,int requested) {
-        int low=0,high=(int)Math.min(requested,cash/price);
-        while(low<high) {
-            int candidate=low+(high-low+1)/2;
-            long gross=price*candidate;
-            if(feeFor(gross)<=cash-gross) low=candidate; else high=candidate-1;
-        }
-        return low;
     }
 
     private void settleTrade(long stockId, MatchRow buy, MatchRow sell, MatchRow maker, MatchRow taker, int quantity, long tradePrice) {
@@ -2195,8 +2176,8 @@ public class MarketService {
                 SELECT s.stock_code,g.name,g.genre,s.current_price,s.previous_price,s.total_volume
                 FROM stocks s JOIN games g ON g.id=s.game_id WHERE s.stock_code=?
                 """,(rs,n)->new Stock(rs.getString(1),rs.getString(2),rs.getString(3),rs.getLong(4),
-                changePercent(rs.getLong(4),rs.getLong(5)),rs.getLong(6),protection.restriction(code)),code);
-        return rows.isEmpty()?null:rows.get(0);
+                changePercent(rs.getLong(4),rs.getLong(5)),rs.getLong(6),null),code);
+        return rows.isEmpty()?null:withRestriction(rows.get(0));
     }
 
     /** The JDBC timestamp already carries the normalized instant from the UTC DB session. */
