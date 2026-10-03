@@ -42,6 +42,8 @@ public class MarketOwnership {
         }catch(SQLException|RuntimeException error){connection.close();connection=null;throw error;}
     }
     public boolean enabled(){return enabled;}
+    /** A cheap local gate for scheduled work. The authoritative check remains requireOwner(). */
+    public boolean available(){return enabled&&connection!=null;}
     private boolean ownsLock() throws SQLException {
         Connection current=connection;
         if(current==null||current.isClosed()||!current.isValid(2)||name==null)return false;

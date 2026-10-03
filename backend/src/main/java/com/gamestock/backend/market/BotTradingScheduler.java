@@ -38,11 +38,11 @@ public class BotTradingScheduler {
     @EventListener(ApplicationReadyEvent.class)
     public synchronized void start() {
         if (!tasks.isEmpty() || !market.matchingEnabled()) return;
-        try { market.maintainScheduledMarket(); }
+        try { if(market.ownerAvailable()) market.maintainScheduledMarket(); }
         catch (RuntimeException error) { log.error("Initial market maintenance failed; bot tasks will still be scheduled",error); }
         for (String code : market.botStockCodes()) {
             try {
-                if(market.batchBotsEnabled()&&market.activeSimulation())market.liquidityBotAction(code,"BOTH");
+                if(market.ownerAvailable()&&market.batchBotsEnabled()&&market.activeSimulation())market.liquidityBotAction(code,"BOTH");
             } catch (RuntimeException error) { log.warn("Initial liquidity refresh failed for {}",code,error); }
             if(!market.inlineLiquidity())schedule("liquidity:" + code, () -> market.liquidityBotAction(code, "BOTH"));
         }
@@ -50,9 +50,13 @@ public class BotTradingScheduler {
             for(int i=0;i<market.batchShardCount();i++) {
                 final int shard=i;
                 ScheduledFuture<?> task=scheduler.schedule(()->{
-                    try{if(market.botWorkDue("batch:"+shard)){
+                    try{if(market.ownerAvailable()&&market.botWorkDue("batch:"+shard)){
                         if(orders==null)market.participantBatch(shard);
-                        else orders.submitBotBatch(shard).exceptionally(error->{log.warn("Bot batch failed for shard {}",shard,error);return null;});
+                        else orders.submitBotBatch(shard).exceptionally(error->{
+                            if(ownerUnavailable(error)) log.debug("Bot shard {} is waiting for matching ownership",shard);
+                            else log.warn("Bot batch failed for shard {}",shard,error);
+                            return null;
+                        });
                     }}
                     catch(org.springframework.dao.CannotAcquireLockException retry){log.debug("Retrying funded bot decisions for shard {}",shard);}
                     catch(RuntimeException error){log.error("Participant batch rolled back for shard "+shard,error);}
@@ -79,9 +83,10 @@ public class BotTradingScheduler {
     private void schedule(String name, Runnable action) {
         ScheduledFuture<?> task = scheduler.schedule(() -> {
             try {
-                if(market.claimLegacyBotWork(name))action.run();
+                if(market.ownerAvailable()&&market.claimLegacyBotWork(name))action.run();
             } catch (RuntimeException error) {
-                log.warn("Bot action failed for {}", name, error);
+                if(ownerUnavailable(error)) log.debug("Bot action {} is waiting for matching ownership",name);
+                else log.warn("Bot action failed for {}", name, error);
             }
         }, context -> {
             Instant base = context.lastCompletion();
@@ -99,5 +104,12 @@ public class BotTradingScheduler {
 
     public synchronized Map<String,Object> runtimeStatus() {
         return Map.of("started",!tasks.isEmpty(),"tasks",tasks.size());
+    }
+
+    private static boolean ownerUnavailable(Throwable error) {
+        Throwable cause=error;
+        while(cause instanceof java.util.concurrent.CompletionException && cause.getCause()!=null) cause=cause.getCause();
+        return cause instanceof org.springframework.web.server.ResponseStatusException response
+                && response.getStatusCode().value()==503;
     }
 }

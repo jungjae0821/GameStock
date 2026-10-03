@@ -88,6 +88,7 @@ public class MarketService {
         this.matching=matching;this.pipelineMetrics=metrics;this.ownership=ownership;
     }
     public boolean matchingEnabled(){return ownership==null||ownership.enabled();}
+    public boolean ownerAvailable(){return ownership==null||ownership.available();}
     public void requireMatchingOwner(){if(ownership!=null)ownership.requireOwner();}
 
     // Wall clock in production; replaceable with a synchronized Java/SQL clock in soak tests.
@@ -142,7 +143,7 @@ public class MarketService {
     }
     /** Idle heartbeats do not acquire a JDBC connection. Only due work opens a transaction. */
     public void maintainScheduledMarket() {
-        if(!simulationInitialized||!matchingEnabled())return;
+        if(!simulationInitialized||!matchingEnabled()||!ownerAvailable())return;
         activityPolicy.maintain(clock.millis(),activeSimulation(),idleRefreshMillis,idleRefreshBatches,()->{
             var tx=new org.springframework.transaction.support.TransactionTemplate(
                     new org.springframework.jdbc.datasource.DataSourceTransactionManager(jdbc.getDataSource()));
