@@ -688,6 +688,7 @@ public class MarketService {
                        COALESCE((SELECT SUM(o.reserved_cash) FROM orders o WHERE o.user_id = u.id AND o.status = 'OPEN'), 0) AS reserved_cash,
                        COALESCE((SELECT SUM(st.gross_amount - st.seller_fee) FROM settlements st WHERE st.seller_id = u.id AND st.status = 'PENDING'), 0) AS unsettled_cash,
                        COALESCE((SELECT SUM(ar.reward_cash) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0) AS attendance_reward_cash,
+                       COALESCE((SELECT SUM(mr.reward_cash) FROM mission_rewards mr WHERE mr.user_id = u.id), 0) AS mission_reward_cash,
                        COALESCE(SUM(CASE WHEN p.quantity > 0 THEN p.quantity * COALESCE(pm.mark_price,s.current_price) ELSE 0 END), 0) AS asset_value
                 FROM users u
                 LEFT JOIN portfolios p ON p.user_id = u.id
@@ -696,7 +697,7 @@ public class MarketService {
                 WHERE u.password_hash NOT IN ('BOT', 'TRADER') AND u.username <> 'demo'
                   AND COALESCE(u.role, 'USER') <> 'ADMIN'
                 GROUP BY u.id, u.nickname, u.profile_image_url, u.cash
-                ORDER BY (u.cash + reserved_cash + asset_value) DESC, u.id ASC
+                ORDER BY (u.cash + reserved_cash + unsettled_cash + asset_value) DESC, u.id ASC
                 LIMIT 100
                 """, (rs, row) -> {
             long assetValue = rs.getLong("asset_value");
@@ -704,8 +705,10 @@ public class MarketService {
             long reservedCash = rs.getLong("reserved_cash");
             long unsettledCash = rs.getLong("unsettled_cash");
             long attendanceRewardCash = rs.getLong("attendance_reward_cash");
+            long missionRewardCash = rs.getLong("mission_reward_cash");
             long totalAsset = cash + reservedCash + unsettledCash + assetValue;
-            double changePercent = (totalAsset - STARTING_CASH - attendanceRewardCash) * 100.0 / STARTING_CASH;
+            // 출석·미션 보상은 투자 성과가 아니므로 수익률에서 제외한다.
+            double changePercent = (totalAsset - STARTING_CASH - attendanceRewardCash - missionRewardCash) * 100.0 / STARTING_CASH;
             return new RankingEntry(0, rs.getString("nickname"), rs.getString("profile_image_url"), totalAsset, assetValue, cash, changePercent);
         });
         List<RankingEntry> ranked = new ArrayList<>(entries.size());
@@ -738,6 +741,13 @@ public class MarketService {
     public synchronized MissionRewardResult rewardMission(String missionId, long userId) {
         Long reward = MISSION_REWARDS.get(missionId);
         if (reward == null) throw new IllegalArgumentException("존재하지 않는 미션입니다.");
+        // 화면 열람(market/news)은 서버가 확인할 수 없어 랭킹 수익률에서 보상을 제외한다.
+        // 관심종목 등록은 서버 상태로 확인할 수 있으므로 등록 여부를 검증한다.
+        if ("watch".equals(missionId)) {
+            Long watched = jdbc.queryForObject("SELECT COUNT(*) FROM user_watchlists WHERE user_id = ?", Long.class, userId);
+            if (watched == null || watched == 0)
+                throw new IllegalArgumentException("관심종목을 1개 이상 등록하면 보상을 받을 수 있습니다.");
+        }
         LocalDate day = LocalDate.now(clock.withZone(MISSION_ZONE));
         int inserted = jdbc.update("INSERT IGNORE INTO mission_rewards (user_id, mission_id, rewarded_on, reward_cash) VALUES (?, ?, ?, ?)",
                 userId, missionId, java.sql.Date.valueOf(day), reward);

@@ -5,6 +5,7 @@ import { firebaseAuth } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
 import { openMarketStream } from "./stream";
 import { requireSignIn } from "../lib/auth";
+import { announceMissionReward } from "../components/MissionRewardToast";
 import { INITIAL_CASH, MarketEngine } from "./engine";
 import { serverTimestamp } from "./format";
 import { LISTING_BY_CODE, roundToTick } from "./universe";
@@ -354,6 +355,24 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // setSnapshot과 모듈 함수만 사용하므로 렌더마다 새로 만들어도 동작이 같다.
+  const claimMissionReward = async (missionId: string) => {
+    const claimant = firebaseAuth.currentUser;
+    if (!claimant) {
+      requireSignIn();
+      throw new Error("미션 보상은 로그인 후 받을 수 있습니다.");
+    }
+    const result = await apiFetch<BackendMissionReward>(`/api/missions/${encodeURIComponent(missionId)}/reward`, { method: "POST" });
+    if (firebaseAuth.currentUser?.uid === claimant.uid) {
+      setSnapshot((current) => ({
+        ...current,
+        portfolio: toPortfolio(result.portfolio),
+        updatedAt: Date.now(),
+      }));
+    }
+    return { rewardCash: result.rewardCash, awarded: result.awarded, missions: result.missions };
+  };
+
   const api = useMemo<MarketApi>(() => ({
     orderable: (code, side) => {
       const quote = snapshot.quotes[code];
@@ -424,6 +443,13 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       setSnapshot((current) => ({ ...current, watch: watchRef.current }));
       const seq = ++watchMutationSeq.current;
       void apiFetch(`/api/watchlist/${code}`, { method: exists ? "DELETE" : "PUT" })
+        .then(() => {
+          if (exists) return;
+          // 관심종목 미션은 서버가 등록 여부를 확인한 뒤 지급한다. 이미 받았으면 awarded=false다.
+          return claimMissionReward("watch")
+            .then((result) => { if (result.awarded) announceMissionReward(result.rewardCash); })
+            .catch(() => undefined);
+        })
         .catch(() => {
           // 실패한 토글은 다음 조회가 서버 값을 따르기 전까지 화면에 머무르지 않게 되돌린다.
           if (watchRef.current === optimistic) {
@@ -439,22 +465,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       activeDetailCodeRef.current = code;
       streamRef.current?.subscribe(code ? [code] : snapshot.codes, code);
     },
-    claimMissionReward: async (missionId) => {
-      const claimant = firebaseAuth.currentUser;
-      if (!claimant) {
-        requireSignIn();
-        throw new Error("미션 보상은 로그인 후 받을 수 있습니다.");
-      }
-      const result = await apiFetch<BackendMissionReward>(`/api/missions/${encodeURIComponent(missionId)}/reward`, { method: "POST" });
-      if (firebaseAuth.currentUser?.uid === claimant.uid) {
-        setSnapshot((current) => ({
-          ...current,
-          portfolio: toPortfolio(result.portfolio),
-          updatedAt: Date.now(),
-        }));
-      }
-      return { rewardCash: result.rewardCash, awarded: result.awarded, missions: result.missions };
-    },
+    claimMissionReward,
   }), [snapshot]);
 
   return (

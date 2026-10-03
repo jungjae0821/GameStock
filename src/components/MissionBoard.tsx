@@ -17,7 +17,7 @@ type MissionProgress = { userId: string; status: DailyMissionStatus; expiresAt: 
 const labels: Record<MissionId, { title: string; description: string; action: string; href: string }> = {
   market: { title: "시장 둘러보기", description: "시세표에서 오늘 움직이는 종목을 찾아봐.", action: "시장 보기", href: "/market" },
   news: { title: "뉴스 읽기", description: "가격이 왜 움직였는지 뉴스에서 확인해봐.", action: "뉴스 보기", href: "/news" },
-  watch: { title: "관심종목 등록", description: "마음에 드는 종목 하나를 관심 목록에 담아봐.", action: "종목 고르기", href: "/market" },
+  watch: { title: "관심종목 등록", description: "마음에 드는 종목 하나를 관심 목록에 담아봐. 담으면 보상이 자동 지급돼.", action: "종목 고르기", href: "/market" },
 };
 
 function emptyCompleted(): CompletedMissions {
@@ -142,6 +142,12 @@ export function MissionBoard() {
       if (result.awarded) announceMissionReward(result.rewardCash);
       navigate(href);
     } catch (error) {
+      // 관심종목을 아직 담지 않았으면 서버가 거절한다. 종목을 고르러 이동하고,
+      // 등록에 성공하면 MarketProvider가 보상을 자동으로 요청한다.
+      if (id === "watch" && sessionRef.current === session) {
+        navigate(href);
+        return;
+      }
       if (sessionRef.current === session) {
         setError(error instanceof Error ? error.message : "미션 보상 지급에 실패했습니다.");
       }
