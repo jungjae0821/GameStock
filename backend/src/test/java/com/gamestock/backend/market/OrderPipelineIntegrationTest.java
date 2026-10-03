@@ -145,7 +145,14 @@ class OrderPipelineIntegrationTest {
     @Test void onlyOneReplicaCanOwnMatching()throws Exception{
         var first=new MarketOwnership(db);first.start();
         var second=new MarketOwnership(db);
-        try{first.requireOwner();assertThrows(IllegalStateException.class,second::start);}
+        try{
+            first.requireOwner();
+            second.start();
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,second::requireOwner);
+            first.close();
+            second.heartbeat();
+            second.requireOwner();
+        }
         finally{first.close();second.close();}
     }
     @Test void shutdownFlushesAdmittedHumanOrders()throws Exception{
