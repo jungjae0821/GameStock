@@ -15,7 +15,6 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.slf4j.LoggerFactory;
 import java.util.*;
-import java.time.Duration;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -151,27 +150,5 @@ public class PersistenceWorker {
     private <T>T decode(String value,Class<T> type){try{return json.readValue(value,type);}catch(Exception error){throw new IllegalStateException("Cannot read committed batch receipt",error);}}
     static ResponseStatusException unavailable(){return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"주문 처리 중입니다. 잠시 후 주문 내역을 확인해 주세요.");}
     public int pending(){return workers.getQueue().size()+workers.getActiveCount();}
-    /**
-     * Waits for already-admitted batches, including bounded retry handling, to
-     * finish. New submissions are rejected once close() starts, so this is a
-     * real drain rather than an unbounded shutdown wait.
-     */
-    public boolean flush(Duration timeout) {
-        long deadline=System.nanoTime()+Math.max(0,timeout.toNanos());
-        while(pending()>0&&System.nanoTime()<deadline) {
-            try{Thread.sleep(Math.min(25,Math.max(1,TimeUnit.NANOSECONDS.toMillis(deadline-System.nanoTime()))));}
-            catch(InterruptedException interrupted){Thread.currentThread().interrupt();return false;}
-        }
-        return pending()==0;
-    }
-    @PreDestroy public void close(){
-        stopping.set(true);
-        workers.shutdown();
-        boolean drained=false;
-        try{drained=workers.awaitTermination(30,TimeUnit.SECONDS);}
-        catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
-        if(!drained)workers.shutdownNow();
-        outstanding.forEach(f->f.completeExceptionally(unavailable()));
-        metrics.gauge("persistence.pending",pending());
-    }
+    @PreDestroy public void close(){stopping.set(true);MatchingEngine.executorShutdown(workers);outstanding.forEach(f->f.completeExceptionally(unavailable()));metrics.gauge("persistence.pending",pending());}
 }

@@ -81,30 +81,6 @@ CREATE TABLE portfolios (
   CONSTRAINT fk_portfolios_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
 );
 
--- 현재 상태 projection. orders/trades와 달리 같은 행을 UPDATE한다.
--- users.cash와 portfolios는 기존 API 호환을 위해 당분간 원장 상태로 유지하고,
--- accounts/positions는 배치 writer가 같은 트랜잭션에서 갱신하는 조회용 projection이다.
-CREATE TABLE accounts (
-  user_id BIGINT PRIMARY KEY,
-  cash BIGINT NOT NULL,
-  total_asset BIGINT NOT NULL,
-  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
-    ON UPDATE CURRENT_TIMESTAMP(3),
-  CONSTRAINT fk_accounts_user FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE positions (
-  user_id BIGINT NOT NULL,
-  stock_id BIGINT NOT NULL,
-  quantity INT NOT NULL DEFAULT 0,
-  avg_price BIGINT NOT NULL DEFAULT 0,
-  updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
-    ON UPDATE CURRENT_TIMESTAMP(3),
-  PRIMARY KEY (user_id, stock_id),
-  CONSTRAINT fk_positions_user FOREIGN KEY (user_id) REFERENCES users(id),
-  CONSTRAINT fk_positions_stock FOREIGN KEY (stock_id) REFERENCES stocks(id)
-);
-
 CREATE TABLE market_events (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   stock_id BIGINT NULL,
@@ -134,7 +110,6 @@ CREATE TABLE orders (
   reserved_cash BIGINT NOT NULL DEFAULT 0,
   reserved_quantity INT NOT NULL DEFAULT 0,
   expires_at TIMESTAMP NULL,
-  compact_origin BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_orders_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
@@ -142,8 +117,7 @@ CREATE TABLE orders (
   INDEX ix_orders_expiry (status, expires_at),
   INDEX ix_orders_user_live (user_id, status, stock_id),
   INDEX ix_orders_open_sequence (status, id),
-  INDEX ix_orders_stock_expiry (stock_id, status, expires_at, id),
-  INDEX ix_orders_compact_retention (compact_origin, status, created_at, id)
+  INDEX ix_orders_stock_expiry (stock_id, status, expires_at, id)
 );
 
 CREATE TABLE trades (
@@ -220,60 +194,6 @@ CREATE TABLE daily_market_summaries (
   UNIQUE KEY uq_daily_summary_stock_date (stock_id, trading_date),
   CONSTRAINT fk_daily_summary_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
   INDEX ix_daily_summary_date (trading_date)
-);
-
--- 시장 원시 tick 대신 1초/1분 bucket만 보관한다. stock_id가 symbol의
--- 정규화된 표현이라 문자열 반복 저장도 피한다.
-CREATE TABLE market_candles (
-  stock_id BIGINT NOT NULL,
-  interval_seconds SMALLINT UNSIGNED NOT NULL,
-  bucket_at BIGINT NOT NULL,
-  first_at BIGINT NOT NULL,
-  last_at BIGINT NOT NULL,
-  open_price BIGINT NOT NULL,
-  high_price BIGINT NOT NULL,
-  low_price BIGINT NOT NULL,
-  close_price BIGINT NOT NULL,
-  volume BIGINT NOT NULL DEFAULT 0,
-  notional BIGINT NOT NULL DEFAULT 0,
-  trade_count BIGINT NOT NULL DEFAULT 0,
-  PRIMARY KEY (stock_id, interval_seconds, bucket_at),
-  CONSTRAINT fk_market_candles_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
-  INDEX ix_market_candles_retention (interval_seconds, bucket_at)
-);
-
--- 봇의 주문 행동 원본이 아니라 시간 bucket별 시장 영향만 보관한다.
-CREATE TABLE bot_stats (
-  stock_id BIGINT NOT NULL,
-  interval_seconds SMALLINT UNSIGNED NOT NULL,
-  bucket_at BIGINT NOT NULL,
-  first_at BIGINT NOT NULL,
-  last_at BIGINT NOT NULL,
-  order_count BIGINT NOT NULL DEFAULT 0,
-  trade_count BIGINT NOT NULL DEFAULT 0,
-  buy_volume BIGINT NOT NULL DEFAULT 0,
-  sell_volume BIGINT NOT NULL DEFAULT 0,
-  open_price BIGINT NULL,
-  high_price BIGINT NULL,
-  low_price BIGINT NULL,
-  close_price BIGINT NULL,
-  volume BIGINT NOT NULL DEFAULT 0,
-  notional BIGINT NOT NULL DEFAULT 0,
-  PRIMARY KEY (stock_id, interval_seconds, bucket_at),
-  CONSTRAINT fk_bot_stats_stock FOREIGN KEY (stock_id) REFERENCES stocks(id),
-  INDEX ix_bot_stats_retention (interval_seconds, bucket_at)
-);
-
-CREATE TABLE account_snapshots (
-  id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  captured_at TIMESTAMP NOT NULL,
-  cash BIGINT NOT NULL,
-  total_asset BIGINT NOT NULL,
-  pnl BIGINT NOT NULL DEFAULT 0,
-  UNIQUE KEY uq_account_snapshot_user_time (user_id, captured_at),
-  CONSTRAINT fk_account_snapshots_user FOREIGN KEY (user_id) REFERENCES users(id),
-  INDEX ix_account_snapshots_retention (captured_at)
 );
 
 -- 종목 상세 화면의 개인 기능(웹·모바일 공용)
