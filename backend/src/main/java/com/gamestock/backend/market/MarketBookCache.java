@@ -20,6 +20,9 @@ final class MarketBookCache {
 
     static void ensureTables(JdbcTemplate db) {
         db.execute("CREATE TABLE IF NOT EXISTS market_book_revisions (stock_id BIGINT PRIMARY KEY,revision BIGINT NOT NULL DEFAULT 0)");
+    }
+    /** Runs after listings are seeded so every stock has a revision row. */
+    static void seedRevisions(JdbcTemplate db) {
         db.update("INSERT IGNORE INTO market_book_revisions(stock_id) SELECT id FROM stocks");
     }
     static void invalidate(JdbcTemplate db,Long stock) {

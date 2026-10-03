@@ -24,6 +24,9 @@ public final class PriceMetricService {
         if(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='market_trade_buckets' AND index_name='ix_retention_time'",Integer.class)==0)
             jdbc.execute("CREATE INDEX ix_retention_time ON market_trade_buckets(created_at)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS market_metric_cursors (stock_id BIGINT PRIMARY KEY,last_id BIGINT NOT NULL DEFAULT 0)");
+    }
+    /** Runs after listings are seeded so every stock has a projection cursor. */
+    void seedCursors() {
         jdbc.update("INSERT IGNORE INTO market_metric_cursors SELECT id,0 FROM stocks");
     }
     /** Incremental projection under the caller's symbol/gate lock, in the same ledger transaction. */
