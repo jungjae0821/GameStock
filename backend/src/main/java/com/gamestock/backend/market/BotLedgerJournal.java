@@ -217,11 +217,10 @@ final class BotLedgerJournal {
             db.execute("ALTER TABLE orders ADD COLUMN compact_origin BOOLEAN NOT NULL DEFAULT FALSE");
         ensureIndex(db,"orders","ix_orders_compact_retention","compact_origin,status,created_at,id");
 
-        // Do not copy an entire legacy candle table while Spring is starting.
-        // Existing Railway volumes can contain months of compact rows; a full
-        // INSERT ... SELECT here would hold the startup transaction and make
-        // the health check time out. New writes use market_candles directly,
-        // while legacy projections remain cleanup-only compatibility data.
+        // Migrate already-computed compact buckets without copying raw orders.
+        migrateLegacyCandleTable(db,"bot_trade_seconds",SECOND);
+        migrateLegacyCandleTable(db,"bot_trade_minutes",MINUTE);
+        migrateLegacyCandleTable(db,"bot_trade_hours",3600);
         backfillCurrentState(db);
     }
 
