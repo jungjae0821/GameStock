@@ -217,12 +217,11 @@ final class BotLedgerJournal {
             db.execute("ALTER TABLE orders ADD COLUMN compact_origin BOOLEAN NOT NULL DEFAULT FALSE");
         ensureIndex(db,"orders","ix_orders_compact_retention","compact_origin,status,created_at,id");
 
-        // Do not copy an entire legacy candle table while Spring is starting.
-        // Existing Railway volumes can contain months of compact rows; a full
-        // INSERT ... SELECT here would hold the startup transaction and make
-        // the health check time out. New writes use market_candles directly,
-        // while legacy projections remain cleanup-only compatibility data.
-        backfillCurrentState(db);
+        // Do not copy legacy candles or all users/portfolios while Spring is
+        // starting. Existing Railway volumes can be large enough for either
+        // full INSERT ... SELECT to hold the startup transaction past the
+        // health-check window. New writes project changed state incrementally;
+        // legacy projections remain cleanup-only compatibility data.
     }
 
     private static boolean columnMissing(JdbcTemplate db,String table,String column) {
@@ -262,23 +261,6 @@ final class BotLedgerJournal {
             // A partially migrated legacy table must not prevent the market
             // from starting; the next maintenance run can retry it.
         }
-    }
-
-    private static void backfillCurrentState(JdbcTemplate db) {
-        db.update("""
-                INSERT INTO accounts(user_id,cash,total_asset)
-                SELECT u.id,u.cash,u.cash+COALESCE(SUM(p.quantity*s.current_price),0)
-                FROM users u
-                LEFT JOIN portfolios p ON p.user_id=u.id
-                LEFT JOIN stocks s ON s.id=p.stock_id
-                GROUP BY u.id,u.cash
-                ON DUPLICATE KEY UPDATE cash=VALUES(cash),total_asset=VALUES(total_asset)
-                """);
-        db.update("""
-                INSERT INTO positions(user_id,stock_id,quantity,avg_price)
-                SELECT user_id,stock_id,quantity,average_price FROM portfolios
-                ON DUPLICATE KEY UPDATE quantity=VALUES(quantity),avg_price=VALUES(avg_price)
-                """);
     }
 
     boolean compact(Fill fill,BatchOrderBook book) {
