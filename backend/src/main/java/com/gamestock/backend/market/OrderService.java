@@ -23,6 +23,10 @@ public class OrderService {
     private final ApplicationEventPublisher events;
     private final ArrayBlockingQueue<Pending> humans=new ArrayBlockingQueue<>(2048);
     private final Set<Integer> botPending=ConcurrentHashMap.newKeySet();
+    /** Railway's single MySQL volume is safer with one bot commit at a time.
+     * A skipped tick is regenerated from the in-memory engine; it is not queued
+     * as a second copy of the same high-frequency bot work. */
+    private final AtomicBoolean botBatchInFlight=new AtomicBoolean();
     private final AtomicBoolean running=new AtomicBoolean(true);
     private final ExecutorService admission=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"human-order-batches");t.setDaemon(true);return t;});
     public OrderService(MarketService market,PersistenceWorker persistence,MarketMetrics metrics,ApplicationEventPublisher events){
@@ -47,10 +51,26 @@ public class OrderService {
     }
     public CompletableFuture<List<BotActivityEngine.Activity>> submitBotBatch(int shard){
         if(!running.get()||!persistence.acceptingWrites()||!botPending.add(shard))return CompletableFuture.completedFuture(List.of());
+        if(!botBatchInFlight.compareAndSet(false,true)){
+            botPending.remove(shard);
+            metrics.add("bot.skipped",1);
+            return CompletableFuture.completedFuture(List.of());
+        }
         var retryPlan=new java.util.concurrent.atomic.AtomicReference<BotBatchPlan>();
-        return persistence.submitBot(shard,UUID.randomUUID().toString(),BotActivityEngine.Activity[].class,1,()->
-            market.participantBatch(shard,retryPlan).toArray(BotActivityEngine.Activity[]::new)
-        ).handle((activity,error)->{botPending.remove(shard);if(error!=null)throw new CompletionException(error);return List.of(activity);});
+        try {
+            return persistence.submitBot(shard,UUID.randomUUID().toString(),BotActivityEngine.Activity[].class,1,()->
+                market.participantBatch(shard,retryPlan).toArray(BotActivityEngine.Activity[]::new)
+            ).handle((activity,error)->{
+                botBatchInFlight.set(false);
+                botPending.remove(shard);
+                if(error!=null)throw new CompletionException(error);
+                return List.of(activity);
+            });
+        } catch (RuntimeException error) {
+            botBatchInFlight.set(false);
+            botPending.remove(shard);
+            throw error;
+        }
     }
     private void drain(){
         Pending carry=null;

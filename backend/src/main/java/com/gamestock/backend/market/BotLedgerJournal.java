@@ -12,6 +12,8 @@ import static com.gamestock.backend.market.BatchOrderBook.*;
  * No asynchronous acknowledged writes and no synthetic trades are used.
  */
 final class BotLedgerJournal {
+    private static final int ORDER_CLEANUP_BATCH=5000;
+    private static final int ORDER_CLEANUP_PASSES=4;
     private final JdbcTemplate db;
     BotLedgerJournal(JdbcTemplate db){this.db=db;}
     record Execution(long buyer,long seller,long buyOrder,long sellOrder,long makerOrder,long takerOrder,
@@ -135,13 +137,28 @@ final class BotLedgerJournal {
         db.update("DELETE FROM bot_trade_hours WHERE bucket_at<? LIMIT 3000",now/1000-370*86400L);
         // These are replayable metric projections, not the trade ledger.
         db.update("DELETE FROM market_trade_buckets WHERE created_at<? LIMIT 3000",new Timestamp(now-900000));
-        List<Long> closed=db.queryForList("""
-                SELECT o.id FROM orders o WHERE o.compact_origin=TRUE AND o.status<>'OPEN' AND o.created_at<?
-                  AND NOT EXISTS(SELECT 1 FROM trades t WHERE t.buy_order_id=o.id)
-                  AND NOT EXISTS(SELECT 1 FROM trades t WHERE t.sell_order_id=o.id)
-                ORDER BY o.id LIMIT 1000
-                """,Long.class,new Timestamp(now-60000));
-        deleteOrders(closed);
+        // Active books keep only OPEN bot orders in SQL. Completed/cancelled bot
+        // rows are a short-lived recovery aid, never a permanent bot ledger.
+        // Drain several bounded chunks so cleanup can keep up with active batches
+        // without ever creating an unbounded DELETE or queue.
+        for(int pass=0;pass<ORDER_CLEANUP_PASSES;pass++) {
+            int deleted=deleteStaleOrders(new Timestamp(now-60000),ORDER_CLEANUP_BATCH);
+            if(deleted<ORDER_CLEANUP_BATCH)break;
+        }
+    }
+    private int deleteStaleOrders(Timestamp cutoff,int limit) {
+        return db.update("""
+                DELETE FROM orders
+                WHERE id IN (
+                  SELECT candidate.id FROM (
+                    SELECT o.id FROM orders o
+                    WHERE o.compact_origin=TRUE AND o.status<>'OPEN' AND o.created_at<?
+                      AND NOT EXISTS(SELECT 1 FROM trades t WHERE t.buy_order_id=o.id)
+                      AND NOT EXISTS(SELECT 1 FROM trades t WHERE t.sell_order_id=o.id)
+                    ORDER BY o.id LIMIT ?
+                  ) candidate
+                )
+                """,cutoff,limit);
     }
     void deleteOrders(List<Long> ids) {
         if(ids.isEmpty())return;

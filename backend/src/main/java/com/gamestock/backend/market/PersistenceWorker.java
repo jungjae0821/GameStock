@@ -137,7 +137,13 @@ public class PersistenceWorker {
             metrics.add("persistence.receiptsPruned",deleted);
             long until=cleanupUntil.get();
             if(deleted==0&&System.nanoTime()>until)cleanupUntil.compareAndSet(until,0);
-        }catch(DataAccessException error){LoggerFactory.getLogger(getClass()).warn("Batch receipt cleanup failed; will retry independently of order writes ({})",error.getClass().getSimpleName());}
+        }catch(CannotAcquireLockException|QueryTimeoutException error){
+            // Receipt pruning is best-effort and must not compete with a live
+            // matching batch. The next scheduled pass retries it quietly.
+            LoggerFactory.getLogger(getClass()).debug("Batch receipt cleanup deferred ({})",error.getClass().getSimpleName());
+        }catch(DataAccessException error){
+            LoggerFactory.getLogger(getClass()).warn("Batch receipt cleanup failed; will retry independently of order writes ({})",error.getClass().getSimpleName());
+        }
     }
     static boolean storageFull(Throwable error){
         for(int depth=0;error!=null&&depth<20;depth++,error=error.getCause())
