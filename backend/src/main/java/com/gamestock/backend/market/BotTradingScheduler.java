@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 
 
@@ -94,5 +95,9 @@ public class BotTradingScheduler {
     public synchronized void stop() {
         for (ScheduledFuture<?> task : tasks) task.cancel(false);
         tasks.clear();
+    }
+
+    public synchronized Map<String,Object> runtimeStatus() {
+        return Map.of("started",!tasks.isEmpty(),"tasks",tasks.size());
     }
 }

@@ -19,10 +19,15 @@ public class MarketController {
     private final UserFeatureService userFeatures;
     private final OrderService orders;
     private final MarketMetrics metrics;
+    private final BotTradingScheduler scheduler;
 
-    public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures,OrderService orders,MarketMetrics metrics) { this.market = market; this.auth = auth; this.userFeatures = userFeatures;this.orders=orders;this.metrics=metrics; }
+    public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures,OrderService orders,MarketMetrics metrics,BotTradingScheduler scheduler) { this.market = market; this.auth = auth; this.userFeatures = userFeatures;this.orders=orders;this.metrics=metrics;this.scheduler=scheduler; }
 
-    @GetMapping("/health") public Map<String, String> health() { return Map.of("status", "ok"); }
+    @GetMapping("/health") public Map<String, Object> health() {
+        return Map.of("status","ok","matchingEnabled",market.matchingEnabled(),
+                "batchBotsEnabled",market.batchBotsEnabled(),"inlineLiquidity",market.inlineLiquidity(),
+                "batchShards",market.batchShardCount(),"botScheduler",scheduler.runtimeStatus());
+    }
     @GetMapping("/stocks") public java.util.List<Stock> stocks() { return market.stocks(); }
     @GetMapping("/market-events") public java.util.List<MarketEvent> events() { return market.marketEvents(); }
     @GetMapping("/market-status") public MarketStatus marketStatus() { return market.marketStatus(); }
