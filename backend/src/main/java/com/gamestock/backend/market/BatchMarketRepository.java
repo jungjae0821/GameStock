@@ -14,8 +14,8 @@ final class BatchMarketRepository {
     final Map<String,Long> timings=new LinkedHashMap<>();
     private long measuredAt;
     private void stamp(String key) {long end=System.nanoTime();timings.put("persist."+key,end-measuredAt);measuredAt=end;}
-    BatchMarketRepository(JdbcTemplate db) {this(db,new BotLedgerJournal(db));}
-    BatchMarketRepository(JdbcTemplate db,BotLedgerJournal journal) {this.db=db;this.journal=journal==null?new BotLedgerJournal(db):journal;}
+    BatchMarketRepository(JdbcTemplate db) {this(db,null);}
+    BatchMarketRepository(JdbcTemplate db,BotLedgerJournal journal) {this.db=db;this.journal=journal;}
 
     BatchOrderBook load(long now) {
         return load(now,null,Set.of());
@@ -40,7 +40,7 @@ final class BatchMarketRepository {
         var counter=new CommittedTradeCounter();
         db.query("SELECT stock_id,created_at,COUNT(*) FROM trades WHERE stock_id IN ("+selected(symbols)+") AND created_at>=? GROUP BY stock_id,created_at",
                 rs->{counter.add(rs.getLong(1),rs.getTimestamp(2).getTime(),rs.getInt(3));},new Timestamp(now-1000));
-        db.query("SELECT stock_id,bucket_at,trade_count FROM market_candles WHERE stock_id IN ("+selected(symbols)+") AND interval_seconds=1 AND bucket_at>=?",
+        db.query("SELECT stock_id,bucket_at,fills FROM bot_trade_seconds WHERE stock_id IN ("+selected(symbols)+") AND bucket_at>=?",
                 rs->{counter.add(rs.getLong(1),rs.getLong(2)*1000,rs.getInt(3));},(now-1000)/1000);
         return counter;
     }
@@ -82,11 +82,11 @@ final class BatchMarketRepository {
         }
         stamp("lockAccounts");
         Timestamp time=new Timestamp(now/1000*1000);
-        List<Fill> compact=book.fills.stream().filter(f->journal.compact(f,book)).toList();
-        List<Fill> retained=book.fills.stream().filter(f->!journal.compact(f,book)).toList();
+        List<Fill> compact=journal==null?List.of():book.fills.stream().filter(f->journal.compact(f,book)).toList();
+        List<Fill> retained=journal==null?book.fills:book.fills.stream().filter(f->!journal.compact(f,book)).toList();
         Set<Order> referenced=new HashSet<>();retained.forEach(f->{referenced.add(f.buy());referenced.add(f.sell());});
         Set<Order> fresh=new HashSet<>(book.accepted);
-        List<Order> persistent=book.accepted.stream().filter(o->o.status.equals("OPEN")||referenced.contains(o)||!book.accounts.get(o.user).bot).toList();
+        List<Order> persistent=book.accepted.stream().filter(o->journal==null||o.status.equals("OPEN")||referenced.contains(o)||!book.accounts.get(o.user).bot).toList();
         List<Long> orderIds=insert("orders","user_id,stock_id,side,order_type,price,quantity,remaining_quantity,reserved_cash,reserved_quantity,status,created_at,expires_at,compact_origin",
                 persistent.stream().map(o->new Object[]{o.user,o.stock,o.side,o.type,o.market()&&o.price==0?null:o.price,o.quantity,o.remaining,o.reservedCash,o.reservedQuantity,o.status,new Timestamp(o.createdAt),o.expiresAt==0?null:new Timestamp(o.expiresAt),journal!=null&&book.accounts.get(o.user).bot}).toList(),true,"");
         for(int i=0;i<orderIds.size();i++){Order o=persistent.get(i);o.id=orderIds.get(i);o.persisted=true;o.compactOrigin=journal!=null&&book.accounts.get(o.user).bot;}
@@ -117,17 +117,20 @@ final class BatchMarketRepository {
         }
         insert("settlements","trade_id,buyer_id,seller_id,stock_id,quantity,gross_amount,buyer_fee,seller_fee,settlement_at,status,buyer_quantity_before,buyer_settled_quantity_before,buyer_average_price_before,buyer_realized_profit_loss_before,seller_quantity_before,seller_settled_quantity_before,seller_average_price_before,seller_realized_profit_loss_before,settled_at,created_at",settlements,false,"");
         stamp("settlements");
+        if(journal!=null) {
+            journal.write(book,compact,now);
+            journal.deleteOrders(book.changedOrders.stream().filter(o->o.persisted&&o.compactOrigin&&!o.status.equals("OPEN")).map(o->o.id).toList());
+        }
+        stamp("journal");
         Map<Long,PriceChange> changes=new LinkedHashMap<>();
         for(PriceChange p:book.prices) {PriceChange old=changes.get(p.stock());changes.put(p.stock(),new PriceChange(p.stock(),p.previous(),p.price(),p.volume()+(old==null?0:old.volume())));}
         update("stocks","id",new ArrayList<>(changes.values()),PriceChange::stock,List.of("previous_price","current_price","total_volume"),p->new Object[]{p.previous(),p.price(),p.volume()},Set.of("total_volume"));
+        insert("stock_price_history","stock_id,price,recorded_at",journal==null?book.prices.stream().map(p->new Object[]{p.stock(),p.price(),time}).toList():retained.stream().map(f->new Object[]{f.buy().stock,f.price(),time}).toList(),false,"");
         String tradingDate=java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneOffset.UTC).toLocalDate().toString();
         insert("daily_market_summaries","stock_id,trading_date,open_price,close_price,total_volume",changes.values().stream().map(p->new Object[]{p.stock(),tradingDate,p.price(),p.price(),p.volume()}).toList(),false,
                 " ON DUPLICATE KEY UPDATE close_price=VALUES(close_price),total_volume=daily_market_summaries.total_volume+VALUES(total_volume)");
         update("stock_protection_state","stock_id",new ArrayList<>(changes.values()),PriceChange::stock,List.of("last_trade_price","dynamic_reference"),p->new Object[]{p.price(),book.stocks.get(p.stock()).dynamicReference});
         stamp("prices");
-        journal.write(book,compact,now);
-        stamp("journal");
-        journal.deleteOrders(book.changedOrders.stream().filter(o->o.persisted&&o.compactOrigin&&!o.status.equals("OPEN")).map(o->o.id).toList());
         db.update("UPDATE market_book_revisions SET revision=revision+1 WHERE stock_id IN ("+selected(book.stocks.keySet())+")");
     }
 

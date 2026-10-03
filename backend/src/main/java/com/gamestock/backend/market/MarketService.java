@@ -109,7 +109,6 @@ public class MarketService {
     @Value("${market.batch.detail-retention-minutes:15}")
     private int detailRetentionMinutes=15;
     private BotLedgerJournal botJournal;
-    private long lastAccountSnapshotBucket=-1;
     @Value("${market.batch.inline-liquidity:true}")
     private boolean inlineMarketMaker;
     public boolean inlineLiquidity(){return batchEnabled&&inlineMarketMaker;}
@@ -287,7 +286,7 @@ public class MarketService {
             }
         }
         long started=System.nanoTime();
-        BatchMarketRepository repository=new BatchMarketRepository(jdbc,botJournal);
+        BatchMarketRepository repository=new BatchMarketRepository(jdbc,compactLedger?botJournal:null);
         BatchOrderBook book=bookCacheEnabled?lane.cache.borrow(repository,now,lane.stocks,lane.users):repository.load(now,lane.stocks,lane.users);
         if(inlineMarketMaker)for(var stock:book.stocks.values()) {
             book.restoreLiquidityInventory(activityLpId,stock.id,LP_INITIAL_INVENTORY,stock.last);
@@ -912,16 +911,20 @@ public class MarketService {
      */
     public synchronized List<PricePoint> priceHistory(String code, String range) {
         Instant cutoff = clock.instant().minus(historyWindow(range));
+        String table=historyWindow(range).toMinutes()<=15?"bot_trade_seconds":"bot_trade_minutes";
         List<PricePoint> points = jdbc.query("""
-                SELECT c.close_price AS price,FROM_UNIXTIME(c.last_at) AS recorded_at
-                FROM market_candles c JOIN stocks s ON s.id=c.stock_id
-                WHERE s.stock_code=? AND c.interval_seconds=? AND c.bucket_at>=?
-                ORDER BY c.bucket_at DESC
+                SELECT price,recorded_at FROM (
+                  SELECT h.id,h.price,h.recorded_at FROM stock_price_history h JOIN stocks s ON s.id=h.stock_id
+                  WHERE s.stock_code=? AND h.recorded_at>=?
+                  UNION ALL
+                  SELECT 0,b.close_price,FROM_UNIXTIME(b.last_at/1000.0) FROM %s b JOIN stocks s ON s.id=b.stock_id
+                  WHERE s.stock_code=? AND b.last_at>=?
+                ) points ORDER BY recorded_at DESC,id DESC
                 LIMIT 2000
-                """, (rs, row) -> new PricePoint(
+                """.formatted(table), (rs, row) -> new PricePoint(
                 rs.getLong("price"),
                 databaseInstant(rs.getTimestamp("recorded_at")).toString()),
-                code.toUpperCase(Locale.ROOT),historyWindow(range).toMinutes()<=15?1:60,cutoff.toEpochMilli()/1000);
+                code.toUpperCase(Locale.ROOT), Timestamp.from(cutoff),code.toUpperCase(Locale.ROOT),cutoff.toEpochMilli());
         Collections.reverse(points);
         return points;
     }
@@ -933,44 +936,46 @@ public class MarketService {
         Duration window = chartWindow(range);
         long bucketSeconds = chartBucketSeconds(range);
         Instant cutoff = clock.instant().minus(window);
-        int sourceInterval=window.toHours()<=1?1:60;
+        String table=window.toDays()<=8?"bot_trade_minutes":"bot_trade_hours";
         return jdbc.query("""
                 WITH points AS (
-                  SELECT c.open_price,c.high_price,c.low_price,c.close_price,FROM_UNIXTIME(c.bucket_at) recorded_at,
-                         c.first_at,c.last_at,c.volume point_volume
-                  FROM market_candles c JOIN stocks s ON s.id=c.stock_id
-                  WHERE s.stock_code=? AND c.interval_seconds=? AND c.bucket_at>=?
+                  SELECT h.id,h.price open_price,h.price high_price,h.price low_price,h.price close_price,h.recorded_at,
+                         UNIX_TIMESTAMP(h.recorded_at)*1000 first_at,UNIX_TIMESTAMP(h.recorded_at)*1000 last_at,1 point_count
+                  FROM stock_price_history h JOIN stocks s ON s.id=h.stock_id WHERE s.stock_code=? AND h.recorded_at>=?
+                  UNION ALL
+                  SELECT 0,b.open_price,b.high_price,b.low_price,b.close_price,FROM_UNIXTIME(b.bucket_at),b.first_at,b.last_at,b.fills
+                  FROM %s b JOIN stocks s ON s.id=b.stock_id WHERE s.stock_code=? AND b.bucket_at>=?
                 ), bucketed AS (
                   SELECT h.*,
                          FLOOR(UNIX_TIMESTAMP(h.recorded_at) / ?) AS bucket,
-                          ROW_NUMBER() OVER (
-                            PARTITION BY FLOOR(UNIX_TIMESTAMP(h.recorded_at) / ?)
-                            ORDER BY h.first_at ASC, h.recorded_at ASC
-                          ) AS open_rank,
-                          ROW_NUMBER() OVER (
-                            PARTITION BY FLOOR(UNIX_TIMESTAMP(h.recorded_at) / ?)
-                            ORDER BY h.last_at DESC, h.recorded_at DESC
-                          ) AS close_rank
+                         ROW_NUMBER() OVER (
+                           PARTITION BY FLOOR(UNIX_TIMESTAMP(h.recorded_at) / ?)
+                           ORDER BY h.first_at ASC, h.id ASC
+                         ) AS open_rank,
+                         ROW_NUMBER() OVER (
+                           PARTITION BY FLOOR(UNIX_TIMESTAMP(h.recorded_at) / ?)
+                           ORDER BY h.last_at DESC, h.id DESC
+                         ) AS close_rank
                   FROM points h
                 )
                 SELECT bucket * ? AS bucket_at,
-                        MAX(CASE WHEN open_rank = 1 THEN open_price END) AS open_price,
-                        MAX(high_price) AS high_price,
-                        MIN(low_price) AS low_price,
-                        MAX(CASE WHEN close_rank = 1 THEN close_price END) AS close_price,
-                        SUM(point_volume) AS volume
+                       MAX(CASE WHEN open_rank = 1 THEN open_price END) AS open_price,
+                       MAX(high_price) AS high_price,
+                       MIN(low_price) AS low_price,
+                       MAX(CASE WHEN close_rank = 1 THEN close_price END) AS close_price,
+                       SUM(point_count) AS point_count
                 FROM bucketed
                 GROUP BY bucket
                 ORDER BY bucket ASC
                 LIMIT 2000
-                """, (rs, row) -> new ChartCandle(
+                """.formatted(table), (rs, row) -> new ChartCandle(
                 Instant.ofEpochSecond(rs.getLong("bucket_at")).toString(),
                 rs.getLong("open_price"),
                 rs.getLong("high_price"),
                 rs.getLong("low_price"),
                 rs.getLong("close_price"),
-                rs.getLong("volume")),
-                normalized,sourceInterval,cutoff.getEpochSecond(),bucketSeconds,bucketSeconds,bucketSeconds,bucketSeconds);
+                rs.getLong("point_count")),
+                normalized,Timestamp.from(cutoff),normalized,cutoff.getEpochSecond(),bucketSeconds,bucketSeconds,bucketSeconds,bucketSeconds);
     }
 
     private Duration chartWindow(String range) {
@@ -1039,8 +1044,8 @@ public class MarketService {
                 SELECT
                   COALESCE(SUM(CASE WHEN buyer.password_hash NOT IN ('BOT','TRADER') THEN t.quantity ELSE 0 END), 0) AS user_buy,
                   COALESCE(SUM(CASE WHEN seller.password_hash NOT IN ('BOT','TRADER') THEN t.quantity ELSE 0 END), 0) AS user_sell,
-                   0 AS bot_buy,
-                   0 AS bot_sell
+                  COALESCE(SUM(CASE WHEN buyer.password_hash IN ('BOT','TRADER') THEN t.quantity ELSE 0 END), 0) AS bot_buy,
+                  COALESCE(SUM(CASE WHEN seller.password_hash IN ('BOT','TRADER') THEN t.quantity ELSE 0 END), 0) AS bot_sell
                 FROM trades t
                 JOIN users buyer ON buyer.id = t.buyer_id
                 JOIN users seller ON seller.id = t.seller_id
@@ -1048,14 +1053,8 @@ public class MarketService {
                   AND t.created_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
                 """, (rs, row) -> new VolumeBreakdown(rs.getLong("user_buy"), rs.getLong("user_sell"),
                 rs.getLong("bot_buy"), rs.getLong("bot_sell")), id);
-        VolumeBreakdown botVolumes=jdbc.queryForObject("""
-                SELECT COALESCE(SUM(buy_volume),0) AS bot_buy,
-                       COALESCE(SUM(sell_volume),0) AS bot_sell
-                FROM bot_stats
-                WHERE stock_id=? AND interval_seconds=60 AND bucket_at>=?
-                """,(rs,row)->new VolumeBreakdown(0,0,rs.getLong("bot_buy"),rs.getLong("bot_sell")),
-                id,clock.millis()/1000-86400);
-        volumes=new VolumeBreakdown(volumes.userBuy(),volumes.userSell(),botVolumes.botBuy(),botVolumes.botSell());
+        long compactVolume=jdbc.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM bot_trade_minutes WHERE stock_id=? AND bucket_at>=?",Long.class,id,clock.millis()/1000-86400);
+        volumes=new VolumeBreakdown(volumes.userBuy(),volumes.userSell(),volumes.botBuy()+compactVolume,volumes.botSell()+compactVolume);
         VolumeBreakdown openOrders = jdbc.queryForObject("""
                 SELECT
                   COALESCE(SUM(CASE WHEN side = 'BUY' THEN remaining_quantity ELSE 0 END), 0) AS open_buy,
@@ -1068,11 +1067,7 @@ public class MarketService {
                 WHERE stock_id = ? AND event_type = 'NEWS'
                 """, Timestamp.class, id);
         Timestamp latestTrade = jdbc.queryForObject("SELECT MAX(created_at) FROM trades WHERE stock_id = ?", Timestamp.class, id);
-        Timestamp compactLatest=jdbc.queryForObject("""
-                SELECT MAX(FROM_UNIXTIME(last_at))
-                FROM market_candles
-                WHERE stock_id=? AND interval_seconds=60
-                """,Timestamp.class,id);
+        Timestamp compactLatest=jdbc.queryForObject("SELECT MAX(last_trade) FROM bot_ledger_totals WHERE stock_id=?",Timestamp.class,id);
         if(compactLatest!=null&&(latestTrade==null||compactLatest.after(latestTrade)))latestTrade=compactLatest;
         double newsImpact = Math.max(-10.0, Math.min(10.0, impact == null ? 0.0 : impact));
         long userNet = volumes.userBuy() - volumes.userSell();
@@ -1173,7 +1168,7 @@ public class MarketService {
         }catch(IllegalArgumentException error){outcomes.set(i,OrderBatch.Outcome.rejected(error.getMessage()));}
         if(symbols.isEmpty())return outcomes;
         long now=clock.millis();
-        var repository=new BatchMarketRepository(jdbc,botJournal);
+        var repository=new BatchMarketRepository(jdbc,compactLedger?botJournal:null);
         repository.lock(Set.copyOf(symbols.values()));
         java.util.SortedSet<Long> accounts=new java.util.TreeSet<>(users);
         for(var symbol:symbols.entrySet()){
@@ -1281,15 +1276,7 @@ public class MarketService {
         advanceTradingProtections();
         if (protection.marketStatus().open()) refreshEnvironments();
         for (String code : botStockCodes()) refreshMarkPrice(code);
-        if(botJournal!=null) {
-            long now=clock.millis();
-            botJournal.retain(now,Math.max(15,detailRetentionMinutes));
-            long bucket=now/3_600_000L;
-            if(bucket!=lastAccountSnapshotBucket) {
-                botJournal.snapshot(now);
-                lastAccountSnapshotBucket=bucket;
-            }
-        }
+        if(botJournal!=null)botJournal.retain(clock.millis(),Math.max(15,detailRetentionMinutes));
         events.publishEvent(new MarketChangedEvent());
     }
 
@@ -1510,7 +1497,7 @@ public class MarketService {
                 INSERT INTO orders (user_id,stock_id,side,order_type,price,quantity,remaining_quantity,reserved_cash,reserved_quantity,status,expires_at,compact_origin)
                 VALUES (?,?,?,'LIMIT',?,?,?,?,?,'OPEN',?,?)
                 """,lp,id,quote.side(),price,quantity,quantity,reserved,buy?0:quantity,
-                Timestamp.from(clock.instant().plusMillis(4000)),true);
+                Timestamp.from(clock.instant().plusMillis(4000)),compactLedger);
     }
 
     /**
@@ -1824,7 +1811,7 @@ public class MarketService {
     private MatchSummary matchOrders(String code) {
         if(!protection.continuous(code))return MatchSummary.empty();
         long now=clock.millis(),id=stockId(code);
-        var repository=new BatchMarketRepository(jdbc,botJournal);
+        var repository=new BatchMarketRepository(jdbc,compactLedger?botJournal:null);
         var book=repository.load(now,Set.of(id),Set.of());
         matching.compute(()->{book.matchExisting(id);return null;});
         repository.persist(book,now);
@@ -2538,7 +2525,7 @@ public class MarketService {
         PriceBand dailyBand = dailyPriceBand(code);
         long next = dailyBand.clamp(Math.max(100, price));
         jdbc.update("UPDATE stocks SET previous_price = current_price, current_price = ?, total_volume = total_volume + ? WHERE stock_code = ?", next, volume, code);
-        new BotLedgerJournal(jdbc).recordLegacyTrade(stockId(code),clock.millis(),next,Math.max(0,volume),true);
+        jdbc.update("INSERT INTO stock_price_history (stock_id, price) SELECT id, ? FROM stocks WHERE stock_code = ?", next, code);
         recordDailyTrade(code, next, volume);
         refreshMarkPrice(code);
         // The scheduled market monitor evaluates the 60-second circuit-breaker condition.
