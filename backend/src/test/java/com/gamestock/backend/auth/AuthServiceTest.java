@@ -63,6 +63,62 @@ class AuthServiceTest {
         verify(jdbc).update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", "picture", 7L);
     }
 
+    private static final AuthService.LoginUser USER = new AuthService.LoginUser(7L, "닉네임", "", "", 0, 0, false);
+
+    @Test void attendanceUsesKoreanDateAfterUtcDayBoundary() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.update(startsWith("INSERT IGNORE INTO attendance_rewards"), any(Object[].class))).thenReturn(1);
+        // 2026-10-02 15:30 UTC is already 2026-10-03 00:30 in Seoul.
+        AuthService auth = new AuthService(jdbc, Clock.fixed(Instant.parse("2026-10-02T15:30:00Z"), ZoneOffset.UTC));
+
+        var user = auth.grantAttendanceReward(USER);
+
+        assertEquals(100_000L, user.attendanceReward());
+        verify(jdbc).update(startsWith("INSERT IGNORE INTO attendance_rewards"), eq(7L), eq(java.time.LocalDate.parse("2026-10-03")), eq(1), eq(100_000L));
+        verify(jdbc).update("UPDATE users SET cash = cash + ? WHERE id = ?", 100_000L, 7L);
+    }
+
+    @Test void concurrentDuplicateAttendanceDoesNotPayTwiceOrFail() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        // Another request inserted today's row after this one checked; INSERT IGNORE reports 0 rows.
+        when(jdbc.update(startsWith("INSERT IGNORE INTO attendance_rewards"), any(Object[].class))).thenReturn(0);
+        AuthService auth = new AuthService(jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+
+        var user = assertDoesNotThrow(() -> auth.grantAttendanceReward(USER));
+
+        assertEquals(0L, user.attendanceReward());
+        verify(jdbc, never()).update(eq("UPDATE users SET cash = cash + ? WHERE id = ?"), any(Object[].class));
+    }
+
+    @Test void databaseFailureIsNotReportedAsExpiredLogin() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class)))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("db down"));
+        AuthService auth = new AuthService(jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+        com.google.firebase.auth.FirebaseAuth firebase = mock(com.google.firebase.auth.FirebaseAuth.class);
+        com.google.firebase.auth.FirebaseToken token = mock(com.google.firebase.auth.FirebaseToken.class);
+        when(token.getUid()).thenReturn("uid-7");
+        when(firebase.verifyIdToken("valid")).thenReturn(token);
+
+        try (var statics = mockStatic(com.google.firebase.auth.FirebaseAuth.class)) {
+            statics.when(com.google.firebase.auth.FirebaseAuth::getInstance).thenReturn(firebase);
+            assertThrows(org.springframework.dao.DataAccessResourceFailureException.class,
+                    () -> auth.requireUser("Bearer valid"));
+        }
+    }
+
+    @Test void invalidTokenIsStillUnauthorized() throws Exception {
+        AuthService auth = new AuthService(mock(JdbcTemplate.class), Clock.fixed(NOW, ZoneOffset.UTC));
+        com.google.firebase.auth.FirebaseAuth firebase = mock(com.google.firebase.auth.FirebaseAuth.class);
+        when(firebase.verifyIdToken("bad")).thenThrow(new IllegalArgumentException("bad token"));
+
+        try (var statics = mockStatic(com.google.firebase.auth.FirebaseAuth.class)) {
+            statics.when(com.google.firebase.auth.FirebaseAuth::getInstance).thenReturn(firebase);
+            var error = assertThrows(ResponseStatusException.class, () -> auth.requireUser("Bearer bad"));
+            assertEquals(401, error.getStatusCode().value());
+        }
+    }
+
     @Test void nicknameOnlyUpdatePreservesExistingProfileImage() throws Exception {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         ResultSet rs = mock(ResultSet.class);

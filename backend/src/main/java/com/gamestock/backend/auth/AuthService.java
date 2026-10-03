@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.time.Instant;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.sql.Timestamp;
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +24,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class AuthService {
     private static final long MOBILE_CODE_TTL_SECONDS = 120;
+    /** Attendance resets at Korean midnight, the same boundary as daily missions. */
+    private static final ZoneId ATTENDANCE_ZONE = ZoneId.of("Asia/Seoul");
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final Map<String, PendingMobileCode> mobileCodes = new ConcurrentHashMap<>();
@@ -44,17 +47,13 @@ public class AuthService {
         this.clock = clock;
     }
 
+    /**
+     * Only token verification maps to 401. Database failures while loading the
+     * account propagate as server errors instead of looking like an expired login.
+     */
     @Transactional
     public LoginUser requireUser(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer "))
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
-        try {
-            FirebaseToken token = FirebaseAuth.getInstance().verifyIdToken(authorization.substring(7));
-            return findOrCreate(token);
-        } catch (ResponseStatusException error) { throw error; }
-        catch (Exception error) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않거나 만료된 로그인입니다.");
-        }
+        return findOrCreate(verifyToken(authorization));
     }
 
     @Transactional
@@ -172,7 +171,9 @@ public class AuthService {
                     else break;
                 }
             }
-            user = jdbc.queryForObject("SELECT id, nickname, email, profile_image_url, profile_completed, role FROM users WHERE google_uid = ?",
+            // A locking read sees a row committed by a concurrent first login,
+            // which this transaction's earlier consistent snapshot may not include.
+            user = jdbc.queryForObject("SELECT id, nickname, email, profile_image_url, profile_completed, role FROM users WHERE google_uid = ? FOR UPDATE",
                     (rs, row) -> new LoginUser(rs.getLong("id"), rs.getString("nickname"), rs.getString("email"), rs.getString("profile_image_url"), 0, 0, !rs.getBoolean("profile_completed"), rs.getString("role")), token.getUid());
         }
         if (isConfiguredAdmin(token) && !"ADMIN".equalsIgnoreCase(user.role())) {
@@ -206,8 +207,8 @@ public class AuthService {
         return count != null && count > 0;
     }
 
-    private LoginUser grantAttendanceReward(LoginUser user) {
-        LocalDate today = LocalDate.now();
+    LoginUser grantAttendanceReward(LoginUser user) {
+        LocalDate today = LocalDate.now(clock.withZone(ATTENDANCE_ZONE));
         Integer previous = jdbc.query("SELECT streak_day FROM attendance_rewards WHERE user_id = ? AND rewarded_on = ?",
                 (rs, row) -> rs.getInt(1), user.id(), today).stream().findFirst().orElse(null);
         if (previous != null) return new LoginUser(user.id(), user.nickname(), user.email(), user.profileImageUrl(), 0, previous, user.requiresNickname(), user.role());
@@ -215,7 +216,10 @@ public class AuthService {
                 (rs, row) -> Map.of("date", rs.getDate(1).toLocalDate(), "streak", rs.getInt(2)), user.id());
         int streak = !last.isEmpty() && ((LocalDate) last.get(0).get("date")).plusDays(1).equals(today) ? (int) last.get(0).get("streak") + 1 : 1;
         long reward = Math.min(streak, 5) * 100_000L;
-        jdbc.update("INSERT INTO attendance_rewards (user_id, rewarded_on, streak_day, reward_cash) VALUES (?, ?, ?, ?)", user.id(), today, streak, reward);
+        // Parallel first requests of the day race here. The unique key admits one
+        // row, and only the request that inserted it pays the reward.
+        int inserted = jdbc.update("INSERT IGNORE INTO attendance_rewards (user_id, rewarded_on, streak_day, reward_cash) VALUES (?, ?, ?, ?)", user.id(), today, streak, reward);
+        if (inserted == 0) return new LoginUser(user.id(), user.nickname(), user.email(), user.profileImageUrl(), 0, streak, user.requiresNickname(), user.role());
         jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", reward, user.id());
         return new LoginUser(user.id(), user.nickname(), user.email(), user.profileImageUrl(), reward, streak, user.requiresNickname(), user.role());
     }
