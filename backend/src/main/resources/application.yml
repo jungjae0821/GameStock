@@ -38,10 +38,13 @@ market:
     participants: ${GAMESTOCK_BOT_PARTICIPANTS:6020}
     target-per-symbol: ${GAMESTOCK_TARGET_FILLS_PER_SYMBOL:300}
     book-cache: true
+    # Legacy compatibility flag. Bot raw orders are never durably written;
+    # only bot_stats/candles and bounded counters are persisted.
     compact-ledger: true
     inline-liquidity: true
     active-cadence-ms: ${GAMESTOCK_ACTIVE_BATCH_MS:100}
-    # 사용자 거래 원장은 유지한다. 봇 전용 상세 로그만 보관 기한 후 집계로 남긴다.
+    # Existing legacy bot payload rows are cleaned incrementally; new batches
+    # never create them. Human orders/trades remain detailed.
     detail-retention-minutes: ${GAMESTOCK_BOT_DETAIL_MINUTES:15}
     adaptive: ${GAMESTOCK_ADAPTIVE_ACTIVITY:true}
     # 30분 주기 갱신 안에서만 사용하는 매칭 속도. 무접속 상시 체결 목표가 아니다.
