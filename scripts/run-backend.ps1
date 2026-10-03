@@ -32,5 +32,7 @@ Set-Location (Join-Path $projectRoot 'backend')
 # 프로젝트 내부 저장소를 명시해 일반 사용자 권한으로도 실행되게 한다.
 $mavenRepository = Join-Path $projectRoot '.m2-repository'
 New-Item -ItemType Directory -Force -Path $mavenRepository | Out-Null
-# 실행 시에는 이미 내려받은 프로젝트 내부 캐시만 사용해 Maven 네트워크 오류를 막는다.
-& $maven "-o" "-Dmaven.repo.local=$mavenRepository" "-Dmaven.test.skip=true" spring-boot:run
+# 의존성을 이미 내려받았으면 내부 캐시만 사용해 Maven 네트워크 오류를 막는다.
+# 저장소는 Git에 포함하지 않으므로, 새로 clone한 첫 실행에서는 온라인으로 내려받는다.
+$offline = if (Test-Path (Join-Path $mavenRepository 'org\springframework\boot')) { @('-o') } else { @() }
+& $maven @offline "-Dmaven.repo.local=$mavenRepository" "-Dmaven.test.skip=true" spring-boot:run

@@ -8,3 +8,12 @@ dist
 backend/secrets/
 backend/target/
 .DS_Store
+
+# Maven local repositories (downloaded dependencies)
+.m2-repository/
+backend/.m2-repository/
+
+# Runtime logs and tool caches
+logs/
+.expo/
+.firebase/
