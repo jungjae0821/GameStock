@@ -9,6 +9,19 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class BotTradingSchedulerTest {
+    @Test void initialMaintenanceFailureDoesNotPreventBotTasks() {
+        var market=mock(MarketService.class);var timers=mock(TaskScheduler.class);
+        when(market.matchingEnabled()).thenReturn(true);
+        when(market.botStockCodes()).thenReturn(List.of("A"));
+        when(market.batchBotsEnabled()).thenReturn(true);when(market.inlineLiquidity()).thenReturn(true);
+        when(market.batchShardCount()).thenReturn(4);when(market.participantBotUsernames()).thenReturn(List.of());
+        doThrow(new IllegalStateException("transient database error")).when(market).maintainScheduledMarket();
+        doAnswer(call->mock(ScheduledFuture.class)).when(timers).schedule(any(Runnable.class),any(Trigger.class));
+        var scheduler=new BotTradingScheduler(market,timers);
+        try { scheduler.start(); verify(timers,times(4)).schedule(any(Runnable.class),any(Trigger.class)); }
+        finally { scheduler.stop(); }
+    }
+
     @Test void idleWakeChecksDoNotInvokeTransactionalMatchingOrSeedLpOrders() {
         var market=mock(MarketService.class);var timers=mock(TaskScheduler.class);
         when(market.matchingEnabled()).thenReturn(true);

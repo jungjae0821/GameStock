@@ -37,9 +37,12 @@ public class BotTradingScheduler {
     @EventListener(ApplicationReadyEvent.class)
     public synchronized void start() {
         if (!tasks.isEmpty() || !market.matchingEnabled()) return;
-        market.maintainScheduledMarket();
+        try { market.maintainScheduledMarket(); }
+        catch (RuntimeException error) { log.error("Initial market maintenance failed; bot tasks will still be scheduled",error); }
         for (String code : market.botStockCodes()) {
-            if(market.batchBotsEnabled()&&market.activeSimulation())market.liquidityBotAction(code,"BOTH");
+            try {
+                if(market.batchBotsEnabled()&&market.activeSimulation())market.liquidityBotAction(code,"BOTH");
+            } catch (RuntimeException error) { log.warn("Initial liquidity refresh failed for {}",code,error); }
             if(!market.inlineLiquidity())schedule("liquidity:" + code, () -> market.liquidityBotAction(code, "BOTH"));
         }
         if(market.batchBotsEnabled()) {
