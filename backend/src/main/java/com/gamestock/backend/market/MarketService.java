@@ -3,6 +3,8 @@ package com.gamestock.backend.market;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -407,18 +409,40 @@ public class MarketService {
     }
 
     private void addOrderColumnIfMissing() {
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'orders' AND column_name = 'remaining_quantity'", Integer.class);
-        if (count != null && count == 0) jdbc.execute("ALTER TABLE orders ADD COLUMN remaining_quantity INT NOT NULL DEFAULT 0");
+        boolean remainingQuantityAdded = addOrderColumnIfMissing("remaining_quantity", "INT NOT NULL DEFAULT 0");
         addOrderColumnIfMissing("reserved_cash", "BIGINT NOT NULL DEFAULT 0");
         addOrderColumnIfMissing("reserved_quantity", "INT NOT NULL DEFAULT 0");
         addOrderColumnIfMissing("expires_at", "TIMESTAMP NULL");
-        jdbc.update("UPDATE orders SET remaining_quantity = quantity WHERE remaining_quantity = 0 AND status = 'OPEN'");
+        if (remainingQuantityAdded) {
+            // Only repair rows when migrating a legacy schema. The current schema already
+            // initializes this column, so a table-wide UPDATE during startup would contend
+            // with the live matching writer during a rolling Railway deployment.
+            try {
+                jdbc.update("""
+                        UPDATE orders o
+                        JOIN (
+                          SELECT legacy.id FROM (
+                            SELECT id FROM orders
+                            WHERE remaining_quantity = 0 AND status = 'OPEN' AND quantity > 0
+                            ORDER BY id LIMIT 500
+                          ) legacy
+                        ) candidates ON candidates.id = o.id
+                        SET o.remaining_quantity = o.quantity
+                        """);
+            } catch (CannotAcquireLockException | QueryTimeoutException e) {
+                log.warn("Skipping bounded legacy order quantity repair during startup: {}", e.getClass().getSimpleName());
+            }
+        }
         jdbc.execute("ALTER TABLE orders MODIFY COLUMN status ENUM('OPEN', 'FILLED', 'PARTIAL', 'CANCELLED') NOT NULL DEFAULT 'OPEN'");
     }
 
-    private void addOrderColumnIfMissing(String name, String definition) {
+    private boolean addOrderColumnIfMissing(String name, String definition) {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'orders' AND column_name = ?", Integer.class, name);
-        if (count != null && count == 0) jdbc.execute("ALTER TABLE orders ADD COLUMN " + name + " " + definition);
+        if (count != null && count == 0) {
+            jdbc.execute("ALTER TABLE orders ADD COLUMN " + name + " " + definition);
+            return true;
+        }
+        return false;
     }
 
     private void addUserColumnIfMissing(String name, String definition) {
