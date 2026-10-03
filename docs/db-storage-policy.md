@@ -53,6 +53,6 @@ Railway Hobby의 제한된 MySQL Volume을 고려한 시장 저장 정책이다.
 ## 적용 확인
 
 - 신규 DB: `database/schema.sql`에 `accounts`, `positions`, `market_candles`, `bot_stats`, `account_snapshots`가 포함된다.
-- 기존 DB: 애플리케이션 시작 시 `BotLedgerJournal.ensureTables()`가 누락된 테이블·컬럼·필요 index를 확인하고, 기존 compact candle을 새 candle 표준으로 이관한다.
+- 기존 DB: 애플리케이션 시작 시 `BotLedgerJournal.ensureTables()`가 누락된 테이블·컬럼·필요 index만 확인한다. 구형 compact candle 전체 이관은 기동 경로에서 수행하지 않으며, 기존 레거시 projection은 새 쓰기 경로를 막지 않도록 유지보수 정리 대상으로 남긴다.
 - 운영 전환 후에는 `market_candles`와 `bot_stats`의 interval별 row 수, `orders.compact_origin=TRUE`의 종료 row 수, legacy `bot_ledger_batches`의 신규 증가 여부를 확인한다.
 - 로컬에서 실행한 기본 백엔드 테스트는 DB 없는 테스트만 포함한다. Railway 적용, 실제 MySQL 통합 테스트, Firebase/Railway release는 별도 확인 대상이다.
