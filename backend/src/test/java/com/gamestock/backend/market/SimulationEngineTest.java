@@ -250,14 +250,14 @@ class SimulationEngineTest {
         assertEquals(4,quotes.stream().filter(q->q.side().equals("SELL")).count());
         assertTrue(engine.quotes(m,neutral,new MarketMakerEngine.RiskBook(0,0,400,1200,12000000),10,1,constraints).isEmpty());
     }
-    @Test void thinBooksRefillWithFourSharesPerEmergencyLevel() {
+    @Test void thinBooksRefillWithEightSharesPerEmergencyLevel() {
         var engine=new MarketMakerEngine();
         var empty=PriceMetricService.calculate(List.of(),10000,10000,10000,0,0,0);
         var risk=new MarketMakerEngine.RiskBook(5000000,100,100,1200,12000000);
         var quotes=engine.quotes(empty,neutral,risk,10,1,
                 new MarketMakerEngine.QuoteConstraints(8000,12000,0,0));
         assertEquals(8,quotes.size());
-        assertTrue(quotes.stream().allMatch(q->q.quantity()==4));
+        assertTrue(quotes.stream().allMatch(q->q.quantity()==8));
     }
     @Test void oldJumpsAndTradeCountTruncationDoNotInflateCurrentVolatility() {
         var sparse=List.of(new PriceMetricService.Trade(0,8000,10),

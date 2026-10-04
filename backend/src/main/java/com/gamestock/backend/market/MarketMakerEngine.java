@@ -7,7 +7,7 @@ import static com.gamestock.backend.market.PriceLimitPolicy.*;
 /** RiskBook is reconstructed from persistent allocations and actual fills. */
 public final class MarketMakerEngine {
     private static final int QUOTE_LEVELS = 4;
-    private static final int EMERGENCY_QUOTE_SIZE = 4;
+    private static final int EMERGENCY_QUOTE_SIZE = 8;
     public record RiskBook(long cashBudget,int inventory,int targetInventory,int maxInventory,long riskLimit) {}
     public record Quote(String side,double price,int quantity) {}
     /** External best quotes exclude this LP's orders being replaced; zero means no quote. */
