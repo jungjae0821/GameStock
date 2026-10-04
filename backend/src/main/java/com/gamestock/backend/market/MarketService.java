@@ -1355,7 +1355,7 @@ public class MarketService {
     }
 
     private BotObservation observeBot(BotProfile profile,long userId,String code,long equity,int symbolCount) {
-        PriceMetricService.Metrics metrics=metrics(code,profile.reactionLatency());
+        PriceMetricService.Metrics metrics=BotActivityEngine.stabilizeQuietBook(metrics(code,profile.reactionLatency()));
         long id=stockId(code);
         List<BotOrderPolicy.RestingOrder> resting=jdbc.query("SELECT id,side,price,reserved_cash,created_at FROM orders WHERE user_id=? AND stock_id=? AND status='OPEN'",
                 (rs,n)->new BotOrderPolicy.RestingOrder(rs.getLong(1),rs.getString(2),rs.getLong(3),rs.getLong(4),rs.getTimestamp(5).getTime()),userId,id);

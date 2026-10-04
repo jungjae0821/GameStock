@@ -320,6 +320,9 @@ class SimulationEngineTest {
         var quotes=engine.quotes(metrics,neutral,risk,10,1,
                 new MarketMakerEngine.QuoteConstraints(6000,10000,0,0),8400);
         assertEquals(7710,engine.fairValue(metrics,8400));
+        var stabilized=BotActivityEngine.stabilizeQuietBook(metrics);
+        assertEquals(7710,stabilized.midPrice());
+        assertEquals(7710,stabilized.vwap());
         assertTrue(quotes.stream().allMatch(q->Math.abs(q.price()-7710)<=100),
                 () -> "quotes detached from last execution: "+quotes);
     }
