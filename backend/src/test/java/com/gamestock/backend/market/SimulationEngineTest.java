@@ -313,6 +313,16 @@ class SimulationEngineTest {
         assertTrue(engine.fairValue(metrics,10000)>metrics.lastPrice());
         assertTrue(engine.reservationPrice(metrics,risk,10,10000)>metrics.lastPrice());
     }
+    @Test void lpUsesLastExecutionWhenBookHasDepthButNoRecentTrades() {
+        var engine=new MarketMakerEngine();
+        var metrics=PriceMetricService.calculate(List.of(),7710,8360,8420,171,49,60000);
+        var risk=new MarketMakerEngine.RiskBook(5000000,400,400,1200,12000000);
+        var quotes=engine.quotes(metrics,neutral,risk,10,1,
+                new MarketMakerEngine.QuoteConstraints(6000,10000,0,0),8400);
+        assertEquals(7710,engine.fairValue(metrics,8400));
+        assertTrue(quotes.stream().allMatch(q->Math.abs(q.price()-7710)<=100),
+                () -> "quotes detached from last execution: "+quotes);
+    }
     @Test void metricsResistTinyLastPrintAndHaveNeutralWarmup() {
         var trades=List.of(new PriceMetricService.Trade(0,10000,1000),new PriceMetricService.Trade(1000,11000,1));
         var m=PriceMetricService.calculate(trades,10000,9990,10010,100,100,1000);

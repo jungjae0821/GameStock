@@ -30,6 +30,10 @@ public final class MarketMakerEngine {
      * cannot walk the LP ladder down forever.
      */
     public double fairValue(PriceMetricService.Metrics m,double fundamental) {
+        // When there has been no recent execution, the displayed last price is the
+        // only authoritative market anchor. Do not let a stale fundamental or old
+        // VWAP leave the public ladder detached from the price users can see.
+        if (m.volume() == 0) return positive(m.lastPrice(), fundamental);
         double referenceVwap=positive(m.referenceVwap(),m.lastPrice());
         double boundedFundamental=positive(fundamental,referenceVwap);
         boundedFundamental=clamp(boundedFundamental,referenceVwap*.75,referenceVwap*1.25);
