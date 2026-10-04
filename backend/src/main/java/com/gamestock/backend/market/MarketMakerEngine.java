@@ -30,15 +30,19 @@ public final class MarketMakerEngine {
      * cannot walk the LP ladder down forever.
      */
     public double fairValue(PriceMetricService.Metrics m,double fundamental) {
+        double last=positive(m.lastPrice(),fundamental);
         // When there has been no recent execution, the displayed last price is the
         // only authoritative market anchor. Do not let a stale fundamental or old
         // VWAP leave the public ladder detached from the price users can see.
-        if (m.volume() == 0 || m.recentVolume() == 0) return positive(m.lastPrice(), fundamental);
+        if (m.volume() == 0 || m.recentVolume() == 0) return last;
         double referenceVwap=positive(m.referenceVwap(),m.lastPrice());
         double boundedFundamental=positive(fundamental,referenceVwap);
         boundedFundamental=clamp(boundedFundamental,referenceVwap*.75,referenceVwap*1.25);
-        return .40*boundedFundamental+.35*referenceVwap+.20*positive(m.vwap(),referenceVwap)
-                +.05*positive(m.lastPrice(),referenceVwap);
+        double raw=.40*boundedFundamental+.35*referenceVwap+.20*positive(m.vwap(),referenceVwap)
+                +.05*last;
+        // Fundamental/VWAP drift must be earned through executions; never leave
+        // a visible quote ladder more than half a percent from the last trade.
+        return clamp(raw,last*.995,last*1.005);
     }
 
     public double reservationPrice(PriceMetricService.Metrics m,RiskBook risk,double tick) {

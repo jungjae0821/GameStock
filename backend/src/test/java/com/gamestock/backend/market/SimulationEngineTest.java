@@ -311,6 +311,7 @@ class SimulationEngineTest {
         var metrics=PriceMetricService.calculate(trades,6500,6490,6510,10,10,60000);
         var risk=new MarketMakerEngine.RiskBook(5000000,100,100,1200,12000000);
         assertTrue(engine.fairValue(metrics,10000)>metrics.lastPrice());
+        assertTrue(engine.fairValue(metrics,10000)<=metrics.lastPrice()*1.005);
         assertTrue(engine.reservationPrice(metrics,risk,10,10000)>metrics.lastPrice());
     }
     @Test void lpUsesLastExecutionWhenBookHasDepthButNoRecentTrades() {
