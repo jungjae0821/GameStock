@@ -14,7 +14,7 @@ public final class PriceMetricService {
             double bestBid, double bestAsk, long bidDepth, long askDepth, double imbalance,
             double return5s, double return20s, double emaSlope, double recentHigh, double recentLow,
             double volumeTrend, double acceleration, double rsi, double zscore, double volatility, long volume,
-            double return60s, double return300s, double referenceVwap) {
+            double return60s, double return300s, double referenceVwap, long recentVolume) {
         public double spread() { return Math.max(0,bestAsk-bestBid); }
     }
     private final JdbcTemplate jdbc;
@@ -132,6 +132,6 @@ public final class PriceMetricService {
                 (last/Math.max(1,p5)-1)-(last/Math.max(1,p20)-1)/4,
                 gain+loss==0?50:100*gain/(gain+loss),sd<.001?0:(last-mean)/sd,
                 n<2?0:Math.sqrt(retSq/(n-1)),volume,last/Math.max(1,p60)-1,last/Math.max(1,p300)-1,
-                referenceVolume==0?last:referenceNotional/referenceVolume);
+                referenceVolume==0?last:referenceNotional/referenceVolume,recentVol);
     }
 }

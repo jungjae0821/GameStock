@@ -135,6 +135,6 @@ final class BotActivityEngine {
     private static PriceMetricService.Metrics withBook(PriceMetricService.Metrics m,long last,double[] d) {
         double mid=d[2]>0&&d[3]>0?(d[0]+d[1])/2:last;
         double micro=d[2]>0&&d[3]>0?(d[1]*d[2]+d[0]*d[3])/(d[2]+d[3]):mid;
-        return new PriceMetricService.Metrics(last,mid,micro,m.vwap(),m.markPrice(),d[0],d[1],(long)d[2],(long)d[3],(d[2]-d[3])/Math.max(1,d[2]+d[3]),m.return5s(),m.return20s(),m.emaSlope(),m.recentHigh(),m.recentLow(),m.volumeTrend(),m.acceleration(),m.rsi(),m.zscore(),m.volatility(),m.volume(),m.return60s(),m.return300s(),m.referenceVwap());
+        return new PriceMetricService.Metrics(last,mid,micro,m.vwap(),m.markPrice(),d[0],d[1],(long)d[2],(long)d[3],(d[2]-d[3])/Math.max(1,d[2]+d[3]),m.return5s(),m.return20s(),m.emaSlope(),m.recentHigh(),m.recentLow(),m.volumeTrend(),m.acceleration(),m.rsi(),m.zscore(),m.volatility(),m.volume(),m.return60s(),m.return300s(),m.referenceVwap(),m.recentVolume());
     }
 }
