@@ -14,7 +14,7 @@ export function safeReturnPath(value: string | null): string {
   if (!value || !value.startsWith("/")) return "/";
   try {
     const url = new URL(value, window.location.origin);
-    if (url.origin !== window.location.origin || !/^\/(?:market(?:\/[A-Za-z0-9_-]+)?\/?|news\/?|ranking\/?|mypage\/?|)$/.test(url.pathname)) return "/";
+    if (url.origin !== window.location.origin || !/^\/(?:market(?:\/[A-Za-z0-9_-]+)?\/?|news\/?|ranking\/?|mypage\/?|settings\/?|charge\/?|)$/.test(url.pathname)) return "/";
     return url.pathname;
   } catch {
     return "/";

@@ -7,6 +7,8 @@ export type Route =
   | { name: "news" }
   | { name: "ranking" }
   | { name: "mypage" }
+  | { name: "settings" }
+  | { name: "charge" }
   | { name: "login"; method: LoginMethod };
 
 export type LoginMethod = "choose" | "google" | "email" | "register" | "reset";
@@ -24,6 +26,8 @@ function parse(pathname: string): Route {
   if (parts[0] === "news") return { name: "news" };
   if (parts[0] === "ranking") return { name: "ranking" };
   if (parts[0] === "mypage") return { name: "mypage" };
+  if (parts[0] === "settings") return { name: "settings" };
+  if (parts[0] === "charge") return { name: "charge" };
   return { name: "home" };
 }
 
