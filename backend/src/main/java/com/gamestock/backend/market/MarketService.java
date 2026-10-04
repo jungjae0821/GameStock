@@ -406,15 +406,19 @@ public class MarketService {
     // write or use in-memory simulation state (bots, environments, random) stay synchronized.
     public List<Stock> stocks() {
         List<Stock> rows = jdbc.query("""
-                SELECT stock_code, g.name, g.genre, current_price, previous_price, total_volume
-                FROM stocks s JOIN games g ON g.id = s.game_id
+                SELECT s.stock_code, g.name, g.genre, s.current_price,
+                       COALESCE(p.day_reference, s.current_price) AS day_reference,
+                       s.total_volume
+                FROM stocks s
+                JOIN games g ON g.id = s.game_id
+                LEFT JOIN stock_protection_state p ON p.stock_id = s.id
                 ORDER BY s.id
                 """, (rs, row) -> new Stock(
                 rs.getString("stock_code"),
                 rs.getString("name"),
                 rs.getString("genre"),
                 rs.getLong("current_price"),
-                changePercent(rs.getLong("current_price"), rs.getLong("previous_price")),
+                changePercent(rs.getLong("current_price"), rs.getLong("day_reference")),
                 rs.getLong("total_volume"), null));
         return rows.stream().map(this::withRestriction).toList();
     }
@@ -1005,7 +1009,12 @@ public class MarketService {
     }
 
     private long previousPrice(String code) {
-        Long previous = jdbc.queryForObject("SELECT previous_price FROM stocks WHERE stock_code = ?", Long.class, code);
+        Long previous = jdbc.queryForObject("""
+                SELECT COALESCE(p.day_reference, s.current_price)
+                FROM stocks s
+                LEFT JOIN stock_protection_state p ON p.stock_id = s.id
+                WHERE s.stock_code = ?
+                """, Long.class, code);
         return previous == null ? 0 : previous;
     }
 
@@ -1173,7 +1182,7 @@ public class MarketService {
                 var fill=book.fills.get(i);if(fill.buy().stock==stock.id)
                     trades.add(new PublicTrade(fill.taker().side,fill.quantity(),fill.price(),fill.taker().type,Instant.ofEpochMilli(now).toString()));
             }
-            var quote=new Stock(stock.code,stock.name,stock.genre,stock.last,changePercent(stock.last,stock.previous),stock.totalVolume,stock.continuous?null:protection.restriction(stock.code));
+            var quote=new Stock(stock.code,stock.name,stock.genre,stock.last,changePercent(stock.last,stock.reference),stock.totalVolume,stock.continuous?null:protection.restriction(stock.code));
             updates.put(stock.code,Map.of("symbol",stock.code,"stock",quote,"orderbook",book.snapshot(stock.id),"trades",trades,
                 "chart",trades.stream().map(t->new PricePoint(t.price(),t.createdAt())).toList()));
         }
@@ -2214,8 +2223,13 @@ public class MarketService {
     private record NewsBias(double rate, boolean special) { }
     private Stock findStock(String code) {
         List<Stock> rows = jdbc.query("""
-                SELECT s.stock_code,g.name,g.genre,s.current_price,s.previous_price,s.total_volume
-                FROM stocks s JOIN games g ON g.id=s.game_id WHERE s.stock_code=?
+                SELECT s.stock_code,g.name,g.genre,s.current_price,
+                       COALESCE(p.day_reference, s.current_price) AS day_reference,
+                       s.total_volume
+                FROM stocks s
+                JOIN games g ON g.id=s.game_id
+                LEFT JOIN stock_protection_state p ON p.stock_id=s.id
+                WHERE s.stock_code=?
                 """,(rs,n)->new Stock(rs.getString(1),rs.getString(2),rs.getString(3),rs.getLong(4),
                 changePercent(rs.getLong(4),rs.getLong(5)),rs.getLong(6),null),code);
         return rows.isEmpty()?null:withRestriction(rows.get(0));
