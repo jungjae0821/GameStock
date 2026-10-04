@@ -53,7 +53,7 @@ public class MarketService {
     private static final double NEWS_AGGREGATE_SPECIAL_RATE = 0.10;
     private static final String LP_USERNAME = "liquidity_provider";
     private static final long LP_STARTING_CASH = 50_000_000L;
-    private static final int LP_INITIAL_INVENTORY = 400;
+    private static final int LP_INITIAL_INVENTORY = 100;
     private static final String TRADER_BOT_PASSWORD = "TRADER";
     private static final long TRADER_BOT_STARTING_CASH = 1_000_000L;
     private static final double NEWS_SPECIAL_IMPACT_THRESHOLD = 6.0;
@@ -1223,8 +1223,9 @@ public class MarketService {
                 externalBook.bids().isEmpty()?0:externalBook.bids().get(0).price(),
                 externalBook.asks().isEmpty()?0:externalBook.asks().get(0).price());
         MarketMakerEngine.RiskBook risk = liquidityRiskBook(code, lp);
+        double fundamental=jdbc.queryForObject("SELECT hidden_fundamental FROM market_price_metrics WHERE stock_id=?",Double.class,stockId(code));
         for (MarketMakerEngine.Quote quote : marketMaker.quotes(metrics, environment(code), risk,
-                tickSize(Math.round(metrics.midPrice())), marketScale(code),constraints)) {
+                tickSize(Math.round(metrics.midPrice())), marketScale(code),constraints,fundamental)) {
             insertLiquidityQuote(code, lp, quote);
         }
         MatchSummary matched = matchOrders(code);

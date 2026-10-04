@@ -296,6 +296,14 @@ class SimulationEngineTest {
         var metrics=PriceMetricService.calculate(List.of(new PriceMetricService.Trade(0,10000,20)),10000,11990,12010,20,20,1000);
         assertTrue(Math.abs(engine.reservationPrice(metrics,risk,10)-10000)<25);
     }
+    @Test void lpAnchorUsesFundamentalAfterAOneSidedLowPrint() {
+        var engine=new MarketMakerEngine();
+        var trades=List.of(new PriceMetricService.Trade(0,10000,100),new PriceMetricService.Trade(59000,6500,10));
+        var metrics=PriceMetricService.calculate(trades,6500,6490,6510,10,10,60000);
+        var risk=new MarketMakerEngine.RiskBook(5000000,100,100,1200,12000000);
+        assertTrue(engine.fairValue(metrics,10000)>metrics.lastPrice());
+        assertTrue(engine.reservationPrice(metrics,risk,10,10000)>metrics.lastPrice());
+    }
     @Test void metricsResistTinyLastPrintAndHaveNeutralWarmup() {
         var trades=List.of(new PriceMetricService.Trade(0,10000,1000),new PriceMetricService.Trade(1000,11000,1));
         var m=PriceMetricService.calculate(trades,10000,9990,10010,100,100,1000);
