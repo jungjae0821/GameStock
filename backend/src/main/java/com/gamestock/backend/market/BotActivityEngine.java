@@ -63,13 +63,13 @@ final class BotActivityEngine {
             var group=entry.getValue();int startFills=book.fills.size(),startOrders=book.accepted.size();
             int recent=recentFills.getOrDefault(stock,0);
             var risk=risks.get(stock);
+            var marketMetrics=withBook(observation.metrics(),symbol.last,book.depth(stock));
             if(risk!=null && book.lpCashBudgets.containsKey(stock) && now>=nextQuote.getOrDefault(stock,0L)) {
-                var m=withBook(observation.metrics(),symbol.last,book.depth(stock));
                 book.working(lp,stock).forEach(book::cancel);
                 double[] external=book.depth(stock,lp);var band=botBand(symbol.reference);
                 var limits=new MarketMakerEngine.QuoteConstraints(band.lowerPrice(),band.upperPrice(),external[2]>0?Math.round(external[0]):0,external[3]>0?Math.round(external[1]):0);
                 var availableRisk=new MarketMakerEngine.RiskBook(Math.max(0,Math.min(book.accounts.get(lp).cash,book.lpCashBudgets.get(stock))),book.holding(lp,stock).quantity(),risk.targetInventory(),risk.maxInventory(),risk.riskLimit());
-                for(var quote:maker.quotes(m,observation.environment(),availableRisk,tickSize(symbol.last),observation.scale(),limits)) {
+                for(var quote:maker.quotes(marketMetrics,observation.environment(),availableRisk,tickSize(symbol.last),observation.scale(),limits,observation.fundamental())) {
                     long price=quote.side().equals("BUY")?floorToTick(Math.round(quote.price())):ceilToTick(Math.round(quote.price()));
                     int quantity=quote.quantity();
                     if(quote.side().equals("BUY"))quantity=(int)Math.min(quantity,Math.max(0,book.lpCashBudgets.get(stock))/Math.max(1,price+BatchOrderBook.fee(price)));
@@ -83,7 +83,8 @@ final class BotActivityEngine {
                 // No transfer, refill, paired counterorder or price change happens outside matching.
                 int excess=book.holding(lp,stock).quantity()-risk.targetInventory();
                 double[] external=book.depth(stock,lp);
-                if(excess>10 && external[2]>0 && external[0]>=observation.metrics().vwap()*.995) {
+                double liquidationFloor=maker.fairValue(marketMetrics,observation.fundamental())*.995;
+                if(excess>10 && external[2]>0 && external[0]>=liquidationFloor) {
                     book.submit(lp,stock,"SELL","LIMIT",Math.min(recent<30?15:5,Math.min(excess,book.available(lp,stock))),Math.round(external[0]),now,500);
                 }
                 lastRebalance.put(stock,now);
