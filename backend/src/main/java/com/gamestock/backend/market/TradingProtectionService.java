@@ -91,10 +91,20 @@ public class TradingProtectionService {
     }
 
     public double indexValue() {
-        Double index = jdbc.queryForObject("""
-                SELECT COALESCE(AVG(s.current_price * 1000.0 / p.day_reference), 1000)
+        Double index = jdbc.query("""
+                SELECT s.stock_code, s.current_price, p.day_reference
                 FROM stocks s JOIN stock_protection_state p ON p.stock_id = s.id
-                """, Double.class);
+                """, rs -> {
+            double weighted = 0;
+            double totalWeight = 0;
+            while (rs.next()) {
+                double cap = StockMarketProfile.of(rs.getString(1)).marketCap();
+                double reference = Math.max(1, rs.getLong(3));
+                weighted += (rs.getLong(2) * 1000.0 / reference) * cap;
+                totalWeight += cap;
+            }
+            return totalWeight == 0 ? 1000.0 : weighted / totalWeight;
+        });
         return index == null ? 1000 : index;
     }
 
@@ -170,7 +180,7 @@ public class TradingProtectionService {
         return true;
     }
 
-    /** Equal-weight virtual index, not a real exchange index or market-cap estimate. */
+    /** Market-cap-weighted virtual index, not a real exchange index or market-cap estimate. */
     public void observeMarket() {
         MarketState state = marketState();
         if (!"NORMAL".equals(state.phase()) || state.level() >= 3) return;

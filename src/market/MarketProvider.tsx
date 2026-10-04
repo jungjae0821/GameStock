@@ -7,6 +7,7 @@ import { openMarketStream } from "./stream";
 import { requireSignIn } from "../lib/auth";
 import { announceMissionReward } from "../components/MissionRewardToast";
 import { INITIAL_CASH, MarketEngine } from "./engine";
+import { stockMarketProfile } from "./marketCap";
 import { serverTimestamp } from "./format";
 import { LISTING_BY_CODE, roundToTick } from "./universe";
 import type { DailyMissionStatus, MarketSnapshot, OrderRequest, OrderResult, Portfolio, Position, Quote, TradingRestriction } from "./types";
@@ -28,7 +29,18 @@ export type CancelOrdersResult = {
   message: string;
 };
 
-type BackendStock = { code: string; name: string; genre: string; price: number; changePercent: number; volume: number; restriction?: TradingRestriction | null };
+type BackendStock = {
+  code: string;
+  name: string;
+  genre: string;
+  price: number;
+  changePercent: number;
+  volume: number;
+  activeUsers?: number;
+  marketCap?: number;
+  movementWeight?: number;
+  restriction?: TradingRestriction | null;
+};
 type BackendMarketStatus = { indexValue: number; tradingDate: string; restriction?: TradingRestriction | null };
 type BackendOrderBookLevel = { price: number; quantity: number; orderCount: number };
 type BackendOrderBook = { stockCode: string; bids: BackendOrderBookLevel[]; asks: BackendOrderBookLevel[] };
@@ -88,9 +100,13 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
     const prevClose = Math.max(1, roundToTick(price / (1 + change / 100)));
     const listing = LISTING_BY_CODE[stock.code];
     if (!listing) continue;
+    const profile = stockMarketProfile(stock.code);
     quotes[stock.code] = {
       code: stock.code,
       restriction: stock.restriction,
+      activeUsers: stock.activeUsers ?? profile.activeUsers,
+      marketCap: stock.marketCap ?? profile.marketCap,
+      movementWeight: stock.movementWeight ?? profile.movementWeight,
       price,
       prevClose,
       open: price,
@@ -107,9 +123,8 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
       asks: [],
       bids: [],
     };
-    const activity = listing.activity;
-    weighted += activity * (price / prevClose);
-    weight += activity;
+    weighted += profile.marketCap * (price / prevClose);
+    weight += profile.marketCap;
     series.push(price);
   }
   const indexValue = market?.indexValue ?? (weight > 0 ? (weighted / weight) * 1000 : 1000);

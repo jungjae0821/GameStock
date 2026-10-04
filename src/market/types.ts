@@ -58,6 +58,10 @@ export interface TradingRestriction {
 export interface Quote {
   code: string;
   restriction?: TradingRestriction | null;
+  /** Deterministic virtual market-size inputs exposed by the backend. */
+  activeUsers?: number;
+  marketCap?: number;
+  movementWeight?: number;
   price: number;
   prevClose: number;
   open: number;

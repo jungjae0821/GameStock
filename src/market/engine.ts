@@ -8,6 +8,7 @@ import {
 } from "./universe";
 import { generateNews } from "./newsTemplates";
 import { won } from "./format";
+import { stockMarketProfile } from "./marketCap";
 import type {
   BookLevel,
   Fill,
@@ -77,23 +78,27 @@ export class MarketEngine {
   constructor(seed = Date.now()) {
     this.rng = mulberry32(seed);
     for (const listing of LISTINGS) {
+      const profile = stockMarketProfile(listing.code);
       const open = roundToTick(listing.prevClose * (1 + this.gauss() * 0.003));
       const limitUp = roundToTick(listing.prevClose * (1 + DAILY_LIMIT));
       const limitDown = Math.max(1, roundToTick(listing.prevClose * (1 - DAILY_LIMIT)));
       const quote: Quote = {
         code: listing.code,
+        activeUsers: profile.activeUsers,
+        marketCap: profile.marketCap,
+        movementWeight: profile.movementWeight,
         price: open,
         prevClose: listing.prevClose,
         open,
         high: open,
         low: open,
-        volume: Math.round(listing.activity * 12_000 * (0.6 + this.rng())),
-        trades: Math.round(listing.activity * 900 * (0.6 + this.rng())),
+        volume: Math.round(listing.activity * profile.liquidityWeight * 12_000 * (0.6 + this.rng())),
+        trades: Math.round(listing.activity * profile.liquidityWeight * 900 * (0.6 + this.rng())),
         series: [open],
         limitUp,
         limitDown,
-        buyVolume: Math.round(listing.activity * 5_000 * (0.5 + this.rng() * 0.6)),
-        sellVolume: Math.round(listing.activity * 5_000 * (0.5 + this.rng() * 0.6)),
+        buyVolume: Math.round(listing.activity * profile.liquidityWeight * 5_000 * (0.5 + this.rng() * 0.6)),
+        sellVolume: Math.round(listing.activity * profile.liquidityWeight * 5_000 * (0.5 + this.rng() * 0.6)),
         prints: [],
         asks: [],
         bids: [],
@@ -165,13 +170,16 @@ export class MarketEngine {
     for (const listing of LISTINGS) {
       const quote = this.quotes.get(listing.code);
       if (!quote) continue;
+      const profile = stockMarketProfile(listing.code);
       const z = this.gauss();
       const shock = this.shocks.get(listing.code);
       /* 모든 종목이 같은 틱에 움직이지 않는다: 활동성에 따라 이번 틱에 움직일 종목을 뽑는다. */
       const moves = this.rng() < 0.5 + listing.activity * 0.09 || shock != null;
       const impulse = shock ? shock.direction * shock.per : 0;
       const reversion = Math.log(quote.prevClose / quote.price) * MEAN_REVERSION;
-      const drift = moves ? z * TICK_SIGMA * (1 + listing.activity * 0.2) + impulse + reversion : 0;
+      const drift = moves
+        ? (z * TICK_SIGMA * (1 + listing.activity * 0.2) + impulse + reversion) * profile.movementWeight
+        : 0;
       /* 가격은 항상 호가 단위로만 움직인다. 틱 미만 변화는 한 단위로 밀어준다. */
       const target = roundToTick(quote.price * Math.exp(drift));
       quote.price = Math.min(quote.limitUp, Math.max(quote.limitDown,
@@ -180,7 +188,8 @@ export class MarketEngine {
         : quote.price));
       quote.high = Math.max(quote.high, quote.price);
       quote.low = Math.min(quote.low, quote.price);
-      const step = Math.round(listing.activity * 620 * (0.35 + Math.abs(z) * 1.4 + (shock ? 1.5 : 0)) * (0.7 + this.rng() * 0.6));
+      const step = Math.round(listing.activity * profile.liquidityWeight * 620
+        * (0.35 + Math.abs(z) * 1.4 + (shock ? 1.5 : 0)) * (0.7 + this.rng() * 0.6));
       quote.volume += step;
       quote.trades += Math.max(1, Math.round(step / (6 + this.rng() * 5)));
       quote.series.push(quote.price);
@@ -228,7 +237,8 @@ export class MarketEngine {
    * 호가 단위로 분배해 만든 표시용 데이터다.
    */
   private refreshBook(quote: Quote, pressure: number): void {
-    const base = Math.max(12, Math.round((quote.volume / 900) * (0.4 + pressure * 0.5)));
+    const profile = stockMarketProfile(quote.code);
+    const base = Math.max(12, Math.round((quote.volume / 900) * profile.liquidityWeight * (0.4 + pressure * 0.5)));
     const asks: BookLevel[] = [];
     const bids: BookLevel[] = [];
     let askPrice = quote.price;
@@ -258,15 +268,16 @@ export class MarketEngine {
     quote.bids = bids;
   }
 
-  /** 거래량 계수로 가중한 동일 비중 지수. 세션 시작이 1000이다. */
+  /** 가상 시가총액으로 가중한 지수. 세션 시작이 1000이다. */
   private advanceIndex(): void {
     let weighted = 0;
     let weight = 0;
     for (const listing of LISTINGS) {
       const quote = this.quotes.get(listing.code);
       if (!quote) continue;
-      weighted += listing.activity * (quote.price / quote.prevClose);
-      weight += listing.activity;
+      const profile = stockMarketProfile(listing.code);
+      weighted += profile.marketCap * (quote.price / quote.prevClose);
+      weight += profile.marketCap;
     }
     const value = weight > 0 ? (weighted / weight) * INDEX_BASE : INDEX_BASE;
     this.index = { ...this.index, value, series: [...this.index.series, value].slice(-SERIES_LIMIT) };
