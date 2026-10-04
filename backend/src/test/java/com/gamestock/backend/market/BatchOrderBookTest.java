@@ -65,6 +65,17 @@ class BatchOrderBookTest {
         assertTrue(b.fills.isEmpty());assertTrue(b.prices.isEmpty());assertEquals(10000,b.stocks.get(1L).last);
         assertEquals(10600,b.stocks.get(1L).viTrigger);assertEquals(100,b.holding(2,1).quantity());
     }
+    @Test void automatedOrderOutsideViBandIsCancelledWithoutTriggeringVi() {
+        var b=book(1000000);
+        b.accounts.put(4L,new Account(4,1000000,false,true));
+        b.holdings.put(new PositionKey(2,1),new Holding(100,100,10000,0));
+        var bot=b.submit(4,1,"BUY","LIMIT",3,10600,1000,5000);
+        b.submit(2,1,"SELL","LIMIT",3,10600,1001,5000);
+        assertEquals("CANCELLED",bot.status);
+        assertTrue(b.fills.isEmpty());
+        assertTrue(b.stocks.get(1L).continuous);
+        assertEquals(0,b.stocks.get(1L).viTrigger);
+    }
     @Test void incomingOrdersExecuteSequentiallyNotResortedAsOneBatch() {
         var b=book(1000000);
         b.submit(2,1,"SELL","LIMIT",2,10000,1000,5000);

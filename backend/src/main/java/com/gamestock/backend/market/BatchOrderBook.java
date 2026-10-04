@@ -194,7 +194,20 @@ final class BatchOrderBook {
             long released=release(buy,quantity);
             if(accounts.get(buy.user).cash+released<gross+buyerFee){cancel(buy);continue;}
             if(sell.reservedQuantity==0 && available(sell.user,stock.id)<quantity){cancel(sell);continue;}
-            if(Math.abs(price/(double)stock.dynamicReference-1)>=.06-1e-10 || Math.abs(price/(double)stock.staticReference-1)>=.10-1e-10) {
+            boolean dynamicViolation=Math.abs(price/(double)stock.dynamicReference-1)>=.06-1e-10;
+            boolean staticViolation=Math.abs(price/(double)stock.staticReference-1)>=.10-1e-10;
+            if(dynamicViolation || staticViolation) {
+                // Participant bots use TRADER accounts, while the older bot-band
+                // guard only recognized the liquidity provider. Do not let an
+                // automated order create a persisted VI for a symbol: cancel the
+                // bot side and preserve the normal VI behavior for human-only fills.
+                boolean buyAutomated=accounts.get(buy.user).bot;
+                boolean sellAutomated=accounts.get(sell.user).bot;
+                if(buyAutomated || sellAutomated) {
+                    if(buyAutomated) cancel(buy);
+                    if(sellAutomated) cancel(sell);
+                    continue;
+                }
                 stock.viTrigger=price;stock.continuous=false;return;
             }
             Holding buyerBefore=holding(buy.user,stock.id),sellerBefore=holding(sell.user,stock.id);
