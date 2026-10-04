@@ -106,6 +106,17 @@ class BatchOrderBookTest {
         assertEquals(400000,b.lpCashBudgets.get(2L));
         assertEquals(before,b.lpCashBudgets.values().stream().mapToLong(Long::longValue).sum());
     }
+    @Test void automatedSellerCannotConsumeLpBidBeforeHumanSeller() {
+        var b=book(1000000);b.accounts.put(1L,new Account(1,1000000,true));
+        b.accounts.put(4L,new Account(4,1000000,false,true));
+        b.holdings.put(new PositionKey(4,1),new Holding(100,100,10000,0));
+        b.lpCashBudgets.put(1L,50000L);
+        b.submit(1,1,"BUY","LIMIT",2,10000,1000,4000);
+        var automated=b.submit(4,1,"SELL","MARKET",1,0,1001,0);
+        assertEquals("CANCELLED",automated.status);assertTrue(b.fills.isEmpty());
+        b.submit(2,1,"SELL","MARKET",1,0,1002,0);
+        assertEquals(1,b.fills.size());assertEquals(1,b.holding(1,1).quantity());
+    }
     @Test void depletedInlineLiquidityInventoryRestoresOnceAndPreservesRealizedProfit() {
         var b=book(1000000);
         b.restoreLiquidityInventory(2,1,400,10050);

@@ -173,6 +173,9 @@ final class BatchOrderBook {
             Order buy=buyBook.first(),sell=sellBook.first();
             if(!buy.market() && !sell.market() && buy.price<sell.price)return;
             if(buy.user==sell.user){cancel(earlier(buy,sell)?sell:buy);continue;}
+            // Keep LP bid depth available for human sellers. Automated sellers may trade with
+            // one another, but must not drain the finite LP cash reserve before a user can react.
+            if(accounts.get(buy.user).liquidityProvider&&accounts.get(sell.user).bot){cancel(sell);continue;}
             Order maker=buy.market()&&!sell.market()?sell:sell.market()&&!buy.market()?buy:earlier(buy,sell)?buy:sell;
             Order taker=maker==buy?sell:buy;
             long price=buy.market()&&sell.market()?stock.last:maker.price;
