@@ -298,7 +298,11 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       const code = activeDetailCodeRef.current;
       // Order books and recent trades are only needed on a stock detail page.
       // Fetching every listing here made every route issue 30 requests per second.
-      if (!code || streamReadyRef.current) return;
+      // Keep one active-symbol REST refresh even when the stream is connected:
+      // a stream subscription can be acknowledged before its first symbol
+      // snapshot, which otherwise leaves the initial book empty until the next
+      // matching event happens.
+      if (!code) return;
       if (detailRefreshInFlightRef.current) return;
       detailRefreshInFlightRef.current = true;
       try {
