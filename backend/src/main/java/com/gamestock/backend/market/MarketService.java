@@ -300,6 +300,13 @@ public class MarketService {
                 book.lpCashBudgets.put(stock.id,total-reserved);
             }
         }
+        if(inlineMarketMaker) {
+            Map<Long,Long> minimumCash=new HashMap<>();
+            for(var stock:book.stocks.values())
+                minimumCash.put(stock.id,MarketMakerEngine.emergencyCashRequirement(botBand(stock.reference).upperPrice()));
+            long moved=book.rebalanceLiquidityCash(activityLpId,minimumCash);
+            if(moved>0)pipelineMetrics.add("bot.liquidity.cashRebalanced",moved);
+        }
         long loaded=System.nanoTime();
         if(lane.lastObservation==0 || now-lane.lastObservation>=500) {
             for(var stock:book.stocks.values()) {

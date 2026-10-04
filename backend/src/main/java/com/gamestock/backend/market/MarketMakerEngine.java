@@ -6,11 +6,18 @@ import static com.gamestock.backend.market.PriceLimitPolicy.*;
 
 /** RiskBook is reconstructed from persistent allocations and actual fills. */
 public final class MarketMakerEngine {
+    private static final int QUOTE_LEVELS = 4;
     private static final int EMERGENCY_QUOTE_SIZE = 4;
     public record RiskBook(long cashBudget,int inventory,int targetInventory,int maxInventory,long riskLimit) {}
     public record Quote(String side,double price,int quantity) {}
     /** External best quotes exclude this LP's orders being replaced; zero means no quote. */
     public record QuoteConstraints(long lowerPrice,long upperPrice,long bestExternalBid,long bestExternalAsk) {}
+
+    /** Cash needed to keep the four-level emergency bid ladder alive at a conservative price. */
+    static long emergencyCashRequirement(long maxQuotePrice) {
+        long gross=Math.multiplyExact(Math.max(1,maxQuotePrice),(long)EMERGENCY_QUOTE_SIZE);
+        return Math.multiplyExact(QUOTE_LEVELS,gross+BatchOrderBook.fee(gross));
+    }
 
     private static double positive(double value,double fallback) {
         return Double.isFinite(value)&&value>0?value:fallback;
@@ -89,7 +96,7 @@ public final class MarketMakerEngine {
                 && nextTickPrice(externalAsk)<=askRoom) ask=nextTickPrice(externalAsk);
         List<Quote> quotes=new ArrayList<>(); long cash=risk.cashBudget(); int inventory=risk.inventory();
         int buyCapacity=Math.max(0,Math.min(risk.maxInventory()-inventory,(int)(risk.riskLimit()/Math.max(1,m.markPrice()))-inventory));
-        for(int level=0;level<4;level++) {
+        for(int level=0;level<QUOTE_LEVELS;level++) {
             double riskSize=1/(1+m.volatility()*100+Math.max(0,e.volatilityMultiplier()-1)*.15);
             int size=emergency?EMERGENCY_QUOTE_SIZE:Math.max(1,(int)(18*scale*e.liquidityMultiplier()*riskSize/(1+level*.5)));
             int b=bid>=lower&&bid<=upper?Math.min(size,Math.min(buyCapacity,(int)Math.min(Integer.MAX_VALUE,cash/(bid*1.001)))):0;
