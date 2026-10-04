@@ -18,8 +18,9 @@ export function totals(snapshot: MarketSnapshot): Totals {
     if (quote) stockValue += quote.price * position.qty;
   }
   const total = snapshot.portfolio.cash + stockValue;
-  const attendanceRewardCash = snapshot.portfolio.attendanceRewardCash ?? 0;
-  const pnl = total - INITIAL_CASH - attendanceRewardCash;
+  // 출석·미션 보상은 투자 성과가 아니므로 손익에서 뺀다. 랭킹 수익률과 같은 기준이다.
+  const rewardCash = (snapshot.portfolio.attendanceRewardCash ?? 0) + (snapshot.portfolio.missionRewardCash ?? 0);
+  const pnl = total - INITIAL_CASH - rewardCash;
   return { cash: snapshot.portfolio.cash, stockValue, total, pnl, pnlRate: pnl / INITIAL_CASH };
 }
 

@@ -577,7 +577,9 @@ public class MarketService {
             long totalAsset = cash + reservedCash + unsettledCash + assetValue;
             // 출석·미션 보상은 투자 성과가 아니므로 수익률에서 제외한다.
             double changePercent = (totalAsset - STARTING_CASH - attendanceRewardCash - missionRewardCash) * 100.0 / STARTING_CASH;
-            return new RankingEntry(0, rs.getString("nickname"), rs.getString("profile_image_url"), totalAsset, assetValue, cash, changePercent);
+            // Rows saved before image validation may hold arbitrary URLs; never expose them to other viewers.
+            String image = com.gamestock.backend.auth.ProfileImages.sanitize(rs.getString("profile_image_url"));
+            return new RankingEntry(0, rs.getString("nickname"), image.isEmpty() ? null : image, totalAsset, assetValue, cash, changePercent);
         });
         List<RankingEntry> ranked = new ArrayList<>(entries.size());
         for (int index = 0; index < entries.size(); index++) {
@@ -2322,9 +2324,13 @@ public class MarketService {
                 FROM attendance_rewards
                 WHERE user_id = ?
                 """, Long.class, userId);
+        // Like attendance, mission payouts are not trading performance; clients subtract both from P&L.
+        long missionRewardCash = jdbc.queryForObject(
+                "SELECT COALESCE(SUM(reward_cash), 0) FROM mission_rewards WHERE user_id = ?", Long.class, userId);
         long assetValue = positions.stream().mapToLong(Position::marketValue).sum();
         return new Portfolio(cash, assetValue, cash + reservedCash + unsettledCash + assetValue,
-                positions, unsettledCash, unsettledAssetValue, totalFees, realizedProfitLoss, attendanceRewardCash);
+                positions, unsettledCash, unsettledAssetValue, totalFees, realizedProfitLoss, attendanceRewardCash,
+                missionRewardCash);
     }
 
     private long currentPrice(String code) {

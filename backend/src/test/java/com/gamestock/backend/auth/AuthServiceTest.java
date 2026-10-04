@@ -59,8 +59,8 @@ class AuthServiceTest {
     @Test void unchangedNicknameDoesNotRestartCooldown() throws Exception {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         AuthService auth = service(jdbc, NOW.minusSeconds(30));
-        auth.updateProfile(7L, new AuthService.ProfileUpdate("원래닉네임", "picture"));
-        verify(jdbc).update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", "picture", 7L);
+        auth.updateProfile(7L, new AuthService.ProfileUpdate("원래닉네임", "/profile-avatars/mint-hood-384.png"));
+        verify(jdbc).update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", "/profile-avatars/mint-hood-384.png", 7L);
     }
 
     private static final AuthService.LoginUser USER = new AuthService.LoginUser(7L, "닉네임", "", "", 0, 0, false);
@@ -123,7 +123,7 @@ class AuthServiceTest {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         ResultSet rs = mock(ResultSet.class);
         when(rs.getString("nickname")).thenReturn("원래닉네임");
-        when(rs.getString("profile_image_url")).thenReturn("provider-picture");
+        when(rs.getString("profile_image_url")).thenReturn("https://lh3.googleusercontent.com/a/provider-photo");
         when(rs.getTimestamp("nickname_changed_at")).thenReturn(null);
         when(jdbc.queryForObject(anyString(), any(RowMapper.class), eq(7L))).thenAnswer(call ->
                 ((RowMapper<?>) call.getArgument(1)).mapRow(rs, 0));
@@ -131,6 +131,31 @@ class AuthServiceTest {
 
         auth.updateProfile(7L, new AuthService.ProfileUpdate("원래닉네임", null));
 
-        verify(jdbc).update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", "provider-picture", 7L);
+        verify(jdbc).update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", "https://lh3.googleusercontent.com/a/provider-photo", 7L);
+    }
+
+    @Test void externalProfileImageIsRejected() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        AuthService auth = service(jdbc, null);
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> auth.updateProfile(7L, new AuthService.ProfileUpdate("원래닉네임", "https://tracker.example/pixel.png")));
+
+        assertTrue(error.getMessage().contains("Google"));
+        verify(jdbc, never()).update(anyString(), any(Object[].class));
+    }
+
+    @Test void legacyExternalImageIsDroppedOnNicknameOnlyUpdate() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getString("nickname")).thenReturn("원래닉네임");
+        when(rs.getString("profile_image_url")).thenReturn("https://tracker.example/pixel.png");
+        when(jdbc.queryForObject(anyString(), any(RowMapper.class), eq(7L))).thenAnswer(call ->
+                ((RowMapper<?>) call.getArgument(1)).mapRow(rs, 0));
+        AuthService auth = new AuthService(jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+
+        auth.updateProfile(7L, new AuthService.ProfileUpdate("원래닉네임", null));
+
+        verify(jdbc).update("UPDATE users SET profile_image_url = ?, profile_completed = TRUE WHERE id = ?", "", 7L);
     }
 }

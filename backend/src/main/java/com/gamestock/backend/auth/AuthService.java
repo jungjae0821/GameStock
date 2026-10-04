@@ -124,11 +124,14 @@ public class AuthService {
         // Serialize concurrent profile changes on the user's row.
         Profile current = readProfile(userId, true);
         // Nickname-only updates from older clients must not erase an existing
-        // selected avatar or the Firebase provider photo.
+        // selected avatar or the Firebase provider photo. A legacy external URL
+        // stored before validation existed is dropped instead of blocking the update.
         String image = update.profileImageUrl() == null
-                ? (current.profileImageUrl() == null ? "" : current.profileImageUrl())
+                ? ProfileImages.sanitize(current.profileImageUrl())
                 : update.profileImageUrl().trim();
         if (image.length() > 500) throw new IllegalArgumentException("프로필 이미지 주소가 너무 깁니다.");
+        if (!ProfileImages.allowed(image))
+            throw new IllegalArgumentException("제공된 캐릭터 이미지나 Google 프로필 사진만 사용할 수 있습니다.");
         boolean changed = !nickname.equals(current.nickname());
         if (changed && !current.nicknameChangeAvailable())
             throw new ResponseStatusException(HttpStatus.CONFLICT, "닉네임은 3일에 한 번 변경할 수 있습니다.");
@@ -153,7 +156,7 @@ public class AuthService {
         if (!existing.isEmpty()) user = existing.get(0);
         else {
             String email = token.getEmail() == null ? "" : token.getEmail();
-            String picture = token.getPicture() == null ? "" : token.getPicture();
+            String picture = ProfileImages.sanitize(token.getPicture());
             String username = "firebase_" + token.getUid();
             String nickname = defaultNickname();
             for (int attempt = 0; attempt < 10; attempt++) {
