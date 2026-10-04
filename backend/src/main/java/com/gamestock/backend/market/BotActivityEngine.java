@@ -6,6 +6,7 @@ import static com.gamestock.backend.market.PriceLimitPolicy.*;
 
 /** Paces independently funded participant decisions from actual fills, never manufactures a trade. */
 final class BotActivityEngine {
+    private static final long LIQUIDITY_QUOTE_TTL=10_000L;
     record Observation(PriceMetricService.Metrics metrics,MarketEnvironment environment,double fundamental,double news,double scale) { }
     record Participant(long id,BotProfile profile,long stock) { }
     record Activity(long stock,String code,int fills,int orders,boolean continuous) { }
@@ -74,7 +75,7 @@ final class BotActivityEngine {
                     int quantity=quote.quantity();
                     if(quote.side().equals("BUY"))quantity=(int)Math.min(quantity,Math.max(0,book.lpCashBudgets.get(stock))/Math.max(1,price+BatchOrderBook.fee(price)));
                     else quantity=Math.min(quantity,book.available(lp,stock));
-                    book.submit(lp,stock,quote.side(),"LIMIT",quantity,price,now,4000);
+                    book.submit(lp,stock,quote.side(),"LIMIT",quantity,price,now,LIQUIDITY_QUOTE_TTL);
                 }
                 nextQuote.put(stock,now+1200+random.nextInt(600));
             }
