@@ -53,6 +53,8 @@ public class MarketService {
     private static final double NEWS_AGGREGATE_SPECIAL_RATE = 0.10;
     private static final String LP_USERNAME = "liquidity_provider";
     private static final long LP_STARTING_CASH = 50_000_000L;
+    private static final long LP_ONE_TIME_RESERVE = 50_000_000L;
+    private static final int LP_RESERVE_VERSION = 1;
     private static final int LP_INITIAL_INVENTORY = 100;
     private static final String TRADER_BOT_PASSWORD = "TRADER";
     private static final long TRADER_BOT_STARTING_CASH = 1_000_000L;
@@ -1494,7 +1496,21 @@ public class MarketService {
                         id,stock.price(),stock.price(),stock.price());
                 sectors.put(code,stock.genre());
             }
+            ensureLiquidityCashReserve(lp,codes);
         });
+    }
+
+    /** Apply one finite simulation-only LP reserve and keep its per-symbol projection consistent. */
+    private void ensureLiquidityCashReserve(long lp,List<String> codes) {
+        jdbc.update("INSERT IGNORE INTO market_liquidity_state(id,reserve_version) VALUES (1,0)");
+        if(jdbc.update("UPDATE market_liquidity_state SET reserve_version=? WHERE id=1 AND reserve_version=0",LP_RESERVE_VERSION)!=1)return;
+        jdbc.update("UPDATE users SET cash=cash+? WHERE id=?",LP_ONE_TIME_RESERVE,lp);
+        long share=LP_ONE_TIME_RESERVE/Math.max(1,codes.size()),remainder=LP_ONE_TIME_RESERVE%Math.max(1,codes.size());
+        for(int i=0;i<codes.size();i++) {
+            long delta=share+(i<remainder?1:0),id=stockId(codes.get(i));
+            jdbc.update("UPDATE lp_risk_books SET opening_cash=opening_cash+? WHERE stock_id=?",delta,id);
+            jdbc.update("UPDATE lp_cash_projection SET cash=cash+? WHERE stock_id=?",delta,id);
+        }
     }
 
     private MarketMakerEngine.RiskBook liquidityRiskBook(String code,long lp) {
