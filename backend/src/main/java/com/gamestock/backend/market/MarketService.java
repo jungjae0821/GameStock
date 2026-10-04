@@ -1844,15 +1844,16 @@ public class MarketService {
     }
 
     private void seedDailySummaries() {
+        LocalDate tradingDate = LocalDate.now(clock.withZone(MISSION_ZONE));
         jdbc.update("""
                 INSERT INTO daily_market_summaries (stock_id, trading_date, open_price, close_price, total_volume)
-                SELECT id, CURRENT_DATE, current_price, current_price, 0
-                FROM stocks s
+                SELECT s.id, ?, p.day_reference, p.day_reference, 0
+                FROM stocks s JOIN stock_protection_state p ON p.stock_id = s.id
                 WHERE NOT EXISTS (
                     SELECT 1 FROM daily_market_summaries d
-                    WHERE d.stock_id = s.id AND d.trading_date = CURRENT_DATE
+                    WHERE d.stock_id = s.id AND d.trading_date = ?
                 )
-                """);
+                """, tradingDate, tradingDate);
     }
 
     /** Seed only new rows so a backend restart never reapplies old headlines. */
@@ -2245,18 +2246,32 @@ public class MarketService {
     }
 
     private long dailyReferencePrice(String code) {
+        // TradingProtectionService owns the active market date in Asia/Seoul.
+        // Do not derive the execution band from MySQL CURRENT_DATE: the JDBC
+        // session is deliberately UTC, so that value is still yesterday during
+        // the first nine hours of a Korean trading day.
+        List<Long> protectionReferences = jdbc.query("""
+                SELECT p.day_reference
+                FROM stock_protection_state p
+                JOIN stocks s ON s.id = p.stock_id
+                WHERE s.stock_code = ?
+                """, (rs, row) -> rs.getLong(1), code);
+        if (!protectionReferences.isEmpty()) return protectionReferences.get(0);
+
+        LocalDate tradingDate = LocalDate.now(clock.withZone(MISSION_ZONE));
         List<Long> references = jdbc.query("""
                 SELECT d.open_price
                 FROM daily_market_summaries d
                 JOIN stocks s ON s.id = d.stock_id
-                WHERE s.stock_code = ? AND d.trading_date = CURRENT_DATE
-                """, (rs, row) -> rs.getLong(1), code);
+                WHERE s.stock_code = ? AND d.trading_date = ?
+                """, (rs, row) -> rs.getLong(1), code, tradingDate);
         if (!references.isEmpty()) return references.get(0);
+        Long currentPrice = jdbc.queryForObject("SELECT current_price FROM stocks WHERE stock_code=?", Long.class, code);
         jdbc.update("""
                 INSERT IGNORE INTO daily_market_summaries (stock_id,trading_date,open_price,close_price,total_volume)
-                SELECT id,CURRENT_DATE,current_price,current_price,0 FROM stocks WHERE stock_code=?
-                """,code);
-        return jdbc.queryForObject("SELECT d.open_price FROM daily_market_summaries d JOIN stocks s ON s.id=d.stock_id WHERE s.stock_code=? AND d.trading_date=CURRENT_DATE",Long.class,code);
+                SELECT id,?,?,?,0 FROM stocks WHERE stock_code=?
+                """, tradingDate, currentPrice, currentPrice, code);
+        return jdbc.queryForObject("SELECT d.open_price FROM daily_market_summaries d JOIN stocks s ON s.id=d.stock_id WHERE s.stock_code=? AND d.trading_date=?",Long.class,code,tradingDate);
     }
 
     private PriceBand dailyPriceBand(String code) {
@@ -2279,11 +2294,14 @@ public class MarketService {
     }
 
     private void recordDailyTrade(String code, long price, long volume) {
+        LocalDate tradingDate = LocalDate.now(clock.withZone(MISSION_ZONE));
         jdbc.update("""
                 INSERT INTO daily_market_summaries (stock_id, trading_date, open_price, close_price, total_volume)
-                SELECT id, CURRENT_DATE, ?, ?, ? FROM stocks WHERE stock_code = ?
+                SELECT s.id, ?, p.day_reference, ?, ?
+                FROM stocks s JOIN stock_protection_state p ON p.stock_id = s.id
+                WHERE s.stock_code = ?
                 ON DUPLICATE KEY UPDATE close_price = VALUES(close_price), total_volume = daily_market_summaries.total_volume + VALUES(total_volume)
-                """, price, price, Math.max(0, volume), code);
+                """, tradingDate, price, Math.max(0, volume), code);
     }
 
     private NewsBias recentNewsBias(String code) { return recentNewsBias(code, 0); }
