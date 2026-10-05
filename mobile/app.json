@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "gamestock",
+    "icon": "./assets/app-icon.png",
     "android": {
       "package": "com.gamestock.mobile"
     },
