@@ -564,8 +564,18 @@
     color: var(--up-deep);
   }
 
-  .integration-tools .book-row.is-best .book-cell {
-    background: color-mix(in oklab, var(--ink-faint) 24%, transparent);
+  /* 최우선 호가는 행 전체를 방향색으로 옅게 칠한다. 회색 칸만 칠하면 잔량 막대처럼 보인다. */
+  .integration-tools .book-row.is-best.is-ask {
+    background: color-mix(in oklab, var(--down-wash) 70%, transparent);
+  }
+
+  .integration-tools .book-row.is-best.is-bid {
+    background: color-mix(in oklab, var(--up-wash) 70%, transparent);
+  }
+
+  .integration-tools .book-row.is-placeholder .book-price {
+    color: var(--ink-faint);
+    font-weight: 400;
   }
 
   .integration-tools .book-current-row {
@@ -574,7 +584,7 @@
     align-items: center;
     gap: 8px;
     min-height: 34px;
-    padding: 3px 0;
+    padding: 3px 8px;
     border-block: var(--rule-width) solid var(--rule-ink);
     background: var(--sunken);
   }
@@ -616,7 +626,9 @@
     }
 
     .integration-tools .book-row.is-ask .book-empty:last-child,
-    .integration-tools .book-row.is-bid .book-empty:first-child {
+    .integration-tools .book-row.is-bid .book-empty:first-child,
+    .integration-tools .book-row.is-placeholder > :first-child,
+    .integration-tools .book-row.is-placeholder > :last-child {
       display: none;
     }
   }
@@ -1368,8 +1380,12 @@
 
   .integration-tools .watch-button.is-text {
     display: inline-flex;
+    flex: none;
     align-items: center;
     justify-content: center;
+    width: auto;
+    height: auto;
+    white-space: nowrap;
     min-height: var(--chip-height);
     gap: 4px;
     font-size: var(--step--1);

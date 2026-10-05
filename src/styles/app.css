@@ -32,6 +32,11 @@
     gap: var(--space-5);
   }
 
+  /* 목록 화면(속보·랭킹)은 상단 바와 같은 폭을 채운다. 좁은 단을 왼쪽에 두면 오른쪽이 비어 미완성처럼 보인다. */
+  .page-stack.is-compact {
+    gap: var(--space-5);
+  }
+
   .page-title {
     font-size: var(--step-5);
     font-weight: 800;
@@ -1096,6 +1101,12 @@
       min-width: 0;
     }
 
+    /* 시세표는 화면 폭 안에 들어와야 한다. 종목명 칸이 남는 폭만 쓰고 넘치면 말줄임으로 자른다. */
+    .quote-table .cell-name {
+      width: 100%;
+      max-width: 0;
+    }
+
     .table .name-link {
       min-width: 0;
     }
@@ -1123,6 +1134,27 @@
 
     .facts dd {
       font-size: var(--step-1);
+    }
+  }
+
+  /* 360px 안팎의 휴대폰에서는 아이콘과 관심 칸을 줄여 종목명이 덜 잘리게 한다. */
+  @media (max-width: 400px) {
+    .quote-table .game-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .quote-table .name-link {
+      gap: var(--space-2);
+    }
+
+    .quote-table .cell-watch {
+      width: 28px;
+      padding-inline: 0;
+    }
+
+    .quote-table .watch-button {
+      min-width: 28px;
     }
   }
 }

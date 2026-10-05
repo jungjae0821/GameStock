@@ -62,6 +62,17 @@ export function OrderBook({ code, onPriceSelect }: Props) {
     </button>
   );
 
+  // 잔량이 비어 있는 단계도 자리를 지켜야 사다리 높이가 시세마다 출렁이지 않는다.
+  const placeholderRow = (key: string) => (
+    <div className="book-row is-placeholder" role="row" key={key} aria-hidden="true">
+      <span className="book-empty" />
+      <span className="book-empty" />
+      <span className="book-price">-</span>
+      <span className="book-empty" />
+      <span className="book-empty" />
+    </div>
+  );
+
   return (
     <div className="book">
       <div className="book-summary" aria-label="공개 호가 요약">
@@ -77,6 +88,7 @@ export function OrderBook({ code, onPriceSelect }: Props) {
         <span>매수 누적</span>
       </div>
       <div className="book-ladder" role="table" aria-label="매도·매수 호가 5단계">
+        {Array.from({ length: Math.max(0, 5 - askRows.length) }, (_, index) => placeholderRow(`ask-empty-${index}`))}
         {askRows.map((row) => (
           <div className={`book-row is-ask${row.best ? " is-best" : ""}`} role="row" key={`ask-${row.price}`}>
             <span className="book-cumulative is-ask num" role="cell">{shares(row.cumulative)}</span>
@@ -106,6 +118,7 @@ export function OrderBook({ code, onPriceSelect }: Props) {
             <span className="book-cumulative is-bid num" role="cell">{shares(row.cumulative)}</span>
           </div>
         ))}
+        {Array.from({ length: Math.max(0, 5 - bidRows.length) }, (_, index) => placeholderRow(`bid-empty-${index}`))}
       </div>
       <p className="book-spread num">
         최우선 호가 간격 {spread > 0 ? won(spread) : "-"} · 가격을 누르면 지정가 주문에 반영됩니다.
