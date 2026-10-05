@@ -3,7 +3,7 @@ import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { PriceCell } from "./PriceCell";
 import { ReferenceSeriesChart } from "./ReferenceSeriesChart";
-import { clock, compactWon, shares, won } from "../market/format";
+import { clock, shares, won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import { sessionRate } from "../market/selectors";
 import { LISTING_BY_CODE } from "../market/universe";
@@ -70,12 +70,12 @@ export function StockDetail({ code }: { code: string }) {
           <dd className="num">{shares(quote.volume)}</dd>
         </div>
         <div>
-          <dt>활성 이용자</dt>
-          <dd className="num">{quote.activeUsers ? `${quote.activeUsers.toLocaleString("ko-KR")}명` : "-"}</dd>
+          <dt>하한가</dt>
+          <dd className="num">{won(quote.limitDown)}</dd>
         </div>
         <div>
-          <dt>가상 시가총액</dt>
-          <dd className="num">{quote.marketCap ? compactWon(quote.marketCap) : "-"}</dd>
+          <dt>상한가</dt>
+          <dd className="num">{won(quote.limitUp)}</dd>
         </div>
       </dl>
 
