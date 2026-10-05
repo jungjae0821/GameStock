@@ -26,14 +26,19 @@ public record BotProfile(String username, String nickname, Strategy strategy,
     public static List<BotProfile> activePopulation(long seed,int count) {
         if(count<20||count>10000)throw new IllegalArgumentException("Active population must be between 20 and 10000");
         List<BotProfile> result=new ArrayList<>(defaults(seed));Random random=new Random(seed^101);
-        Strategy[] flow={Strategy.NOISE_FLOW,Strategy.NOISE_RANDOM,Strategy.LIQUIDITY_TAKER,Strategy.SCALPER,
-                Strategy.BOOK_IMBALANCE,Strategy.MICRO_TREND,Strategy.NOISE_FLOW,Strategy.NOISE_RANDOM};
-        for(int i=20;i<count;i++)result.add(create(String.format("trader_bot_%02d",i+1),flow[(i-20)%flow.length],random).atSpeed(.005).microLots());
+        // Seventeen slots spread every family across the fifteen symbols instead of
+        // adding thousands of identical fast-flow accounts and only three value investors.
+        Strategy[] flow={Strategy.CONSERVATIVE_VALUE,Strategy.VWAP_FADE,Strategy.SCALPER,Strategy.NOISE_FLOW,
+                Strategy.FAST_MOMENTUM,Strategy.DEEP_VALUE,Strategy.BOOK_IMBALANCE,Strategy.ZSCORE,
+                Strategy.NEWS_REACTOR,Strategy.SWING_TREND,Strategy.AGGRESSIVE_VALUE,Strategy.NOISE_RANDOM,
+                Strategy.MICRO_TREND,Strategy.RSI_FADE,Strategy.CATALYST_VALUE,Strategy.TREND_FOLLOW,Strategy.LIQUIDITY_TAKER};
+        for(int i=20;i<count;i++)result.add(create(String.format("trader_bot_%02d",i+1),flow[(i-20)%flow.length],random).atSpeed(.05).microLots());
         return List.copyOf(result);
     }
     private BotProfile microLots() {
         return new BotProfile(username,nickname,strategy,riskTolerance,aggression,confidenceThreshold,marketOrderProbability,
-                1,2,holdingTimePreference,2,stopLoss,takeProfit,decisionInterval,reactionLatency,
+                1,2,holdingTimePreference,strategy.family()==Family.VALUE || strategy.family()==Family.SWING ? 12 : 2,
+                stopLoss,takeProfit,decisionInterval,reactionLatency,
                 newsSensitivity,volatilityTolerance,inventoryAversion,buyBias,sellBias,noiseLevel,cancelSpeed,
                 valueError,confidence,entryThreshold,exitThreshold,updateSpeed);
     }

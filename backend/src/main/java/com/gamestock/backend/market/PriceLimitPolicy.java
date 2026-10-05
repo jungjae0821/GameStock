@@ -1,10 +1,8 @@
 package com.gamestock.backend.market;
 
 /**
- * Calculates the daily trading range from one fixed reference price.
- * Human orders may use the full Korean-market-style +/-30% range, while
- * automated liquidity bots stay inside a narrower +/-20% range so they
- * cannot create an upper-limit or lower-limit price by themselves.
+ * Daily ranges use the fixed Korean trading-day reference. Speculative game
+ * stocks can lose 80% or gain 200%; large-cap human orders retain +/-30%.
  */
 final class PriceLimitPolicy {
     static final double DAILY_LIMIT_RATE = 0.30;
@@ -17,23 +15,46 @@ final class PriceLimitPolicy {
         return band(referencePrice, DAILY_LIMIT_RATE);
     }
 
+    static PriceBand dailyBand(String code, long referencePrice) {
+        return StockMarketProfile.isSpeculative(code) ? band(referencePrice, .80, 2.0) : dailyBand(referencePrice);
+    }
+
     static PriceBand botBand(long referencePrice) {
         return band(referencePrice, BOT_DAILY_LIMIT_RATE);
     }
+
+    static PriceBand botBand(String code, long referencePrice) {
+        return StockMarketProfile.isSpeculative(code) ? dailyBand(code, referencePrice) : botBand(referencePrice);
+    }
+
+    static PriceBand quoteBand(String code, long referencePrice, double news) {
+        if (!StockMarketProfile.isLargeCap(code)) return botBand(code, referencePrice);
+        // A wider safety envelope surrounds the +/-3% soft target. News expands it.
+        return band(referencePrice, Math.min(.20, .06 + Math.abs(news)));
+    }
+
+    static double dynamicViRate(String code) { return StockMarketProfile.isSpeculative(code) ? .20 : .06; }
+    static double staticViRate(String code) { return StockMarketProfile.isSpeculative(code) ? Double.POSITIVE_INFINITY : .10; }
 
     static PriceBand marketExecutionBand(long referencePrice) {
         return band(referencePrice, MARKET_EXECUTION_RATE);
     }
 
     static PriceBand band(long referencePrice, double rate) {
-        if (referencePrice <= 0) throw new IllegalArgumentException("기준가는 0보다 커야 합니다.");
         if (rate <= 0 || rate >= 1) throw new IllegalArgumentException("가격제한 비율이 올바르지 않습니다.");
+        return band(referencePrice, rate, rate);
+    }
+
+    static PriceBand band(long referencePrice, double downRate, double upRate) {
+        if (referencePrice <= 0) throw new IllegalArgumentException("기준가는 0보다 커야 합니다.");
+        if (!Double.isFinite(downRate) || !Double.isFinite(upRate) || downRate <= 0 || downRate >= 1 || upRate <= 0 || upRate > 2)
+            throw new IllegalArgumentException("가격제한 비율이 올바르지 않습니다.");
 
         long referenceTick = tickSize(referencePrice);
-        long rawLimit = (long) Math.floor(referencePrice * rate);
-        long limitAmount = Math.max(referenceTick, (rawLimit / referenceTick) * referenceTick);
-        long lower = ceilToTick(Math.max(100, referencePrice - limitAmount));
-        long upper = floorToTick(referencePrice + limitAmount);
+        long down = Math.max(referenceTick, (long)Math.floor(referencePrice * downRate / referenceTick) * referenceTick);
+        long up = Math.max(referenceTick, (long)Math.floor(referencePrice * upRate / referenceTick) * referenceTick);
+        long lower = ceilToTick(Math.max(100, referencePrice - down));
+        long upper = floorToTick(Math.addExact(referencePrice, up));
         return new PriceBand(referencePrice, lower, upper);
     }
 

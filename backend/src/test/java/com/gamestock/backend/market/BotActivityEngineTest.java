@@ -11,7 +11,12 @@ class BotActivityEngineTest {
         assertEquals(a,b);assertEquals(BotProfile.defaults(91),a.subList(0,20));
         assertEquals(6020,a.stream().map(BotProfile::username).distinct().count());
         assertEquals(6020,a.stream().map(BotProfile::nickname).distinct().count());
-        assertEquals(2,a.get(20).positionLimit());assertNotEquals(a.get(20).aggression(),a.get(28).aggression());
+        assertEquals(12,a.get(20).positionLimit());assertNotEquals(a.get(20).aggression(),a.get(28).aggression());
+        for(int symbol=0;symbol<15;symbol++) {
+            Set<BotProfile.Family> families=new HashSet<>();
+            for(int i=symbol;i<a.size();i+=15)families.add(a.get(i).strategy().family());
+            assertEquals(Set.of(BotProfile.Family.values()),families,"Every symbol needs independent value and flow traders");
+        }
     }
     private BotActivityEngine.Observation observation() {
         var metric=PriceMetricService.calculate(List.of(new PriceMetricService.Trade(1000,10000,1)),10000,9990,10010,50,50,1000);

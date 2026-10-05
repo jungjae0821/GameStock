@@ -117,6 +117,17 @@ class BatchOrderBookTest {
         b.submit(2,1,"SELL","MARKET",1,0,1002,0);
         assertEquals(1,b.fills.size());assertEquals(1,b.holding(1,1).quantity());
     }
+    @Test void fundedLiquidityProviderAbsorbsBotSellingWhileKeepingItsHumanReserve() {
+        var b=book(5_000_000);b.accounts.put(1L,new Account(1,5_000_000,true));
+        b.accounts.put(4L,new Account(4,0,false,true));
+        b.holdings.put(new PositionKey(4,1),new Holding(10,10,10000,0));
+        b.lpCashBudgets.put(1L,5_000_000L);
+        b.submit(1,1,"BUY","LIMIT",2,10000,1000,4000);
+        var sold=b.submit(4,1,"SELL","MARKET",1,0,1001,0);
+        assertEquals("FILLED",sold.status);assertEquals(1,b.fills.size());
+        assertTrue(b.lpCashBudgets.get(1L)>=MarketMakerEngine.emergencyCashRequirement(12000));
+        assertEquals(9,b.holding(4,1).quantity());assertEquals(1,b.holding(1,1).quantity());
+    }
     @Test void depletedInlineLiquidityInventoryRestoresOnceAndPreservesRealizedProfit() {
         var b=book(1000000);
         b.restoreLiquidityInventory(2,1,400,10050);

@@ -327,6 +327,16 @@ class SimulationEngineTest {
         assertTrue(quotes.stream().allMatch(q->Math.abs(q.price()-7710)<=100),
                 () -> "quotes detached from last execution: "+quotes);
     }
+    @Test void quietBookPreservesNearbyExecutableQuotesInsteadOfInventingAnInsideSpread() {
+        var quiet=PriceMetricService.calculate(List.of(),10000,9980,10020,50,50,1000);
+        var stabilized=BotActivityEngine.stabilizeQuietBook(quiet);
+        assertEquals(9980,stabilized.bestBid());assertEquals(10020,stabilized.bestAsk());
+        assertEquals(10000,stabilized.markPrice());
+        var atDailyFloor=BotActivityEngine.stabilizeQuietBook(PriceMetricService.calculate(List.of(),2000,2015,2025,30,30,1000));
+        assertEquals(2025,atDailyFloor.bestAsk(),"buyers must be able to lift the real offer after a limit-down period");
+        assertEquals(2000,atDailyFloor.markPrice());
+    }
+
     @Test void metricsResistTinyLastPrintAndHaveNeutralWarmup() {
         var trades=List.of(new PriceMetricService.Trade(0,10000,1000),new PriceMetricService.Trade(1000,11000,1));
         var m=PriceMetricService.calculate(trades,10000,9990,10010,100,100,1000);
