@@ -54,11 +54,11 @@ class StockMarketProfileTest {
         assertEquals(profile.movementWeight(), stock.movementWeight(), 1e-12);
     }
 
-    @Test void apiCarriesExactDailyLimitsAndReferenceEvenAfterATriple() {
+    @Test void apiCarriesExactDailyLimitsAndReferenceForEveryStock() {
         var small=new MarketModels.Stock("SD","SD","RPG",30000,200,1,null,10000);
         assertEquals(10000,small.referencePrice());
-        assertEquals(30000,small.limitUp());
-        assertEquals(2000,small.limitDown());
+        assertEquals(13000,small.limitUp());
+        assertEquals(7000,small.limitDown());
         var large=new MarketModels.Stock("GI","GI","RPG",10100,1,1,null,10000);
         assertEquals(13000,large.limitUp());
         assertEquals(7000,large.limitDown());

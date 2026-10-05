@@ -1,8 +1,8 @@
 package com.gamestock.backend.market;
 
 /**
- * Daily ranges use the fixed Korean trading-day reference. Speculative game
- * stocks can lose 80% or gain 200%; large-cap human orders retain +/-30%.
+ * Daily ranges use the fixed Korean trading-day reference. Every stock uses
+ * the same previous-close +/-30% upper/lower limit.
  */
 final class PriceLimitPolicy {
     static final double DAILY_LIMIT_RATE = 0.30;
@@ -16,7 +16,7 @@ final class PriceLimitPolicy {
     }
 
     static PriceBand dailyBand(String code, long referencePrice) {
-        return StockMarketProfile.isSpeculative(code) ? band(referencePrice, .80, 2.0) : dailyBand(referencePrice);
+        return dailyBand(referencePrice);
     }
 
     static PriceBand botBand(long referencePrice) {
@@ -24,7 +24,7 @@ final class PriceLimitPolicy {
     }
 
     static PriceBand botBand(String code, long referencePrice) {
-        return StockMarketProfile.isSpeculative(code) ? dailyBand(code, referencePrice) : botBand(referencePrice);
+        return botBand(referencePrice);
     }
 
     static PriceBand quoteBand(String code, long referencePrice, double news) {

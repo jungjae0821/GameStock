@@ -6,15 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PriceLimitPolicyTest {
-    @Test void speculativeRangesPermitDoublingAndTriplingWithPositiveDownsideFloor() {
+    @Test void everyStockUsesTheSameThirtyPercentDailyBand() {
         for(String code:java.util.List.of("AK","LT","MH","PW","PX","ES","SD")) {
             var daily=PriceLimitPolicy.dailyBand(code,10000);
             var bots=PriceLimitPolicy.botBand(code,10000);
-            assertEquals(2000,daily.lowerPrice());
-            assertEquals(30000,daily.upperPrice());
-            assertTrue(bots.contains(20000));assertTrue(bots.contains(30000));
+            assertEquals(7000,daily.lowerPrice());
+            assertEquals(13000,daily.upperPrice());
+            assertEquals(8000,bots.lowerPrice());
+            assertEquals(12000,bots.upperPrice());
             assertEquals(Double.POSITIVE_INFINITY,PriceLimitPolicy.staticViRate(code));
         }
+        assertEquals(7000,PriceLimitPolicy.dailyBand("GI",10000).lowerPrice());
         assertEquals(13000,PriceLimitPolicy.dailyBand("GI",10000).upperPrice());
         assertEquals(10600,PriceLimitPolicy.quoteBand("GI",10000,0).upperPrice());
         assertEquals(11600,PriceLimitPolicy.quoteBand("GI",10000,.1).upperPrice());

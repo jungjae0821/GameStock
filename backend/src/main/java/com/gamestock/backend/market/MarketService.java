@@ -230,6 +230,7 @@ public class MarketService {
         userFeatures.ensureDefaultTags();
         seedPriceHistory();
         seedDailySummaries();
+        protection.repairPricesToDailyBands();
         normalizeOpenOrderPrices();
         initializeSimulationBooks();
         priceMetrics.seedCursors();
@@ -1624,7 +1625,9 @@ public class MarketService {
     }
 
     private void advanceTradingProtections() {
-        protection.refreshDay();
+        boolean dayChanged = protection.refreshDay();
+        List<String> repaired = protection.repairPricesToDailyBands();
+        if (dayChanged || !repaired.isEmpty()) normalizeOpenOrderPrices();
         protection.advanceMarketPhase();
         if (protection.marketAuctionDue()) {
             List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
@@ -1921,10 +1924,12 @@ public class MarketService {
                 rs.getString(4), rs.getLong(5), rs.getInt(6), rs.getLong(7), rs.getBoolean(8)));
         for (OpenLimitOrder order : orders) {
             PriceBand allowedBand = order.bot() ? botPriceBand(order.stockCode()) : dailyPriceBand(order.stockCode());
+            if (!allowedBand.contains(order.price())) {
+                startupTransaction().executeWithoutResult(status -> cancelOutOfBandOrder(order));
+                continue;
+            }
             long rounded = "BUY".equals(order.side()) ? floorToTick(order.price()) : ceilToTick(order.price());
-            long normalized = order.bot()
-                    ? allowedBand.clamp(rounded)
-                    : allowedBand.clamp(rounded);
+            long normalized = allowedBand.clamp(rounded);
             Long required = null;
             if ("BUY".equals(order.side())) {
                 try {
@@ -1939,6 +1944,17 @@ public class MarketService {
             // would apply the same difference again. Unchanged orders skip the transaction.
             Long reserved = required;
             startupTransaction().executeWithoutResult(status -> applyNormalizedPrice(order, normalized, reserved));
+        }
+    }
+
+    private void cancelOutOfBandOrder(OpenLimitOrder order) {
+        int cancelled = jdbc.update("""
+                UPDATE orders
+                SET status = 'CANCELLED', remaining_quantity = 0, reserved_cash = 0, reserved_quantity = 0
+                WHERE id = ? AND status = 'OPEN'
+                """, order.id());
+        if (cancelled > 0 && order.reservedCash() > 0) {
+            jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", order.reservedCash(), order.userId());
         }
     }
 

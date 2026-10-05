@@ -33,11 +33,10 @@ class MarketCapSimulationTest {
         assertTrue(result.low()>=9670 && result.high()<=10330,result.toString());
     }
 
-    @Test void speculativeFlowCanDoubleAStockWithoutNewsOrDirectPriceWrites() {
+    @Test void speculativeFlowStaysWithinTheUniversalDailyBand() {
         Result result=simulate("SD",7,3600,0);
-        System.out.println("CAP_SPECULATIVE "+result);
-        assertTrue(result.high()>=20000,"A low-cap rally must be possible through the participant engine: "+result);
-        assertTrue(result.high()<=30000 && result.low()>=2000,"respect the fixed daily range");
+        System.out.println("CAP_DAILY_BAND "+result);
+        assertTrue(result.high()<=13000 && result.low()>=7000,"respect the universal +/-30% daily range");
     }
 
     static Result simulate(String code,long seed,int seconds,double news) {
