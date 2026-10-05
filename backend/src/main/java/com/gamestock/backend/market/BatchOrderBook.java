@@ -123,7 +123,7 @@ final class BatchOrderBook {
         if(symbol==null || account==null || quantity<=0 || quantity>1000 || !symbol.continuous && !type.equals("LIMIT"))return null;
         if(!side.equals("BUY") && !side.equals("SELL"))return null;
         boolean market=type.equals("MARKET");
-        if(!market && (!type.equals("LIMIT") || !dailyBand(symbol.reference).contains(price) || price%tickSize(price)!=0))return null;
+        if(!market && (!type.equals("LIMIT") || !dailyBand(symbol.code,symbol.reference).contains(price) || price%tickSize(price)!=0))return null;
         long checkPrice=market?symbol.last:price;
         long gross=Math.multiplyExact(checkPrice,(long)quantity),required=Math.addExact(gross,fee(gross));
         if(side.equals("BUY") && account.cash<required || side.equals("SELL") && available(user,stock)<quantity)return null;
@@ -173,23 +173,27 @@ final class BatchOrderBook {
             Order buy=buyBook.first(),sell=sellBook.first();
             if(!buy.market() && !sell.market() && buy.price<sell.price)return;
             if(buy.user==sell.user){cancel(earlier(buy,sell)?sell:buy);continue;}
-            // Keep LP bid depth available for human sellers. Automated sellers may trade with
-            // one another, but must not drain the finite LP cash reserve before a user can react.
-            if(accounts.get(buy.user).liquidityProvider&&accounts.get(sell.user).bot){cancel(sell);continue;}
             Order maker=buy.market()&&!sell.market()?sell:sell.market()&&!buy.market()?buy:earlier(buy,sell)?buy:sell;
             Order taker=maker==buy?sell:buy;
             long price=buy.market()&&sell.market()?stock.last:maker.price;
-            boolean buyBot=accounts.get(buy.user).liquidityProvider,sellBot=accounts.get(sell.user).liquidityProvider;
-            PriceBand marketBand=buyBot&&sellBot?dailyBand(stock.reference):marketExecutionBand(stock.last);
+            boolean buyBot=accounts.get(buy.user).bot,sellBot=accounts.get(sell.user).bot;
+            if(accounts.get(buy.user).liquidityProvider && sellBot) {
+                // Absorb ordinary selling on both sides while retaining a funded human reserve.
+                long available=Math.min(accounts.get(buy.user).cash,lpCashBudgets.getOrDefault(stock.id,accounts.get(buy.user).cash));
+                long gross=price*Math.min(buy.remaining,sell.remaining);
+                long reserve=MarketMakerEngine.emergencyCashRequirement(botBand(stock.code,stock.reference).upperPrice());
+                if(available-gross-fee(gross)<reserve){cancel(sell);continue;}
+            }
+            PriceBand marketBand=buyBot&&sellBot?dailyBand(stock.code,stock.reference):marketExecutionBand(stock.last);
             if((buy.market()||sell.market())&&!marketBand.contains(price)) {
                 if(buy.market()) {if(buyBot)cancel(buy);else if(sellBot)cancel(sell);else return;}
                 else {if(sellBot)cancel(sell);else if(buyBot)cancel(buy);else return;}
                 continue;
             }
-            if((buyBot||sellBot)&&!botBand(stock.reference).contains(price)) {
+            if((buyBot||sellBot)&&!botBand(stock.code,stock.reference).contains(price)) {
                 if(buyBot)cancel(buy);if(sellBot)cancel(sell);continue;
             }
-            if(!dailyBand(stock.reference).contains(price))return;
+            if(!dailyBand(stock.code,stock.reference).contains(price))return;
             int quantity=Math.min(buy.remaining,sell.remaining);
             if(buy.reservedCash==0)quantity=affordable(accounts.get(buy.user).cash,price,quantity);
             if(quantity<=0){if(buy.market())return;cancel(buy);continue;}
@@ -197,8 +201,10 @@ final class BatchOrderBook {
             long released=release(buy,quantity);
             if(accounts.get(buy.user).cash+released<gross+buyerFee){cancel(buy);continue;}
             if(sell.reservedQuantity==0 && available(sell.user,stock.id)<quantity){cancel(sell);continue;}
-            boolean dynamicViolation=Math.abs(price/(double)stock.dynamicReference-1)>=.06-1e-10;
-            boolean staticViolation=Math.abs(price/(double)stock.staticReference-1)>=.10-1e-10;
+            boolean dynamicViolation=Math.abs(price/(double)stock.dynamicReference-1)>=dynamicViRate(stock.code)-1e-10;
+            boolean profiled=StockMarketProfile.isLargeCap(stock.code)||StockMarketProfile.isSpeculative(stock.code);
+            boolean staticViolation=!(profiled&&(buyBot||sellBot))
+                    && Math.abs(price/(double)stock.staticReference-1)>=staticViRate(stock.code)-1e-10;
             if(dynamicViolation || staticViolation) {
                 // Participant bots use TRADER accounts, while the older bot-band
                 // guard only recognized the liquidity provider. Do not let an

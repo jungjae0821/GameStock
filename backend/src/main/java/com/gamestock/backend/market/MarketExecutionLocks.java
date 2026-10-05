@@ -68,7 +68,7 @@ final class MarketExecutionLocks {
             if(sell.user()==user) continue; // STP may cancel either row if a legacy timestamp is ahead.
             // Quotes outside any execution band might be cancelled instead of consumed.
             // Counting only this safe intersection gives a conservative superset of counterparties.
-            if(dailyBand(reference).contains(sell.price()) && botBand(reference).contains(sell.price())
+            if(dailyBand(request.stockCode(),reference).contains(sell.price()) && botBand(request.stockCode(),reference).contains(sell.price())
                     && (!market || marketExecutionBand(last).contains(sell.price()))) remaining-=sell.remaining();
         }
         return result;

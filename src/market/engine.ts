@@ -1,5 +1,5 @@
 import {
-  DAILY_LIMIT,
+  dailyPriceBand,
   LISTINGS,
   LISTING_BY_CODE,
   nextTickPrice,
@@ -80,8 +80,7 @@ export class MarketEngine {
     for (const listing of LISTINGS) {
       const profile = stockMarketProfile(listing.code);
       const open = roundToTick(listing.prevClose * (1 + this.gauss() * 0.003));
-      const limitUp = roundToTick(listing.prevClose * (1 + DAILY_LIMIT));
-      const limitDown = Math.max(1, roundToTick(listing.prevClose * (1 - DAILY_LIMIT)));
+      const { limitUp, limitDown } = dailyPriceBand(listing.code, listing.prevClose);
       const quote: Quote = {
         code: listing.code,
         activeUsers: profile.activeUsers,

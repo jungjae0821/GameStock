@@ -127,7 +127,7 @@ public class TradingProtectionService {
             String kind = rs.getString("vi_type");
             boolean dynamic = "DYNAMIC_VI".equals(kind);
             return new TradingRestriction(kind, dynamic ? "동적 VI" : "정적 VI", "AUCTION", 0,
-                    dynamic ? "직전 체결가 또는 VI 재개 기준가 대비 예상 체결가가 ±6% 이상 변동했습니다."
+                    dynamic ? "직전 체결가 또는 VI 재개 기준가 대비 예상 체결가가 ±" + Math.round(PriceLimitPolicy.dynamicViRate(code)*100) + "% 이상 변동했습니다."
                             : "당일 시작가 또는 직전 단일가 대비 가격이 ±10% 이상 변동했습니다.",
                     "2분간 즉시 체결을 멈추고 지정가 주문을 모아 하나의 가격으로 체결합니다. 지정가 접수·취소는 가능하며 시장가 주문은 제한됩니다.",
                     instant(rs.getTimestamp("started_at")), instant(rs.getTimestamp("ends_at")), true, false);
@@ -168,8 +168,8 @@ public class TradingProtectionService {
         if (refs.isEmpty()) return false;
         long[] ref = refs.get(0);
         long dynamicReference = syntheticReference == null ? ref[2] : syntheticReference;
-        boolean dynamic = Math.abs(price / (double) dynamicReference - 1) >= 0.06 - 1e-10;
-        boolean fixed = Math.abs(price / (double) ref[1] - 1) >= 0.10 - 1e-10;
+        boolean dynamic = Math.abs(price / (double) dynamicReference - 1) >= PriceLimitPolicy.dynamicViRate(code) - 1e-10;
+        boolean fixed = Math.abs(price / (double) ref[1] - 1) >= PriceLimitPolicy.staticViRate(code) - 1e-10;
         if (!dynamic && !fixed) return false;
         String kind = dynamic ? "DYNAMIC_VI" : "STATIC_VI";
         Instant now = clock.instant();

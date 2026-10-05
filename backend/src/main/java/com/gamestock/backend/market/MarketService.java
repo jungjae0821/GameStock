@@ -305,7 +305,7 @@ public class MarketService {
         if(inlineMarketMaker) {
             Map<Long,Long> minimumCash=new HashMap<>();
             for(var stock:book.stocks.values())
-                minimumCash.put(stock.id,MarketMakerEngine.emergencyCashRequirement(botBand(stock.reference).upperPrice()));
+                minimumCash.put(stock.id,MarketMakerEngine.emergencyCashRequirement(botBand(stock.code,stock.reference).upperPrice()));
             long moved=book.rebalanceLiquidityCash(activityLpId,minimumCash);
             if(moved>0)pipelineMetrics.add("bot.liquidity.cashRebalanced",moved);
         }
@@ -419,7 +419,7 @@ public class MarketService {
                 rs.getString("genre"),
                 rs.getLong("current_price"),
                 changePercent(rs.getLong("current_price"), rs.getLong("day_reference")),
-                rs.getLong("total_volume"), null));
+                rs.getLong("total_volume"), null,rs.getLong("day_reference")));
         return rows.stream().map(this::withRestriction).toList();
     }
 
@@ -430,7 +430,7 @@ public class MarketService {
      */
     private Stock withRestriction(Stock stock) {
         return new Stock(stock.code(), stock.name(), stock.genre(), stock.price(), stock.changePercent(),
-                stock.volume(), protection.restriction(stock.code()));
+                stock.volume(), protection.restriction(stock.code()),stock.referencePrice());
     }
 
     public List<MarketEvent> marketEvents() {
@@ -1182,7 +1182,7 @@ public class MarketService {
                 var fill=book.fills.get(i);if(fill.buy().stock==stock.id)
                     trades.add(new PublicTrade(fill.taker().side,fill.quantity(),fill.price(),fill.taker().type,Instant.ofEpochMilli(now).toString()));
             }
-            var quote=new Stock(stock.code,stock.name,stock.genre,stock.last,changePercent(stock.last,stock.reference),stock.totalVolume,stock.continuous?null:protection.restriction(stock.code));
+            var quote=new Stock(stock.code,stock.name,stock.genre,stock.last,changePercent(stock.last,stock.reference),stock.totalVolume,stock.continuous?null:protection.restriction(stock.code),stock.reference);
             updates.put(stock.code,Map.of("symbol",stock.code,"stock",quote,"orderbook",book.snapshot(stock.id),"trades",trades,
                 "chart",trades.stream().map(t->new PricePoint(t.price(),t.createdAt())).toList()));
         }
@@ -1245,12 +1245,15 @@ public class MarketService {
         cancelBotOrders(lp, stockId(code));
         ensureLiquidityInventory(code, lp);
         OrderBook externalBook=orderBook(code);
-        PriceBand band=botPriceBand(code);
+        double news=recentNewsBias(code).rate();
+        long reference=dailyReferencePrice(code);
+        PriceBand band=quoteBand(code,reference,news);
         MarketMakerEngine.QuoteConstraints constraints=new MarketMakerEngine.QuoteConstraints(band.lowerPrice(),band.upperPrice(),
                 externalBook.bids().isEmpty()?0:externalBook.bids().get(0).price(),
                 externalBook.asks().isEmpty()?0:externalBook.asks().get(0).price());
         MarketMakerEngine.RiskBook risk = liquidityRiskBook(code, lp);
         double fundamental=jdbc.queryForObject("SELECT hidden_fundamental FROM market_price_metrics WHERE stock_id=?",Double.class,stockId(code));
+        fundamental=StockMarketProfile.valuationAnchor(code,reference,fundamental,news);
         for (MarketMakerEngine.Quote quote : marketMaker.quotes(metrics, environment(code), risk,
                 tickSize(Math.round(metrics.midPrice())), marketScale(code),constraints,fundamental)) {
             insertLiquidityQuote(code, lp, quote);
@@ -1284,7 +1287,7 @@ public class MarketService {
         if (decision.quantity() <= 0) return;
         long price = "BUY".equals(decision.side()) ? floorToTick(Math.round(decision.limitPrice()))
                 : ceilToTick(Math.round(decision.limitPrice()));
-        PriceBand band = dailyPriceBand(code);
+        PriceBand band = quoteBand(code,dailyReferencePrice(code),observation.news());
         price = "BUY".equals(decision.side()) ? floorToTick(band.clamp(price)) : ceilToTick(band.clamp(price));
         int quantity = "SELL".equals(decision.side()) ? Math.min(decision.quantity(), availableQuantity(userId,id)) : decision.quantity();
         if (quantity <= 0) return;
@@ -1374,17 +1377,20 @@ public class MarketService {
         BotStrategyEngine.Position position = new BotStrategyEngine.Position(held.quantity(), availableCash(userId)+resting.stream().mapToLong(BotOrderPolicy.RestingOrder::cash).sum(),
                 held.averagePrice(), age == null ? 0 : age,
                 strategies.targetQuantity(profile,code,clock.millis(),equity,symbolCount,metrics.markPrice()));
+        double news = recentNewsBias(code, profile.reactionLatency()).rate();
+        long reference = dailyReferencePrice(code);
         double estimate = metrics.markPrice();
         if (profile.strategy().family() == BotProfile.Family.VALUE) {
             double fundamental = jdbc.queryForObject("SELECT hidden_fundamental FROM market_price_metrics WHERE stock_id=?", Double.class, id);
             // Only value investors receive a noisy, slowly updated observation, never the hidden truth.
-            estimate = strategies.estimate(profile, code, fundamental * (1 + tickRandom.nextGaussian() * .012));
+            fundamental=StockMarketProfile.valuationAnchor(code,reference,fundamental,news);
+            double noise=.012*(StockMarketProfile.isLargeCap(code)?StockMarketProfile.of(code).movementWeight():1);
+            estimate = strategies.estimate(profile, code, fundamental * (1 + tickRandom.nextGaussian() * noise));
         }
-        double news = recentNewsBias(code, profile.reactionLatency()).rate();
         double perceived = news == 0 ? 0 : news * (1 + profile.valueError()*8)
                 + tickRandom.nextGaussian() * Math.abs(news) * .25;
         BotStrategyEngine.Decision decision=strategies.decide(profile,metrics,environment(code),position,
-                estimate,perceived,tickSize(Math.round(metrics.lastPrice())),marketScale(code));
+                estimate,perceived,tickSize(Math.round(metrics.lastPrice())),marketScale(code),code,reference);
         boolean replace=resting.stream().anyMatch(o -> botOrderPolicy.shouldReplace(profile,o,decision,
                 clock.millis(),tickSize(o.price()),o.side().equals("BUY")?metrics.bestBid():metrics.bestAsk(),
                 o.side().equals("BUY")?metrics.bestAsk():metrics.bestBid()));
@@ -1492,7 +1498,6 @@ public class MarketService {
             List<String> codes = botStockCodes();
             long baseline = jdbc.queryForObject("SELECT COALESCE(MAX(id),0) FROM trades", Long.class);
             int existing = jdbc.queryForObject("SELECT COUNT(*) FROM lp_risk_books", Integer.class);
-            if(batchEnabled)jdbc.update("UPDATE lp_risk_books SET target_inventory=100 WHERE target_inventory=400");
             long allocation = existing == 0 ? availableCash(lp) / Math.max(1,codes.size()) : 0;
             for (String code : codes) {
                 long id = stockId(code);
@@ -1501,6 +1506,9 @@ public class MarketService {
                 // Non-zero allocations and trade baselines are retained across restarts.
                 jdbc.update("INSERT IGNORE INTO lp_risk_books VALUES (?,?,?,?,?,?)",
                         id,allocation,baseline,batchEnabled?100:400,1200,stock.price()*1200L);
+                int target=StockMarketProfile.initialLiquidityInventory(code,LP_INITIAL_INVENTORY);
+                jdbc.update("UPDATE lp_risk_books SET target_inventory=?,max_inventory=GREATEST(max_inventory,?),risk_limit=GREATEST(risk_limit,?) WHERE stock_id=?",
+                        target,target*4,stock.price()*target*4L,id);
                 jdbc.update("INSERT IGNORE INTO market_price_metrics (stock_id,mark_price,hidden_fundamental,anchor_price) VALUES (?,?,?,?)",
                         id,stock.price(),stock.price(),stock.price());
                 sectors.put(code,stock.genre());
@@ -1584,8 +1592,9 @@ public class MarketService {
             double weightedTotal = total * StockMarketProfile.of(code).movementWeight();
             jdbc.update("""
                     UPDATE market_price_metrics SET hidden_fundamental=GREATEST(anchor_price*.5,
-                        LEAST(anchor_price*2,hidden_fundamental*?)),last_news_id=? WHERE stock_id=?
-                    """,1+MarketEnvironment.clamp(weightedTotal,-.1,.1),ids.get(ids.size()-1),id);
+                        LEAST(anchor_price*?,hidden_fundamental*?)),last_news_id=? WHERE stock_id=?
+                    """,StockMarketProfile.isSpeculative(code)?4:2,
+                    1+MarketEnvironment.clamp(weightedTotal,-.1,StockMarketProfile.isSpeculative(code)?.5:.1),ids.get(ids.size()-1),id);
         }
     }
 
@@ -2232,7 +2241,7 @@ public class MarketService {
                 LEFT JOIN stock_protection_state p ON p.stock_id=s.id
                 WHERE s.stock_code=?
                 """,(rs,n)->new Stock(rs.getString(1),rs.getString(2),rs.getString(3),rs.getLong(4),
-                changePercent(rs.getLong(4),rs.getLong(5)),rs.getLong(6),null),code);
+                changePercent(rs.getLong(4),rs.getLong(5)),rs.getLong(6),null,rs.getLong(5)),code);
         return rows.isEmpty()?null:withRestriction(rows.get(0));
     }
 
@@ -2275,11 +2284,11 @@ public class MarketService {
     }
 
     private PriceBand dailyPriceBand(String code) {
-        return dailyBand(dailyReferencePrice(code));
+        return dailyBand(code,dailyReferencePrice(code));
     }
 
     private PriceBand botPriceBand(String code) {
-        return botBand(dailyReferencePrice(code));
+        return botBand(code,dailyReferencePrice(code));
     }
 
     private void moveToPrice(String code, long price, long volume) {

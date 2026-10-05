@@ -1,4 +1,5 @@
 import type { Listing } from "./types";
+import { stockMarketProfile } from "./marketCap";
 
 /**
  * 상장 종목. 게임명·퍼블리셔는 실제 제품 정보, 가격은 전부 모의 시세다.
@@ -40,8 +41,19 @@ export function tickSize(price: number): number {
   return 1000;
 }
 
-/** 가격제한폭 ±30%. 실제 시장 규칙을 모의 시세에도 적용한다. */
-export const DAILY_LIMIT = 0.3;
+/** Match server tick rounding and each virtual stock's daily price limits. */
+export function dailyPriceBand(code: string, reference: number): { limitUp: number; limitDown: number } {
+  const profile = stockMarketProfile(code);
+  const tick = tickSize(reference);
+  const down = Math.max(tick, Math.floor(reference * profile.dailyDownRate / tick) * tick);
+  const up = Math.max(tick, Math.floor(reference * profile.dailyUpRate / tick) * tick);
+  const low = Math.max(100, reference - down);
+  const high = reference + up;
+  return {
+    limitDown: Math.ceil(low / tickSize(low)) * tickSize(low),
+    limitUp: Math.floor(high / tickSize(high)) * tickSize(high),
+  };
+}
 
 export function roundToTick(price: number): number {
   const size = tickSize(price);

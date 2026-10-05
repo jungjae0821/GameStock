@@ -27,7 +27,8 @@ public final class BotStrategyEngine {
         if(p.holdingTimePreference()<5000) {
             // Fast flow participants have private short-lived allocation needs, not a common fair price.
             // The target is only an intent: every share must first be bought from a real counterparty.
-            period=400+preference.nextDouble()*1200;
+            period=StockMarketProfile.isLargeCap(symbol) ? 30_000+preference.nextDouble()*90_000
+                    : 5_000+preference.nextDouble()*15_000;
             double cycle=Math.sin((now%((long)period))/period*Math.PI*2+phase);
             return Math.min(equity/Math.max(1,price)*.1,Math.max(0,.8+1.4*cycle)*weight);
         }
@@ -43,8 +44,9 @@ public final class BotStrategyEngine {
         String key=p.username()+":"+symbol;
         // A bot's general optimism and its company-specific research error are distinct.
         // Stable per-symbol errors do not disappear by repeatedly averaging observations.
+        double errorWeight=StockMarketProfile.isLargeCap(symbol)?StockMarketProfile.of(symbol).movementWeight():1;
         double researchError=new Random(seed ^ ((long)key.hashCode()*0x9E3779B97F4A7C15L)).nextGaussian()*.025;
-        double target=noisyObservation*(1+p.valueError()+researchError);
+        double target=noisyObservation*(1+(p.valueError()+researchError)*errorWeight);
         double old=estimates.getOrDefault(key,target);
         double estimate=old+p.updateSpeed()*(target-old);
         estimates.put(key,estimate); return estimate;
@@ -115,7 +117,21 @@ public final class BotStrategyEngine {
     }
     public Decision decide(BotProfile p,PriceMetricService.Metrics m,MarketEnvironment e,Position position,
                            double estimatedValue,double perceivedNews,double tick,double marketScale) {
+        return decide(p,m,e,position,estimatedValue,perceivedNews,tick,marketScale,null,0);
+    }
+
+    public Decision decide(BotProfile p,PriceMetricService.Metrics m,MarketEnvironment e,Position position,
+                           double estimatedValue,double perceivedNews,double tick,double marketScale,String symbol,long dayReference) {
         double score=score(p,m,e,position,estimatedValue,perceivedNews,random.nextGaussian());
+        boolean large=StockMarketProfile.isLargeCap(symbol) && dayReference>0;
+        double dailyAnchor=large?StockMarketProfile.valuationAnchor(symbol,dayReference,estimatedValue,perceivedNews):estimatedValue;
+        if(large) {
+            // A stock cannot become a penny stock just because hundreds of accounts trade it.
+            // This changes willingness to trade; only actual matched orders change the price.
+            score=score*.35-(m.lastPrice()/dailyAnchor-1)/(StockMarketProfile.normalDailyMove(symbol)*.4);
+        } else if(StockMarketProfile.isSpeculative(symbol)) {
+            score+=e.directionBias()*.45+clamp(m.return60s()*8,-.8,.8);
+        }
         double threshold=threshold(p,m);
         String side=score>threshold?"BUY":score<-threshold?"SELL":"HOLD";
         double confidence=clamp(Math.abs(score)*p.confidence(),0,1);
@@ -164,11 +180,18 @@ public final class BotStrategyEngine {
         if(hasInventoryDemand(p) && p.holdingTimePreference()<5000) {
             // Cash-flow demand is price sensitive. An urgent allocation change is not permission
             // to chase an empty book arbitrarily far from recent paid transactions.
-            double reservation=(.8*m.vwap()+.2*m.microPrice())*(1+clamp(score,-1,1)*(.004+p.aggression()*.006));
+            double edge=StockMarketProfile.isSpeculative(symbol)?.015+p.aggression()*.02:.004+p.aggression()*.006;
+            double reservation=(.8*m.vwap()+.2*m.microPrice())*(1+clamp(score,-1,1)*edge);
             if(market || random.nextDouble()<clamp(p.aggression()+confidence*.65,.3,.95))
                 price=side.equals("BUY")?m.bestAsk():m.bestBid();
             market=false;
             price=side.equals("BUY")?Math.min(price,reservation):Math.max(price,reservation);
+        }
+        if(large) {
+            // Large-cap demand fades before the safety band: avoid a pile-up at a hard +/-3% cap.
+            double room=StockMarketProfile.normalDailyMove(symbol);
+            price=side.equals("BUY")?Math.min(price,dailyAnchor*(1+room)):Math.max(price,dailyAnchor*(1-room));
+            market=false;
         }
         price=Math.max(tick,price);
         double volatilityPenalty=1+m.volatility()*150+Math.max(0,e.volatilityMultiplier()-1)*.25;

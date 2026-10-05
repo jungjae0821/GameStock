@@ -42,7 +42,8 @@ public final class PatternEngine {
         Episode e = episodes.get(symbol);
         if (e == null || now >= e.start + e.duration) {
             Pattern next = select(e == null ? null : e.pattern, recent.computeIfAbsent(symbol, k -> new ArrayDeque<>()));
-            e = new Episode(next, now, 50_000 + random.nextInt(190_001), .3 + random.nextDouble()*1.1,
+            long pace=StockMarketProfile.isLargeCap(symbol)?30:5;
+            e = new Episode(next, now, pace*(50_000 + random.nextInt(190_001)), .3 + random.nextDouble()*1.1,
                     .6+random.nextDouble()*1.7, random.nextDouble()*.15, .6+random.nextDouble(),
                     .6+random.nextDouble()*.8, .7+random.nextDouble()*.6, random.nextDouble()*.3);
             episodes.put(symbol, e);
