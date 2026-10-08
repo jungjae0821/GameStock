@@ -3,6 +3,8 @@ export interface DailyMissionStatus {
   missionDate: string;
   resetsAt: string;
   serverTime: string;
+  /** 서버가 오늘 배정한 미션 ID. 화면은 이 목록을 그대로 렌더링한다. */
+  availableMissionIds: string[];
   completedMissionIds: string[];
 }
 

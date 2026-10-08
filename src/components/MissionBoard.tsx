@@ -9,19 +9,28 @@ import { useMarketApi } from "../market/MarketProvider";
 import type { DailyMissionStatus } from "../market/types";
 import { navigate } from "../router";
 
-const MISSION_IDS = ["market", "news", "watch"] as const;
+const MISSION_IDS = ["market", "news", "watch", "ranking", "portfolio", "home", "settings"] as const;
+const DAILY_MISSION_COUNT = 5;
+const MISSION_REWARD_CASH = 50_000;
 type MissionId = (typeof MISSION_IDS)[number];
-type CompletedMissions = Record<MissionId, boolean>;
 type MissionProgress = { userId: string; status: DailyMissionStatus; expiresAt: number };
 
 const labels: Record<MissionId, { title: string; description: string; action: string; href: string }> = {
   market: { title: "시장 둘러보기", description: "시세표에서 오늘 움직이는 종목을 찾아봐.", action: "시장 보기", href: "/market" },
   news: { title: "뉴스 읽기", description: "가격이 왜 움직였는지 뉴스에서 확인해봐.", action: "뉴스 보기", href: "/news" },
   watch: { title: "관심종목 등록", description: "마음에 드는 종목 하나를 관심 목록에 담아봐. 담으면 보상이 자동 지급돼.", action: "종목 고르기", href: "/market" },
+  ranking: { title: "투자 랭킹 확인", description: "다른 투자자와 내 자산 순위를 확인해봐.", action: "랭킹 보기", href: "/ranking" },
+  portfolio: { title: "내 계좌 확인", description: "보유 종목과 평가손익을 한눈에 확인해봐.", action: "내 계좌 보기", href: "/mypage" },
+  home: { title: "오늘의 시세 요약", description: "홈에서 인기 종목과 오늘의 소식을 확인해봐.", action: "홈 보기", href: "/" },
+  settings: { title: "내 투자 환경 확인", description: "프로필과 투자 환경을 확인해봐.", action: "설정 보기", href: "/settings" },
 };
 
-function emptyCompleted(): CompletedMissions {
-  return { market: false, news: false, watch: false };
+const missionIdSet = new Set<string>(MISSION_IDS);
+const previewMissionIds = MISSION_IDS.slice(0, DAILY_MISSION_COUNT);
+
+function normalizeMissionIds(ids: string[] | undefined): MissionId[] {
+  if (!ids) return [];
+  return [...new Set(ids)].filter((id): id is MissionId => missionIdSet.has(id));
 }
 
 export function MissionBoard() {
@@ -123,14 +132,14 @@ export function MissionBoard() {
     return () => window.clearTimeout(timer);
   }, [progress]);
 
-  const ready = user && progress?.userId === user.uid && progress.expiresAt > Date.now();
-  const done: CompletedMissions = ready
-    ? Object.fromEntries(MISSION_IDS.map((id) => [id, progress.status.completedMissionIds.includes(id)])) as CompletedMissions
-    : emptyCompleted();
-  const count = Object.values(done).filter(Boolean).length;
+  const ready = Boolean(user && progress?.userId === user.uid && progress.expiresAt > Date.now());
+  const assignedMissionIds = ready ? normalizeMissionIds(progress?.status.availableMissionIds) : [];
+  const visibleMissionIds = assignedMissionIds.length > 0 ? assignedMissionIds : previewMissionIds;
+  const completed = ready ? new Set(progress?.status.completedMissionIds ?? []) : new Set<string>();
+  const count = visibleMissionIds.filter((id) => completed.has(id)).length;
 
   const complete = async (id: MissionId, href: string) => {
-    if (!user || !ready || done[id] || pendingRef.current.has(id)) return;
+    if (!user || !ready || completed.has(id) || pendingRef.current.has(id)) return;
     const session = sessionRef.current;
     pendingRef.current.add(id);
     setPending(new Set(pendingRef.current));
@@ -160,21 +169,21 @@ export function MissionBoard() {
   };
 
   return (
-    <Panel id="mission-board" title="오늘의 투자 미션" meta={user && !ready ? (error ? "확인 필요" : "확인 중") : `${count}/${MISSION_IDS.length} 완료`}>
-      <p className="mission-reset-note">미션 수행 완료 시 하루 최대 15만원 획득가능</p>
+    <Panel id="mission-board" title="오늘의 투자 미션" meta={user && !ready ? (error ? "확인 필요" : "확인 중") : `${count}/${visibleMissionIds.length} 완료`}>
+      <p className="mission-reset-note">오늘 배정된 {visibleMissionIds.length}개 미션을 완료하면 하루 최대 {(visibleMissionIds.length * MISSION_REWARD_CASH).toLocaleString("ko-KR")}원 획득 가능</p>
       {error && <p className="mission-reset-note" role="status">{error}</p>}
       <div className="mission-list">
-        {MISSION_IDS.map((id) => {
+        {visibleMissionIds.map((id) => {
           const mission = labels[id];
           return (
-            <article className={`mission-row${done[id] ? " is-done" : ""}`} key={id}>
-              <span className="mission-check" aria-hidden="true">{done[id] ? "✓" : "○"}</span>
+            <article className={`mission-row${completed.has(id) ? " is-done" : ""}`} key={id}>
+              <span className="mission-check" aria-hidden="true">{completed.has(id) ? "✓" : "○"}</span>
               <div className="mission-copy">
                 <h3>{mission.title}</h3>
                 <p>{mission.description}</p>
-                <p className="mission-reset-note">완료 보상 50,000원</p>
+                <p className="mission-reset-note">완료 보상 {MISSION_REWARD_CASH.toLocaleString("ko-KR")}원</p>
               </div>
-              {done[id] ? <span className="mission-status">5만원 수령 완료</span> : !user ? (
+              {completed.has(id) ? <span className="mission-status">5만원 수령 완료</span> : !user ? (
                 <button
                   type="button"
                   className="mission-action"

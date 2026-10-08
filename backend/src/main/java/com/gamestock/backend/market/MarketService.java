@@ -39,10 +39,18 @@ public class MarketService {
     private static final Logger log = LoggerFactory.getLogger(MarketService.class);
     private static final long STARTING_CASH = 1_000_000L;
     private static final ZoneId MISSION_ZONE = ZoneId.of("Asia/Seoul");
-    private static final Map<String, Long> MISSION_REWARDS = Map.of(
-            "market", 50_000L,
-            "news", 50_000L,
-            "watch", 50_000L);
+    private static final long MISSION_REWARD_CASH = 50_000L;
+    private static final List<String> CORE_MISSION_IDS = List.of("market", "news", "watch");
+    private static final List<String> ROTATING_MISSION_IDS = List.of("ranking", "portfolio", "home", "settings");
+    private static final int DAILY_ROTATING_MISSION_COUNT = 2;
+    private static final Map<String, Long> MISSION_REWARDS = Map.ofEntries(
+            Map.entry("market", MISSION_REWARD_CASH),
+            Map.entry("news", MISSION_REWARD_CASH),
+            Map.entry("watch", MISSION_REWARD_CASH),
+            Map.entry("ranking", MISSION_REWARD_CASH),
+            Map.entry("portfolio", MISSION_REWARD_CASH),
+            Map.entry("home", MISSION_REWARD_CASH),
+            Map.entry("settings", MISSION_REWARD_CASH));
     /** GameStock charges a small, transparent 0.10% commission per side. */
     private static final double TRADING_FEE_RATE = 0.001;
     /** Per-headline news influence limits used to update fair value only. */
@@ -622,26 +630,41 @@ public class MarketService {
         return dailyMissionsAt(userId, clock.instant());
     }
 
+    static List<String> dailyMissionIds(LocalDate day) {
+        List<String> selected = new ArrayList<>(CORE_MISSION_IDS);
+        int offset = Math.floorMod(day.toEpochDay(), ROTATING_MISSION_IDS.size());
+        for (int index = 0; index < DAILY_ROTATING_MISSION_COUNT; index++) {
+            selected.add(ROTATING_MISSION_IDS.get((offset + index) % ROTATING_MISSION_IDS.size()));
+        }
+        return List.copyOf(selected);
+    }
+
     private DailyMissionStatus dailyMissionsAt(long userId, Instant now) {
         LocalDate day = now.atZone(MISSION_ZONE).toLocalDate();
-        List<String> completed = jdbc.queryForList("SELECT mission_id FROM mission_rewards WHERE user_id = ? AND rewarded_on = ? ORDER BY mission_id",
-                String.class, userId, java.sql.Date.valueOf(day));
+        List<String> available = dailyMissionIds(day);
+        Set<String> completedToday = new HashSet<>(jdbc.queryForList(
+                "SELECT mission_id FROM mission_rewards WHERE user_id = ? AND rewarded_on = ? ORDER BY mission_id",
+                String.class, userId, java.sql.Date.valueOf(day)));
+        List<String> completed = available.stream().filter(completedToday::contains).toList();
         return new DailyMissionStatus(day.toString(), day.plusDays(1).atStartOfDay(MISSION_ZONE).toInstant().toString(),
-                now.toString(), completed.stream().filter(MISSION_REWARDS::containsKey).toList());
+                now.toString(), available, completed);
     }
 
     @Transactional
     public synchronized MissionRewardResult rewardMission(String missionId, long userId) {
         Long reward = MISSION_REWARDS.get(missionId);
         if (reward == null) throw new IllegalArgumentException("존재하지 않는 미션입니다.");
-        // 화면 열람(market/news)은 서버가 확인할 수 없어 랭킹 수익률에서 보상을 제외한다.
+        LocalDate day = LocalDate.now(clock.withZone(MISSION_ZONE));
+        if (!dailyMissionIds(day).contains(missionId)) {
+            throw new IllegalArgumentException("오늘의 미션에 포함되지 않은 미션입니다.");
+        }
+        // 페이지 확인형 미션은 서버가 실제 열람을 확인할 수 없어 랭킹 수익률에서 보상을 제외한다.
         // 관심종목 등록은 서버 상태로 확인할 수 있으므로 등록 여부를 검증한다.
         if ("watch".equals(missionId)) {
             Long watched = jdbc.queryForObject("SELECT COUNT(*) FROM user_watchlists WHERE user_id = ?", Long.class, userId);
             if (watched == null || watched == 0)
                 throw new IllegalArgumentException("관심종목을 1개 이상 등록하면 보상을 받을 수 있습니다.");
         }
-        LocalDate day = LocalDate.now(clock.withZone(MISSION_ZONE));
         int inserted = jdbc.update("INSERT IGNORE INTO mission_rewards (user_id, mission_id, rewarded_on, reward_cash) VALUES (?, ?, ?, ?)",
                 userId, missionId, java.sql.Date.valueOf(day), reward);
         if (inserted > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", reward, userId);

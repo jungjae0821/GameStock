@@ -76,6 +76,7 @@ public final class MarketModels {
     }
     public record MarketSnapshot(List<Stock> stocks, Portfolio portfolio, List<MarketEvent> events) { }
     public record DailyMissionStatus(String missionDate, String resetsAt, String serverTime,
+                                     List<String> availableMissionIds,
                                      List<String> completedMissionIds) { }
     public record MissionRewardResult(long rewardCash, boolean awarded, Portfolio portfolio,
                                       DailyMissionStatus missions) { }
