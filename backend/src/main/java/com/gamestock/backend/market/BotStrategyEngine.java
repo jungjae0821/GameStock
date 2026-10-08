@@ -5,6 +5,11 @@ import static com.gamestock.backend.market.BotProfile.*;
 import static com.gamestock.backend.market.MarketEnvironment.clamp;
 
 public final class BotStrategyEngine {
+    private static final double LARGE_CAP_DIP_TRIGGER = .01;
+    private static final double LARGE_CAP_DIP_RANGE = .03;
+    private static final double SPECULATIVE_DIP_TRIGGER = .04;
+    private static final double SPECULATIVE_DIP_RANGE = .20;
+
     public record Position(int quantity, long cash, double averagePrice, long ageMillis, double targetQuantity) {
         public Position(int quantity,long cash,double averagePrice,long ageMillis) {this(quantity,cash,averagePrice,ageMillis,0);}
     }
@@ -123,6 +128,7 @@ public final class BotStrategyEngine {
     public Decision decide(BotProfile p,PriceMetricService.Metrics m,MarketEnvironment e,Position position,
                            double estimatedValue,double perceivedNews,double tick,double marketScale,String symbol,long dayReference) {
         double score=score(p,m,e,position,estimatedValue,perceivedNews,random.nextGaussian());
+        boolean protectiveExit=protectiveExit(p,m,position);
         boolean large=StockMarketProfile.isLargeCap(symbol) && dayReference>0;
         double dailyAnchor=large?StockMarketProfile.valuationAnchor(symbol,dayReference,estimatedValue,perceivedNews):estimatedValue;
         if(large) {
@@ -132,12 +138,37 @@ public final class BotStrategyEngine {
         } else if(StockMarketProfile.isSpeculative(symbol)) {
             score+=e.directionBias()*.45+clamp(m.return60s()*8,-.8,.8);
         }
+        double dipStrength=dipStrength(m,symbol,dayReference);
+        if(dipStrength>0) {
+            // A deep drawdown should attract some cash-backed demand instead of
+            // letting every trend signal become another sell order. The amount
+            // is bounded and still requires a real ask to trade against.
+            score+=dipStrength*(.55+.45*p.riskTolerance());
+        }
         double threshold=threshold(p,m);
+        boolean dipHold=position.quantity()>0 && dipStrength>=.65 && !protectiveExit && score<0;
+        if(dipHold) {
+            // Hold recently acquired inventory through a weak trend signal at
+            // the lower band. Stop-loss and take-profit exits remain eligible.
+            score=Math.max(score,-threshold*.5);
+        }
         String side=score>threshold?"BUY":score<-threshold?"SELL":"HOLD";
         double confidence=clamp(Math.abs(score)*p.confidence(),0,1);
+        boolean dipBuyer=false;
+        if(position.quantity()==0 && !side.equals("BUY") && dipStrength>0 && m.askDepth()>0) {
+            // Counter-cyclical demand is probabilistic so strategy diversity is
+            // retained, but becomes meaningful near the bot price-band floor.
+            double probability=clamp(.15+dipStrength*(.45+.25*p.riskTolerance()),0,.75);
+            if(random.nextDouble()<probability) {
+                dipBuyer=true;
+                score=Math.max(score,threshold+.05+.15*dipStrength);
+                side="BUY";
+                confidence=Math.max(confidence,.25+.35*dipStrength);
+            }
+        }
         // Intraday traders can wait for a favourable spread even without a directional forecast.
         // This is a small conditional limit order, never a random reversal of a BUY signal.
-        boolean passiveIntraday=side.equals("HOLD") && p.strategy().family()==Family.INTRADAY;
+        boolean passiveIntraday=side.equals("HOLD") && p.strategy().family()==Family.INTRADAY && !dipHold;
         if(passiveIntraday) {
             side=position.quantity()>0?"SELL":"BUY";
             confidence=.15+.2*p.riskTolerance();
@@ -154,13 +185,16 @@ public final class BotStrategyEngine {
         double draw=random.nextDouble();
         int distance=1+random.nextInt(4)+(int)(m.volatility()*100);
         double crossChance=aggression*(patient?.15:.65);
+        if(dipBuyer) {
+            // Lift a real ask with a capped limit often enough to let a rebound
+            // appear in the tape; this never bypasses the normal price band.
+            market=false;
+            crossChance=Math.max(crossChance,.55+.20*dipStrength);
+        }
         // Pay the spread when the strategy's own expected exit covers round-trip fees and risk.
         // Use a capped aggressive LIMIT: a favourable estimate is not permission for unlimited slippage.
         boolean economicCross=executableEdge(p,m,side,estimatedValue)>0;
-        boolean riskExit="SELL".equals(side) && position.quantity()>0 && position.averagePrice()>0
-                && (m.bestBid()/position.averagePrice()-1<=-p.stopLoss()
-                || (m.bestBid()/position.averagePrice()-1>=p.takeProfit()
-                    && m.bestBid()/position.averagePrice()-1>2*.001));
+        boolean riskExit="SELL".equals(side) && protectiveExit;
         if(economicCross || riskExit) {crossChance=1;market=false;}
         boolean intradayMaker=p.strategy().family()==Family.INTRADAY && !economicCross && !riskExit;
         // Compete inside the spread with independently priced resting interest. Crossing still
@@ -225,6 +259,22 @@ public final class BotStrategyEngine {
         double required=2*.001+m.volatility()*Math.sqrt(Math.min(60,p.holdingTimePreference()/1000.0))
                 + (p.strategy().family()==Family.VALUE?Math.max(p.exitThreshold(),p.entryThreshold()*.5):.001);
         return edge-required;
+    }
+
+    private double dipStrength(PriceMetricService.Metrics m,String symbol,long dayReference) {
+        if(dayReference<=0 || m.askDepth()<=0) return 0;
+        boolean large=StockMarketProfile.isLargeCap(symbol);
+        double trigger=large?LARGE_CAP_DIP_TRIGGER:SPECULATIVE_DIP_TRIGGER;
+        double range=large?LARGE_CAP_DIP_RANGE:SPECULATIVE_DIP_RANGE;
+        double drawdown=clamp((dayReference-m.markPrice())/Math.max(1.0,dayReference),0,1);
+        return clamp((drawdown-trigger)/Math.max(.001,range-trigger),0,1);
+    }
+
+    private boolean protectiveExit(BotProfile p,PriceMetricService.Metrics m,Position position) {
+        if(position.quantity()<=0 || position.averagePrice()<=0) return false;
+        double returnFromAverage=m.bestBid()/position.averagePrice()-1;
+        return returnFromAverage<=-p.stopLoss()
+                || (returnFromAverage>=p.takeProfit() && returnFromAverage>2*.001);
     }
 
     private double intradayReference(BotProfile p,PriceMetricService.Metrics m) {
