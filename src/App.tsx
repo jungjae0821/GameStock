@@ -9,6 +9,7 @@ import { RankingPage } from "./pages/RankingPage";
 import { MyPage } from "./pages/MyPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ChargePage } from "./pages/ChargePage";
+import { TitlesPage } from "./pages/TitlesPage";
 import { LoginPage } from "./pages/LoginPage";
 import { StatusBar } from "./components/StatusBar";
 import { MissionRewardToast } from "./components/MissionRewardToast";
@@ -19,7 +20,7 @@ import { LISTING_BY_CODE } from "./market/universe";
 import { useRoute } from "./router";
 import type { Route } from "./router";
 
-const PRIVATE_ROUTES = new Set<Route["name"]>(["mypage", "settings", "charge"]);
+const PRIVATE_ROUTES = new Set<Route["name"]>(["mypage", "settings", "titles", "charge"]);
 
 function titleFor(route: Route): string {
   if (route.name === "market") {
@@ -34,6 +35,7 @@ function titleFor(route: Route): string {
   if (route.name === "ranking") return "투자 랭킹 · 슈엔증권";
   if (route.name === "mypage") return "내 계좌 · 슈엔증권";
   if (route.name === "settings") return "설정 · 슈엔증권";
+  if (route.name === "titles") return "칭호 설정 · 슈엔증권";
   if (route.name === "charge") return "충전하기 · 슈엔증권";
   if (route.name === "login") return "로그인 · 슈엔증권";
   return "슈엔증권";
@@ -78,6 +80,7 @@ export default function App() {
         {PRIVATE_ROUTES.has(route.name) && !auth.user && <p className="empty" role="status">로그인 상태를 확인하고 있어요.</p>}
         {route.name === "mypage" && auth.user && <MyPage />}
         {route.name === "settings" && auth.user && <SettingsPage />}
+        {route.name === "titles" && auth.user && <TitlesPage />}
         {route.name === "charge" && auth.user && <ChargePage />}
         {route.name === "login" && <LoginPage method={route.method} />}
       </main>

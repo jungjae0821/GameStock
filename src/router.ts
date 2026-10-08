@@ -9,6 +9,7 @@ export type Route =
   | { name: "mypage" }
   | { name: "settings" }
   | { name: "charge" }
+  | { name: "titles" }
   | { name: "login"; method: LoginMethod };
 
 export type LoginMethod = "choose" | "google" | "email" | "register" | "reset";
@@ -28,6 +29,7 @@ function parse(pathname: string): Route {
   if (parts[0] === "mypage") return { name: "mypage" };
   if (parts[0] === "settings") return { name: "settings" };
   if (parts[0] === "charge") return { name: "charge" };
+  if (parts[0] === "titles") return { name: "titles" };
   return { name: "home" };
 }
 

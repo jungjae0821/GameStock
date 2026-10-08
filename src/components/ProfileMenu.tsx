@@ -11,10 +11,11 @@ import { navigate, type Route } from "../router";
 const ITEMS = [
   { label: "내 계좌", to: "/mypage", match: "mypage" },
   { label: "설정", to: "/settings", match: "settings" },
+  { label: "칭호 설정", to: "/titles", match: "titles" },
   { label: "충전하기", to: "/charge", match: "charge" },
 ] as const;
 
-/** 상단 오른쪽 프로필 버튼. 누르면 오른쪽에서 계좌·설정·충전·로그아웃 패널이 밀려 나온다. */
+/** 상단 오른쪽 프로필 버튼. 누르면 오른쪽에서 계좌·설정·칭호·충전·로그아웃 패널이 밀려 나온다. */
 export function ProfileMenu({ route }: { route: Route }) {
   const auth = useAuthUser();
   const profile = useProfile();
@@ -55,7 +56,7 @@ export function ProfileMenu({ route }: { route: Route }) {
 
   const nickname = profile?.nickname ?? auth.user.displayName ?? "내 계정";
   const avatar = profile?.profileImageUrl || DEFAULT_PROFILE_AVATAR;
-  const current = route.name === "mypage" || route.name === "settings" || route.name === "charge";
+  const current = route.name === "mypage" || route.name === "settings" || route.name === "titles" || route.name === "charge";
 
   const logout = async () => {
     setOpen(false);
