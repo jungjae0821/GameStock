@@ -128,7 +128,6 @@ public final class BotStrategyEngine {
     public Decision decide(BotProfile p,PriceMetricService.Metrics m,MarketEnvironment e,Position position,
                            double estimatedValue,double perceivedNews,double tick,double marketScale,String symbol,long dayReference) {
         double score=score(p,m,e,position,estimatedValue,perceivedNews,random.nextGaussian());
-        boolean protectiveExit=protectiveExit(p,m,position);
         boolean large=StockMarketProfile.isLargeCap(symbol) && dayReference>0;
         double dailyAnchor=large?StockMarketProfile.valuationAnchor(symbol,dayReference,estimatedValue,perceivedNews):estimatedValue;
         if(large) {
@@ -139,6 +138,8 @@ public final class BotStrategyEngine {
             score+=e.directionBias()*.45+clamp(m.return60s()*8,-.8,.8);
         }
         double dipStrength=dipStrength(m,symbol,dayReference);
+        boolean capitulationFloor=dipStrength>0 && m.bidDepth()<=0;
+        boolean protectiveExit=protectiveExit(p,m,position) && !capitulationFloor;
         if(dipStrength>0) {
             // A deep drawdown should attract some cash-backed demand instead of
             // letting every trend signal become another sell order. The amount

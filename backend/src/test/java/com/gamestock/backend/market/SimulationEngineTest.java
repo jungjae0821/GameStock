@@ -206,17 +206,20 @@ class SimulationEngineTest {
     @Test void deepDrawdownCreatesCashBackedDipBuyersAndDoesNotPanicSellFreshInventory() {
         var engine=new BotStrategyEngine(91);
         var m=PriceMetricService.calculate(List.of(),8000,7990,8010,0,100,0);
-        int buys=0,actionableSells=0,heldSells=0;
+        int buys=0,actionableSells=0,heldSells=0,capitulationSells=0;
         for(BotProfile p:BotProfile.defaults(91)) {
             var empty=engine.decide(p,m,neutral,new BotStrategyEngine.Position(0,1_000_000,0,0),8000,0,10,1,"ES",10000);
             if(empty.side().equals("BUY") && empty.quantity()>0) buys++;
             if(empty.side().equals("SELL") && empty.quantity()>0) actionableSells++;
             var held=engine.decide(p,m,neutral,new BotStrategyEngine.Position(1,1_000_000,8000,0),8000,0,10,1,"ES",10000);
             if(held.side().equals("SELL") && held.quantity()>0) heldSells++;
+            var stopped=engine.decide(p,m,neutral,new BotStrategyEngine.Position(1,1_000_000,9500,0),8000,0,10,1,"ES",10000);
+            if(stopped.side().equals("SELL") && stopped.quantity()>0) capitulationSells++;
         }
         assertTrue(buys>6,"deep drawdown should create a material buy side");
         assertEquals(0,actionableSells,"cash-only bots must not create naked sells");
         assertEquals(0,heldSells,"fresh inventory should not be panic-sold without a risk exit");
+        assertEquals(0,capitulationSells,"a stop-loss must not stack a sell into an empty bid book at a deep floor");
     }
 
     @Test void swingCanSeeAMultiMinuteTrendAfterShortTermReturnsGoFlat() {
