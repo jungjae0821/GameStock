@@ -5,7 +5,6 @@ import { firebaseAuth } from "../lib/firebase";
 import { openLoginPrompt, useAuthUser } from "../lib/auth";
 import { useProfile } from "../lib/profile";
 import { DEFAULT_PROFILE_AVATAR } from "../lib/profileAvatars";
-import { apiFetch } from "../lib/api";
 import { navigate, type Route } from "../router";
 
 const ITEMS = [
@@ -14,20 +13,11 @@ const ITEMS = [
   { label: "충전하기", to: "/charge", match: "charge" },
 ] as const;
 
-type RiverTemperature = {
-  available: boolean;
-  temperature: number | null;
-  location?: string | null;
-  message?: string | null;
-};
-
 /** 상단 오른쪽 프로필 버튼. 누르면 계좌·설정·충전·로그아웃 메뉴를 펼친다. */
 export function ProfileMenu({ route }: { route: Route }) {
   const auth = useAuthUser();
   const profile = useProfile();
   const [open, setOpen] = useState(false);
-  const [riverTemperature, setRiverTemperature] = useState<RiverTemperature | null>(null);
-  const [riverTemperatureLoading, setRiverTemperatureLoading] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
 
@@ -50,25 +40,6 @@ export function ProfileMenu({ route }: { route: Route }) {
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
-
-  useEffect(() => {
-    if (!open || !auth.user) return undefined;
-    let mounted = true;
-    setRiverTemperatureLoading(true);
-    void apiFetch<RiverTemperature>("/api/han-river-temperature")
-      .then((value) => {
-        if (mounted) setRiverTemperature(value);
-      })
-      .catch(() => {
-        if (mounted) setRiverTemperature({ available: false, temperature: null, message: "조회 불가" });
-      })
-      .finally(() => {
-        if (mounted) setRiverTemperatureLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [open, auth.user]);
 
   if (!auth.ready) return <span className="profile-menu" aria-hidden="true" />;
 
@@ -137,13 +108,6 @@ export function ProfileMenu({ route }: { route: Route }) {
               <button type="button" className="profile-panel-item is-logout" onClick={() => void logout()}>
                 로그아웃
               </button>
-            </li>
-            <li className="profile-panel-temperature" aria-live="polite">
-              {riverTemperatureLoading
-                ? "한강물 온도 확인 중…"
-                : riverTemperature?.available && riverTemperature.temperature != null
-                  ? `한강물 온도${riverTemperature.location ? ` · ${riverTemperature.location}` : ""} ${riverTemperature.temperature.toFixed(1)}℃`
-                  : `한강물 온도 ${riverTemperature?.message || "조회 불가"}`}
             </li>
           </ul>
         </div>
