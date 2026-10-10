@@ -86,3 +86,31 @@
     .account-secondary .mission-row { flex-wrap: wrap; }
   }
 }
+
+/* 칭호 페이지: 보유한 칭호만 브랜드 색으로 강조하고 나머지는 흐리게 둔다. */
+@layer component {
+  .title-summary { font-size: var(--step-1); color: var(--ink-muted); }
+  .title-summary strong { color: var(--brand-deep); font-size: var(--step-2); }
+  .title-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3);
+    margin: 0; padding: var(--space-4); list-style: none;
+  }
+  .title-card {
+    display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0;
+    padding: var(--space-3); border: 1px solid var(--rule); border-radius: var(--radius); color: var(--ink-muted);
+  }
+  .title-card.is-owned { color: var(--ink); border-color: var(--brand); background: var(--brand-wash); }
+  .title-badge { flex: none; font-size: var(--step-2); line-height: 1.2; color: var(--ink-faint); }
+  .title-card.is-owned .title-badge { color: var(--brand-deep); }
+  .title-card.is-owned.is-weekly .title-badge { color: var(--amber); }
+  .title-copy { min-width: 0; }
+  .title-name { font-size: var(--step-1); font-weight: 700; overflow-wrap: anywhere; }
+  .title-condition, .title-state { font-size: var(--step--1); color: var(--ink-muted); margin-top: 2px; }
+  .title-card.is-owned .title-state { color: var(--brand-wine); }
+  .title-toast { bottom: calc(var(--space-4) + 52px); }
+}
+@layer responsive {
+  @media (max-width: 720px) {
+    .title-grid { grid-template-columns: minmax(0, 1fr); padding: var(--space-3); }
+  }
+}

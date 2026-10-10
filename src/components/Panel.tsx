@@ -29,6 +29,8 @@ export function Panel({ id, title, meta, action, hideHeader = false, level = 2, 
           ? "/ranking"
           : route.name === "mypage"
             ? "/mypage"
+          : route.name === "titles"
+            ? "/titles"
           : "/";
   const Heading = level === 2 ? "h2" : "h3";
 

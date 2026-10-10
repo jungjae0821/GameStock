@@ -85,6 +85,9 @@ public class MarketService {
     void configurePipeline(MatchingEngine matching,MarketMetrics metrics,MarketOwnership ownership){
         this.matching=matching;this.pipelineMetrics=metrics;this.ownership=ownership;
     }
+    private TitleService titles;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    void configureTitles(TitleService titles){this.titles=titles;}
     public boolean matchingEnabled(){return ownership==null||ownership.enabled();}
     public boolean ownerAvailable(){return ownership==null||ownership.available();}
     public void requireMatchingOwner(){if(ownership!=null)ownership.requireOwner();}
@@ -202,7 +205,7 @@ public class MarketService {
             demoUserId=jdbc.queryForObject("SELECT id FROM users WHERE username=?",Long.class,DEMO_USERNAME);
             simulationInitialized=true;return;
         }
-        new MarketSchema(jdbc).migrate(userFeatures, protection, priceMetrics);
+        new MarketSchema(jdbc).migrate(userFeatures, protection, priceMetrics, titles);
 
         jdbc.update("""
                 INSERT IGNORE INTO users (username, password_hash, nickname, cash)

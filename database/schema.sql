@@ -294,3 +294,29 @@ CREATE TABLE trading_restriction_events (
   ends_at TIMESTAMP NOT NULL,
   CONSTRAINT fk_restriction_event_stock FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE
 );
+
+-- 칭호. 일반 칭호는 1회 지급, 주간 수익률 칭호는 win_count로 n관왕을 센다.
+CREATE TABLE user_titles (
+  user_id BIGINT NOT NULL,
+  title_id VARCHAR(40) NOT NULL,
+  win_count INT NOT NULL DEFAULT 1,
+  notified BOOLEAN NOT NULL DEFAULT FALSE,
+  acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, title_id),
+  CONSTRAINT fk_user_title_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE weekly_return_weeks (
+  week_start DATE NOT NULL PRIMARY KEY,
+  snapshot_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  awarded_at TIMESTAMP NULL
+);
+
+CREATE TABLE weekly_return_snapshots (
+  week_start DATE NOT NULL,
+  user_id BIGINT NOT NULL,
+  baseline_asset BIGINT NOT NULL,
+  PRIMARY KEY (week_start, user_id),
+  CONSTRAINT fk_weekly_snapshot_user FOREIGN KEY (user_id) REFERENCES users(id)
+);

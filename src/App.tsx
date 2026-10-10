@@ -7,9 +7,11 @@ import { MarketPage } from "./pages/MarketPage";
 import { NewsPage } from "./pages/NewsPage";
 import { RankingPage } from "./pages/RankingPage";
 import { MyPage } from "./pages/MyPage";
+import { TitlesPage } from "./pages/TitlesPage";
 import { LoginPage } from "./pages/LoginPage";
 import { StatusBar } from "./components/StatusBar";
 import { MissionRewardToast } from "./components/MissionRewardToast";
+import { TitleWatcher } from "./components/TitleWatcher";
 import { LoginModal } from "./components/LoginModal";
 import { CircuitBreakerNotice } from "./components/CircuitBreakerNotice";
 import { openLoginPrompt, useAuthUser } from "./lib/auth";
@@ -29,6 +31,7 @@ function titleFor(route: Route): string {
   if (route.name === "news") return "속보 · 슈엔증권";
   if (route.name === "ranking") return "투자 랭킹 · 슈엔증권";
   if (route.name === "mypage") return "마이페이지 · 슈엔증권";
+  if (route.name === "titles") return "칭호 · 슈엔증권";
   if (route.name === "login") return "로그인 · 슈엔증권";
   return "슈엔증권";
 }
@@ -41,6 +44,7 @@ export default function App() {
 
   useEffect(() => {
     if (route.name === "mypage" && auth.ready && !auth.user) openLoginPrompt("/mypage");
+    if (route.name === "titles" && auth.ready && !auth.user) openLoginPrompt("/titles");
   }, [route, auth.ready, auth.user]);
 
   useEffect(() => {
@@ -70,10 +74,12 @@ export default function App() {
         {route.name === "news" && <NewsPage />}
         {route.name === "ranking" && <RankingPage />}
         {route.name === "mypage" && (auth.user ? <MyPage /> : <p className="empty" role="status">로그인 상태를 확인하고 있어요.</p>)}
+        {route.name === "titles" && (auth.user ? <TitlesPage /> : <p className="empty" role="status">로그인 상태를 확인하고 있어요.</p>)}
         {route.name === "login" && <LoginPage method={route.method} />}
       </main>
       <StatusBar />
       <MissionRewardToast />
+      <TitleWatcher />
       <LoginModal />
       <CircuitBreakerNotice />
     </div>

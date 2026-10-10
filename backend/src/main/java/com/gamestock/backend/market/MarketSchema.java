@@ -23,7 +23,8 @@ final class MarketSchema {
     MarketSchema(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     /** Runs every DDL step in the order MarketService.initializeData used before the split. */
-    void migrate(UserFeatureService userFeatures, TradingProtectionService protection, PriceMetricService priceMetrics) {
+    void migrate(UserFeatureService userFeatures, TradingProtectionService protection, PriceMetricService priceMetrics,
+                 TitleService titles) {
         ensurePriceHistoryTable();
         ensureAuthenticationTables();
         ensureMarketEventColumns();
@@ -36,6 +37,7 @@ final class MarketSchema {
         MarketBookCache.ensureTables(jdbc);
         BotLedgerJournal.ensureTables(jdbc);
         userFeatures.ensureTables();
+        if (titles != null) titles.ensureTables();
         protection.ensureTables();
         ensureSimulationBookTables();
         priceMetrics.ensureTables();

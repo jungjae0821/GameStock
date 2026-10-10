@@ -7,6 +7,7 @@ const NAV = [
   { label: "시장", to: "/market", match: "market" },
   { label: "속보", to: "/news", match: "news" },
   { label: "랭킹", to: "/ranking", match: "ranking" },
+  { label: "칭호", to: "/titles", match: "titles" },
 ] as const;
 
 export function Topbar({ route }: { route: Route }) {
