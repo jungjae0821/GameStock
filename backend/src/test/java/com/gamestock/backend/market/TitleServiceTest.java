@@ -36,6 +36,8 @@ class TitleServiceTest {
             String method = call.getMethod().getName();
             Object[] args = call.getArguments();
             String sql = args.length > 0 && args[0] instanceof String ? (String) args[0] : "";
+            // Text blocks drop trailing spaces, so concatenated SQL must not glue keywords together.
+            assertFalse(java.util.regex.Pattern.compile("\\b(WHERE|AND|FROM)[^\\s(]").matcher(sql).find(), sql);
             if (method.equals("update")) {
                 if (sql.startsWith("INSERT IGNORE INTO user_titles"))
                     return titles.putIfAbsent((String) args[2], 1) == null ? 1 : 0;

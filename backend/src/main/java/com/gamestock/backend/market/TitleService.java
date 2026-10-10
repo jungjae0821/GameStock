@@ -309,7 +309,7 @@ public class TitleService {
                        - COALESCE((SELECT SUM(ar.reward_cash) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0)
                        - COALESCE((SELECT SUM(mr.reward_cash) FROM mission_rewards mr WHERE mr.user_id = u.id), 0) AS adjusted_asset
                 FROM users u
-                WHERE """ + INVESTOR_FILTER, (rs, row) -> new InvestorAsset(rs.getLong("id"),
+                WHERE """ + " " + INVESTOR_FILTER, (rs, row) -> new InvestorAsset(rs.getLong("id"),
                 rs.getLong("adjusted_asset"), rs.getTimestamp("account_reset_at")));
     }
 
