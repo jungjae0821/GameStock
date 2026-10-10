@@ -8,6 +8,9 @@ type RankingEntry = {
   profileImageUrl?: string | null;
   totalAsset: number;
   changePercent: number;
+  /** 사용자가 칭호 페이지에서 장착한 칭호. 없으면 null. */
+  equippedTitle?: string | null;
+  equippedTitleWeekly?: boolean;
 };
 
 const RANKING_CACHE_KEY = "gamestock-ranking-cache";
@@ -131,7 +134,12 @@ export function RankingPage() {
                             event.currentTarget.src = DEFAULT_PROFILE_AVATAR;
                           }}
                         />
-                        <span>{entry.nickname}</span>
+                        <span className="ranking-name-text">
+                          {entry.equippedTitle && (
+                            <span className={`ranking-title${entry.equippedTitleWeekly ? " is-weekly" : ""}`}>{entry.equippedTitle}</span>
+                          )}
+                          <span className="ranking-nickname">{entry.nickname}</span>
+                        </span>
                       </span>
                     </td>
                     <td className={`ranking-page-change num${entry.changePercent > 0 ? " is-up" : entry.changePercent < 0 ? " is-down" : " is-flat"}`}>

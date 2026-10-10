@@ -27,8 +27,19 @@
   .integration-ranking th:not(:nth-child(2)), .integration-ranking td:not(:nth-child(2)) { text-align: right; }
   .integration-ranking th:first-child { text-align: left; }
   .integration-ranking tbody td { vertical-align: middle; }
+  /* 좁은 화면(앱)에서도 "+0.00%", "1,100,000원"이 두 줄로 끊기지 않게 한다. 남는 폭은 닉네임 칸이 줄인다. */
+  .integration-ranking .ranking-page-change, .integration-ranking .ranking-page-asset { white-space: nowrap; }
   .ranking-name-cell { display: inline-flex; align-items: center; gap: var(--space-3); min-width: 0; text-align: left; }
   .ranking-name-cell > span { overflow-wrap: anywhere; }
+  /* 장착한 칭호는 닉네임 앞 작은 배지로 붙이고, 칸이 좁으면 닉네임 위로 줄을 바꾼다. */
+  .ranking-name-text { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
+  .ranking-title {
+    flex: none; padding: 1px 8px; border-radius: var(--radius-pill);
+    font-size: var(--step--1); font-weight: 700; line-height: 1.6; white-space: nowrap;
+    color: var(--brand-deep); background: var(--brand-wash); border: 1px solid color-mix(in oklab, var(--brand) 40%, transparent);
+  }
+  .ranking-title.is-weekly { color: var(--amber-deep); background: var(--amber-wash); border-color: color-mix(in oklab, var(--amber) 45%, transparent); }
+  .ranking-nickname { overflow-wrap: anywhere; }
   .ranking-avatar { width: 42px; height: 42px; flex: 0 0 42px; object-fit: cover; border: 1px solid var(--rule); border-radius: 50%; background: var(--sunken); }
   .integration-ranking .ranking-medal { font-weight: 800; }
   .integration-ranking .is-gold { color: var(--amber-deep); }

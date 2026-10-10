@@ -90,6 +90,16 @@ public class TitleService {
     private static final String[] ASSET_TITLE_IDS = {
             "asset_30m", "asset_50m", "asset_100m", "asset_1b", "asset_3b", "asset_5b", "asset_10b", "asset_100b"};
 
+    /** The catalog entry for a stored title id, or null for an unknown or missing id. */
+    static TitleDefinition definition(String titleId) {
+        return titleId == null ? null : BY_ID.get(titleId);
+    }
+
+    /** Name shown next to a nickname; weekly titles carry their win count ("n관왕"). */
+    static String displayName(TitleDefinition title, int count) {
+        return title.weekly() ? title.name() + " " + Math.max(1, count) + "관왕" : title.name();
+    }
+
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private Clock clock = Clock.systemUTC();

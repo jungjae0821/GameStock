@@ -591,7 +591,9 @@ public class MarketService {
                        COALESCE((SELECT SUM(st.gross_amount - st.seller_fee) FROM settlements st WHERE st.seller_id = u.id AND st.status = 'PENDING'), 0) AS unsettled_cash,
                        COALESCE((SELECT SUM(ar.reward_cash) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0) AS attendance_reward_cash,
                        COALESCE((SELECT SUM(mr.reward_cash) FROM mission_rewards mr WHERE mr.user_id = u.id), 0) AS mission_reward_cash,
-                       COALESCE(SUM(CASE WHEN p.quantity > 0 THEN p.quantity * COALESCE(pm.mark_price,s.current_price) ELSE 0 END), 0) AS asset_value
+                       COALESCE(SUM(CASE WHEN p.quantity > 0 THEN p.quantity * COALESCE(pm.mark_price,s.current_price) ELSE 0 END), 0) AS asset_value,
+                       (SELECT ut.title_id FROM user_titles ut WHERE ut.user_id = u.id AND ut.equipped = TRUE LIMIT 1) AS equipped_title,
+                       (SELECT ut.win_count FROM user_titles ut WHERE ut.user_id = u.id AND ut.equipped = TRUE LIMIT 1) AS equipped_count
                 FROM users u
                 LEFT JOIN portfolios p ON p.user_id = u.id
                 LEFT JOIN stocks s ON s.id = p.stock_id
@@ -613,12 +615,15 @@ public class MarketService {
             double changePercent = (totalAsset - STARTING_CASH - attendanceRewardCash - missionRewardCash) * 100.0 / STARTING_CASH;
             // Rows saved before image validation may hold arbitrary URLs; never expose them to other viewers.
             String image = com.gamestock.backend.auth.ProfileImages.sanitize(rs.getString("profile_image_url"));
-            return new RankingEntry(0, rs.getString("nickname"), image.isEmpty() ? null : image, totalAsset, assetValue, cash, changePercent);
+            TitleService.TitleDefinition title = TitleService.definition(rs.getString("equipped_title"));
+            return new RankingEntry(0, rs.getString("nickname"), image.isEmpty() ? null : image, totalAsset, assetValue, cash, changePercent,
+                    title == null ? null : TitleService.displayName(title, rs.getInt("equipped_count")), title != null && title.weekly());
         });
         List<RankingEntry> ranked = new ArrayList<>(entries.size());
         for (int index = 0; index < entries.size(); index++) {
             RankingEntry entry = entries.get(index);
-            ranked.add(new RankingEntry(index + 1, entry.nickname(), entry.profileImageUrl(), entry.totalAsset(), entry.assetValue(), entry.cash(), entry.changePercent()));
+            ranked.add(new RankingEntry(index + 1, entry.nickname(), entry.profileImageUrl(), entry.totalAsset(), entry.assetValue(), entry.cash(), entry.changePercent(),
+                    entry.equippedTitle(), entry.equippedTitleWeekly()));
         }
         return ranked;
     }

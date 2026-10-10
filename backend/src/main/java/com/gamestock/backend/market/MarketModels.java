@@ -60,7 +60,8 @@ public final class MarketModels {
                     profitLossPercent, 0);
         }
     }
-    public record RankingEntry(int rank, String nickname, String profileImageUrl, long totalAsset, long assetValue, long cash, double changePercent) { }
+    public record RankingEntry(int rank, String nickname, String profileImageUrl, long totalAsset, long assetValue, long cash, double changePercent,
+                               String equippedTitle, boolean equippedTitleWeekly) { }
     /**
      * A news event plus enough context for the clients to explain the current
      * price move without pretending that a headline is a guaranteed cause.
