@@ -7,8 +7,9 @@ import { openMarketStream } from "./stream";
 import { requireSignIn } from "../lib/auth";
 import { announceMissionReward } from "../components/MissionRewardToast";
 import { INITIAL_CASH, MarketEngine } from "./engine";
+import { stockMarketProfile } from "./marketCap";
 import { serverTimestamp } from "./format";
-import { LISTING_BY_CODE, roundToTick } from "./universe";
+import { LISTING_BY_CODE, dailyPriceBand, roundToTick } from "./universe";
 import type { DailyMissionStatus, MarketSnapshot, OrderRequest, OrderResult, Portfolio, Position, Quote, TradingRestriction } from "./types";
 import { BackendLoadingScreen } from "../components/BackendLoadingScreen";
 
@@ -28,7 +29,21 @@ export type CancelOrdersResult = {
   message: string;
 };
 
-type BackendStock = { code: string; name: string; genre: string; price: number; changePercent: number; volume: number; restriction?: TradingRestriction | null };
+type BackendStock = {
+  code: string;
+  name: string;
+  genre: string;
+  price: number;
+  changePercent: number;
+  volume: number;
+  activeUsers?: number;
+  marketCap?: number;
+  movementWeight?: number;
+  referencePrice?: number;
+  limitUp?: number;
+  limitDown?: number;
+  restriction?: TradingRestriction | null;
+};
 type BackendMarketStatus = { indexValue: number; tradingDate: string; restriction?: TradingRestriction | null };
 type BackendOrderBookLevel = { price: number; quantity: number; orderCount: number };
 type BackendOrderBook = { stockCode: string; bids: BackendOrderBookLevel[]; asks: BackendOrderBookLevel[] };
@@ -85,12 +100,17 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
   for (const stock of stocks) {
     const change = Number(stock.changePercent) || 0;
     const price = Math.max(1, Math.round(stock.price));
-    const prevClose = Math.max(1, roundToTick(price / (1 + change / 100)));
+    const prevClose = stock.referencePrice ?? Math.max(1, roundToTick(price / (1 + change / 100)));
+    const band = dailyPriceBand(stock.code, prevClose);
     const listing = LISTING_BY_CODE[stock.code];
     if (!listing) continue;
+    const profile = stockMarketProfile(stock.code);
     quotes[stock.code] = {
       code: stock.code,
       restriction: stock.restriction,
+      activeUsers: stock.activeUsers ?? profile.activeUsers,
+      marketCap: stock.marketCap ?? profile.marketCap,
+      movementWeight: stock.movementWeight ?? profile.movementWeight,
       price,
       prevClose,
       open: price,
@@ -99,17 +119,16 @@ function toSnapshot(stocks: BackendStock[], events: BackendEvent[], portfolio?: 
       volume: Math.max(0, Math.round(stock.volume)),
       trades: Math.max(0, Math.round(stock.volume / 12)),
       series: [prevClose, price],
-      limitUp: roundToTick(prevClose * 1.3),
-      limitDown: Math.max(1, roundToTick(prevClose * 0.7)),
+      limitUp: stock.limitUp ?? band.limitUp,
+      limitDown: stock.limitDown ?? band.limitDown,
       buyVolume: Math.round(stock.volume / 2),
       sellVolume: Math.round(stock.volume / 2),
       prints: [],
       asks: [],
       bids: [],
     };
-    const activity = listing.activity;
-    weighted += activity * (price / prevClose);
-    weight += activity;
+    weighted += profile.marketCap * (price / prevClose);
+    weight += profile.marketCap;
     series.push(price);
   }
   const indexValue = market?.indexValue ?? (weight > 0 ? (weighted / weight) * 1000 : 1000);
@@ -167,6 +186,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           const old = current.quotes[data.symbol];
           if (!old) return current;
           const stock = data.stock;
+          const prevClose = stock.referencePrice ?? old.prevClose;
+          const band = dailyPriceBand(data.symbol, prevClose);
           const prices = old.series[old.series.length - 1] === stock.price ? old.series : [...old.series, stock.price].slice(-60);
           const prints = data.trades?.length ? data.trades.map((trade) => ({
             at: serverTimestamp(trade.createdAt) || Date.now(), price: trade.price, qty: trade.quantity,
@@ -174,7 +195,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           })) : old.prints;
           const levels = (value: BackendOrderBookLevel[]) => value.slice(0, 5).map((level) => ({ price: level.price, qty: level.quantity }));
           return { ...current, updatedAt: Date.now(), quotes: { ...current.quotes, [data.symbol]: {
-            ...old, price: stock.price, volume: stock.volume, restriction: stock.restriction,
+            ...old, price: stock.price, volume: stock.volume, restriction: stock.restriction, prevClose,
+            limitUp: stock.limitUp ?? band.limitUp, limitDown: stock.limitDown ?? band.limitDown,
             high: Math.max(old.high, stock.price), low: Math.min(old.low, stock.price), series: prices, prints,
             bids: data.orderbook ? levels(data.orderbook.bids) : old.bids, asks: data.orderbook ? levels(data.orderbook.asks) : old.asks,
           } } };
@@ -256,7 +278,6 @@ export function MarketProvider({ children }: { children: ReactNode }) {
                 open: previous.open,
                 high: Math.max(previous.high, quote.price),
                 low: Math.min(previous.low, quote.price),
-                prevClose: previous.prevClose,
                 series: nextSeries.slice(-60),
                 asks: previous.asks,
                 bids: previous.bids,
@@ -283,7 +304,11 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       const code = activeDetailCodeRef.current;
       // Order books and recent trades are only needed on a stock detail page.
       // Fetching every listing here made every route issue 30 requests per second.
-      if (!code || streamReadyRef.current) return;
+      // Keep one active-symbol REST refresh even when the stream is connected:
+      // a stream subscription can be acknowledged before its first symbol
+      // snapshot, which otherwise leaves the initial book empty until the next
+      // matching event happens.
+      if (!code) return;
       if (detailRefreshInFlightRef.current) return;
       detailRefreshInFlightRef.current = true;
       try {

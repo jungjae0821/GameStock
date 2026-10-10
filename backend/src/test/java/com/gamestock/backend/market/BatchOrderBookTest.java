@@ -65,6 +65,17 @@ class BatchOrderBookTest {
         assertTrue(b.fills.isEmpty());assertTrue(b.prices.isEmpty());assertEquals(10000,b.stocks.get(1L).last);
         assertEquals(10600,b.stocks.get(1L).viTrigger);assertEquals(100,b.holding(2,1).quantity());
     }
+    @Test void automatedOrderOutsideViBandIsCancelledWithoutTriggeringVi() {
+        var b=book(1000000);
+        b.accounts.put(4L,new Account(4,1000000,false,true));
+        b.holdings.put(new PositionKey(2,1),new Holding(100,100,10000,0));
+        var bot=b.submit(4,1,"BUY","LIMIT",3,10600,1000,5000);
+        b.submit(2,1,"SELL","LIMIT",3,10600,1001,5000);
+        assertEquals("CANCELLED",bot.status);
+        assertTrue(b.fills.isEmpty());
+        assertTrue(b.stocks.get(1L).continuous);
+        assertEquals(0,b.stocks.get(1L).viTrigger);
+    }
     @Test void incomingOrdersExecuteSequentiallyNotResortedAsOneBatch() {
         var b=book(1000000);
         b.submit(2,1,"SELL","LIMIT",2,10000,1000,5000);
@@ -83,6 +94,39 @@ class BatchOrderBookTest {
         b.submit(1,1,"SELL","MARKET",1,0,1003,0);
         assertEquals(49980,b.lpCashBudgets.get(1L));assertEquals(25000,b.lpCashBudgets.get(2L));
         b.beginBatch(1004);assertEquals(49980,b.lpCashBudgets.get(1L));
+    }
+    @Test void depletedSymbolReceivesOnlyAnExistingBudgetReserve() {
+        var b=book(1000000);b.accounts.put(1L,new Account(1,1000000,true));
+        b.stocks.put(2L,new Stock(2,"B",10000,10000,10000,10000,true));
+        b.lpCashBudgets.put(1L,0L);b.lpCashBudgets.put(2L,500000L);
+        long before=b.lpCashBudgets.values().stream().mapToLong(Long::longValue).sum();
+        long moved=b.rebalanceLiquidityCash(1,Map.of(1L,100000L,2L,100000L));
+        assertEquals(100000,moved);
+        assertEquals(100000,b.lpCashBudgets.get(1L));
+        assertEquals(400000,b.lpCashBudgets.get(2L));
+        assertEquals(before,b.lpCashBudgets.values().stream().mapToLong(Long::longValue).sum());
+    }
+    @Test void automatedSellerCannotConsumeLpBidBeforeHumanSeller() {
+        var b=book(1000000);b.accounts.put(1L,new Account(1,1000000,true));
+        b.accounts.put(4L,new Account(4,1000000,false,true));
+        b.holdings.put(new PositionKey(4,1),new Holding(100,100,10000,0));
+        b.lpCashBudgets.put(1L,50000L);
+        b.submit(1,1,"BUY","LIMIT",2,10000,1000,4000);
+        var automated=b.submit(4,1,"SELL","MARKET",1,0,1001,0);
+        assertEquals("CANCELLED",automated.status);assertTrue(b.fills.isEmpty());
+        b.submit(2,1,"SELL","MARKET",1,0,1002,0);
+        assertEquals(1,b.fills.size());assertEquals(1,b.holding(1,1).quantity());
+    }
+    @Test void fundedLiquidityProviderAbsorbsBotSellingWhileKeepingItsHumanReserve() {
+        var b=book(5_000_000);b.accounts.put(1L,new Account(1,5_000_000,true));
+        b.accounts.put(4L,new Account(4,0,false,true));
+        b.holdings.put(new PositionKey(4,1),new Holding(10,10,10000,0));
+        b.lpCashBudgets.put(1L,5_000_000L);
+        b.submit(1,1,"BUY","LIMIT",2,10000,1000,4000);
+        var sold=b.submit(4,1,"SELL","MARKET",1,0,1001,0);
+        assertEquals("FILLED",sold.status);assertEquals(1,b.fills.size());
+        assertTrue(b.lpCashBudgets.get(1L)>=MarketMakerEngine.emergencyCashRequirement(12000));
+        assertEquals(9,b.holding(4,1).quantity());assertEquals(1,b.holding(1,1).quantity());
     }
     @Test void depletedInlineLiquidityInventoryRestoresOnceAndPreservesRealizedProfit() {
         var b=book(1000000);

@@ -25,6 +25,7 @@ class BotTradingSchedulerTest {
     @Test void idleWakeChecksDoNotInvokeTransactionalMatchingOrSeedLpOrders() {
         var market=mock(MarketService.class);var timers=mock(TaskScheduler.class);
         when(market.matchingEnabled()).thenReturn(true);
+        when(market.ownerAvailable()).thenReturn(true);
         when(market.botStockCodes()).thenReturn(List.of("A","B"));
         when(market.batchBotsEnabled()).thenReturn(true);when(market.inlineLiquidity()).thenReturn(true);
         when(market.batchShardCount()).thenReturn(4);when(market.participantBotUsernames()).thenReturn(List.of());

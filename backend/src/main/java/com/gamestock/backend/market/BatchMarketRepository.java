@@ -126,8 +126,8 @@ final class BatchMarketRepository {
         for(PriceChange p:book.prices) {PriceChange old=changes.get(p.stock());changes.put(p.stock(),new PriceChange(p.stock(),p.previous(),p.price(),p.volume()+(old==null?0:old.volume())));}
         update("stocks","id",new ArrayList<>(changes.values()),PriceChange::stock,List.of("previous_price","current_price","total_volume"),p->new Object[]{p.previous(),p.price(),p.volume()},Set.of("total_volume"));
         insert("stock_price_history","stock_id,price,recorded_at",journal==null?book.prices.stream().map(p->new Object[]{p.stock(),p.price(),time}).toList():retained.stream().map(f->new Object[]{f.buy().stock,f.price(),time}).toList(),false,"");
-        String tradingDate=java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneOffset.UTC).toLocalDate().toString();
-        insert("daily_market_summaries","stock_id,trading_date,open_price,close_price,total_volume",changes.values().stream().map(p->new Object[]{p.stock(),tradingDate,p.price(),p.price(),p.volume()}).toList(),false,
+        String tradingDate=java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate().toString();
+        insert("daily_market_summaries","stock_id,trading_date,open_price,close_price,total_volume",changes.values().stream().map(p->new Object[]{p.stock(),tradingDate,book.stocks.get(p.stock()).reference,p.price(),p.volume()}).toList(),false,
                 " ON DUPLICATE KEY UPDATE close_price=VALUES(close_price),total_volume=daily_market_summaries.total_volume+VALUES(total_volume)");
         update("stock_protection_state","stock_id",new ArrayList<>(changes.values()),PriceChange::stock,List.of("last_trade_price","dynamic_reference"),p->new Object[]{p.price(),book.stocks.get(p.stock()).dynamicReference});
         stamp("prices");

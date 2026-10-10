@@ -32,6 +32,11 @@
     gap: var(--space-5);
   }
 
+  /* 목록 화면(속보·랭킹)은 상단 바와 같은 폭을 채운다. 좁은 단을 왼쪽에 두면 오른쪽이 비어 미완성처럼 보인다. */
+  .page-stack.is-compact {
+    gap: var(--space-5);
+  }
+
   .page-title {
     font-size: var(--step-5);
     font-weight: 800;
@@ -107,8 +112,235 @@
     border-bottom-color: var(--brand);
   }
 
-  .nav-me {
+  /* 상단 오른쪽 프로필 버튼과 계정 메뉴 */
+  .profile-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 36px;
     margin-left: auto;
+  }
+
+  .profile-login {
+    background: none;
+    cursor: pointer;
+  }
+
+  .profile-trigger {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--sunken);
+    box-shadow: none;
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  .profile-trigger img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .profile-trigger:hover,
+  .profile-trigger.is-open {
+    transform: scale(1.06);
+  }
+
+  /* 오른쪽에서 밀려 나오는 계정 패널. 닫힐 때도 같은 곡선으로 빠져나간 뒤 숨긴다. */
+  .profile-drawer {
+    --drawer-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --drawer-time: 0.34s;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    visibility: hidden;
+    pointer-events: none;
+    transition: visibility 0s linear var(--drawer-time);
+  }
+
+  .profile-drawer.is-open {
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+
+  .profile-drawer-scrim {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in oklab, var(--ink) 32%, transparent);
+    opacity: 0;
+    transition: opacity var(--drawer-time) ease;
+  }
+
+  .profile-drawer.is-open .profile-drawer-scrim {
+    opacity: 1;
+  }
+
+  .profile-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    width: min(320px, 86vw);
+    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+    border-left: 1px solid var(--rule);
+    background: var(--paper);
+    box-shadow: -12px 0 32px color-mix(in oklab, var(--ink) 16%, transparent);
+    overflow-y: auto;
+    outline: none;
+    transform: translateX(100%);
+    transition: transform var(--drawer-time) var(--drawer-ease);
+    will-change: transform;
+  }
+
+  .profile-drawer.is-open .profile-panel {
+    transform: none;
+  }
+
+  .profile-panel-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--bar);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .profile-panel-avatar {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--sunken);
+    object-fit: cover;
+  }
+
+  .profile-panel-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--step-2);
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .profile-panel-close {
+    display: grid;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+  }
+
+  .profile-panel-close:hover,
+  .profile-panel-close:focus-visible {
+    background: var(--sunken);
+    color: var(--ink);
+  }
+
+  .profile-panel-list {
+    display: grid;
+    padding-top: var(--space-2);
+  }
+
+  /* 항목은 패널이 들어온 뒤 살짝 늦게 따라 들어온다. */
+  .profile-panel-list > li {
+    opacity: 0;
+    transform: translateX(16px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .profile-drawer.is-open .profile-panel-list > li {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.3s ease, transform var(--drawer-time) var(--drawer-ease);
+  }
+
+  .profile-drawer.is-open .profile-panel-list > li:nth-child(1) { transition-delay: 0.08s; }
+  .profile-drawer.is-open .profile-panel-list > li:nth-child(2) { transition-delay: 0.12s; }
+  .profile-drawer.is-open .profile-panel-list > li:nth-child(3) { transition-delay: 0.16s; }
+  .profile-drawer.is-open .profile-panel-list > li:nth-child(4) { transition-delay: 0.2s; }
+  .profile-drawer.is-open .profile-panel-list > li:nth-child(5) { transition-delay: 0.24s; }
+
+  .profile-panel-item {
+    display: block;
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--step-1);
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .profile-panel-item:hover,
+  .profile-panel-item:focus-visible {
+    background: var(--sunken);
+  }
+
+  .profile-panel-item.is-active {
+    color: var(--brand-wine);
+    background: var(--brand-wash);
+  }
+
+  .profile-panel-divider {
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--rule);
+  }
+
+  .profile-panel-item.is-logout {
+    color: var(--ink-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .profile-trigger {
+      transition: none;
+    }
+
+    .profile-trigger:hover,
+    .profile-trigger.is-open {
+      transform: none;
+    }
+
+    .profile-panel,
+    .profile-panel-list > li,
+    .profile-drawer.is-open .profile-panel-list > li {
+      transform: none;
+      transition: none;
+    }
+
+    .profile-drawer-scrim,
+    .profile-panel {
+      transition: opacity 0.15s ease;
+    }
+
+    .profile-panel {
+      opacity: 0;
+    }
+
+    .profile-drawer.is-open .profile-panel,
+    .profile-panel-list > li {
+      opacity: 1;
+    }
   }
 
   .statusbar {
@@ -721,20 +953,27 @@
   }
 
   .facts {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
     gap: var(--space-6);
     margin: 0;
+  }
+
+  .facts > div {
+    min-width: 0;
   }
 
   .facts dt {
     font-size: var(--step-0);
     color: var(--ink-muted);
+    white-space: nowrap;
   }
 
   .facts dd {
     margin: 0;
     font-size: var(--step-2);
     font-weight: 700;
+    white-space: nowrap;
   }
 
   .mine-line {
@@ -974,6 +1213,12 @@
       min-width: 0;
     }
 
+    /* 시세표는 화면 폭 안에 들어와야 한다. 종목명 칸이 남는 폭만 쓰고 넘치면 말줄임으로 자른다. */
+    .quote-table .cell-name {
+      width: 100%;
+      max-width: 0;
+    }
+
     .table .name-link {
       min-width: 0;
     }
@@ -996,7 +1241,32 @@
     }
 
     .facts {
-      gap: var(--space-4);
+      gap: var(--space-4) var(--space-3);
+    }
+
+    .facts dd {
+      font-size: var(--step-1);
+    }
+  }
+
+  /* 360px 안팎의 휴대폰에서는 아이콘과 관심 칸을 줄여 종목명이 덜 잘리게 한다. */
+  @media (max-width: 400px) {
+    .quote-table .game-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .quote-table .name-link {
+      gap: var(--space-2);
+    }
+
+    .quote-table .cell-watch {
+      width: 28px;
+      padding-inline: 0;
+    }
+
+    .quote-table .watch-button {
+      min-width: 28px;
     }
   }
 }

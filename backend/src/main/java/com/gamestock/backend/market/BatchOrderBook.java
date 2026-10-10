@@ -123,7 +123,7 @@ final class BatchOrderBook {
         if(symbol==null || account==null || quantity<=0 || quantity>1000 || !symbol.continuous && !type.equals("LIMIT"))return null;
         if(!side.equals("BUY") && !side.equals("SELL"))return null;
         boolean market=type.equals("MARKET");
-        if(!market && (!type.equals("LIMIT") || !dailyBand(symbol.reference).contains(price) || price%tickSize(price)!=0))return null;
+        if(!market && (!type.equals("LIMIT") || !dailyBand(symbol.code,symbol.reference).contains(price) || price%tickSize(price)!=0))return null;
         long checkPrice=market?symbol.last:price;
         long gross=Math.multiplyExact(checkPrice,(long)quantity),required=Math.addExact(gross,fee(gross));
         if(side.equals("BUY") && account.cash<required || side.equals("SELL") && available(user,stock)<quantity)return null;
@@ -176,17 +176,24 @@ final class BatchOrderBook {
             Order maker=buy.market()&&!sell.market()?sell:sell.market()&&!buy.market()?buy:earlier(buy,sell)?buy:sell;
             Order taker=maker==buy?sell:buy;
             long price=buy.market()&&sell.market()?stock.last:maker.price;
-            boolean buyBot=accounts.get(buy.user).liquidityProvider,sellBot=accounts.get(sell.user).liquidityProvider;
-            PriceBand marketBand=buyBot&&sellBot?dailyBand(stock.reference):marketExecutionBand(stock.last);
+            boolean buyBot=accounts.get(buy.user).bot,sellBot=accounts.get(sell.user).bot;
+            if(accounts.get(buy.user).liquidityProvider && sellBot) {
+                // Absorb ordinary selling on both sides while retaining a funded human reserve.
+                long available=Math.min(accounts.get(buy.user).cash,lpCashBudgets.getOrDefault(stock.id,accounts.get(buy.user).cash));
+                long gross=price*Math.min(buy.remaining,sell.remaining);
+                long reserve=MarketMakerEngine.emergencyCashRequirement(botBand(stock.code,stock.reference).upperPrice());
+                if(available-gross-fee(gross)<reserve){cancel(sell);continue;}
+            }
+            PriceBand marketBand=buyBot&&sellBot?dailyBand(stock.code,stock.reference):marketExecutionBand(stock.last);
             if((buy.market()||sell.market())&&!marketBand.contains(price)) {
                 if(buy.market()) {if(buyBot)cancel(buy);else if(sellBot)cancel(sell);else return;}
                 else {if(sellBot)cancel(sell);else if(buyBot)cancel(buy);else return;}
                 continue;
             }
-            if((buyBot||sellBot)&&!botBand(stock.reference).contains(price)) {
+            if((buyBot||sellBot)&&!botBand(stock.code,stock.reference).contains(price)) {
                 if(buyBot)cancel(buy);if(sellBot)cancel(sell);continue;
             }
-            if(!dailyBand(stock.reference).contains(price))return;
+            if(!dailyBand(stock.code,stock.reference).contains(price))return;
             int quantity=Math.min(buy.remaining,sell.remaining);
             if(buy.reservedCash==0)quantity=affordable(accounts.get(buy.user).cash,price,quantity);
             if(quantity<=0){if(buy.market())return;cancel(buy);continue;}
@@ -194,7 +201,22 @@ final class BatchOrderBook {
             long released=release(buy,quantity);
             if(accounts.get(buy.user).cash+released<gross+buyerFee){cancel(buy);continue;}
             if(sell.reservedQuantity==0 && available(sell.user,stock.id)<quantity){cancel(sell);continue;}
-            if(Math.abs(price/(double)stock.dynamicReference-1)>=.06-1e-10 || Math.abs(price/(double)stock.staticReference-1)>=.10-1e-10) {
+            boolean dynamicViolation=Math.abs(price/(double)stock.dynamicReference-1)>=dynamicViRate(stock.code)-1e-10;
+            boolean profiled=StockMarketProfile.isLargeCap(stock.code)||StockMarketProfile.isSpeculative(stock.code);
+            boolean staticViolation=!(profiled&&(buyBot||sellBot))
+                    && Math.abs(price/(double)stock.staticReference-1)>=staticViRate(stock.code)-1e-10;
+            if(dynamicViolation || staticViolation) {
+                // Participant bots use TRADER accounts, while the older bot-band
+                // guard only recognized the liquidity provider. Do not let an
+                // automated order create a persisted VI for a symbol: cancel the
+                // bot side and preserve the normal VI behavior for human-only fills.
+                boolean buyAutomated=accounts.get(buy.user).bot;
+                boolean sellAutomated=accounts.get(sell.user).bot;
+                if(buyAutomated || sellAutomated) {
+                    if(buyAutomated) cancel(buy);
+                    if(sellAutomated) cancel(sell);
+                    continue;
+                }
                 stock.viTrigger=price;stock.continuous=false;return;
             }
             Holding buyerBefore=holding(buy.user,stock.id),sellerBefore=holding(sell.user,stock.id);
@@ -235,6 +257,31 @@ final class BatchOrderBook {
     static long fee(long gross) {return gross<=0?0:Math.max(1,Math.round(gross*.001));}
     private void lpCash(long user,long stock,long change) {
         if(accounts.get(user).liquidityProvider)lpCashBudgets.computeIfPresent(stock,(key,cash)->cash+change);
+    }
+    /** Reassigns existing LP cash between this lane's symbols; it never changes the account cash. */
+    long rebalanceLiquidityCash(long user,Map<Long,Long> minimums) {
+        Account account=accounts.get(user);
+        if(account==null||!account.liquidityProvider||minimums.isEmpty())return 0;
+        long moved=0;
+        for(var receiver:minimums.entrySet()) {
+            long stock=receiver.getKey();
+            if(!lpCashBudgets.containsKey(stock))continue;
+            long current=lpCashBudgets.get(stock),need=Math.max(0,receiver.getValue())-current;
+            if(need<=0)continue;
+            for(var donor:minimums.entrySet()) {
+                long donorStock=donor.getKey();
+                if(donorStock==stock||!lpCashBudgets.containsKey(donorStock))continue;
+                long donorCash=lpCashBudgets.get(donorStock);
+                long surplus=donorCash-Math.max(0,donor.getValue());
+                if(surplus<=0)continue;
+                long transfer=Math.min(need,surplus);
+                lpCashBudgets.put(donorStock,donorCash-transfer);
+                current+=transfer;lpCashBudgets.put(stock,current);
+                need-=transfer;moved+=transfer;
+                if(need==0)break;
+            }
+        }
+        return moved;
     }
     double[] depth(long stock) {
         return depth(stock,-1);

@@ -1,5 +1,6 @@
 import { BrandMark } from "./BrandMark";
 import { Link } from "./Link";
+import { ProfileMenu } from "./ProfileMenu";
 import type { Route } from "../router";
 
 const NAV = [
@@ -7,7 +8,6 @@ const NAV = [
   { label: "시장", to: "/market", match: "market" },
   { label: "속보", to: "/news", match: "news" },
   { label: "랭킹", to: "/ranking", match: "ranking" },
-  { label: "칭호", to: "/titles", match: "titles" },
 ] as const;
 
 export function Topbar({ route }: { route: Route }) {
@@ -33,13 +33,7 @@ export function Topbar({ route }: { route: Route }) {
             );
           })}
         </nav>
-        <Link
-          className={`nav-link nav-me${route.name === "mypage" ? " is-active" : ""}`}
-          to="/mypage"
-          aria-current={route.name === "mypage" ? "page" : undefined}
-        >
-          내 계좌
-        </Link>
+        <ProfileMenu route={route} />
       </div>
     </header>
   );

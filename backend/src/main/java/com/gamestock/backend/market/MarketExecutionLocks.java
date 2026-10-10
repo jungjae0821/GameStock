@@ -29,7 +29,10 @@ final class MarketExecutionLocks {
                        order_type='MARKET',expires_at IS NOT NULL AND expires_at<=?
                 FROM orders WHERE stock_id=? AND status='OPEN' ORDER BY created_at,id
                 """,(rs,n)->new Resting(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getLong(4),rs.getInt(5),rs.getInt(6),rs.getBoolean(7),rs.getBoolean(8)),stock.acceptedAt(),stock.id());
-        long reference=jdbc.queryForObject("SELECT COALESCE((SELECT open_price FROM daily_market_summaries WHERE stock_id=? AND trading_date=CURRENT_DATE),?)",Long.class,stock.id(),stock.lastPrice());
+        // Match the same Asia/Seoul day reference used by the protected batch
+        // book. MySQL sessions run in UTC, so CURRENT_DATE is stale overnight
+        // in Korea and can otherwise lock the wrong counterparties.
+        long reference=jdbc.queryForObject("SELECT COALESCE((SELECT day_reference FROM stock_protection_state WHERE stock_id=?),?)",Long.class,stock.id(),stock.lastPrice());
         var accounts=accountsFor(request,userId,rows,reference,stock.lastPrice());
         // The same account may trade several symbols. Always acquire accounts in numeric order.
         for(long account:accounts) jdbc.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,account);
@@ -65,7 +68,7 @@ final class MarketExecutionLocks {
             if(sell.user()==user) continue; // STP may cancel either row if a legacy timestamp is ahead.
             // Quotes outside any execution band might be cancelled instead of consumed.
             // Counting only this safe intersection gives a conservative superset of counterparties.
-            if(dailyBand(reference).contains(sell.price()) && botBand(reference).contains(sell.price())
+            if(dailyBand(request.stockCode(),reference).contains(sell.price()) && botBand(request.stockCode(),reference).contains(sell.price())
                     && (!market || marketExecutionBand(last).contains(sell.price()))) remaining-=sell.remaining();
         }
         return result;

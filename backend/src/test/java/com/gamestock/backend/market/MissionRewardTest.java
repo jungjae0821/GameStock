@@ -7,6 +7,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -46,7 +48,9 @@ class MissionRewardTest {
     @Test void eachMissionPaysFiftyThousandOnlyOncePerDay() {
         watchlistCount.set(1);
         MarketService market = market();
-        for (String id : List.of("market", "news", "watch")) {
+        List<String> today = MarketService.dailyMissionIds(LocalDate.now(ZoneId.of("Asia/Seoul")));
+        assertEquals(5, today.size());
+        for (String id : today) {
             var first = market.rewardMission(id, 7L);
             assertTrue(first.awarded());
             assertEquals(50_000L, first.rewardCash());
@@ -54,9 +58,31 @@ class MissionRewardTest {
             assertFalse(second.awarded());
             assertEquals(0L, second.rewardCash());
         }
-        assertEquals(1_150_000L, cash.get());
+        assertEquals(1_250_000L, cash.get());
         assertThrows(IllegalArgumentException.class, () -> market.rewardMission("unknown", 7L));
-        assertEquals(1_150_000L, cash.get());
+        assertEquals(1_250_000L, cash.get());
+    }
+
+    @Test void rotatingMissionSetChangesByKoreanDay() {
+        List<String> today = MarketService.dailyMissionIds(LocalDate.of(2026, 10, 8));
+        List<String> tomorrow = MarketService.dailyMissionIds(LocalDate.of(2026, 10, 9));
+
+        assertEquals(5, today.size());
+        assertEquals(5, new HashSet<>(today).size());
+        assertNotEquals(today, tomorrow);
+        assertEquals(List.of("market", "news", "watch"), today.subList(0, 3));
+        assertEquals(List.of("market", "news", "watch"), tomorrow.subList(0, 3));
+    }
+
+    @Test void missionOutsideTodaysRotationCannotBeClaimed() {
+        MarketService market = market();
+        List<String> today = MarketService.dailyMissionIds(LocalDate.now(ZoneId.of("Asia/Seoul")));
+        String notAssigned = List.of("ranking", "portfolio", "home", "settings").stream()
+                .filter(id -> !today.contains(id)).findFirst().orElseThrow();
+
+        var error = assertThrows(IllegalArgumentException.class, () -> market.rewardMission(notAssigned, 7L));
+        assertTrue(error.getMessage().contains("오늘의 미션"));
+        assertEquals(1_000_000L, cash.get());
     }
 
     @Test void watchMissionRequiresAWatchlistEntry() {

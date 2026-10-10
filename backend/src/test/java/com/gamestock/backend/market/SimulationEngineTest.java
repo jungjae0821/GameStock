@@ -202,6 +202,26 @@ class SimulationEngineTest {
         assertTrue(budget<750000);
         assertNotEquals(engine.targetQuantity(p,"ES",0,1000000,15,10000),engine.targetQuantity(p,"ES",60000,1000000,15,10000));
     }
+
+    @Test void deepDrawdownCreatesCashBackedDipBuyersAndDoesNotPanicSellFreshInventory() {
+        var engine=new BotStrategyEngine(91);
+        var m=PriceMetricService.calculate(List.of(),8000,7990,8010,0,100,0);
+        int buys=0,actionableSells=0,heldSells=0,capitulationSells=0;
+        for(BotProfile p:BotProfile.defaults(91)) {
+            var empty=engine.decide(p,m,neutral,new BotStrategyEngine.Position(0,1_000_000,0,0),8000,0,10,1,"ES",10000);
+            if(empty.side().equals("BUY") && empty.quantity()>0) buys++;
+            if(empty.side().equals("SELL") && empty.quantity()>0) actionableSells++;
+            var held=engine.decide(p,m,neutral,new BotStrategyEngine.Position(1,1_000_000,8000,0),8000,0,10,1,"ES",10000);
+            if(held.side().equals("SELL") && held.quantity()>0) heldSells++;
+            var stopped=engine.decide(p,m,neutral,new BotStrategyEngine.Position(1,1_000_000,9500,0),8000,0,10,1,"ES",10000);
+            if(stopped.side().equals("SELL") && stopped.quantity()>0) capitulationSells++;
+        }
+        assertTrue(buys>6,"deep drawdown should create a material buy side");
+        assertEquals(0,actionableSells,"cash-only bots must not create naked sells");
+        assertEquals(0,heldSells,"fresh inventory should not be panic-sold without a risk exit");
+        assertEquals(0,capitulationSells,"a stop-loss must not stack a sell into an empty bid book at a deep floor");
+    }
+
     @Test void swingCanSeeAMultiMinuteTrendAfterShortTermReturnsGoFlat() {
         var trades=List.of(new PriceMetricService.Trade(0,10000,10),new PriceMetricService.Trade(240000,10200,10),
                 new PriceMetricService.Trade(300000,10200,10));
@@ -250,6 +270,15 @@ class SimulationEngineTest {
         assertEquals(4,quotes.stream().filter(q->q.side().equals("SELL")).count());
         assertTrue(engine.quotes(m,neutral,new MarketMakerEngine.RiskBook(0,0,400,1200,12000000),10,1,constraints).isEmpty());
     }
+    @Test void thinBooksRefillWithEightSharesPerEmergencyLevel() {
+        var engine=new MarketMakerEngine();
+        var empty=PriceMetricService.calculate(List.of(),10000,10000,10000,0,0,0);
+        var risk=new MarketMakerEngine.RiskBook(5000000,100,100,1200,12000000);
+        var quotes=engine.quotes(empty,neutral,risk,10,1,
+                new MarketMakerEngine.QuoteConstraints(8000,12000,0,0));
+        assertEquals(8,quotes.size());
+        assertTrue(quotes.stream().allMatch(q->q.quantity()==8));
+    }
     @Test void oldJumpsAndTradeCountTruncationDoNotInflateCurrentVolatility() {
         var sparse=List.of(new PriceMetricService.Trade(0,8000,10),
                 new PriceMetricService.Trade(10000,10000,10),new PriceMetricService.Trade(590000,10000,10));
@@ -296,6 +325,38 @@ class SimulationEngineTest {
         var metrics=PriceMetricService.calculate(List.of(new PriceMetricService.Trade(0,10000,20)),10000,11990,12010,20,20,1000);
         assertTrue(Math.abs(engine.reservationPrice(metrics,risk,10)-10000)<25);
     }
+    @Test void lpAnchorUsesFundamentalAfterAOneSidedLowPrint() {
+        var engine=new MarketMakerEngine();
+        var trades=List.of(new PriceMetricService.Trade(0,10000,100),new PriceMetricService.Trade(59000,6500,10));
+        var metrics=PriceMetricService.calculate(trades,6500,6490,6510,10,10,60000);
+        var risk=new MarketMakerEngine.RiskBook(5000000,100,100,1200,12000000);
+        assertTrue(engine.fairValue(metrics,10000)>metrics.lastPrice());
+        assertTrue(engine.fairValue(metrics,10000)<=metrics.lastPrice()*1.005);
+        assertTrue(engine.reservationPrice(metrics,risk,10,10000)>metrics.lastPrice());
+    }
+    @Test void lpUsesLastExecutionWhenBookHasDepthButNoRecentTrades() {
+        var engine=new MarketMakerEngine();
+        var metrics=PriceMetricService.calculate(List.of(),7710,8360,8420,171,49,60000);
+        var risk=new MarketMakerEngine.RiskBook(5000000,400,400,1200,12000000);
+        var quotes=engine.quotes(metrics,neutral,risk,10,1,
+                new MarketMakerEngine.QuoteConstraints(6000,10000,0,0),8400);
+        assertEquals(7710,engine.fairValue(metrics,8400));
+        var stabilized=BotActivityEngine.stabilizeQuietBook(metrics);
+        assertEquals(7710,stabilized.midPrice());
+        assertEquals(7710,stabilized.vwap());
+        assertTrue(quotes.stream().allMatch(q->Math.abs(q.price()-7710)<=100),
+                () -> "quotes detached from last execution: "+quotes);
+    }
+    @Test void quietBookPreservesNearbyExecutableQuotesInsteadOfInventingAnInsideSpread() {
+        var quiet=PriceMetricService.calculate(List.of(),10000,9980,10020,50,50,1000);
+        var stabilized=BotActivityEngine.stabilizeQuietBook(quiet);
+        assertEquals(9980,stabilized.bestBid());assertEquals(10020,stabilized.bestAsk());
+        assertEquals(10000,stabilized.markPrice());
+        var atDailyFloor=BotActivityEngine.stabilizeQuietBook(PriceMetricService.calculate(List.of(),2000,2015,2025,30,30,1000));
+        assertEquals(2025,atDailyFloor.bestAsk(),"buyers must be able to lift the real offer after a limit-down period");
+        assertEquals(2000,atDailyFloor.markPrice());
+    }
+
     @Test void metricsResistTinyLastPrintAndHaveNeutralWarmup() {
         var trades=List.of(new PriceMetricService.Trade(0,10000,1000),new PriceMetricService.Trade(1000,11000,1));
         var m=PriceMetricService.calculate(trades,10000,9990,10010,100,100,1000);

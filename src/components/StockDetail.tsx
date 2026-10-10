@@ -69,6 +69,14 @@ export function StockDetail({ code }: { code: string }) {
           <dt>거래량</dt>
           <dd className="num">{shares(quote.volume)}</dd>
         </div>
+        <div>
+          <dt>하한가</dt>
+          <dd className="num">{won(quote.limitDown)}</dd>
+        </div>
+        <div>
+          <dt>상한가</dt>
+          <dd className="num">{won(quote.limitUp)}</dd>
+        </div>
       </dl>
 
       {position && (

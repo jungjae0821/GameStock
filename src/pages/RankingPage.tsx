@@ -74,7 +74,7 @@ export function RankingPage() {
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
   return (
-    <div className="page-stack is-narrow">
+    <div className="page-stack is-compact">
       <h1 className="page-title">랭킹</h1>
 
       <section aria-label="투자 랭킹">
@@ -123,8 +123,13 @@ export function RankingPage() {
                         <img
                           className="ranking-avatar"
                           src={entry.profileImageUrl || DEFAULT_PROFILE_AVATAR}
-                          alt={`${entry.nickname} 프로필 사진`}
+                          alt=""
                           loading="lazy"
+                          onError={(event) => {
+                            // 깨진 외부 이미지 대신 기본 아바타를 보여 준다. 대체 텍스트가 칸을 넘치지 않게 alt 는 비운다.
+                            if (event.currentTarget.src.endsWith(DEFAULT_PROFILE_AVATAR)) return;
+                            event.currentTarget.src = DEFAULT_PROFILE_AVATAR;
+                          }}
                         />
                         <span>{entry.nickname}</span>
                       </span>

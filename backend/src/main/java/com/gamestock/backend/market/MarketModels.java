@@ -10,9 +10,24 @@ public final class MarketModels {
     private MarketModels() { }
 
     public record Stock(String code, String name, String genre, long price, double changePercent, long volume,
-                        TradingRestriction restriction) {
+                        TradingRestriction restriction, long activeUsers, long marketCap,
+                        double movementWeight, long referencePrice, long limitUp, long limitDown) {
         public Stock(String code, String name, String genre, long price, double changePercent, long volume) {
             this(code, name, genre, price, changePercent, volume, null);
+        }
+
+        public Stock(String code, String name, String genre, long price, double changePercent, long volume,
+                     TradingRestriction restriction) {
+            this(code,name,genre,price,changePercent,volume,restriction,
+                    Math.max(100,Math.round(price / Math.max(.01,1 + changePercent / 100))));
+        }
+
+        public Stock(String code, String name, String genre, long price, double changePercent, long volume,
+                     TradingRestriction restriction, long referencePrice) {
+            this(code, name, genre, price, changePercent, volume, restriction,
+                    StockMarketProfile.of(code).activeUsers(), StockMarketProfile.of(code).marketCap(),
+                    StockMarketProfile.of(code).movementWeight(),referencePrice,
+                    PriceLimitPolicy.dailyBand(code,referencePrice).upperPrice(),PriceLimitPolicy.dailyBand(code,referencePrice).lowerPrice());
         }
     }
     public record TradingRestriction(String kind, String label, String phase, int level, String reason,
@@ -61,6 +76,7 @@ public final class MarketModels {
     }
     public record MarketSnapshot(List<Stock> stocks, Portfolio portfolio, List<MarketEvent> events) { }
     public record DailyMissionStatus(String missionDate, String resetsAt, String serverTime,
+                                     List<String> availableMissionIds,
                                      List<String> completedMissionIds) { }
     public record MissionRewardResult(long rewardCash, boolean awarded, Portfolio portfolio,
                                       DailyMissionStatus missions) { }

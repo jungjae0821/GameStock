@@ -100,7 +100,11 @@ export function SeriesChart({ code, tone }: { code: string; tone?: "up" | "down"
   const area = points.length > 1 ? `${path} L ${points.at(-1)!.x} 100 L ${points[0].x} 100 Z` : "";
   const hoveredIndex = samples.findIndex((sample) => sample.at === hoveredAt);
   const hovered = samples[hoveredIndex];
-  const currentValue = samples.at(-1)?.price ?? quote.price;
+  // History is intentionally persisted at bucket boundaries. The live quote
+  // arrives through the market stream and is the authoritative current value;
+  // using the last stored bucket here made a moving order book look frozen
+  // until the next history request completed.
+  const currentValue = quote.price;
   const prevY = y(quote.prevClose);
   const ratio = sessionRate(quote);
   const chartTone = tone ?? (ratio > 0 ? "up" : ratio < 0 ? "down" : "flat");

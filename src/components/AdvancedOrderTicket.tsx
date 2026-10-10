@@ -22,6 +22,8 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
   const priceId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const submissionPendingRef = useRef(false);
+  // 사용자가 단가를 직접 고르기 전에는 최우선 호가를 따라간다. 첫 렌더 시세가 서버 시세로 바뀌어도 단가가 낡지 않는다.
+  const limitPriceEditedRef = useRef(false);
   const snapshot = useMarket();
   const api = useMarketApi();
   const { user } = useAuthUser();
@@ -37,12 +39,19 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
 
   useEffect(() => {
     if (selectedLimitPrice === undefined || selectedLimitPrice === null) return;
+    limitPriceEditedRef.current = true;
     setLimitPrice(String(roundToTick(selectedLimitPrice)));
     setOrderType("LIMIT");
     setResult(null);
   }, [selectedLimitPrice, selectedLimitPriceRevision]);
 
   const quote = snapshot.quotes[code];
+  const liveSuggestedLimit = quote ? (side === "buy" ? quote.asks[0]?.price ?? quote.price : quote.bids[0]?.price ?? quote.price) : null;
+
+  useEffect(() => {
+    if (limitPriceEditedRef.current || orderType !== "LIMIT" || liveSuggestedLimit === null) return;
+    setLimitPrice(String(roundToTick(liveSuggestedLimit)));
+  }, [liveSuggestedLimit, orderType]);
 
   const setQuantityRatio = (ratio: number) => {
     const price = orderType === "LIMIT" && Number(limitPrice) > 0 ? Number(limitPrice) : quote?.price ?? 0;
@@ -55,6 +64,7 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
 
   const changeSide = (nextSide: "buy" | "sell") => {
     setSide(nextSide);
+    limitPriceEditedRef.current = false;
     setQty("");
     setResult(null);
     setShortcutMessage("");
@@ -71,6 +81,7 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
       return;
     }
     setOrderType(nextOrderType);
+    limitPriceEditedRef.current = false;
     setResult(null);
     setShortcutMessage("");
     if (nextOrderType === "LIMIT" && quote) {
@@ -88,6 +99,7 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
     const typedPrice = Number(limitPrice);
     const currentPrice = Number.isFinite(typedPrice) && typedPrice > 0 ? typedPrice : quote.price;
     const nextPrice = direction === "up" ? nextTickPrice(currentPrice) : previousTickPrice(currentPrice);
+    limitPriceEditedRef.current = true;
     setOrderType("LIMIT");
     setLimitPrice(String(nextPrice));
     setResult(null);
@@ -97,6 +109,7 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
   const useCurrentPrice = () => {
     if (!quote || (quote.restriction && !quote.restriction.limitOrdersAllowed)) return;
     const price = roundToTick(quote.price);
+    limitPriceEditedRef.current = true;
     setOrderType("LIMIT");
     setLimitPrice(String(price));
     setResult(null);
@@ -269,7 +282,7 @@ export function AdvancedOrderTicket({ code, initialSide = "buy", selectedLimitPr
                 disabled={orderType === "MARKET"} value={orderType === "MARKET" ? quote.price : limitPrice}
                 aria-invalid={Boolean(priceError)} aria-describedby={`${priceId}-hint`}
                 onKeyDown={(event) => { if (!event.nativeEvent.isComposing && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) { event.preventDefault(); moveLimitPrice(event.key === "ArrowUp" ? "up" : "down"); } }}
-                onChange={(event) => { setLimitPrice(event.target.value); setResult(null); setShortcutMessage(""); }} />
+                onChange={(event) => { limitPriceEditedRef.current = true; setLimitPrice(event.target.value); setResult(null); setShortcutMessage(""); }} />
               <span className="ticket-unit">원</span>
             </div>
             <button className="terminal-step" type="button" aria-label="한 호가 낮추기" disabled={orderType === "MARKET" || blocked} onClick={() => moveLimitPrice("down")}>−</button>

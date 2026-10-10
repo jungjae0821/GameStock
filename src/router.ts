@@ -6,8 +6,10 @@ export type Route =
   | { name: "trade"; ticker: string | null }
   | { name: "news" }
   | { name: "ranking" }
-  | { name: "titles" }
   | { name: "mypage" }
+  | { name: "settings" }
+  | { name: "charge" }
+  | { name: "titles" }
   | { name: "login"; method: LoginMethod };
 
 export type LoginMethod = "choose" | "google" | "email" | "register" | "reset";
@@ -24,8 +26,10 @@ function parse(pathname: string): Route {
   if (parts[0] === "trade") return { name: "trade", ticker: parts[1] ? parts[1].toUpperCase() : null };
   if (parts[0] === "news") return { name: "news" };
   if (parts[0] === "ranking") return { name: "ranking" };
-  if (parts[0] === "titles") return { name: "titles" };
   if (parts[0] === "mypage") return { name: "mypage" };
+  if (parts[0] === "settings") return { name: "settings" };
+  if (parts[0] === "charge") return { name: "charge" };
+  if (parts[0] === "titles") return { name: "titles" };
   return { name: "home" };
 }
 

@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.gamestock.backend.market.MarketModels.*;
@@ -68,10 +69,12 @@ public class TradingProtectionService {
         }
     }
 
-    public void refreshDay() {
+    public boolean refreshDay() {
         LocalDate today = LocalDate.now(clock.withZone(SEOUL));
+        LocalDate previousDate = today.minusDays(1);
         jdbc.update("INSERT IGNORE INTO market_protection_state (id, trading_date) VALUES (1, ?)", today);
         MarketState state = marketState();
+        boolean dayChanged = false;
         if (!today.equals(state.day())) {
             jdbc.update("""
                     UPDATE market_protection_state SET trading_date = ?, phase = 'NORMAL', level = 0,
@@ -79,22 +82,79 @@ public class TradingProtectionService {
                     """, today);
             jdbc.update("""
                     UPDATE stock_protection_state p JOIN stocks s ON s.id = p.stock_id
-                    SET p.day_reference = s.current_price, p.static_reference = s.current_price,
-                        p.dynamic_reference = s.current_price, p.last_trade_price = s.current_price, p.vi_type = NULL,
+                    LEFT JOIN daily_market_summaries d
+                      ON d.stock_id = s.id AND d.trading_date = ?
+                    SET p.day_reference = COALESCE(d.close_price, s.current_price),
+                        p.static_reference = COALESCE(d.close_price, s.current_price),
+                        p.dynamic_reference = s.current_price, p.last_trade_price = s.current_price,
+                        p.vi_type = NULL,
                         p.started_at = NULL, p.ends_at = NULL
-                    """);
+                    """, previousDate);
+            dayChanged = true;
         }
         jdbc.update("""
                 INSERT IGNORE INTO stock_protection_state (stock_id, day_reference, static_reference, dynamic_reference, last_trade_price)
-                SELECT id, current_price, current_price, current_price, current_price FROM stocks
-                """);
+                SELECT s.id, COALESCE(d.close_price, s.current_price), COALESCE(d.close_price, s.current_price),
+                       s.current_price, s.current_price
+                FROM stocks s
+                LEFT JOIN daily_market_summaries d
+                  ON d.stock_id = s.id AND d.trading_date = ?
+                """, previousDate);
+        return dayChanged;
+    }
+
+    /** Repair legacy quotes that were created outside the universal daily band without adding volume. */
+    public List<String> repairPricesToDailyBands() {
+        LocalDate tradingDate = LocalDate.now(clock.withZone(SEOUL));
+        Instant now = clock.instant();
+        Timestamp recordedAt = Timestamp.from(now);
+        List<PriceRepairRow> rows = jdbc.query("""
+                SELECT s.id, s.stock_code, s.current_price, p.day_reference
+                FROM stocks s JOIN stock_protection_state p ON p.stock_id = s.id
+                ORDER BY s.id
+                """, (rs, row) -> new PriceRepairRow(
+                rs.getLong("id"), rs.getString("stock_code"), rs.getLong("current_price"), rs.getLong("day_reference")));
+        List<String> repaired = new ArrayList<>();
+        for (PriceRepairRow row : rows) {
+            long corrected = PriceLimitPolicy.dailyBand(row.stockCode(), row.referencePrice()).clamp(row.currentPrice());
+            if (corrected == row.currentPrice()) continue;
+            if (jdbc.update("""
+                    UPDATE stocks SET previous_price = ?, current_price = ?
+                    WHERE id = ? AND current_price = ?
+                    """, corrected, corrected, row.stockId(), row.currentPrice()) == 0) continue;
+            jdbc.update("INSERT INTO stock_price_history (stock_id, price, recorded_at) VALUES (?, ?, ?)",
+                    row.stockId(), corrected, recordedAt);
+            jdbc.update("""
+                    INSERT INTO daily_market_summaries (stock_id, trading_date, open_price, close_price, total_volume)
+                    VALUES (?, ?, ?, ?, 0)
+                    ON DUPLICATE KEY UPDATE close_price = VALUES(close_price)
+                    """, row.stockId(), tradingDate, row.referencePrice(), corrected);
+            jdbc.update("""
+                    UPDATE stock_protection_state
+                    SET dynamic_reference = ?, last_trade_price = ?, vi_type = NULL, started_at = NULL, ends_at = NULL
+                    WHERE stock_id = ?
+                    """, corrected, corrected, row.stockId());
+            logEvent(row.stockId(), "PRICE_BAND_REPAIR", 0, row.referencePrice(), corrected, now, now);
+            repaired.add(row.stockCode());
+        }
+        return repaired;
     }
 
     public double indexValue() {
-        Double index = jdbc.queryForObject("""
-                SELECT COALESCE(AVG(s.current_price * 1000.0 / p.day_reference), 1000)
+        Double index = jdbc.query("""
+                SELECT s.stock_code, s.current_price, p.day_reference
                 FROM stocks s JOIN stock_protection_state p ON p.stock_id = s.id
-                """, Double.class);
+                """, rs -> {
+            double weighted = 0;
+            double totalWeight = 0;
+            while (rs.next()) {
+                double cap = StockMarketProfile.of(rs.getString(1)).marketCap();
+                double reference = Math.max(1, rs.getLong(3));
+                weighted += (rs.getLong(2) * 1000.0 / reference) * cap;
+                totalWeight += cap;
+            }
+            return totalWeight == 0 ? 1000.0 : weighted / totalWeight;
+        });
         return index == null ? 1000 : index;
     }
 
@@ -117,7 +177,7 @@ public class TradingProtectionService {
             String kind = rs.getString("vi_type");
             boolean dynamic = "DYNAMIC_VI".equals(kind);
             return new TradingRestriction(kind, dynamic ? "동적 VI" : "정적 VI", "AUCTION", 0,
-                    dynamic ? "직전 체결가 또는 VI 재개 기준가 대비 예상 체결가가 ±6% 이상 변동했습니다."
+                    dynamic ? "직전 체결가 또는 VI 재개 기준가 대비 예상 체결가가 ±" + Math.round(PriceLimitPolicy.dynamicViRate(code)*100) + "% 이상 변동했습니다."
                             : "당일 시작가 또는 직전 단일가 대비 가격이 ±10% 이상 변동했습니다.",
                     "2분간 즉시 체결을 멈추고 지정가 주문을 모아 하나의 가격으로 체결합니다. 지정가 접수·취소는 가능하며 시장가 주문은 제한됩니다.",
                     instant(rs.getTimestamp("started_at")), instant(rs.getTimestamp("ends_at")), true, false);
@@ -158,8 +218,8 @@ public class TradingProtectionService {
         if (refs.isEmpty()) return false;
         long[] ref = refs.get(0);
         long dynamicReference = syntheticReference == null ? ref[2] : syntheticReference;
-        boolean dynamic = Math.abs(price / (double) dynamicReference - 1) >= 0.06 - 1e-10;
-        boolean fixed = Math.abs(price / (double) ref[1] - 1) >= 0.10 - 1e-10;
+        boolean dynamic = Math.abs(price / (double) dynamicReference - 1) >= PriceLimitPolicy.dynamicViRate(code) - 1e-10;
+        boolean fixed = Math.abs(price / (double) ref[1] - 1) >= PriceLimitPolicy.staticViRate(code) - 1e-10;
         if (!dynamic && !fixed) return false;
         String kind = dynamic ? "DYNAMIC_VI" : "STATIC_VI";
         Instant now = clock.instant();
@@ -170,7 +230,7 @@ public class TradingProtectionService {
         return true;
     }
 
-    /** Equal-weight virtual index, not a real exchange index or market-cap estimate. */
+    /** Market-cap-weighted virtual index, not a real exchange index or market-cap estimate. */
     public void observeMarket() {
         MarketState state = marketState();
         if (!"NORMAL".equals(state.phase()) || state.level() >= 3) return;
@@ -271,4 +331,6 @@ public class TradingProtectionService {
     private static String instant(Instant value) { return value == null ? null : value.toString(); }
     private record MarketState(LocalDate day, String phase, int level, double triggerIndex,
                                Instant belowSince, Instant startedAt, Instant endsAt) { }
+
+    private record PriceRepairRow(long stockId, String stockCode, long currentPrice, long referencePrice) { }
 }

@@ -170,7 +170,12 @@
       flex-wrap: wrap;
     }
 
+    .trade-head-copy {
+      flex: 1;
+    }
+
     .trade-head-price {
+      order: 1;
       width: 100%;
       margin-left: 0;
     }

@@ -6,6 +6,7 @@ import static com.gamestock.backend.market.PriceLimitPolicy.*;
 
 /** Paces independently funded participant decisions from actual fills, never manufactures a trade. */
 final class BotActivityEngine {
+    private static final long LIQUIDITY_QUOTE_TTL=10_000L;
     record Observation(PriceMetricService.Metrics metrics,MarketEnvironment environment,double fundamental,double news,double scale) { }
     record Participant(long id,BotProfile profile,long stock) { }
     record Activity(long stock,String code,int fills,int orders,boolean continuous) { }
@@ -63,41 +64,44 @@ final class BotActivityEngine {
             var group=entry.getValue();int startFills=book.fills.size(),startOrders=book.accepted.size();
             int recent=recentFills.getOrDefault(stock,0);
             var risk=risks.get(stock);
+            var marketMetrics=withBook(observation.metrics(),symbol.last,book.depth(stock));
             if(risk!=null && book.lpCashBudgets.containsKey(stock) && now>=nextQuote.getOrDefault(stock,0L)) {
-                var m=withBook(observation.metrics(),symbol.last,book.depth(stock));
                 book.working(lp,stock).forEach(book::cancel);
-                double[] external=book.depth(stock,lp);var band=botBand(symbol.reference);
+                double[] external=book.depth(stock,lp);var band=quoteBand(symbol.code,symbol.reference,observation.news());
                 var limits=new MarketMakerEngine.QuoteConstraints(band.lowerPrice(),band.upperPrice(),external[2]>0?Math.round(external[0]):0,external[3]>0?Math.round(external[1]):0);
                 var availableRisk=new MarketMakerEngine.RiskBook(Math.max(0,Math.min(book.accounts.get(lp).cash,book.lpCashBudgets.get(stock))),book.holding(lp,stock).quantity(),risk.targetInventory(),risk.maxInventory(),risk.riskLimit());
-                for(var quote:maker.quotes(m,observation.environment(),availableRisk,tickSize(symbol.last),observation.scale(),limits)) {
+                double anchor=StockMarketProfile.valuationAnchor(symbol.code,symbol.reference,observation.fundamental(),observation.news());
+                for(var quote:maker.quotes(marketMetrics,observation.environment(),availableRisk,tickSize(symbol.last),observation.scale(),limits,anchor)) {
                     long price=quote.side().equals("BUY")?floorToTick(Math.round(quote.price())):ceilToTick(Math.round(quote.price()));
                     int quantity=quote.quantity();
                     if(quote.side().equals("BUY"))quantity=(int)Math.min(quantity,Math.max(0,book.lpCashBudgets.get(stock))/Math.max(1,price+BatchOrderBook.fee(price)));
                     else quantity=Math.min(quantity,book.available(lp,stock));
-                    book.submit(lp,stock,quote.side(),"LIMIT",quantity,price,now,4000);
+                    book.submit(lp,stock,quote.side(),"LIMIT",quantity,price,now,LIQUIDITY_QUOTE_TTL);
                 }
-                nextQuote.put(stock,now+1200+random.nextInt(600));
+                nextQuote.put(stock,now+(StockMarketProfile.isLargeCap(symbol.code)?500:1200)+random.nextInt(600));
             }
             if(risk!=null && now-lastRebalance.getOrDefault(stock,0L)>=500) {
                 // Gradually distribute an over-target LP position through funded external bids.
                 // No transfer, refill, paired counterorder or price change happens outside matching.
                 int excess=book.holding(lp,stock).quantity()-risk.targetInventory();
                 double[] external=book.depth(stock,lp);
-                if(excess>10 && external[2]>0 && external[0]>=observation.metrics().vwap()*.995) {
+                double liquidationFloor=maker.fairValue(marketMetrics,observation.fundamental())*.995;
+                if(excess>10 && external[2]>0 && external[0]>=liquidationFloor) {
                     book.submit(lp,stock,"SELL","LIMIT",Math.min(recent<30?15:5,Math.min(excess,book.available(lp,stock))),Math.round(external[0]),now,500);
                 }
                 lastRebalance.put(stock,now);
             }
             // A rolling second avoids an end-of-second burst. A bounded catch-up budget absorbs scheduler jitter.
-            double credit=Math.min(180,credits.getOrDefault(stock,0.0)+targetRate*(elapsed<=0?0:Math.min(500,Math.max(20,elapsed)))/1000.0);
-            int budget=Math.max(0,Math.min(150,Math.min((int)credit,targetRate+40-recent)));
-            if(recent<30)budget=Math.min(90,Math.max(budget,15));
+            int symbolTarget=StockMarketProfile.activityTarget(symbol.code,targetRate);
+            double credit=Math.min(180,credits.getOrDefault(stock,0.0)+symbolTarget*(elapsed<=0?0:Math.min(500,Math.max(20,elapsed)))/1000.0);
+            int budget=Math.max(0,Math.min(150,Math.min((int)credit,symbolTarget+10-recent)));
+            if(recent<30 && !StockMarketProfile.isLargeCap(symbol.code))budget=Math.min(90,Math.max(budget,15));
             int cursor=cursors.getOrDefault(stock,0),examined=0;
             while(examined<group.size()*2 && book.fills.size()-startFills<budget && book.accepted.size()-startOrders<Math.max(1,200/bySymbol.size()) && symbol.continuous) {
                 Participant participant=group.get(cursor++%group.size());examined++;
                 if(due.getOrDefault(participant.id(),0L)>now)continue;
                 BotProfile p=participant.profile();
-                due.put(participant.id(),now+Math.max(10,(long)(p.decisionInterval()*(.65+random.nextDouble()*.7)))+p.reactionLatency());
+                due.put(participant.id(),now+Math.max(10,(long)(p.decisionInterval()*StockMarketProfile.decisionIntervalWeight(symbol.code)*(.65+random.nextDouble()*.7)))+p.reactionLatency());
                 Account account=book.accounts.get(participant.id());
                 if(account==null)continue;
                 Holding held=book.holding(participant.id(),stock);
@@ -110,17 +114,19 @@ final class BotActivityEngine {
                 long equity=account.cash+refundable+Math.round(held.quantity()*m.markPrice());
                 double targetQuantity=strategies.targetQuantity(p,symbol.code,now,equity,1,m.markPrice());
                 var position=new BotStrategyEngine.Position(held.quantity(),account.cash+refundable,held.average(),now-acquired.getOrDefault(participant.id(),now),targetQuantity);
+                double anchor=StockMarketProfile.valuationAnchor(symbol.code,symbol.reference,observation.fundamental(),observation.news());
+                double researchNoise=.012*(StockMarketProfile.isLargeCap(symbol.code)?StockMarketProfile.of(symbol.code).movementWeight():1);
                 double estimate=p.strategy().family()==BotProfile.Family.VALUE
-                        ?strategies.estimate(p,symbol.code,observation.fundamental()*(1+random.nextGaussian()*.012)):m.markPrice();
+                        ?strategies.estimate(p,symbol.code,anchor*(1+random.nextGaussian()*researchNoise)):m.markPrice();
                 double news=observation.news()*(1+p.valueError()*8+random.nextGaussian()*.25);
-                var decision=strategies.decide(p,m,observation.environment(),position,estimate,news,tickSize(symbol.last),observation.scale());
+                var decision=strategies.decide(p,m,observation.environment(),position,estimate,news,tickSize(symbol.last),observation.scale(),symbol.code,symbol.reference);
                 boolean replace=working.stream().anyMatch(o->policy.shouldReplace(p,new BotOrderPolicy.RestingOrder(o.id,o.side,o.price,o.reservedCash,o.createdAt),decision,now,tickSize(o.price),o.side.equals("BUY")?m.bestBid():m.bestAsk(),o.side.equals("BUY")?m.bestAsk():m.bestBid()));
                 if(!working.isEmpty()&&!replace)continue;
                 if(replace)working.forEach(book::cancel);
                 int quantity=Math.min(BotStrategyEngine.hasInventoryDemand(p)?1:2,decision.quantity()); // Micro lots keep a human order economically meaningful.
                 if(quantity<=0)continue;
                 long price=decision.side().equals("BUY")?floorToTick(Math.round(decision.limitPrice())):ceilToTick(Math.round(decision.limitPrice()));
-                price=dailyBand(symbol.reference).clamp(price);
+                price=quoteBand(symbol.code,symbol.reference,observation.news()).clamp(price);
                 book.submit(participant.id(),stock,decision.side(),decision.market()?"MARKET":"LIMIT",quantity,price,now,Math.max(50,decision.ttlMillis()));
             }
             cursors.put(stock,cursor%group.size());
@@ -133,6 +139,18 @@ final class BotActivityEngine {
     private static PriceMetricService.Metrics withBook(PriceMetricService.Metrics m,long last,double[] d) {
         double mid=d[2]>0&&d[3]>0?(d[0]+d[1])/2:last;
         double micro=d[2]>0&&d[3]>0?(d[1]*d[2]+d[0]*d[3])/(d[2]+d[3]):mid;
-        return new PriceMetricService.Metrics(last,mid,micro,m.vwap(),m.markPrice(),d[0],d[1],(long)d[2],(long)d[3],(d[2]-d[3])/Math.max(1,d[2]+d[3]),m.return5s(),m.return20s(),m.emaSlope(),m.recentHigh(),m.recentLow(),m.volumeTrend(),m.acceleration(),m.rsi(),m.zscore(),m.volatility(),m.volume(),m.return60s(),m.return300s(),m.referenceVwap());
+        return stabilizeQuietBook(new PriceMetricService.Metrics(last,mid,micro,m.vwap(),m.markPrice(),d[0],d[1],(long)d[2],(long)d[3],(d[2]-d[3])/Math.max(1,d[2]+d[3]),m.return5s(),m.return20s(),m.emaSlope(),m.recentHigh(),m.recentLow(),m.volumeTrend(),m.acceleration(),m.rsi(),m.zscore(),m.volatility(),m.volume(),m.return60s(),m.return300s(),m.referenceVwap(),m.recentVolume()));
+    }
+
+    /** Bot decisions must not chase a resting book after executions have gone quiet. */
+    static PriceMetricService.Metrics stabilizeQuietBook(PriceMetricService.Metrics m) {
+        if (m.recentVolume() > 0) return m;
+        long anchor=Math.round(m.lastPrice());
+        // Valuation stays anchored, but executable quotes must remain real. An
+        // invented inside ask prevents all buying, especially near a daily floor
+        // where fitting the LP ladder can widen the spread beyond one percent.
+        long bid=m.bidDepth()>0 ? Math.round(m.bestBid()) : previousTickPrice(anchor);
+        long ask=m.askDepth()>0 ? Math.round(m.bestAsk()) : nextTickPrice(anchor);
+        return new PriceMetricService.Metrics(anchor,anchor,anchor,anchor,anchor,bid,ask,m.bidDepth(),m.askDepth(),m.imbalance(),m.return5s(),m.return20s(),m.emaSlope(),m.recentHigh(),m.recentLow(),m.volumeTrend(),m.acceleration(),m.rsi(),m.zscore(),m.volatility(),m.volume(),m.return60s(),m.return300s(),anchor,m.recentVolume());
     }
 }

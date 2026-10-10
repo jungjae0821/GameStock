@@ -38,6 +38,7 @@ final class MarketActivityPolicy {
     }
     synchronized boolean needsPreparation(boolean active) {return preparedActive==null||preparedActive!=active;}
     synchronized boolean maintenanceDue(long now,boolean active) {return needsPreparation(active)||now>=nextMaintenance;}
+    synchronized void requestMaintenance() {nextMaintenance=Long.MIN_VALUE;}
     synchronized boolean pulseOpen(long now) {return Boolean.FALSE.equals(preparedActive)&&now<pulseUntil;}
     synchronized boolean workDue(String worker,long now,boolean active) {
         return !needsPreparation(active) && (active || pulseOpen(now)&&attempts.getOrDefault(worker,0)<pulseBatches);

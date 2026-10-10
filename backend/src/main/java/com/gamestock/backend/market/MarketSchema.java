@@ -76,6 +76,7 @@ final class MarketSchema {
                     max_inventory INT NOT NULL, risk_limit BIGINT NOT NULL)
                 """);
         jdbc.execute("CREATE TABLE IF NOT EXISTS lp_cash_projection (stock_id BIGINT PRIMARY KEY,last_id BIGINT NOT NULL,cash BIGINT NOT NULL)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS market_liquidity_state (id TINYINT PRIMARY KEY,reserve_version INT NOT NULL DEFAULT 0)");
     }
 
     private void ensurePriceHistoryTable() {

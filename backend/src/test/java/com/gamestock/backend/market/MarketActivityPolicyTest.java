@@ -83,6 +83,13 @@ class MarketActivityPolicyTest {
         assertFalse(policy.maintenanceDue(1000,true));
         assertTrue(policy.maintenanceDue(1800000,true));
     }
+    @Test void reconnectCanRequestOneImmediateMaintenancePass() {
+        var policy=new MarketActivityPolicy();
+        policy.maintain(0,true,1800000,5,()->{});
+        assertFalse(policy.maintenanceDue(1000,true));
+        policy.requestMaintenance();
+        assertTrue(policy.maintenanceDue(1000,true));
+    }
     @Test void simultaneousVisitorsRunWakeMaintenanceOnlyOnce() throws Exception {
         var policy=new MarketActivityPolicy();var count=new AtomicInteger();var start=new CountDownLatch(1);
         var pool=Executors.newFixedThreadPool(8);

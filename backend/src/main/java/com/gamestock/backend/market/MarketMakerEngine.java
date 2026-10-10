@@ -6,22 +6,62 @@ import static com.gamestock.backend.market.PriceLimitPolicy.*;
 
 /** RiskBook is reconstructed from persistent allocations and actual fills. */
 public final class MarketMakerEngine {
+    private static final int QUOTE_LEVELS = 4;
+    private static final int EMERGENCY_QUOTE_SIZE = 8;
     public record RiskBook(long cashBudget,int inventory,int targetInventory,int maxInventory,long riskLimit) {}
     public record Quote(String side,double price,int quantity) {}
     /** External best quotes exclude this LP's orders being replaced; zero means no quote. */
     public record QuoteConstraints(long lowerPrice,long upperPrice,long bestExternalBid,long bestExternalAsk) {}
+
+    /** Cash needed to keep the four-level emergency bid ladder alive at a conservative price. */
+    static long emergencyCashRequirement(long maxQuotePrice) {
+        long gross=Math.multiplyExact(Math.max(1,maxQuotePrice),(long)EMERGENCY_QUOTE_SIZE);
+        return Math.multiplyExact(QUOTE_LEVELS,gross+BatchOrderBook.fee(gross));
+    }
+
+    private static double positive(double value,double fallback) {
+        return Double.isFinite(value)&&value>0?value:fallback;
+    }
+
+    /**
+     * Keep the quote center tied to a slowly moving value as well as recent prints.
+     * The hidden fundamental is bounded by the observed ten-minute VWAP so a stale
+     * news/value update cannot create a sudden jump, while a one-sided low print
+     * cannot walk the LP ladder down forever.
+     */
+    public double fairValue(PriceMetricService.Metrics m,double fundamental) {
+        double last=positive(m.lastPrice(),fundamental);
+        // When there has been no recent execution, the displayed last price is the
+        // only authoritative market anchor. Do not let a stale fundamental or old
+        // VWAP leave the public ladder detached from the price users can see.
+        if (m.volume() == 0 || m.recentVolume() == 0) return last;
+        double referenceVwap=positive(m.referenceVwap(),m.lastPrice());
+        double boundedFundamental=positive(fundamental,referenceVwap);
+        boundedFundamental=clamp(boundedFundamental,referenceVwap*.75,referenceVwap*1.25);
+        double raw=.40*boundedFundamental+.35*referenceVwap+.20*positive(m.vwap(),referenceVwap)
+                +.05*last;
+        // Fundamental/VWAP drift must be earned through executions; never leave
+        // a visible quote ladder more than half a percent from the last trade.
+        return clamp(raw,last*.995,last*1.005);
+    }
+
     public double reservationPrice(PriceMetricService.Metrics m,RiskBook risk,double tick) {
-        // Our own refreshed book must not walk the reference away from actual fills on every refresh.
-        double tradeAnchor=.65*m.vwap()+.35*m.lastPrice();
+        return reservationPrice(m,risk,tick,m.referenceVwap());
+    }
+
+    public double reservationPrice(PriceMetricService.Metrics m,RiskBook risk,double tick,double fundamental) {
+        // Recent fills matter, but they must not be the only source of the next quote center.
+        double tradeAnchor=fairValue(m,fundamental);
         double bookReference=clamp((m.midPrice()+m.microPrice())/2,tradeAnchor*.9975,tradeAnchor*1.0025);
         double reference=.65*tradeAnchor+.35*bookReference;
         double inventoryRatio=(risk.inventory()-risk.targetInventory())/(double)Math.max(1,risk.targetInventory());
         // Low cash also makes selling easier. These are quote incentives, never forced executions.
         double cashPressure=Math.max(0,1-risk.cashBudget()/Math.max(1.0,risk.targetInventory()*reference*.3));
         double skew=clamp((inventoryRatio+cashPressure)*Math.max(tick,reference*(.0005+m.volatility()*.25)),
-                -reference*.003,reference*.003);
+                -reference*.0015,reference*.0015);
         return reference+clamp(m.return5s(),-.002,.002)*reference*.1-skew;
     }
+
     public double halfSpread(PriceMetricService.Metrics m,MarketEnvironment e,RiskBook risk,double tick) {
         double inventoryRisk=Math.min(2,Math.abs(risk.inventory()-risk.targetInventory())/(double)Math.max(1,risk.targetInventory()));
         // Volatility is per second. Quote risk covers the ~2s refresh horizon, not an entire price swing.
@@ -33,8 +73,13 @@ public final class MarketMakerEngine {
         return clamp(spread,tick,Math.max(tick,m.lastPrice()*.004));
     }
     public List<Quote> quotes(PriceMetricService.Metrics m,MarketEnvironment e,RiskBook risk,double tick,double scale,
-                              QuoteConstraints constraints) {
-        double reference=reservationPrice(m,risk,tick),spread=halfSpread(m,e,risk,tick);
+                               QuoteConstraints constraints) {
+        return quotes(m,e,risk,tick,scale,constraints,m.referenceVwap());
+    }
+
+    public List<Quote> quotes(PriceMetricService.Metrics m,MarketEnvironment e,RiskBook risk,double tick,double scale,
+                              QuoteConstraints constraints,double fundamental) {
+        double reference=reservationPrice(m,risk,tick,fundamental),spread=halfSpread(m,e,risk,tick);
         boolean emergency=m.bidDepth()<4 || m.askDepth()<4;
         if(emergency) spread=Math.min(spread*1.4,Math.max(tick,m.lastPrice()*.005));
         double step=Math.max(tick,spread*.5);
@@ -59,9 +104,10 @@ public final class MarketMakerEngine {
                 && nextTickPrice(externalAsk)<=askRoom) ask=nextTickPrice(externalAsk);
         List<Quote> quotes=new ArrayList<>(); long cash=risk.cashBudget(); int inventory=risk.inventory();
         int buyCapacity=Math.max(0,Math.min(risk.maxInventory()-inventory,(int)(risk.riskLimit()/Math.max(1,m.markPrice()))-inventory));
-        for(int level=0;level<4;level++) {
+        for(int level=0;level<QUOTE_LEVELS;level++) {
             double riskSize=1/(1+m.volatility()*100+Math.max(0,e.volatilityMultiplier()-1)*.15);
-            int size=emergency?2:Math.max(1,(int)(18*scale*e.liquidityMultiplier()*riskSize/(1+level*.5)));
+            int size=emergency?Math.max(2,(int)Math.ceil(EMERGENCY_QUOTE_SIZE*scale))
+                    :Math.max(1,(int)(18*scale*e.liquidityMultiplier()*riskSize/(1+level*.5)));
             int b=bid>=lower&&bid<=upper?Math.min(size,Math.min(buyCapacity,(int)Math.min(Integer.MAX_VALUE,cash/(bid*1.001)))):0;
             int a=ask>=lower&&ask<=upper?Math.min(size,inventory):0;
             if(b>0) {quotes.add(new Quote("BUY",bid,b)); cash-=Math.ceil(bid*b*1.001); buyCapacity-=b;}
