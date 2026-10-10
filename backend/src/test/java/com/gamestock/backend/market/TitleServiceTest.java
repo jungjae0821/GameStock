@@ -27,6 +27,7 @@ class TitleServiceTest {
     /** Each position: {quantity, market value}. */
     private final List<long[]> positions = new ArrayList<>();
     private long maxDailyTrades;
+    private String equipped;
     private boolean lastWeekOpen;
     private final Map<Long, Long> adjustedAssets = new LinkedHashMap<>();
     private final List<Long> tradedLastWeek = new ArrayList<>();
@@ -43,6 +44,14 @@ class TitleServiceTest {
                     return titles.putIfAbsent((String) args[2], 1) == null ? 1 : 0;
                 if (sql.contains("INSERT INTO user_titles")) {
                     titles.merge((String) args[2], 1, Integer::sum);
+                    return 1;
+                }
+                if (sql.startsWith("UPDATE user_titles SET equipped = (title_id = ?)")) {
+                    equipped = (String) args[1];
+                    return titles.size();
+                }
+                if (sql.startsWith("UPDATE user_titles SET equipped = FALSE")) {
+                    equipped = null;
                     return 1;
                 }
                 if (sql.startsWith("UPDATE weekly_return_weeks")) {
@@ -79,6 +88,7 @@ class TitleServiceTest {
                         ResultSet rs = mock(ResultSet.class);
                         when(rs.getString(1)).thenReturn(entry.getKey());
                         when(rs.getInt(2)).thenReturn(entry.getValue());
+                        when(rs.getBoolean(5)).thenReturn(entry.getKey().equals(equipped));
                         handler.processRow(rs);
                     }
                     return null;
@@ -146,5 +156,20 @@ class TitleServiceTest {
         // A second tick in the same week must not award again.
         service.awardWeeklyTitles();
         assertEquals(1, titles.get("weekly_1"));
+    }
+
+    @Test void onlyOwnedTitlesCanBeEquippedAndOneAtATime() {
+        titles.put("newbie", 1);
+        titles.put("ant", 1);
+        TitleService service = service();
+        var status = service.equip(7L, "ant");
+        assertEquals(List.of("ant"), status.titles().stream().filter(TitleService.UserTitle::equipped).map(TitleService.UserTitle::id).toList());
+        status = service.equip(7L, "newbie");
+        assertEquals(List.of("newbie"), status.titles().stream().filter(TitleService.UserTitle::equipped).map(TitleService.UserTitle::id).toList());
+        assertThrows(IllegalArgumentException.class, () -> service.equip(7L, "asset_100b"));
+        assertThrows(IllegalArgumentException.class, () -> service.equip(7L, "unknown"));
+        assertEquals("newbie", equipped);
+        status = service.equip(7L, "");
+        assertTrue(status.titles().stream().noneMatch(TitleService.UserTitle::equipped));
     }
 }

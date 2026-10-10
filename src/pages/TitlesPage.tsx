@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Panel } from "../components/Panel";
-import { checkTitles, type TitleStatus, type UserTitle } from "../lib/titles";
+import { checkTitles, equipTitle, type TitleStatus, type UserTitle } from "../lib/titles";
 
 const CATEGORY_ORDER = ["자산", "수익률", "보유", "거래", "활동", "수집", "주간"];
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });
@@ -23,20 +23,25 @@ function CheckIcon() {
   );
 }
 
-function TitleRow({ title, index }: { title: UserTitle; index: number }) {
+type RowProps = { title: UserTitle; pending: boolean; onToggle: (title: UserTitle) => void };
+
+function TitleRow({ title, pending, onToggle }: RowProps) {
   const date = title.weekly ? title.updatedAt : title.acquiredAt;
-  return (
-    <li className={`title-row${title.owned ? " is-owned" : " is-locked"}${title.weekly ? " is-weekly" : ""}`}>
-      <span className="title-index num" aria-hidden="true">{String(index).padStart(2, "0")}</span>
-      <div className="title-copy">
-        <h3 className="title-name">
+  const className = `title-row${title.owned ? " is-owned" : " is-locked"}${title.weekly ? " is-weekly" : ""}${title.equipped ? " is-equipped" : ""}`;
+  const body = (
+    <>
+      {/* 라디오처럼 "고를 수 있는 항목"임을 알리는 표시. 장착하면 안쪽이 채워진다. */}
+      <span className="title-dot" aria-hidden="true" />
+      <span className="title-copy">
+        <span className="title-name">
           {title.name}
           {title.weekly && title.owned && <span className="title-crown num">{title.count}관왕</span>}
-        </h3>
-        <p className="title-condition">{title.description}</p>
-      </div>
+          {title.equipped && <span className="title-equipped">장착됨</span>}
+        </span>
+        <span className="title-condition">{title.description}</span>
+      </span>
       {title.owned ? (
-        <span className="title-seal" aria-label={`획득${date ? ` ${dateFormatter.format(new Date(date))}` : ""}`}>
+        <span className="title-seal">
           <span className="title-seal-mark"><CheckIcon /> 획득</span>
           {date && <span className="title-seal-date num">{dateFormatter.format(new Date(date))}</span>}
         </span>
@@ -45,6 +50,24 @@ function TitleRow({ title, index }: { title: UserTitle; index: number }) {
           <LockIcon />
         </span>
       )}
+    </>
+  );
+  return (
+    <li className="title-item">
+      {title.owned ? (
+        <button
+          type="button"
+          className={className}
+          aria-pressed={title.equipped}
+          title={title.equipped ? "누르면 장착을 해제해요" : "누르면 이 칭호를 장착해요"}
+          disabled={pending}
+          onClick={() => onToggle(title)}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className={className}>{body}</div>
+      )}
     </li>
   );
 }
@@ -52,6 +75,8 @@ function TitleRow({ title, index }: { title: UserTitle; index: number }) {
 export function TitlesPage() {
   const [status, setStatus] = useState<TitleStatus | null>(null);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,18 +91,29 @@ export function TitlesPage() {
     return () => controller.abort();
   }, []);
 
-  // 번호는 카테고리를 넘어 1부터 이어 붙여, 전체 도감처럼 읽히게 한다.
-  let counter = 0;
+  // 이미 장착한 칭호를 다시 누르면 장착을 해제한다.
+  const toggle = async (title: UserTitle) => {
+    if (pending) return;
+    setPending(true);
+    setNotice("");
+    try {
+      setStatus(await equipTitle(title.equipped ? null : title.id));
+    } catch (failure) {
+      setNotice(failure instanceof Error ? failure.message : "칭호를 장착하지 못했습니다.");
+    } finally {
+      setPending(false);
+    }
+  };
+
   const groups = status
-    ? CATEGORY_ORDER.map((category) => ({
-        category,
-        titles: status.titles.filter((title) => title.category === category).map((title) => ({ title, index: ++counter })),
-      })).filter((group) => group.titles.length > 0)
+    ? CATEGORY_ORDER.map((category) => ({ category, titles: status.titles.filter((title) => title.category === category) }))
+        .filter((group) => group.titles.length > 0)
     : [];
+  const equipped = status?.titles.find((title) => title.equipped);
   const percent = status ? Math.round((status.ownedCount / Math.max(1, status.totalCount)) * 100) : 0;
 
   return (
-    <div className="page-stack is-narrow titles-page">
+    <div className="page-stack is-compact titles-page">
       <h1 className="page-title">칭호</h1>
       {error ? (
         <p className="empty is-inline">{error}</p>
@@ -87,7 +123,10 @@ export function TitlesPage() {
         <>
           <section className="title-progress" aria-label="칭호 수집 현황">
             <div className="title-progress-count">
-              <span className="title-progress-label">수집한 칭호</span>
+              <span className="title-progress-label">
+                수집한 칭호
+                {equipped && <> · 장착 중 <strong className="title-progress-equipped">{equipped.name}</strong></>}
+              </span>
               <span className="title-progress-value num">
                 <strong>{status.ownedCount}</strong>
                 <span> / {status.totalCount}</span>
@@ -96,14 +135,15 @@ export function TitlesPage() {
             <div className="title-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={status.totalCount} aria-valuenow={status.ownedCount} aria-label={`${percent}% 수집`}>
               <span className="title-progress-fill" style={{ width: `${percent}%` }} />
             </div>
-            <p className="title-progress-note">조건을 달성하면 자동으로 지급돼요. 주간 수익률 칭호는 매주 월요일에 지급됩니다.</p>
+            <p className="title-progress-note">획득한 칭호를 누르면 장착돼요. 조건을 달성하면 자동으로 지급되고, 주간 수익률 칭호는 매주 월요일에 지급됩니다.</p>
+            {notice && <p className="title-progress-error" role="alert">{notice}</p>}
           </section>
           {groups.map((group) => {
-            const owned = group.titles.filter(({ title }) => title.owned).length;
+            const owned = group.titles.filter((title) => title.owned).length;
             return (
               <Panel key={group.category} id={`titles-${group.category}`} title={`${group.category} 칭호`} meta={`${owned}/${group.titles.length}`}>
                 <ul className="title-list">
-                  {group.titles.map(({ title, index }) => <TitleRow key={title.id} title={title} index={index} />)}
+                  {group.titles.map((title) => <TitleRow key={title.id} title={title} pending={pending} onToggle={toggle} />)}
                 </ul>
               </Panel>
             );

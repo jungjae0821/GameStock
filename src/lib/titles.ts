@@ -7,6 +7,7 @@ export type UserTitle = {
   category: string;
   weekly: boolean;
   owned: boolean;
+  equipped: boolean;
   /** 주간 수익률 칭호의 n관왕 횟수. 일반 칭호는 1. */
   count: number;
   acquiredAt: string | null;
@@ -37,6 +38,11 @@ export async function checkTitles(signal?: AbortSignal): Promise<TitleStatus> {
     window.dispatchEvent(new CustomEvent<UserTitle[]>(AWARD_EVENT, { detail: status.newlyAwarded }));
   }
   return status;
+}
+
+/** 보유한 칭호를 장착한다. 빈 값을 보내면 장착을 해제한다. */
+export function equipTitle(titleId: string | null): Promise<TitleStatus> {
+  return apiFetch<TitleStatus>("/api/titles/equipped", { method: "PUT", body: JSON.stringify({ titleId: titleId ?? "" }) });
 }
 
 export function onTitlesAwarded(listener: (titles: UserTitle[]) => void): () => void {

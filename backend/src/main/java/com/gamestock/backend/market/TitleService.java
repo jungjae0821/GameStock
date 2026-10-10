@@ -47,7 +47,7 @@ public class TitleService {
 
     public record TitleDefinition(String id, String name, String description, String category, boolean weekly) { }
     public record UserTitle(String id, String name, String description, String category, boolean weekly,
-                            boolean owned, int count, String acquiredAt, String updatedAt) { }
+                            boolean owned, boolean equipped, int count, String acquiredAt, String updatedAt) { }
     public record TitleStatus(List<UserTitle> titles, List<UserTitle> newlyAwarded, int ownedCount, int totalCount) { }
 
     public static final List<TitleDefinition> TITLES = List.of(
@@ -107,12 +107,16 @@ public class TitleService {
                 CREATE TABLE IF NOT EXISTS user_titles (
                   user_id BIGINT NOT NULL, title_id VARCHAR(40) NOT NULL,
                   win_count INT NOT NULL DEFAULT 1, notified BOOLEAN NOT NULL DEFAULT FALSE,
+                  equipped BOOLEAN NOT NULL DEFAULT FALSE,
                   acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                   PRIMARY KEY (user_id, title_id),
                   CONSTRAINT fk_user_title_user FOREIGN KEY (user_id) REFERENCES users(id)
                 )
                 """);
+        Integer equippedColumn = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'user_titles' AND column_name = 'equipped'", Integer.class);
+        if (equippedColumn != null && equippedColumn == 0)
+            jdbc.execute("ALTER TABLE user_titles ADD COLUMN equipped BOOLEAN NOT NULL DEFAULT FALSE AFTER notified");
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS weekly_return_weeks (
                   week_start DATE NOT NULL PRIMARY KEY,
@@ -176,23 +180,40 @@ public class TitleService {
         return status(userId, fresh);
     }
 
+    /**
+     * Equips one owned title, or takes the current one off when {@code titleId} is
+     * blank. A single UPDATE keeps at most one title equipped per user.
+     */
+    public TitleStatus equip(long userId, String titleId) {
+        String id = titleId == null ? "" : titleId.trim();
+        if (id.isEmpty()) {
+            jdbc.update("UPDATE user_titles SET equipped = FALSE WHERE user_id = ? AND equipped = TRUE", userId);
+            return status(userId);
+        }
+        if (!BY_ID.containsKey(id)) throw new IllegalArgumentException("존재하지 않는 칭호입니다.");
+        if (!ownedIds(userId).contains(id)) throw new IllegalArgumentException("획득한 칭호만 장착할 수 있습니다.");
+        jdbc.update("UPDATE user_titles SET equipped = (title_id = ?) WHERE user_id = ?", id, userId);
+        return status(userId);
+    }
+
     private TitleStatus status(long userId, List<String> fresh) {
         Map<String, UserTitle> held = new HashMap<>();
-        jdbc.query("SELECT title_id, win_count, acquired_at, updated_at FROM user_titles WHERE user_id = ?", rs -> {
+        jdbc.query("SELECT title_id, win_count, acquired_at, updated_at, equipped FROM user_titles WHERE user_id = ?", rs -> {
             TitleDefinition title = BY_ID.get(rs.getString(1));
             if (title != null)
-                held.put(title.id(), userTitle(title, true, rs.getInt(2), rs.getTimestamp(3), rs.getTimestamp(4)));
+                held.put(title.id(), userTitle(title, true, rs.getBoolean(5), rs.getInt(2), rs.getTimestamp(3), rs.getTimestamp(4)));
         }, userId);
         List<UserTitle> titles = TITLES.stream()
-                .map(title -> held.getOrDefault(title.id(), userTitle(title, false, 0, null, null)))
+                .map(title -> held.getOrDefault(title.id(), userTitle(title, false, false, 0, null, null)))
                 .toList();
         List<UserTitle> newly = fresh.stream().map(held::get).filter(java.util.Objects::nonNull).toList();
         return new TitleStatus(titles, newly, held.size(), TITLES.size());
     }
 
-    private UserTitle userTitle(TitleDefinition title, boolean owned, int count, Timestamp acquiredAt, Timestamp updatedAt) {
+    private UserTitle userTitle(TitleDefinition title, boolean owned, boolean equipped, int count,
+                                Timestamp acquiredAt, Timestamp updatedAt) {
         return new UserTitle(title.id(), title.name(), title.description(), title.category(), title.weekly(),
-                owned, count, iso(acquiredAt), iso(updatedAt));
+                owned, equipped, count, iso(acquiredAt), iso(updatedAt));
     }
 
     private void grantCollectorTitles(long userId, Set<String> owned) {
