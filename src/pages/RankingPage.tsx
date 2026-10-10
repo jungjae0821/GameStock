@@ -24,10 +24,10 @@ function readRankingCache(): RankingEntry[] {
   }
 }
 
-const medalByRank: Record<number, { rank: number; label: string; className: string }> = {
-  1: { rank: 1, label: "1위", className: "is-gold" },
-  2: { rank: 2, label: "2위", className: "is-silver" },
-  3: { rank: 3, label: "3위", className: "is-bronze" },
+const medalByRank: Record<number, { emoji: string; label: string }> = {
+  1: { emoji: "🥇", label: "금메달 1위" },
+  2: { emoji: "🥈", label: "은메달 2위" },
+  3: { emoji: "🥉", label: "동메달 3위" },
 };
 
 export function RankingPage() {
@@ -109,16 +109,13 @@ export function RankingPage() {
                   <tr key={`${entry.rank}-${entry.nickname}`}>
                     <th scope="row" className="ranking-page-rank num">
                       <span className="ranking-rank-content">
-                        {medalByRank[entry.rank] && (
-                          <span
-                            className={`ranking-medal ${medalByRank[entry.rank].className}`}
-                            role="img"
-                            aria-label={medalByRank[entry.rank].label}
-                          >
-                            <span className="num">{medalByRank[entry.rank].rank}</span>
+                        {medalByRank[entry.rank] ? (
+                          <span className="ranking-medal" role="img" aria-label={medalByRank[entry.rank].label}>
+                            {medalByRank[entry.rank].emoji}
                           </span>
+                        ) : (
+                          <span>{entry.rank}</span>
                         )}
-                        {!medalByRank[entry.rank] && <span>{entry.rank}</span>}
                       </span>
                     </th>
                     <td className="ranking-page-name">

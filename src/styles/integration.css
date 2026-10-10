@@ -39,12 +39,11 @@
     color: var(--brand-deep); background: var(--brand-wash); border: 1px solid color-mix(in oklab, var(--brand) 40%, transparent);
   }
   .ranking-title.is-weekly { color: var(--amber-deep); background: var(--amber-wash); border-color: color-mix(in oklab, var(--amber) 45%, transparent); }
-  .ranking-nickname { overflow-wrap: anywhere; }
+  /* 시장·속보 목록의 종목명/제목과 같은 크기로 맞춘다. */
+  .ranking-nickname { overflow-wrap: anywhere; font-size: var(--step-2); }
+  .integration-ranking .ranking-page-rank { font-size: var(--step-2); }
+  .integration-ranking .ranking-medal { font-size: var(--step-4); line-height: 1; }
   .ranking-avatar { width: 42px; height: 42px; flex: 0 0 42px; object-fit: cover; border: 1px solid var(--rule); border-radius: 50%; background: var(--sunken); }
-  .integration-ranking .ranking-medal { font-weight: 800; }
-  .integration-ranking .is-gold { color: var(--amber-deep); }
-  .integration-ranking .is-silver { color: var(--ink-muted); }
-  .integration-ranking .is-bronze { color: var(--brand-wine); }
   .integration-trading .chart-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
   .integration-trading .chart-range, .integration-trading .chart-modes { display: flex; flex-wrap: wrap; gap: 8px; }
   .integration-trading .chart-crosshair { stroke: var(--ink-faint); stroke-dasharray: 3 3; }
