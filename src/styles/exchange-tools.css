@@ -52,8 +52,8 @@
 
   .integration-tools .detail-name {
     font-size: var(--step-3);
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: var(--tracking);
     line-height: 1.3;
   }
 
@@ -77,8 +77,8 @@
 
   .integration-tools .detail-price-value {
     font-size: var(--step-5);
-    font-weight: 800;
-    letter-spacing: -0.03em;
+    font-weight: 700;
+    letter-spacing: var(--tracking);
   }
 
   .integration-tools .detail-tabs {
@@ -533,7 +533,7 @@
   }
 
   .integration-tools .book-price-button.is-best {
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .integration-tools .book-cumulative {
@@ -597,7 +597,7 @@
 
   .integration-tools .book-current-price {
     font-size: var(--step-1);
-    font-weight: 800;
+    font-weight: 700;
     white-space: nowrap;
   }
 
@@ -975,11 +975,11 @@
 
 @layer component {
   .integration-tools .stock-detail-head { margin-bottom: 12px; }
-  .integration-tools .stock-detail-head .detail-name { font-size: 23px; }
+  .integration-tools .stock-detail-head .detail-name { font-size: var(--step-4); }
   .integration-tools .stock-detail-ident-text { min-width: 0; }
   .integration-tools .stock-detail-price { margin-top: 16px; }
-  .integration-tools .stock-detail-price .detail-price-value { font-size: 34px; line-height: 1.3; }
-  .integration-tools .stock-detail-change { margin-top: 3px; font-size: 15px; }
+  .integration-tools .stock-detail-price .detail-price-value { font-size: var(--step-5); line-height: 1.3; }
+  .integration-tools .stock-detail-change { margin-top: 3px; font-size: var(--step-2); }
   .integration-tools .stock-detail-change > span { color: var(--ink-muted); }
   .integration-tools .stock-detail-change.is-up strong { color: var(--up-deep); }
   .integration-tools .stock-detail-change.is-down strong { color: var(--down-deep); }
@@ -994,20 +994,20 @@
   .integration-tools .stock-chart-card { min-width: 0; padding: 20px; border: var(--rule-width) solid var(--rule); border-radius: 18px; background: var(--paper); }
   .integration-tools .stock-session-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 20px; margin-top: 24px; padding-top: 18px; border-top: var(--rule-width) solid var(--rule); }
   .integration-tools .stock-session-stats > div { min-width: 0; }
-  .integration-tools .stock-session-stats dt { color: var(--ink-muted); font-size: 12px; }
-  .integration-tools .stock-session-stats dd { margin-top: 2px; font-size: 14px; font-weight: 600; }
+  .integration-tools .stock-session-stats dt { color: var(--ink-muted); font-size: var(--step-0); }
+  .integration-tools .stock-session-stats dd { margin-top: 2px; font-size: var(--step-1); font-weight: 600; }
   .integration-tools .stock-series-chart .chart-toolbar { flex-wrap: nowrap; margin-bottom: 0; gap: 16px; }
   .integration-tools .stock-series-chart .chart-range-control { flex-wrap: nowrap; overflow-x: auto; min-width: 0; padding-bottom: 4px; }
   .integration-tools .stock-series-chart .chart-mode-control { flex: none; flex-wrap: nowrap; }
-  .integration-tools .stock-series-chart .chart-control-button { border: 0; border-radius: 0; background: none; padding: 4px 6px; font-size: 13px; min-height: 32px; }
-  .integration-tools .stock-series-chart .chart-control-button.is-active { color: var(--ink); font-weight: 800; }
+  .integration-tools .stock-series-chart .chart-control-button { border: 0; border-radius: 0; background: none; padding: 4px 6px; font-size: var(--step-1); min-height: 32px; }
+  .integration-tools .stock-series-chart .chart-control-button.is-active { color: var(--ink); font-weight: 700; }
   .integration-tools .stock-series-chart .chart-control-button:hover { color: var(--ink); background: var(--sunken); }
   .integration-tools .stock-series-chart .chart-readout { display: flex; align-items: center; justify-content: center; min-height: 64px; padding: 8px 0 12px; text-align: center; }
-  .integration-tools .stock-series-chart .chart-status { margin: 0; font-size: 12px; }
+  .integration-tools .stock-series-chart .chart-status { margin: 0; font-size: var(--step-0); }
   .integration-tools .chart-hover-readout { display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
-  .integration-tools .chart-hover-readout time { color: var(--ink-muted); font-size: 12px; }
-  .integration-tools .chart-hover-readout strong { color: var(--ink); font-size: 23px; font-weight: 800; line-height: 1.25; }
-  .integration-tools .chart-hover-ohlc { font-size: 11px; color: var(--ink-muted); }
+  .integration-tools .chart-hover-readout time { color: var(--ink-muted); font-size: var(--step-0); }
+  .integration-tools .chart-hover-readout strong { color: var(--ink); font-size: var(--step-4); font-weight: 700; line-height: 1.25; }
+  .integration-tools .chart-hover-ohlc { font-size: var(--step--1); color: var(--ink-muted); }
   .integration-tools .stock-series-chart .chart-plot { height: clamp(340px, 42vh, 500px); padding: 0 70px 0 0; }
   .integration-tools .chart-canvas { position: relative; width: 100%; height: 100%; cursor: crosshair; touch-action: pan-y; }
   .integration-tools .stock-series-chart .chart-plot svg { overflow: hidden; }
@@ -1015,19 +1015,19 @@
   .integration-tools .stock-series-chart.is-down { color: var(--down); }
   .integration-tools .stock-series-chart.is-flat { color: var(--ink-muted); }
   .integration-tools .stock-series-chart .chart-line { stroke-width: 2.3; }
-  .integration-tools .chart-extreme { position: absolute; left: 8px; color: var(--ink-muted); font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; }
+  .integration-tools .chart-extreme { position: absolute; left: 8px; color: var(--ink-muted); font-size: var(--step--1); font-variant-numeric: tabular-nums; pointer-events: none; }
   .integration-tools .chart-extreme.is-high { transform: translateY(calc(-100% - 7px)); }
   .integration-tools .chart-extreme.is-low { transform: translateY(7px); }
   .integration-tools .chart-last-dot,
   .integration-tools .chart-hover-dot { position: absolute; width: 9px; height: 9px; border: 2px solid var(--paper); border-radius: 50%; background: currentColor; transform: translate(-50%, -50%); pointer-events: none; }
   .integration-tools .chart-hover-dot { width: 11px; height: 11px; box-shadow: 0 0 0 5px color-mix(in oklab, currentColor 15%, transparent); }
   .integration-tools .chart-crosshair { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--ink-faint); pointer-events: none; }
-  .integration-tools .stock-series-chart .chart-current { width: 68px; font-size: 12px; }
-  .integration-tools .chart-timeline { display: flex; justify-content: space-between; gap: 12px; padding: 16px 70px 0 0; color: var(--ink-muted); font-size: 11px; }
+  .integration-tools .stock-series-chart .chart-current { width: 68px; font-size: var(--step-0); }
+  .integration-tools .chart-timeline { display: flex; justify-content: space-between; gap: 12px; padding: 16px 70px 0 0; color: var(--ink-muted); font-size: var(--step--1); }
   .integration-tools .stock-purchase-bar { position: fixed; z-index: 100; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; padding: 14px 24px max(14px, env(safe-area-inset-bottom)); border-top: var(--rule-width) solid var(--rule); background: var(--paper); }
   .integration-tools .stock-trade-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; width: 100%; max-width: 1120px; }
   .integration-tools .stock-trade-actions.has-holding { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .integration-tools .stock-purchase-button { width: 100%; min-height: 52px; border-radius: 12px; background: #f43f5e; color: white; font-size: 17px; font-weight: 750; box-shadow: 0 4px 14px rgb(244 63 94 / 18%); }
+  .integration-tools .stock-purchase-button { width: 100%; min-height: 52px; border-radius: 12px; background: #f43f5e; color: white; font-size: var(--step-3); font-weight: 700; box-shadow: 0 4px 14px rgb(244 63 94 / 18%); }
   .integration-tools .stock-purchase-button:hover { background: #e73553; }
   .integration-tools .stock-purchase-button.is-sell { background: var(--down-deep); }
   .integration-tools .stock-purchase-button.is-sell:hover { background: color-mix(in oklab, var(--down-deep) 88%, black); }
@@ -1036,9 +1036,9 @@
   .integration-tools .stock-order-dialog::backdrop { background: rgb(25 22 30 / 26%); backdrop-filter: blur(2px); }
   .integration-tools .stock-order-dialog-content { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); }
   .integration-tools .stock-order-dialog-head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: var(--rule-width) solid var(--rule); }
-  .integration-tools .stock-order-dialog-head h2 { font-size: 18px; }
-  .integration-tools .stock-order-dialog-head p { margin-top: 2px; color: var(--ink-muted); font-size: 12px; }
-  .integration-tools .stock-order-close { flex: none; width: 34px; height: 34px; border-radius: 8px; color: var(--ink-muted); font-size: 25px; line-height: 1; }
+  .integration-tools .stock-order-dialog-head h2 { font-size: var(--step-3); }
+  .integration-tools .stock-order-dialog-head p { margin-top: 2px; color: var(--ink-muted); font-size: var(--step-0); }
+  .integration-tools .stock-order-close { flex: none; width: 34px; height: 34px; border-radius: 8px; color: var(--ink-muted); font-size: var(--step-4); line-height: 1; }
   .integration-tools .stock-order-close:hover { background: var(--sunken); color: var(--ink); }
   .integration-tools .stock-order-dialog-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px; }
 }
@@ -1054,24 +1054,24 @@
     .integration-tools .stock-detail-sidebar .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 600px) {
-    .integration-tools .stock-detail-head .detail-name { font-size: 19px; }
+    .integration-tools .stock-detail-head .detail-name { font-size: var(--step-3); }
     .integration-tools .stock-detail-price { margin-top: 18px; }
-    .integration-tools .stock-detail-price .detail-price-value { font-size: 30px; }
-    .integration-tools .stock-detail-change { font-size: 13px; }
+    .integration-tools .stock-detail-price .detail-price-value { font-size: var(--step-5); }
+    .integration-tools .stock-detail-change { font-size: var(--step-1); }
     .integration-tools .stock-chart-card { padding: 14px 12px; }
     .integration-tools .stock-series-chart .chart-toolbar { flex-direction: column; align-items: stretch; gap: 4px; }
     .integration-tools .stock-series-chart .chart-range-control { width: 100%; max-width: 100%; }
     .integration-tools .stock-series-chart .chart-mode-control { align-self: flex-end; }
     .integration-tools .stock-series-chart .chart-readout { min-height: 76px; }
     .integration-tools .stock-series-chart .chart-plot { height: 280px; padding-right: 60px; }
-    .integration-tools .stock-series-chart .chart-current { width: 58px; font-size: 11px; }
-    .integration-tools .chart-hover-readout strong { font-size: 21px; }
-    .integration-tools .chart-hover-ohlc { font-size: 10px; }
-    .integration-tools .chart-timeline { padding-right: 60px; font-size: 10px; }
+    .integration-tools .stock-series-chart .chart-current { width: 58px; font-size: var(--step--1); }
+    .integration-tools .chart-hover-readout strong { font-size: var(--step-3); }
+    .integration-tools .chart-hover-ohlc { font-size: var(--step--2); }
+    .integration-tools .chart-timeline { padding-right: 60px; font-size: var(--step--2); }
     .integration-tools .stock-session-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
     .integration-tools .stock-detail-sidebar .stat-grid { grid-template-columns: minmax(0, 1fr); }
     .integration-tools .stock-purchase-bar { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
-    .integration-tools .stock-purchase-button { min-height: 48px; font-size: 16px; }
+    .integration-tools .stock-purchase-button { min-height: 48px; font-size: var(--step-2); }
     .integration-tools .stock-order-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); margin: auto 8px 8px; }
     .integration-tools .stock-order-dialog-content { max-height: calc(100dvh - 18px); }
     .integration-tools .stock-order-dialog-head { padding: 16px; }
@@ -1098,7 +1098,7 @@
 
   .integration-tools .delta-arrow {
     /* frontend-apex-ignore: tiny-ui-text -- 장식 글리프이며 방향은 부호와 색이 함께 전달한다 */
-    font-size: 9px;
+    font-size: var(--step--2);
     line-height: 1;
   }
 
@@ -1124,7 +1124,7 @@
     border-radius: var(--radius-sm);
     background: var(--paper);
     /* frontend-apex-ignore: tiny-ui-text -- 종목 코드 각인 배지. 옆에 같은 이름이 있고 aria-hidden */
-    font-size: 10px;
+    font-size: var(--step--2);
     letter-spacing: 0.05em;
     color: var(--ink-muted);
   }
@@ -1141,7 +1141,7 @@
     width: 26px;
     height: 18px;
     /* frontend-apex-ignore: tiny-ui-text -- 좁은 레일에서 쓰는 축소형 각인 배지 */
-    font-size: 9px;
+    font-size: var(--step--2);
   }
 
   .integration-tools .game-icon {
@@ -1174,7 +1174,7 @@
     place-items: center;
     background: var(--sunken);
     color: var(--ink-muted);
-    font-size: 10px;
+    font-size: var(--step--2);
     letter-spacing: 0.04em;
   }
 
@@ -1540,7 +1540,7 @@
     gap: var(--space-2);
     font-size: var(--step-4);
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: var(--tracking);
     line-height: 1.2;
   }
 
@@ -2070,7 +2070,7 @@
   .integration-tools .board-title {
     font-size: var(--step-1);
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--tracking);
     color: var(--paper);
   }
 
@@ -2122,7 +2122,7 @@
     font-size: var(--step-3);
     font-weight: 600;
     line-height: 1.25;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--tracking);
     color: var(--led);
   }
 
@@ -2181,7 +2181,7 @@
 
   .integration-tools .board-arrow {
     /* frontend-apex-ignore: tiny-ui-text -- 장식 글리프이며 방향은 부호와 색이 함께 전달한다 */
-    font-size: 9px;
+    font-size: var(--step--2);
     line-height: 1;
   }
 }
@@ -2252,7 +2252,7 @@
     border-radius: 6px;
     background: var(--notice-bg);
     color: var(--notice-ink);
-    font: 700 11px/1.3 var(--font-ui);
+    font: 700 var(--step--1)/1.3 var(--font-ui);
     white-space: nowrap;
     cursor: pointer;
   }
@@ -2274,15 +2274,15 @@
     background: var(--paper);
     color: var(--ink);
     box-shadow: var(--shadow-float);
-    font: 400 13px/1.6 var(--font-ui);
+    font: 400 var(--step-1)/1.6 var(--font-ui);
     white-space: normal;
     text-align: left;
   }
   .integration-tools .restriction-popover-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-  .integration-tools .restriction-popover-head > button { flex-shrink: 0; width: 34px; height: 34px; font-size: 23px; }
+  .integration-tools .restriction-popover-head > button { flex-shrink: 0; width: 34px; height: 34px; font-size: var(--step-4); }
   .integration-tools .restriction-popover p { margin-top: 10px; overflow-wrap: anywhere; }
   .integration-tools .restriction-countdown { font-weight: 700; color: var(--notice-ink); font-variant-numeric: tabular-nums; }
-  .integration-tools .restriction-time { color: var(--ink-muted); font-size: 12px; }
+  .integration-tools .restriction-time { color: var(--ink-muted); font-size: var(--step-0); }
   .integration-tools .ticket-restriction { margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--notice-rule); border-radius: 8px; background: var(--notice-bg); color: var(--notice-ink); line-height: 1.5; }
   .integration-tools .board-value-link { display: flex; flex-direction: column; gap: 2px; text-decoration: none; }
   .integration-tools .board-cell .stock-name-group { gap: 4px; }
@@ -2324,7 +2324,7 @@
   .integration-tools .panel-title {
     font-size: var(--step-0);
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--tracking);
   }
 
   .integration-tools .panel-meta {

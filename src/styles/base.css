@@ -18,6 +18,7 @@
     font-family: var(--font-ui);
     font-size: var(--step-1);
     line-height: 1.6;
+    letter-spacing: var(--tracking);
     font-synthesis: none;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -57,7 +58,12 @@
     color: var(--ink-faint);
   }
 
-  input {
+  input,
+  select,
+  textarea,
+  kbd,
+  code,
+  samp {
     font: inherit;
     color: inherit;
   }

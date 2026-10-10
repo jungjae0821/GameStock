@@ -65,8 +65,8 @@
 
   .trade-head-title {
     font-size: var(--step-4);
-    font-weight: 800;
-    letter-spacing: -0.04em;
+    font-weight: 700;
+    letter-spacing: var(--tracking);
     line-height: 1.25;
   }
 
@@ -84,8 +84,8 @@
 
   .trade-head-price-value {
     font-size: var(--step-5);
-    font-weight: 800;
-    letter-spacing: -0.05em;
+    font-weight: 700;
+    letter-spacing: var(--tracking);
   }
 
   .trade-layout {
@@ -131,7 +131,7 @@
 
   .trade-order-head h2 {
     font-size: var(--step-3);
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .trade-order-head span {
@@ -202,11 +202,11 @@
   .trade-page .stock-chart-card { padding: 16px; }
   .trade-page .trade-order-panel .ticket { padding: 0; }
   .trade-page .trade-order-head { padding: 10px 12px; border-bottom: 1px solid var(--rule); }
-  .trade-page .trade-order-head h2 { font-size: 13px; font-weight: 700; }
+  .trade-page .trade-order-head h2 { font-size: var(--step-1); font-weight: 700; }
   .trade-page .trade-book-panel .book { margin-top: 10px; padding: 0 8px; }
-  .trade-page .book-spread { padding: 8px 4px; font-size: 10px; }
+  .trade-page .book-spread { padding: 8px 4px; font-size: var(--step--2); }
   .trade-page .book-row { min-height: 34px; }
-  .trade-page .trade-book-panel .book { font-size: 13px; }
+  .trade-page .trade-book-panel .book { font-size: var(--step-1); }
   .trade-page .terminal-tabs {
     display: flex;
     align-items: center;
@@ -222,7 +222,7 @@
     border: 1px solid transparent;
     border-radius: 5px;
     color: var(--ink-muted);
-    font-size: 12px;
+    font-size: var(--step-0);
     font-weight: 600;
     white-space: nowrap;
   }
@@ -230,15 +230,15 @@
   .trade-page .terminal-tab.is-buy.is-active { color: var(--up-deep); background: var(--up-wash); border-color: var(--up); }
   .trade-page .terminal-tab.is-sell.is-active { color: var(--down-deep); background: var(--down-wash); border-color: var(--down); }
   .trade-page .terminal-help { position: relative; margin-left: auto; }
-  .trade-page .terminal-help summary { cursor: pointer; list-style: none; padding: 0 6px; font-size: 20px; line-height: 28px; }
+  .trade-page .terminal-help summary { cursor: pointer; list-style: none; padding: 0 6px; font-size: var(--step-3); line-height: 28px; }
   .trade-page .terminal-help summary::-webkit-details-marker { display: none; }
   .trade-page .terminal-help-content {
     position: absolute; top: 34px; right: 0; z-index: 3; display: grid; gap: 6px;
     width: 238px; padding: 12px; border: 1px solid var(--rule); border-radius: 6px;
-    background: var(--paper); color: var(--ink-muted); font-size: 11px;
+    background: var(--paper); color: var(--ink-muted); font-size: var(--step--1);
   }
   .trade-page .terminal-ticket-body { padding: 10px 12px 12px; }
-  .trade-page .terminal-shortcuts { padding: 9px 12px; border-bottom: 1px solid var(--rule); color: var(--ink-muted); font-size: 11px; }
+  .trade-page .terminal-shortcuts { padding: 9px 12px; border-bottom: 1px solid var(--rule); color: var(--ink-muted); font-size: var(--step--1); }
   .trade-page .terminal-shortcuts-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
   .trade-page .terminal-shortcuts-head strong { color: var(--ink); font-weight: 600; }
   .trade-page .terminal-shortcuts-head button { min-height: 28px; margin-left: auto; padding: 3px 7px; border: 1px solid var(--rule); border-radius: 4px; color: var(--ink); }
@@ -247,13 +247,13 @@
   .trade-page .terminal-shortcuts-keys { display: flex; flex-wrap: wrap; gap: 6px 12px; }
   .trade-page .terminal-shortcuts-keys > span { white-space: nowrap; }
   .trade-page .terminal-shortcuts kbd { font: inherit; font-weight: 600; color: var(--ink); }
-  .trade-page .terminal-shortcuts p { margin-top: 7px; font-size: 10px; min-height: 30px; line-height: 1.5; }
-  .trade-page .terminal-account-line { display: flex; justify-content: space-between; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 5px; font-size: 11px; color: var(--ink-muted); }
+  .trade-page .terminal-shortcuts p { margin-top: 7px; font-size: var(--step--2); min-height: 30px; line-height: 1.5; }
+  .trade-page .terminal-account-line { display: flex; justify-content: space-between; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 5px; font-size: var(--step--1); color: var(--ink-muted); }
   .trade-page .terminal-account-line > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .trade-page .terminal-symbol { display: flex; align-items: center; gap: 6px; margin: 12px 0; }
   .trade-page .terminal-symbol .game-icon { flex: none; width: 24px; height: 24px; }
   .trade-page .terminal-symbol select { flex: 1; min-width: 0; }
-  .trade-page .terminal-symbol-code { width: 38px; font-size: 11px; }
+  .trade-page .terminal-symbol-code { width: 38px; font-size: var(--step--1); }
   .trade-page .terminal-watch { height: 30px; width: 30px; flex: none; border: 1px solid var(--rule); border-radius: 5px; color: var(--ink-muted); }
   .trade-page .terminal-watch.is-on { color: var(--amber-deep); background: var(--amber-wash); }
   .trade-page .terminal-watch-mark { display: inline-grid; width: 1em; height: 1em; vertical-align: middle; line-height: 1; }
@@ -262,49 +262,49 @@
   .trade-page .is-on > .terminal-watch-mark > .watch-outline { opacity: 0; scale: .25; filter: blur(4px); }
   .trade-page .is-on > .terminal-watch-mark > .watch-filled { opacity: 1; scale: 1; filter: blur(0); }
   .trade-page .terminal-field { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
-  .trade-page .terminal-field > label { width: 70px; flex: none; font-size: 12px; }
-  .trade-page .terminal-field small { font-size: 10px; color: var(--ink-muted); margin-left: 2px; }
+  .trade-page .terminal-field > label { width: 70px; flex: none; font-size: var(--step-0); }
+  .trade-page .terminal-field small { font-size: var(--step--2); color: var(--ink-muted); margin-left: 2px; }
   .trade-page .terminal-field > select { flex: 1; min-width: 0; }
-  .trade-page .terminal-field-note { color: var(--ink-muted); font-size: 10px; white-space: nowrap; }
-  .trade-page .terminal-ticket select { height: 30px; padding: 3px 7px; border: 1px solid var(--rule); border-radius: 5px; font-size: 12px; }
-  .trade-page .terminal-buying-power { display: flex; justify-content: space-between; gap: 8px; margin: 20px 0 12px; font-size: 11px; color: var(--ink-muted); }
+  .trade-page .terminal-field-note { color: var(--ink-muted); font-size: var(--step--2); white-space: nowrap; }
+  .trade-page .terminal-ticket select { height: 30px; padding: 3px 7px; border: 1px solid var(--rule); border-radius: 5px; font-size: var(--step-0); }
+  .trade-page .terminal-buying-power { display: flex; justify-content: space-between; gap: 8px; margin: 20px 0 12px; font-size: var(--step--1); color: var(--ink-muted); }
   .trade-page .terminal-buying-power strong { font-weight: 500; color: var(--ink); }
   .trade-page .terminal-quantity-control,
   .trade-page .terminal-price-control { display: flex; flex: 1; align-items: stretch; gap: 5px; min-width: 0; }
   .trade-page .terminal-ticket .ticket-input { flex: 1; min-width: 0; gap: 3px; padding: 0 7px; border: 1px solid var(--rule); border-radius: 5px; }
-  .trade-page .terminal-ticket .ticket-input input { width: 100%; height: 30px; padding: 2px 0; border: 0; font-size: 13px; border-radius: 0; font-weight: 600; appearance: textfield; }
+  .trade-page .terminal-ticket .ticket-input input { width: 100%; height: 30px; padding: 2px 0; border: 0; font-size: var(--step-1); border-radius: 0; font-weight: 600; appearance: textfield; }
   .trade-page .terminal-ticket input::-webkit-inner-spin-button,
   .trade-page .terminal-ticket input::-webkit-outer-spin-button { appearance: none; margin: 0; }
   .trade-page .terminal-ticket.is-buy .terminal-price-input { background: var(--up-wash); }
   .trade-page .terminal-ticket.is-sell .terminal-price-input { background: var(--down-wash); }
   .trade-page .terminal-ticket .terminal-price-input input { background: transparent; }
   .trade-page .terminal-small-button,
-  .trade-page .terminal-step { flex: none; min-height: 30px; padding: 0 8px; border: 1px solid var(--rule); border-radius: 5px; background: var(--sunken); font-size: 11px; white-space: nowrap; }
-  .trade-page .terminal-step { width: 29px; padding: 0; font-size: 17px; background: var(--paper); }
+  .trade-page .terminal-step { flex: none; min-height: 30px; padding: 0 8px; border: 1px solid var(--rule); border-radius: 5px; background: var(--sunken); font-size: var(--step--1); white-space: nowrap; }
+  .trade-page .terminal-step { width: 29px; padding: 0; font-size: var(--step-3); background: var(--paper); }
   .trade-page .terminal-price-control { flex-wrap: wrap; }
   .trade-page .terminal-price-control .ticket-input { flex-basis: 90px; }
   .trade-page .terminal-current-price { padding-inline: 6px; }
   .trade-page .terminal-presets { display: flex; justify-content: flex-end; gap: 6px; margin: 6px 0 12px; }
-  .trade-page .terminal-presets button { min-height: 24px; padding: 1px 8px; border: 1px solid var(--rule); border-radius: 4px; color: var(--ink-muted); font-size: 10px; }
-  .trade-page .terminal-input-hint { min-height: 30px; margin-top: 6px; font-size: 10px; line-height: 1.5; color: var(--ink-muted); }
-  .trade-page .terminal-field-hint { min-height: 30px; margin-top: 6px; font-size: 10px; line-height: 1.5; color: var(--ink-muted); }
+  .trade-page .terminal-presets button { min-height: 24px; padding: 1px 8px; border: 1px solid var(--rule); border-radius: 4px; color: var(--ink-muted); font-size: var(--step--2); }
+  .trade-page .terminal-input-hint { min-height: 30px; margin-top: 6px; font-size: var(--step--2); line-height: 1.5; color: var(--ink-muted); }
+  .trade-page .terminal-field-hint { min-height: 30px; margin-top: 6px; font-size: var(--step--2); line-height: 1.5; color: var(--ink-muted); }
   .trade-page .ticket-input:has(input[aria-invalid="true"]) { border-color: var(--up-deep); }
-  .trade-page .terminal-total { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 5px 0 16px; font-size: 12px; }
-  .trade-page .terminal-total strong { font-size: 19px; letter-spacing: -0.025em; }
-  .trade-page .terminal-ticket .submit-button { min-height: 40px; padding: 8px; border-radius: 5px; font-size: 14px; }
+  .trade-page .terminal-total { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 5px 0 16px; font-size: var(--step-0); }
+  .trade-page .terminal-total strong { font-size: var(--step-3); letter-spacing: var(--tracking); }
+  .trade-page .terminal-ticket .submit-button { min-height: 40px; padding: 8px; border-radius: 5px; font-size: var(--step-1); }
   .trade-page .terminal-ticket .submit-button.is-buy:not(:disabled) { background: var(--up-deep); }
   .trade-page .terminal-ticket .submit-button.is-sell:not(:disabled) { background: var(--down-deep); }
-  .trade-page .terminal-status { display: flex; justify-content: space-between; gap: 8px; min-height: 30px; margin: 0; padding: 7px 10px; border-top: 1px solid var(--rule); background: var(--sunken); color: var(--ink-muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+  .trade-page .terminal-status { display: flex; justify-content: space-between; gap: 8px; min-height: 30px; margin: 0; padding: 7px 10px; border-top: 1px solid var(--rule); background: var(--sunken); color: var(--ink-muted); font-size: var(--step--2); line-height: 1.5; overflow-wrap: anywhere; }
   .trade-page .terminal-status button { flex: none; text-decoration: underline; }
   .trade-page .terminal-status.is-success { color: var(--ink); font-weight: 600; }
   .trade-page .is-error { color: var(--up-deep); }
   .trade-page input[aria-invalid="true"] { color: var(--up-deep); }
-  .trade-page .terminal-account-toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; font-size: 11px; color: var(--ink-muted); }
+  .trade-page .terminal-account-toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; font-size: var(--step--1); color: var(--ink-muted); }
   .trade-page .terminal-filter { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; white-space: nowrap; cursor: pointer; }
   .trade-page .terminal-filter input { width: 13px; height: 13px; accent-color: var(--brand-deep); }
   .trade-page .terminal-currency { padding: 3px 8px; border: 1px solid var(--rule); border-radius: 4px; color: var(--ink); white-space: nowrap; }
   .trade-page .terminal-table-scroll { overflow: auto; min-height: 140px; max-height: 240px; }
-  .trade-page .terminal-table { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .trade-page .terminal-table { width: 100%; border-collapse: collapse; font-size: var(--step--1); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .trade-page .terminal-table thead { background: var(--sunken); color: var(--ink-muted); }
   .trade-page .terminal-table th,
   .trade-page .terminal-table td { padding: 8px; text-align: right; font-weight: 400; }
@@ -344,10 +344,10 @@
   }
   @media (max-width: 480px) {
     .trade-page .terminal-tabs { gap: 2px; padding-inline: 6px; }
-    .trade-page .terminal-tab { padding-inline: 7px; font-size: 11px; }
+    .trade-page .terminal-tab { padding-inline: 7px; font-size: var(--step--1); }
     .trade-page .terminal-field > label { width: 60px; }
     .trade-page .terminal-field small { display: none; }
-    .trade-page .terminal-field-note { font-size: 9px; }
+    .trade-page .terminal-field-note { font-size: var(--step--2); }
     .trade-page .terminal-account-toolbar { gap: 7px; padding-inline: 8px; }
     .trade-page .terminal-account-toolbar > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .trade-page .terminal-ticket-body { padding-inline: 10px; }

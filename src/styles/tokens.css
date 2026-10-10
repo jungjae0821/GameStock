@@ -1,5 +1,14 @@
 @layer tokens, base, layout, component, responsive, utility;
 
+/* 경기천년제목 Medium (경기도 무료 배포 서체, 상업적 사용 가능) */
+@font-face {
+  font-family: "GyeonggiTitle";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/GyeonggiTitleM.woff") format("woff");
+  font-weight: 100 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer tokens {
   :root {
     color-scheme: light;
@@ -66,17 +75,26 @@
 
     --focus: var(--brand-deep);
 
-    --font-ui: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
-      "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    /*
+     * 글꼴은 경기천년제목 하나로 통일한다. 굵기는 두 단계만 쓴다:
+     * 400~600(파일 그대로 Medium)과 700(제목·숫자 강조).
+     * 위계는 굵기보다 크기와 색으로 만든다.
+     */
+    --font-ui: "GyeonggiTitle", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+      "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    --tracking: -0.01em;
 
-    --step--2: 10px;
-    --step--1: 11px;
-    --step-0: 12px;
-    --step-1: 13px;
-    --step-2: 15px;
-    --step-3: 19px;
-    --step-4: 24px;
-    --step-5: 30px;
+    /* 글자 크기는 이 아홉 단계만 쓴다. 픽셀 값을 직접 적지 않는다. */
+    --step--2: 11px; /* 보조 표기·배지 */
+    --step--1: 12px; /* 표 머리·캡션 */
+    --step-0: 13px; /* 표 본문·작은 버튼 */
+    --step-1: 14px; /* 본문 */
+    --step-2: 16px; /* 메뉴·소제목 */
+    --step-3: 20px; /* 구획 제목 */
+    --step-4: 24px; /* 종목명·카드 제목 */
+    --step-5: 30px; /* 페이지 제목 */
+    --step-6: 40px; /* 큰 시세 */
+    --step-7: 52px; /* 대표 숫자 */
 
     --space-1: 4px;
     --space-2: 8px;
