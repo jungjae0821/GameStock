@@ -37,7 +37,7 @@ export function PromoCodePanel() {
   return (
     <Panel id="promo-code" title="프로모션 코드">
       <form className="account-form promo-form" onSubmit={submit}>
-        <label htmlFor="promo-code-input">코드를 입력하면 특별 칭호를 받을 수 있어요.</label>
+        <label htmlFor="promo-code-input">코드를 입력하면 보상을 받을 수 있어요.</label>
         <div className="account-input-row">
           <input
             id="promo-code-input"
