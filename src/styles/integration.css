@@ -31,7 +31,7 @@
   .integration-ranking .ranking-page-change, .integration-ranking .ranking-page-asset { white-space: nowrap; }
   .ranking-name-cell { display: inline-flex; align-items: center; gap: var(--space-3); min-width: 0; text-align: left; }
   .ranking-name-cell > span { overflow-wrap: anywhere; }
-  /* 장착한 칭호는 닉네임 앞 작은 배지로 붙이고, 칸이 좁으면 닉네임 위로 줄을 바꾼다. */
+  /* 장착한 칭호는 닉네임 뒤 작은 배지로 붙이고, 칸이 좁으면 닉네임 아래로 줄을 바꾼다. */
   .ranking-name-text { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
   .ranking-title {
     flex: none; padding: 1px 8px; border-radius: var(--radius-pill);

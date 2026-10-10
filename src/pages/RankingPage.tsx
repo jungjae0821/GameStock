@@ -132,10 +132,10 @@ export function RankingPage() {
                           }}
                         />
                         <span className="ranking-name-text">
+                          <span className="ranking-nickname">{entry.nickname}</span>
                           {entry.equippedTitle && (
                             <span className={`ranking-title${entry.equippedTitleWeekly ? " is-weekly" : ""}`}>{entry.equippedTitle}</span>
                           )}
-                          <span className="ranking-nickname">{entry.nickname}</span>
                         </span>
                       </span>
                     </td>
