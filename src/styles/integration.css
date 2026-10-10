@@ -24,12 +24,34 @@
   .integration-tools .quote-table td, .integration-tools .quote-table th { padding: 8px; }
   .integration-tools .ticket-summary > div { display: flex; justify-content: space-between; }
   .integration-tools .ticket-summary, .integration-tools .ticket-note { font-size: var(--step-0); }
-  .integration-ranking th:not(:nth-child(2)), .integration-ranking td:not(:nth-child(2)) { text-align: right; }
-  .integration-ranking th:first-child { text-align: left; }
-  .integration-ranking tbody td { vertical-align: middle; }
+  /*
+   * 열 정렬: 순위는 가운데(메달과 숫자의 폭이 달라도 중심이 맞는다), 닉네임은 왼쪽,
+   * 수익률·총 자산은 오른쪽. 머리글도 같은 기준선에 둔다. 열 폭을 고정해 데이터가 바뀌어도 열이 흔들리지 않는다.
+   */
+  .integration-ranking { table-layout: fixed; }
+  .integration-ranking col.ranking-col-rank { width: 72px; }
+  .integration-ranking col.ranking-col-change { width: 120px; }
+  .integration-ranking col.ranking-col-asset { width: 168px; }
+  .integration-ranking th, .integration-ranking td { vertical-align: middle; }
+  .integration-ranking .ranking-col-rank, .integration-ranking .ranking-page-rank { text-align: center; }
+  .integration-ranking .ranking-col-name, .integration-ranking .ranking-page-name { text-align: left; }
+  .integration-ranking .ranking-col-change, .integration-ranking .ranking-page-change,
+  .integration-ranking .ranking-col-asset, .integration-ranking .ranking-page-asset { text-align: right; }
+  /* 닉네임 머리글은 프로필 사진이 아니라 닉네임 글자의 시작점(사진 폭 + 간격)에 맞춘다. */
+  .integration-ranking th.ranking-col-name { text-indent: calc(var(--ranking-avatar) + var(--space-3)); }
+  .integration-ranking .ranking-rank-content { display: inline-grid; place-items: center; min-width: 28px; }
+  @media (max-width: 640px) {
+    .integration-ranking { --ranking-avatar: 32px; }
+    .integration-ranking col.ranking-col-rank { width: 48px; }
+    .integration-ranking col.ranking-col-change { width: 64px; }
+    .integration-ranking col.ranking-col-asset { width: 96px; }
+    .integration-ranking .ranking-nickname { font-size: var(--step-1); }
+    .integration-ranking .ranking-name-cell { gap: var(--space-2); }
+    .integration-ranking th.ranking-col-name { text-indent: calc(var(--ranking-avatar) + var(--space-2)); }
+  }
   /* 좁은 화면(앱)에서도 "+0.00%", "1,100,000원"이 두 줄로 끊기지 않게 한다. 남는 폭은 닉네임 칸이 줄인다. */
   .integration-ranking .ranking-page-change, .integration-ranking .ranking-page-asset { white-space: nowrap; }
-  .ranking-name-cell { display: inline-flex; align-items: center; gap: var(--space-3); min-width: 0; text-align: left; }
+  .ranking-name-cell { display: flex; align-items: center; gap: var(--space-3); min-width: 0; text-align: left; }
   .ranking-name-cell > span { overflow-wrap: anywhere; }
   /* 장착한 칭호는 닉네임 뒤 작은 배지로 붙이고, 칸이 좁으면 닉네임 아래로 줄을 바꾼다. */
   .ranking-name-text { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
@@ -43,7 +65,8 @@
   .ranking-nickname { overflow-wrap: anywhere; font-size: var(--step-2); }
   .integration-ranking .ranking-page-rank { font-size: var(--step-2); }
   .integration-ranking .ranking-medal { font-size: var(--step-4); line-height: 1; }
-  .ranking-avatar { width: 42px; height: 42px; flex: 0 0 42px; object-fit: cover; border: 1px solid var(--rule); border-radius: 50%; background: var(--sunken); }
+  .integration-ranking { --ranking-avatar: 42px; }
+  .ranking-avatar { width: var(--ranking-avatar); height: var(--ranking-avatar); flex: 0 0 var(--ranking-avatar); object-fit: cover; border: 1px solid var(--rule); border-radius: 50%; background: var(--sunken); }
   .integration-trading .chart-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
   .integration-trading .chart-range, .integration-trading .chart-modes { display: flex; flex-wrap: wrap; gap: 8px; }
   .integration-trading .chart-crosshair { stroke: var(--ink-faint); stroke-dasharray: 3 3; }
