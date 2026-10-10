@@ -17,7 +17,7 @@ const RANKING_CACHE_KEY = "gamestock-ranking-cache";
 
 function readRankingCache(): RankingEntry[] {
   try {
-    const value = JSON.parse(window.sessionStorage.getItem(RANKING_CACHE_KEY) ?? "null");
+    const value = JSON.parse(window.localStorage.getItem(RANKING_CACHE_KEY) ?? "null");
     return Array.isArray(value) ? value : [];
   } catch {
     return [];
@@ -32,25 +32,27 @@ const medalByRank: Record<number, { emoji: string; label: string }> = {
 
 export function RankingPage() {
   const [ranking, setRanking] = useState<RankingEntry[]>(readRankingCache);
+  // 지난번 랭킹이 남아 있으면 그것부터 보여 주고 뒤에서 갱신한다. 로딩 문구는 처음 방문할 때만 보인다.
   const [loading, setLoading] = useState(() => readRankingCache().length === 0);
   const [error, setError] = useState("");
-  const inFlight = useRef(false);
-  const hasData = useRef(false);
+  const hasData = useRef(readRankingCache().length > 0);
 
   useEffect(() => {
     let active = true;
+    // 요청 중 표시는 effect마다 따로 둔다. ref로 공유하면 StrictMode가 effect를 다시 실행할 때
+    // 정리된 쪽의 요청이 남아 새 effect의 첫 요청이 건너뛰어지고, 다음 주기(5초)까지 표가 비어 있다.
+    let inFlight = false;
 
-    const loadRanking = async (initial = false) => {
-      // 1초 주기 요청이 느린 네트워크에서 겹치지 않도록 한 번에 하나만 보낸다.
-      if (!active || inFlight.current) return;
-      inFlight.current = true;
-      if (initial) setLoading(true);
+    const loadRanking = async () => {
+      // 주기 요청이 느린 네트워크에서 겹치지 않도록 한 번에 하나만 보낸다.
+      if (!active || inFlight) return;
+      inFlight = true;
       try {
         const entries = await apiFetch<RankingEntry[]>("/api/ranking");
         if (!active) return;
         // 기존 행을 유지한 채 데이터만 교체하므로 갱신 때 표가 깜빡이지 않는다.
         setRanking(entries);
-        try { window.sessionStorage.setItem(RANKING_CACHE_KEY, JSON.stringify(entries)); } catch { /* storage may be disabled */ }
+        try { window.localStorage.setItem(RANKING_CACHE_KEY, JSON.stringify(entries)); } catch { /* storage may be disabled */ }
         hasData.current = true;
         setError("");
       } catch {
@@ -58,13 +60,12 @@ export function RankingPage() {
           setError("랭킹을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
         }
       } finally {
-        inFlight.current = false;
-        // StrictMode에서 초기 effect가 한 번 정리돼도, 다음 주기에서 로딩 표시가 남지 않게 한다.
+        inFlight = false;
         if (active) setLoading(false);
       }
     };
 
-    void loadRanking(true);
+    void loadRanking();
     const refreshId = window.setInterval(() => void loadRanking(), 5000);
     return () => {
       active = false;
