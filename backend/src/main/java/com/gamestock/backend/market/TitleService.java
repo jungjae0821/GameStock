@@ -77,12 +77,19 @@ public class TitleService {
             new TitleDefinition("collector_5", "칭호 수집가", "칭호 5종류 이상 보유", "수집", false),
             new TitleDefinition("collector_10", "칭호 컬렉터", "칭호 10종류 이상 보유", "수집", false),
             new TitleDefinition("collector_15", "칭호 컬렉팅 마스터", "칭호 15종류 이상 보유", "수집", false),
-            new TitleDefinition("collector_all", "칭호 올컬렉터", "다른 모든 칭호 보유", "수집", false),
+            new TitleDefinition("collector_all", "칭호 올컬렉터", "다른 모든 칭호 보유 (특별 칭호 포함)", "수집", false),
+            new TitleDefinition("special_syuangel", "슈엔젤", "프로모션 코드를 입력하면 획득 가능", "특별", false),
+            new TitleDefinition("special_misilis_holder", "미실리스 대주주", "프로모션 코드를 입력하면 획득 가능", "특별", false),
+            new TitleDefinition("special_syuaga", "슈아가", "프로모션 코드를 입력하면 획득 가능", "특별", false),
             new TitleDefinition("weekly_3", "주간 수익률 3위", "주간 수익률 3위 이내 · 매주 월요일 지급", "주간", true),
             new TitleDefinition("weekly_2", "주간 수익률 2위", "주간 수익률 2위 이내 · 매주 월요일 지급", "주간", true),
             new TitleDefinition("weekly_1", "주간 수익률 1위", "주간 수익률 1위 · 매주 월요일 지급", "주간", true));
     private static final Map<String, TitleDefinition> BY_ID = new HashMap<>();
     static { for (TitleDefinition title : TITLES) BY_ID.put(title.id(), title); }
+
+    /** Promotion code (lower case) → the special titles it grants. */
+    private static final Map<String, List<String>> PROMO_CODES = Map.of(
+            "syuen", List.of("special_syuangel", "special_misilis_holder", "special_syuaga"));
 
     private static final long[] ASSET_THRESHOLDS = {
             30_000_000L, 50_000_000L, 100_000_000L, 1_000_000_000L, 3_000_000_000L,
@@ -204,6 +211,20 @@ public class TitleService {
         if (!ownedIds(userId).contains(id)) throw new IllegalArgumentException("획득한 칭호만 장착할 수 있습니다.");
         jdbc.update("UPDATE user_titles SET equipped = (title_id = ?) WHERE user_id = ?", id, userId);
         return status(userId);
+    }
+
+    /**
+     * Redeems a promotion code: grants its special titles, then runs the regular check
+     * so collector titles that now hold are granted and every new title is announced.
+     */
+    public TitleStatus redeem(long userId, String code) {
+        String key = code == null ? "" : code.trim().toLowerCase(java.util.Locale.ROOT);
+        List<String> granted = PROMO_CODES.get(key);
+        if (granted == null) throw new IllegalArgumentException("유효하지 않은 프로모션 코드입니다.");
+        Set<String> owned = ownedIds(userId);
+        if (owned.containsAll(granted)) throw new IllegalArgumentException("이미 사용한 프로모션 코드입니다.");
+        for (String titleId : granted) grantIf(userId, owned, titleId, true);
+        return check(userId);
     }
 
     private TitleStatus status(long userId, List<String> fresh) {

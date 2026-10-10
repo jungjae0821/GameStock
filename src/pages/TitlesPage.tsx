@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Panel } from "../components/Panel";
 import { checkTitles, equipTitle, type TitleStatus, type UserTitle } from "../lib/titles";
 
-const CATEGORY_ORDER = ["자산", "수익률", "보유", "거래", "활동", "수집", "주간"];
+const CATEGORY_ORDER = ["자산", "수익률", "보유", "거래", "활동", "수집", "주간", "특별"];
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });
 
 function LockIcon() {
@@ -135,7 +135,7 @@ export function TitlesPage() {
             <div className="title-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={status.totalCount} aria-valuenow={status.ownedCount} aria-label={`${percent}% 수집`}>
               <span className="title-progress-fill" style={{ width: `${percent}%` }} />
             </div>
-            <p className="title-progress-note">획득한 칭호를 누르면 장착돼요. 조건을 달성하면 자동으로 지급되고, 주간 수익률 칭호는 매주 월요일에 지급됩니다.</p>
+            <p className="title-progress-note">획득한 칭호를 누르면 장착돼요. 조건을 달성하면 자동으로 지급되고, 주간 수익률 칭호는 매주 월요일에 지급됩니다. 특별 칭호는 충전하기 화면에서 프로모션 코드를 입력하면 받을 수 있어요.</p>
             {notice && <p className="title-progress-error" role="alert">{notice}</p>}
           </section>
           {groups.map((group) => {

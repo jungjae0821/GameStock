@@ -63,6 +63,8 @@
   .charge-page .mission-copy { flex: 1; min-width: 0; }
   .charge-page .mission-copy h3 { font-size: var(--step-2); font-weight: 700; }
   .charge-page .mission-copy p, .charge-page .mission-reset-note, .charge-page .mission-status { font-size: var(--step-0); color: var(--ink-muted); }
+  .charge-page .promo-message.is-ok { color: var(--brand-deep); }
+  .charge-page .promo-message.is-error { color: var(--up-deep); }
   .charge-page .mission-action { flex-shrink: 0; font-size: var(--step-0); font-weight: 700; color: var(--brand-deep); text-decoration: none; }
   .charge-page .mission-action:hover { text-decoration: underline; text-underline-offset: 3px; }
   .charge-page .mission-action-disabled { color: var(--ink-muted); cursor: not-allowed; }

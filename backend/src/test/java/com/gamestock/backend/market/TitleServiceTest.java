@@ -121,7 +121,7 @@ class TitleServiceTest {
         assertEquals(List.of("newbie"), List.copyOf(titles.keySet()));
         assertTrue(first.titles().stream().anyMatch(title -> title.id().equals("newbie") && title.owned()));
         assertEquals(1, first.ownedCount());
-        assertEquals(30, first.totalCount());
+        assertEquals(33, first.totalCount());
     }
 
     @Test void holdingsAssetsAndActivityGrantMatchingTitles() {
@@ -171,5 +171,26 @@ class TitleServiceTest {
         assertEquals("newbie", equipped);
         status = service.equip(7L, "");
         assertTrue(status.titles().stream().noneMatch(TitleService.UserTitle::equipped));
+    }
+
+    @Test void promoCodeGrantsSpecialTitlesOnce() {
+        user.put("cash", 1_000_000L);
+        TitleService service = service();
+        assertThrows(IllegalArgumentException.class, () -> service.redeem(7L, "nope"));
+        var redeemed = service.redeem(7L, "  SYUEN ");
+        assertTrue(titles.keySet().containsAll(List.of("special_syuangel", "special_misilis_holder", "special_syuaga")));
+        assertTrue(redeemed.titles().stream().filter(title -> title.category().equals("특별")).allMatch(TitleService.UserTitle::owned));
+        assertThrows(IllegalArgumentException.class, () -> service.redeem(7L, "syuen"));
+    }
+
+    @Test void allCollectorNeedsSpecialTitles() {
+        user.put("cash", 1_000_000L);
+        for (TitleService.TitleDefinition title : TitleService.TITLES)
+            if (!title.category().equals("특별") && !title.id().equals("collector_all")) titles.put(title.id(), 1);
+        TitleService service = service();
+        service.check(7L);
+        assertFalse(titles.containsKey("collector_all"));
+        service.redeem(7L, "syuen");
+        assertTrue(titles.containsKey("collector_all"));
     }
 }

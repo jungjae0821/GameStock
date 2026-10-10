@@ -1,4 +1,5 @@
 import { MissionBoard } from "../components/MissionBoard";
+import { PromoCodePanel } from "../components/PromoCodePanel";
 
 /** 모의 자금은 결제가 아니라 매일 바뀌는 투자 미션 보상으로만 충전된다. */
 export function ChargePage() {
@@ -10,6 +11,7 @@ export function ChargePage() {
         실제 돈은 오가지 않습니다.
       </p>
       <MissionBoard />
+      <PromoCodePanel />
     </div>
   );
 }

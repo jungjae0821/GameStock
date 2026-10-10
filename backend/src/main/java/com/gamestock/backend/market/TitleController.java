@@ -35,10 +35,18 @@ public class TitleController {
         return titles.equip(auth.requireUser(authorization).id(), request == null ? null : request.titleId());
     }
 
+    /** Redeems a promotion code for its special titles. */
+    @PostMapping("/promo")
+    public TitleService.TitleStatus redeem(@RequestBody PromoRequest request,
+                                           @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return titles.redeem(auth.requireUser(authorization).id(), request == null ? null : request.code());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<Map<String, String>> invalidTitle(IllegalArgumentException error) {
         return ResponseEntity.badRequest().body(Map.of("message", error.getMessage()));
     }
 
     public record EquipRequest(String titleId) { }
+    public record PromoRequest(String code) { }
 }
