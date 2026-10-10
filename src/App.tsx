@@ -16,6 +16,7 @@ import { MissionRewardToast } from "./components/MissionRewardToast";
 import { TitleWatcher } from "./components/TitleWatcher";
 import { LoginModal } from "./components/LoginModal";
 import { CircuitBreakerNotice } from "./components/CircuitBreakerNotice";
+import { SiteNoticeDialog } from "./components/SiteNoticeDialog";
 import { openLoginPrompt, useAuthUser } from "./lib/auth";
 import { LISTING_BY_CODE } from "./market/universe";
 import { useRoute } from "./router";
@@ -89,6 +90,7 @@ export default function App() {
       <MissionRewardToast />
       <TitleWatcher />
       <LoginModal />
+      <SiteNoticeDialog />
       <CircuitBreakerNotice />
     </div>
   );
