@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { requireSignIn } from "../lib/auth";
 import { won } from "../market/format";
 import { useMarket, useMarketApi } from "../market/MarketProvider";
 import type { OrderResult } from "../market/types";
@@ -10,14 +11,19 @@ const RATIOS = [
   { label: "최대", ratio: 1 },
 ];
 
-/** 현재가로 즉시 체결되는 주문. 방향, 수량, 금액, 버튼 네 가지만 있다. */
-export function OrderTicket({ code }: { code: string }) {
+/** 현재가로 즉시 체결되는 주문. API 응답을 기다린 뒤 결과 문구를 보여 준다. */
+export function OrderTicket({ code, initialSide = "buy", selectedLimitPrice }: {
+  code: string;
+  initialSide?: "buy" | "sell";
+  selectedLimitPrice?: number | null;
+}) {
   const snapshot = useMarket();
   const api = useMarketApi();
-  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [side, setSide] = useState<"buy" | "sell">(initialSide);
   const [qty, setQty] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<OrderResult | null>(null);
+  void selectedLimitPrice;
 
   const quote = snapshot.quotes[code];
   if (!quote) return null;
@@ -35,6 +41,7 @@ export function OrderTicket({ code }: { code: string }) {
 
   const submit = async () => {
     if (pending) return;
+    if (!requireSignIn(`/market/${code}`)) return;
     setPending(true);
     try {
       const outcome = await api.placeOrder({ code, side, qty: parsed });
@@ -103,7 +110,7 @@ export function OrderTicket({ code }: { code: string }) {
       </div>
 
       <button type="submit" className={`submit-button is-${side}`} disabled={!valid || pending || Boolean(quote.restriction && !quote.restriction.marketOrdersAllowed)}>
-        {valid ? `${won(amount)} ${side === "buy" ? "매수" : "매도"}` : side === "buy" ? "매수" : "매도"}
+        {pending ? "처리 중…" : valid ? `${won(amount)} ${side === "buy" ? "매수" : "매도"}` : side === "buy" ? "매수" : "매도"}
       </button>
 
       <p className={`ticket-message${result && !result.ok ? " is-error" : ""}`} role="status" aria-live="polite">

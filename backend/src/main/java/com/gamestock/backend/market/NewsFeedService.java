@@ -6,6 +6,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -34,6 +35,10 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @ConfigurationProperties(prefix = "gamestock.news")
@@ -124,7 +129,19 @@ public class NewsFeedService {
             new WeightedSignal("bug", 2), new WeightedSignal("outage", 3), new WeightedSignal("hack", 4),
             new WeightedSignal("lawsuit", 3), new WeightedSignal("loss", 2));
 
+    /** 한 피드(종목)에서 미리 받아 둘 최신 소식 수. 화면 노출은 종목·출처별 2건이다. */
+    private static final int EXCERPT_PREFETCH_PER_FEED = 4;
+
     private final JdbcTemplate jdbc;
+    private final NewsExcerptService excerpts;
+    private final ExecutorService excerptWarmers = new ThreadPoolExecutor(
+            2, 4, 30L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(512),
+            runnable -> {
+                Thread thread = new Thread(runnable, "news-excerpt-warm");
+                thread.setDaemon(true);
+                return thread;
+            },
+            new ThreadPoolExecutor.DiscardPolicy());
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .followRedirects(HttpClient.Redirect.NORMAL)
@@ -134,8 +151,14 @@ public class NewsFeedService {
 
     private List<String> feeds = List.of();
 
-    public NewsFeedService(JdbcTemplate jdbc) {
+    public NewsFeedService(JdbcTemplate jdbc, NewsExcerptService excerpts) {
         this.jdbc = jdbc;
+        this.excerpts = excerpts;
+    }
+
+    @PreDestroy
+    void stopExcerptWarmers() {
+        excerptWarmers.shutdownNow();
     }
 
     public void setEnabled(boolean enabled) {
@@ -219,16 +242,31 @@ public class NewsFeedService {
         }
 
         List<NewsItem> items = parseItems(response.body());
-        int saved = 0;
+        List<NewsItem> saved = new ArrayList<>();
         for (NewsItem item : items) {
             if (!NewsRelevance.isRelevant(stockCode, item.title(), item.description(), item.sourceName())) {
                 log.debug("관련성 낮은 뉴스 제외: 종목={}, 제목={}", stockCode, item.title());
                 continue;
             }
             saveNews(stockCode, item);
-            saved++;
+            saved.add(item);
         }
-        log.info("뉴스 피드 조회 완료: 종목={}, 전체 {}개 중 관련 {}개", stockCode, items.size(), saved);
+        warmExcerpts(saved);
+        log.info("뉴스 피드 조회 완료: 종목={}, 전체 {}개 중 관련 {}개", stockCode, items.size(), saved.size());
+    }
+
+    /**
+     * 방금 저장한 최신 소식의 원문 첫 문단을 백그라운드에서 미리 받아 DB에 채운다.
+     * 수집 스레드를 막지 않도록 별도 풀에 넘기고, 풀이 밀리면 이번 주기는 건너뛴다.
+     * items는 발행 시각 내림차순이므로 앞의 몇 건이 실제로 화면에 노출되는 소식이다.
+     */
+    private void warmExcerpts(List<NewsItem> items) {
+        items.stream()
+                .map(NewsItem::link)
+                .filter(link -> link != null && link.startsWith("https://news.google.com/rss/articles/"))
+                .distinct()
+                .limit(EXCERPT_PREFETCH_PER_FEED)
+                .forEach(link -> excerptWarmers.execute(() -> excerpts.prefetch(link)));
     }
 
     private List<NewsItem> parseItems(String xml) throws Exception {

@@ -1,20 +1,20 @@
 import { AuthBridge } from "./components/AuthBridge";
 import { useEffect, useRef } from "react";
+import { LoginModal } from "./components/LoginModal";
+import { StatusBar } from "./components/StatusBar";
 import { Topbar } from "./components/Topbar";
 import { HomePage } from "./pages/HomePage";
+import { LoginPage } from "./pages/LoginPage";
 import { TradePage } from "./pages/TradePage";
 import { MarketPage } from "./pages/MarketPage";
+import { MyPage } from "./pages/MyPage";
 import { NewsPage } from "./pages/NewsPage";
 import { RankingPage } from "./pages/RankingPage";
-import { MyPage } from "./pages/MyPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ChargePage } from "./pages/ChargePage";
 import { TitlesPage } from "./pages/TitlesPage";
-import { LoginPage } from "./pages/LoginPage";
-import { StatusBar } from "./components/StatusBar";
 import { MissionRewardToast } from "./components/MissionRewardToast";
 import { TitleWatcher } from "./components/TitleWatcher";
-import { LoginModal } from "./components/LoginModal";
 import { CircuitBreakerNotice } from "./components/CircuitBreakerNotice";
 import { SiteNoticeDialog } from "./components/SiteNoticeDialog";
 import { openLoginPrompt, useAuthUser } from "./lib/auth";
@@ -55,7 +55,6 @@ export default function App() {
 
   useEffect(() => {
     document.title = titleFor(route);
-    /* 최초 렌더에서는 포커스를 옮기지 않는다. 이동할 때만 본문으로 보낸다. */
     if (previous.current === route) return;
     const withinNews = previous.current.name === "news" && route.name === "news";
     previous.current = route;

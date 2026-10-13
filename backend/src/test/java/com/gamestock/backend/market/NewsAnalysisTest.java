@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * not only obvious positive headlines.
  */
 class NewsAnalysisTest {
-    private final NewsFeedService sentiment = new NewsFeedService(null);
+    private final NewsFeedService sentiment = new NewsFeedService(null, null);
 
     @Test
     void relevanceRequiresGameContextAndKeepsGameIncidents() {

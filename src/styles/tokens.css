@@ -29,6 +29,7 @@
     --sunken: oklch(0.955 0 0); /* #F0F0F0 표 머리·교차 행 */
     --rule: oklch(0.9 0 0); /* #E2E2E2 괘선 */
     --rule-ink: oklch(0.27 0.02 330); /* #2A2229 굵은 괘선 */
+    --rule-width: 1px;
 
     /* 글자: 로고 판에서 가져온 살짝 보라 도는 흑갈색 */
     --ink: oklch(0.27 0.02 330);
@@ -109,6 +110,7 @@
      * 구획은 괘선(위 2px 잉크선 + 머리 아래 1px)으로만 나눈다.
      */
     --radius: 2px;
+    --radius-pill: 999px;
     --rule-heavy: 2px solid var(--rule-ink);
 
     --page: 1080px;

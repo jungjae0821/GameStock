@@ -28,6 +28,7 @@ final class MarketSchema {
         ensurePriceHistoryTable();
         ensureAuthenticationTables();
         ensureMarketEventColumns();
+        ensureNewsExcerptTable();
         ensureTradeTable();
         ensurePortfolioColumns();
         ensureSettlementTable();
@@ -216,6 +217,21 @@ final class MarketSchema {
         ensureIndex("market_events", "ix_market_events_stock_type_time",
                 "stock_id,event_type,published_at,created_at,id");
         ensureIndex("market_events", "ix_market_events_stock_title", "stock_id,title");
+    }
+
+    /**
+     * 수집한 소식 원문의 첫 문단을 담아 두는 표. 뉴스 수집 작업이 수집 직후 채우고,
+     * /api/news/excerpt 요청은 여기 저장된 값을 바로 돌려주므로 외부 사이트를 다시 읽지 않는다.
+     */
+    private void ensureNewsExcerptTable() {
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS news_excerpts (
+                  article_id VARCHAR(600) CHARACTER SET ascii NOT NULL PRIMARY KEY,
+                  payload MEDIUMTEXT NOT NULL,
+                  expires_at TIMESTAMP NOT NULL,
+                  fetched_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
     }
 
     private void ensureOrderIndex(String name,String columns) {

@@ -138,6 +138,11 @@ export function dayLabel(at: number, now: number): string {
   return `${month}월 ${dateValue}일`;
 }
 
+/** 체결 시각 12:04 */
+export function hm(at: number): string {
+  return clock(at).slice(0, 5);
+}
+
 /** 2초 → "2초" */
 export function tickLabel(ms: number): string {
   const seconds = ms / 1000;

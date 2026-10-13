@@ -1,4 +1,7 @@
+import { gameIcon } from "../market/universe";
+
 type Size = "small" | "default" | "large" | "xl" | "detail" | "table" | "news";
+
 const REPLACEMENT_ICONS: Record<string, string> = {
   AK: "ak-endfield.png",
   OW: "el-overwatch-symbol.svg",
@@ -7,9 +10,31 @@ const REPLACEMENT_ICONS: Record<string, string> = {
   VR: "lt-valorant.png",
   KRP: "mh-kartrush.png",
 };
-export function GameIcon({ code, name: _name, size = "default", className = "" }: { code: string; name?: string; size?: Size; className?: string }) {
-  const mappedSize = size === "table" || size === "detail" ? "default" : size === "news" ? "large" : size;
-  const iconCode = code === "GOV" ? "nk" : code.toLowerCase();
-  const iconFile = REPLACEMENT_ICONS[code] ?? `${iconCode}.jpg`;
-  return <img src={`/game-icons/${iconFile}`} alt="" aria-hidden="true" className={`game-icon is-${mappedSize}${code === "OW" ? " is-overwatch-symbol" : ""}${className ? ` ${className}` : ""}`} loading="lazy" decoding="async" />;
+
+export function GameIcon({
+  code,
+  name,
+  size = "default",
+  className = "",
+}: {
+  code: string;
+  name?: string;
+  size?: Size;
+  className?: string;
+}) {
+  const replacement = REPLACEMENT_ICONS[code];
+  const source = replacement ? `/game-icons/${replacement}` : gameIcon(code);
+  const sizeClassName =
+    size === "detail"
+      ? "game-icon"
+      : size === "table"
+        ? "game-icon game-icon-table"
+        : size === "news"
+          ? "game-icon game-icon-news"
+          : `game-icon is-${size}`;
+  const classes = `${sizeClassName}${code === "OW" ? " is-overwatch-symbol" : ""}${className ? ` ${className}` : ""}`;
+
+  if (!source) return <span className={classes} aria-hidden="true" />;
+
+  return <img className={classes} src={source} alt={name ? `${name} 앱 아이콘` : ""} aria-hidden={name ? undefined : true} loading="lazy" decoding="async" />;
 }

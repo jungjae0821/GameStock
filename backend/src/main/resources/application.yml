@@ -68,6 +68,10 @@ gamestock:
     enabled: ${GAMESTOCK_NEWS_ENABLED:true}
     refresh-ms: ${GAMESTOCK_NEWS_REFRESH_MS:600000}
     initial-delay-ms: ${GAMESTOCK_NEWS_INITIAL_DELAY_MS:30000}
+    # 수집한 소식 원문의 첫 문단을 미리 받아 news_excerpts에 저장한다(수집 주기와 동일).
+    # Redis를 함께 쓰려면 아래를 true로 두고 SPRING_DATA_REDIS_URL(또는 spring.data.redis.*)을 설정한다.
+    excerpt-cache:
+      redis-enabled: ${GAMESTOCK_NEWS_EXCERPT_REDIS:false}
     # stocks/games의 현재 종목명으로 모든 거래 종목의 RSS 검색을 자동 생성한다.
     # 아래 목록은 특정 종목의 검색 URL을 덮어쓰는 설정이다.
     feeds:

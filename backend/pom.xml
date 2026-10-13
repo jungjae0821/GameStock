@@ -20,6 +20,8 @@
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-websocket</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-jdbc</artifactId></dependency>
+        <!-- 수집한 소식 본문 캐시를 여러 인스턴스가 공유할 때만 사용한다(gamestock.news.excerpt-cache.redis-enabled). -->
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-redis</artifactId></dependency>
         <dependency><groupId>com.google.firebase</groupId><artifactId>firebase-admin</artifactId><version>9.7.0</version></dependency>
         <dependency>
             <groupId>com.mysql</groupId>

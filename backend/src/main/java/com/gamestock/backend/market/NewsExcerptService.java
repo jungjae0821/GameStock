@@ -1,9 +1,13 @@
 package com.gamestock.backend.market;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +19,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,6 +41,9 @@ public class NewsExcerptService {
     public record Excerpt(List<String> paragraphs, String url) { }
 
     private record Cached(Excerpt excerpt, Instant expiresAt) { }
+    /** news_excerpts.payload 및 Redis 값으로 쓰는 JSON 본문. */
+    private record StoredExcerpt(String url, List<String> paragraphs) { }
+    private record StoredRow(String payload, Timestamp expiresAt) { }
 
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
@@ -77,8 +85,12 @@ public class NewsExcerptService {
     private static final int MAX_PARAGRAPH = 700;
     private static final Duration HIT_TTL = Duration.ofHours(12);
     private static final Duration MISS_TTL = Duration.ofMinutes(10);
+    private static final String REDIS_PREFIX = "gamestock:news-excerpt:";
 
     private final JdbcTemplate jdbc;
+    private final ObjectProvider<StringRedisTemplate> redis;
+    @Value("${gamestock.news.excerpt-cache.redis-enabled:false}")
+    private boolean redisEnabled;
     private final ObjectMapper json = new ObjectMapper();
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -93,19 +105,17 @@ public class NewsExcerptService {
         @Override protected boolean removeEldestEntry(Map.Entry<String, Cached> eldest) { return size() > 400; }
     };
 
-    public NewsExcerptService(JdbcTemplate jdbc) {
+    public NewsExcerptService(JdbcTemplate jdbc, ObjectProvider<StringRedisTemplate> redis) {
         this.jdbc = jdbc;
+        this.redis = redis;
     }
 
     public Excerpt excerpt(String link) {
-        Matcher article = GOOGLE_ARTICLE.matcher(link == null ? "" : link.trim());
-        if (!article.matches()) throw new IllegalArgumentException("지원하지 않는 뉴스 링크입니다.");
-        String articleId = article.group(1);
+        String articleId = extractArticleId(link);
 
-        synchronized (cache) {
-            Cached cached = cache.get(articleId);
-            if (cached != null && cached.expiresAt().isAfter(Instant.now())) return cached.excerpt();
-        }
+        Excerpt cached = readCached(articleId);
+        if (cached != null) return cached;
+
         /* 저장된 소식의 링크만 받는다. 아무 주소나 대신 읽어 주는 중계기가 되지 않게 한다. */
         Integer known = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM market_events WHERE event_type = 'NEWS' AND description LIKE ?",
@@ -122,11 +132,114 @@ public class NewsExcerptService {
             log.debug("뉴스 본문 미리보기 실패: {}", articleId, error);
         }
         Excerpt excerpt = new Excerpt(paragraphs, url);
-        Duration ttl = paragraphs.isEmpty() ? MISS_TTL : HIT_TTL;
+        store(articleId, excerpt, paragraphs.isEmpty() ? MISS_TTL : HIT_TTL);
+        return excerpt;
+    }
+
+    /**
+     * 뉴스 수집 직후 본문을 미리 받아 메모리·DB 캐시를 채운다. 실패는 무시하고
+     * 실제 요청이 들어오면 그때 다시 시도하므로 수집 작업을 막지 않는다.
+     */
+    public void prefetch(String link) {
+        try {
+            excerpt(link);
+        } catch (RuntimeException ignored) {
+            /* 미리 받기 실패는 무시한다. */
+        }
+    }
+
+    private static String extractArticleId(String link) {
+        Matcher article = GOOGLE_ARTICLE.matcher(link == null ? "" : link.trim());
+        if (!article.matches()) throw new IllegalArgumentException("지원하지 않는 뉴스 링크입니다.");
+        return article.group(1);
+    }
+
+    /** 메모리 → Redis → DB 순으로 저장된 본문을 찾는다. Redis는 설정으로 켰을 때만 쓴다. */
+    private Excerpt readCached(String articleId) {
         synchronized (cache) {
-            cache.put(articleId, new Cached(excerpt, Instant.now().plus(ttl)));
+            Cached cached = cache.get(articleId);
+            if (cached != null && cached.expiresAt().isAfter(Instant.now())) return cached.excerpt();
+        }
+        Excerpt fromRedis = readRedis(articleId);
+        if (fromRedis != null) return fromRedis;
+        return readStored(articleId);
+    }
+
+    private Excerpt readRedis(String articleId) {
+        if (!redisEnabled) return null;
+        StringRedisTemplate template = redis.getIfAvailable();
+        if (template == null) return null;
+        try {
+            String payload = template.opsForValue().get(REDIS_PREFIX + articleId);
+            return payload == null ? null : decode(payload);
+        } catch (RuntimeException error) {
+            log.debug("본문 Redis 캐시 조회 실패: {}", articleId, error);
+            return null;
+        }
+    }
+
+    private Excerpt readStored(String articleId) {
+        List<StoredRow> rows = jdbc.query(
+                "SELECT payload, expires_at FROM news_excerpts WHERE article_id = ?",
+                (rs, row) -> new StoredRow(rs.getString("payload"), rs.getTimestamp("expires_at")), articleId);
+        if (rows.isEmpty()) return null;
+        StoredRow row = rows.get(0);
+        Instant expiresAt = row.expiresAt() == null ? null : row.expiresAt().toInstant();
+        if (expiresAt == null || !expiresAt.isAfter(Instant.now())) return null;
+        Excerpt excerpt = decode(row.payload());
+        if (excerpt == null) return null;
+        synchronized (cache) {
+            cache.put(articleId, new Cached(excerpt, expiresAt));
         }
         return excerpt;
+    }
+
+    private void store(String articleId, Excerpt excerpt, Duration ttl) {
+        Instant expiresAt = Instant.now().plus(ttl);
+        synchronized (cache) {
+            cache.put(articleId, new Cached(excerpt, expiresAt));
+        }
+        String payload = encode(excerpt);
+        if (payload == null) return;
+        try {
+            jdbc.update("""
+                    INSERT INTO news_excerpts (article_id, payload, expires_at, fetched_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    ON DUPLICATE KEY UPDATE payload = VALUES(payload), expires_at = VALUES(expires_at),
+                        fetched_at = CURRENT_TIMESTAMP
+                    """, articleId, payload, Timestamp.from(expiresAt));
+        } catch (RuntimeException error) {
+            log.warn("본문을 저장하지 못했습니다: {}", articleId, error);
+        }
+        if (!redisEnabled) return;
+        StringRedisTemplate template = redis.getIfAvailable();
+        if (template == null) return;
+        try {
+            template.opsForValue().set(REDIS_PREFIX + articleId, payload, ttl);
+        } catch (RuntimeException error) {
+            log.debug("본문 Redis 캐시 저장 실패: {}", articleId, error);
+        }
+    }
+
+    private String encode(Excerpt excerpt) {
+        try {
+            return json.writeValueAsString(new StoredExcerpt(excerpt.url(), excerpt.paragraphs()));
+        } catch (JsonProcessingException error) {
+            log.debug("본문 직렬화 실패: {}", excerpt.url(), error);
+            return null;
+        }
+    }
+
+    private Excerpt decode(String payload) {
+        try {
+            JsonNode stored = json.readTree(payload);
+            List<String> paragraphs = new ArrayList<>();
+            for (JsonNode paragraph : stored.path("paragraphs")) paragraphs.add(paragraph.asText());
+            String url = stored.path("url").isTextual() ? stored.path("url").asText() : null;
+            return new Excerpt(paragraphs, url);
+        } catch (Exception error) {
+            return null;
+        }
     }
 
     /** Google News 기사 토큰을 언론사 주소로 푼다. 기사 페이지의 서명으로 batchexecute를 한 번 호출한다. */
