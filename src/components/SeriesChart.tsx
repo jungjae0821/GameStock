@@ -129,13 +129,16 @@ export function SeriesChart({ code, tone, markers = NO_MARKERS, fitMarkers = fal
   useLayoutEffect(() => {
     const node = plot.current;
     if (!node) return;
-    const measure = () => {
-      const width = Math.round(node.clientWidth);
-      const height = Math.round(node.clientHeight);
+    const measure = ({ width, height }: { width: number; height: number }) => {
+      // Keep the SVG viewBox equal to its CSS size, including fractional pixels.
+      // clientWidth/clientHeight round these and can rescale all text and strokes.
       if (width > 0 && height > 0) setSize(previous => previous.width === width && previous.height === height ? previous : { width, height });
     };
-    measure();
-    const observer = new ResizeObserver(measure);
+    measure(node.getBoundingClientRect());
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (entry) measure(entry.contentRect);
+    });
     observer.observe(node);
     return () => observer.disconnect();
   }, [available]);

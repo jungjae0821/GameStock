@@ -21,7 +21,8 @@
     letter-spacing: var(--tracking);
     font-synthesis: none;
     -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
+    /* 작은 UI 글자의 렌더링 전략은 브라우저 기본값에 맡긴다. */
+    text-rendering: auto;
     word-break: keep-all;
     overflow-wrap: anywhere;
   }

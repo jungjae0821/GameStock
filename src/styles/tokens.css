@@ -4,7 +4,7 @@
 @font-face {
   font-family: "GyeonggiTitle";
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/GyeonggiTitleM.woff") format("woff");
-  font-weight: 100 600;
+  font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
@@ -77,9 +77,9 @@
     --focus: var(--brand-deep);
 
     /*
-     * 글꼴은 경기천년제목 하나로 통일한다. 굵기는 두 단계만 쓴다:
-     * 400~600(파일 그대로 Medium)과 700(제목·숫자 강조).
-     * 위계는 굵기보다 크기와 색으로 만든다.
+     * 경기천년제목은 고정 Medium 파일이다. 다른 굵기 요청도 가장 가까운
+     * 이 파일로 매칭되며, font-synthesis: none으로 인조 굵기는 만들지 않는다.
+     * 숫자는 next.css의 별도 가변 폰트를 사용한다.
      */
     --font-ui: "GyeonggiTitle", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
       "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
