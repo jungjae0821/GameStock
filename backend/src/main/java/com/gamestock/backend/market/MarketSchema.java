@@ -59,6 +59,7 @@ final class MarketSchema {
         StockDenominationMigration.ensureTables(jdbc);
         StopOrderService.ensureTables(jdbc);
         AssetHistoryService.ensureTables(jdbc);
+        ResearchSchema.ensureTables(jdbc);
     }
 
     private void ensureOrderTimestampPrecision() {

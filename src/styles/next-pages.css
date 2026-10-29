@@ -84,6 +84,16 @@ html[data-nx] main.nx-content.nx-page .nx-panel.nx-empty-state { padding-block: 
 /* ───────── 홈 ───────── */
 
 .nx-home { display: flex; flex-direction: column; gap: var(--nx-gap); }
+/* 순위는 왼쪽, 최근 뉴스는 오른쪽. 좁은 화면에서는 순위 아래로 뉴스가 내려간다. */
+.nx-home-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: var(--nx-gap); }
+/* '전체 보기'는 누르는 자리 44px을 유지하되 머리 높이는 늘리지 않아, 두 단의 제목 줄이 같은 높이에 선다. */
+.nx-home-split .nx-more { margin-block: -13px; }
+/* 뉴스 필터 줄은 순위 탭과 같은 높이와 아래 간격을 써서 두 목록의 시작선을 맞춘다. */
+.nx-home-news .nx-panel-head { margin-bottom: 20px; }
+.nx-home-news-filters { align-items: center; min-height: 49px; margin-bottom: 16px; padding-block: 4px; overflow-x: auto; scrollbar-width: none; }
+.nx-home-news-filters .nx-chip { flex: none; border: 0; border-radius: 999px; background: var(--nx-tint); }
+.nx-home-news-filters .nx-chip:hover { background: var(--nx-line); }
+.nx-home-news-filters .nx-chip.is-active { background: var(--ink); color: var(--nx-stage); }
 
 /* 게임주 지수: 큰 숫자는 머리에, 주인공은 그 아래 하루치 선 그래프. */
 .nx-index-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 40px; margin-bottom: 28px; }
@@ -138,10 +148,10 @@ html[data-nx] .nx-market .nx-num.is-down { color: var(--down-deep); }
 .nx-board-tabs { margin-bottom: 16px; border-bottom: 1px solid var(--nx-line); }
 .nx-board-empty { margin: 0; padding: 40px 0; color: var(--ink-muted); font-size: 13px; text-align: center; }
 
-/* 넓은 화면에서는 열 개를 다섯 줄씩 두 단으로. 순서는 위에서 아래, 왼쪽 단 다음 오른쪽 단. */
-.nx-board-list { display: grid; grid-auto-flow: column; grid-template-rows: repeat(5, auto); grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 64px; margin: 0; padding: 0; list-style: none; }
+/* 홈 왼쪽 단에 들어가므로 열 개를 한 줄로 내려 쓴다. */
+.nx-board-list { margin: 0; padding: 0; list-style: none; }
 .nx-board-list li { padding: 14px 0; border-top: 1px solid var(--nx-line); }
-.nx-board-list li:nth-child(5n + 1) { border-top: 0; }
+.nx-board-list li:first-child { border-top: 0; }
 
 /* 줄마다 따로 그리는 격자라 숫자 칸은 폭을 고정해 위아래 줄의 가격·등락률 끝을 맞춘다. */
 .nx-board-row {
@@ -341,9 +351,7 @@ html[data-nx][data-nx-theme="light"] .nx-heat-tile.is-l0 { background: var(--nx-
   .nx-table tbody th,
   .nx-table td { padding: 0 12px; }
   .nx-index-range { gap: 20px; }
-  .nx-board-list { grid-auto-flow: row; grid-template-rows: none; grid-template-columns: minmax(0, 1fr); }
-  .nx-board-list li:nth-child(5n + 1) { border-top: 1px solid var(--nx-line); }
-  .nx-board-list li:first-child { border-top: 0; }
+  .nx-home-split { grid-template-columns: minmax(0, 1fr); }
   .nx-search { flex: 1; margin-left: 0; }
   .nx-col-open { display: none; }
   /* 좁은 화면에서는 시가를 빼고 그래프만 줄여서 남긴다. */

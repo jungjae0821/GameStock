@@ -19,6 +19,8 @@ import { NxOrderTicket } from "./trade/NxOrderTicket";
 import { OrderDock } from "./trade/OrderDock";
 import { PriceDrivers } from "./trade/PriceDrivers";
 import { StockTalk } from "./trade/StockTalk";
+import { StockChat } from "./trade/StockChat";
+import { IndicatorChart } from "./trade/IndicatorChart";
 import { MarketTabs } from "./MarketTabs";
 import { AnimatedNav } from "./AnimatedNav";
 
@@ -28,6 +30,7 @@ const NAV = [
   { label: "히트맵", to: HEATMAP_PATH, match: "heatmap" },
   { label: "뉴스", to: "/news", match: "news" },
   { label: "랭킹", to: "/ranking", match: "ranking" },
+  { label: "퀀트", to: "/quant", match: "quant" },
   { label: "API", to: API_DOCS_PATH, match: "apiDocs" },
 ] as const;
 
@@ -449,6 +452,7 @@ export function TradeTerminal({ ticker }: { ticker: string | null }) {
           </div>
         </section>
         <StockStats quote={quote} />
+        <IndicatorChart key={code} code={code} name={listing.name} />
         <PriceDrivers code={code} />
         <section className="nx-panel nx-account" aria-label="내 잔고와 주문 내역" tabIndex={-1}>
           <NxAccountPanel code={code} tab={accountTab} onTabChange={setAccountTab}
@@ -458,7 +462,10 @@ export function TradeTerminal({ ticker }: { ticker: string | null }) {
           <Book quote={quote} onPriceSelect={(price) => { setSelected((previous) => ({ code, price, revision: (previous?.revision ?? 0) + 1 })); focusTicket(); }} />
           <StockNews code={code} quote={quote} />
         </div>
-        <StockTalk key={code} code={code} name={listing.name} />
+        <div className="nx-trade-community">
+          <StockTalk key={code} code={code} name={listing.name} />
+          <StockChat key={`chat-${code}`} code={code} name={listing.name} />
+        </div>
         <p className="nx-trade-disclaimer">게임 뉴스와 모의 주문으로 형성되는 시세입니다. 실제 금융상품이나 투자 수익과 관계없습니다.</p>
         </div>
         <OrderDock title={listing.name} open={orderOpen} onOpenChange={setOrderOpen}

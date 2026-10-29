@@ -9,7 +9,7 @@ import { SuspensionNotice, useSuspendedUntil } from "./components/SuspensionNoti
 import { useProfile } from "./lib/profile";
 import { openLoginPrompt, useAuthUser } from "./lib/auth";
 import { LISTING_BY_CODE } from "./market/universe";
-import { ETF_PATH, MARKET_PATH, PRIVATE_ROUTES, navigate, useRoute } from "./router";
+import { ETF_PATH, MARKET_PATH, PRIVATE_ROUTES, QUANT_PATH, navigate, useRoute } from "./router";
 import { Link } from "./components/Link";
 import { NxTabbar, NxTopbar, TradeTerminal, useNxRoot } from "./next/TradeTerminal";
 import { HomeBoard } from "./next/HomeBoard";
@@ -27,6 +27,7 @@ import { NxApiDocsPage } from "./next/pages/NxApiDocsPage";
 import { NxSettingsPage } from "./next/pages/NxSettingsPage";
 import { NxTitlesPage } from "./next/pages/NxTitlesPage";
 import { NxAttendancePage } from "./next/pages/NxAttendancePage";
+import { NxQuantPage } from "./next/pages/NxQuantPage";
 import { DerivativesPage } from "./pages/DerivativesPage";
 import type { Route } from "./router";
 
@@ -52,6 +53,7 @@ function titleFor(route: Route): string {
   if (route.name === "settings") return "설정 · 슈엔증권";
   if (route.name === "titles") return "칭호 설정 · 슈엔증권";
   if (route.name === "attendance") return "출석체크 · 슈엔증권";
+  if (route.name === "quant") return "퀀트 전략 · 슈엔증권";
   if (route.name === "charge") return "충전하기 · 슈엔증권";
   if (route.name === "loan") return "대출 · 슈엔증권";
   if (route.name === "billboard") return "전광판 · 슈엔증권";
@@ -60,6 +62,9 @@ function titleFor(route: Route): string {
   if (route.name === "notFound") return "없는 화면 · 슈엔증권";
   return "슈엔증권";
 }
+
+/** 로그인 뒤 돌아올 주소. 퀀트는 열어 둔 전략까지 기억한다. */
+const loginReturnPath = (route: Route) => (route.name === "quant" ? QUANT_PATH(route.id) : `/${route.name}`);
 
 export default function App() {
   const route = useRoute();
@@ -79,7 +84,7 @@ export default function App() {
   }, [route]);
 
   useEffect(() => {
-    if (PRIVATE_ROUTES.has(route.name) && auth.ready && !auth.user) openLoginPrompt(`/${route.name}`);
+    if (PRIVATE_ROUTES.has(route.name) && auth.ready && !auth.user) openLoginPrompt(loginReturnPath(route));
   }, [route, auth.ready, auth.user]);
 
   useLayoutEffect(() => {
@@ -120,7 +125,7 @@ export default function App() {
             <h1 className="nx-page-title">로그인이 필요한 화면이에요</h1>
             <p className="nx-screen-sub">{titleFor(route).split(" · ")[0]} 화면은 로그인한 뒤에 볼 수 있어요. 로그인 없이도 시세와 뉴스는 볼 수 있어요.</p>
             <div className="nx-gate-actions">
-              <button type="button" className="nx-btn is-primary" onClick={() => openLoginPrompt(`/${route.name}`)}>로그인하기</button>
+              <button type="button" className="nx-btn is-primary" onClick={() => openLoginPrompt(loginReturnPath(route))}>로그인하기</button>
               <Link className="nx-btn" to={MARKET_PATH(null)}>시장 둘러보기</Link>
             </div>
           </section>
@@ -139,6 +144,7 @@ export default function App() {
         {route.name === "settings" && auth.user && <NxSettingsPage />}
         {route.name === "titles" && auth.user && <NxTitlesPage />}
         {route.name === "attendance" && auth.user && <NxAttendancePage />}
+        {route.name === "quant" && auth.user && <NxQuantPage id={route.id} />}
         {route.name === "charge" && auth.user && <NxChargePage />}
         {route.name === "loan" && auth.user && <NxLoanPage />}
         {route.name === "billboard" && auth.user && <NxBillboardPage />}

@@ -17,12 +17,13 @@ export type Route =
   | { name: "billboard" }
   | { name: "titles" }
   | { name: "attendance" }
+  | { name: "quant"; id: number | null }
   | { name: "admin"; section: AdminSection }
   | { name: "login"; method: LoginMethod }
   | { name: "notFound" };
 
 /** 로그인해야 열리는 화면. 로그아웃 상태에서는 본문이 로그인 안내로 바뀐다. */
-export const PRIVATE_ROUTES = new Set<Route["name"]>(["mypage", "settings", "titles", "attendance", "charge", "loan", "billboard", "admin"]);
+export const PRIVATE_ROUTES = new Set<Route["name"]>(["mypage", "settings", "titles", "attendance", "charge", "loan", "billboard", "admin", "quant"]);
 
 export type DerivativesTab = "futures" | "options";
 const DERIVATIVE_TABS: readonly DerivativesTab[] = ["futures", "options"];
@@ -64,6 +65,11 @@ function parse(pathname: string): Route {
   if (parts[0] === "billboard") return parts.length === 1 ? { name: "billboard" } : { name: "notFound" };
   if (parts[0] === "titles") return { name: "titles" };
   if (parts[0] === "attendance") return { name: "attendance" };
+  if (parts[0] === "quant") {
+    if (parts.length === 1) return { name: "quant", id: null };
+    const id = Number(parts[1]);
+    return parts.length === 2 && Number.isSafeInteger(id) && id > 0 ? { name: "quant", id } : { name: "notFound" };
+  }
   if (parts[0] === "admin") {
     const section = ADMIN_SECTIONS.find((name) => name === parts[1]) ?? "users";
     return { name: "admin", section };
@@ -114,4 +120,5 @@ export const HEATMAP_PATH = "/heatmap";
 export const MARKET_PATH = (ticker: string | null): string => (ticker ? `/market/${ticker}` : "/market");
 export const ETF_PATH = (ticker: string | null = null): string => (ticker ? `/market/etf/${ticker}` : "/market/etf");
 export const NEWS_PATH = (id: number | null): string => (id === null ? "/news" : `/news/${id}`);
+export const QUANT_PATH = (id: number | null): string => (id === null ? "/quant" : `/quant/${id}`);
 export const TRADE_PATH = (ticker: string | null): string => (ticker ? `/trade/${ticker}` : "/trade");

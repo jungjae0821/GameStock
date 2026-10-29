@@ -10,7 +10,7 @@ import { BUCKET_MS, bucketPrices, kstMidnight, type PricePoint } from "../market
 import { compactWon, hm, indexValue, rate, signedNumber } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { holdings, sessionRate, totals } from "../market/selectors";
-import type { MarketSnapshot } from "../market/types";
+import { VISIBLE_NEWS_SOURCES, type MarketSnapshot, type NewsSource } from "../market/types";
 import { LISTING_BY_CODE } from "../market/universe";
 import { useSteadySnapshot } from "../market/useSteadySnapshot";
 import { MARKET_PATH } from "../router";
@@ -227,6 +227,7 @@ function RankBoard() {
 export function HomeBoard() {
   const snapshot = useMarket();
   const history = useIndexHistory();
+  const [newsSource, setNewsSource] = useState<NewsSource>();
   const { value, prevClose } = snapshot.index;
   const change = value - prevClose;
   const sum = totals(snapshot);
@@ -261,7 +262,26 @@ export function HomeBoard() {
         <IndexChart points={history.points} live={value} prevClose={prevClose} status={history.status} />
       </section>
 
-      <RankBoard />
+      {/* 넓은 화면에서는 순위를 왼쪽, 뉴스를 오른쪽에 나란히 둔다. 무엇이 움직였고 왜 움직였는지를 한눈에. */}
+      <div className="nx-home-split">
+        <RankBoard />
+        <section className="nx-panel nx-home-news" aria-labelledby="nx-news-title">
+          <header className="nx-panel-head">
+            <h2 id="nx-news-title" className="nx-panel-title">최근 게임 뉴스</h2>
+            <Link to="/news" className="nx-more">전체 보기</Link>
+          </header>
+          <div className="nx-filters nx-home-news-filters" role="group" aria-label="뉴스 출처">
+            {[undefined, ...VISIBLE_NEWS_SOURCES].map((source) => (
+              <button key={source ?? "all"} type="button"
+                className={`nx-chip nx-chip--small${newsSource === source ? " is-active" : ""}`}
+                aria-pressed={newsSource === source} onClick={() => setNewsSource(source)}>
+                {source ?? "전체"}
+              </button>
+            ))}
+          </div>
+          <NewsFeed limit={8} source={newsSource} emptyMessage={newsSource ? `${newsSource}가 아직 없어요.` : undefined} />
+        </section>
+      </div>
 
       {held.length > 0 && (
         <section className="nx-panel nx-home-holdings" aria-labelledby="nx-holdings-title">
@@ -272,14 +292,6 @@ export function HomeBoard() {
           <HoldingsTable caption="내 보유 종목과 평가 손익" />
         </section>
       )}
-
-      <section className="nx-panel nx-home-news" aria-labelledby="nx-news-title">
-        <header className="nx-panel-head">
-          <h2 id="nx-news-title" className="nx-panel-title">최근 게임 뉴스</h2>
-          <Link to="/news" className="nx-more">전체 보기</Link>
-        </header>
-        <NewsFeed limit={6} />
-      </section>
     </div>
   );
 }

@@ -1,14 +1,17 @@
+import { useMemo } from "react";
 import { Delta } from "./Delta";
 import { GameIcon } from "./GameIcon";
 import { Link } from "./Link";
 import { since } from "../market/format";
 import { useMarket } from "../market/MarketProvider";
 import { newsEffect } from "../market/selectors";
+import type { NewsSource } from "../market/types";
 import { LISTING_BY_CODE } from "../market/universe";
 import { NEWS_PATH } from "../router";
 
 interface Props {
   limit?: number;
+  source?: NewsSource;
   emptyMessage?: string;
   /** 뉴스 화면에서 상세 패널과 나란히 놓일 때의 좁은 카드. */
   compact?: boolean;
@@ -16,9 +19,12 @@ interface Props {
 }
 
 /** 소식 목록. 게임 아이콘, 제목, 발행 후 등락만 보여 준다. 제목을 누르면 뉴스 화면에서 본문을 연다. */
-export function NewsFeed({ limit, emptyMessage, compact = false, selectedId = null }: Props) {
+export function NewsFeed({ limit, source, emptyMessage, compact = false, selectedId = null }: Props) {
   const snapshot = useMarket();
-  const items = limit ? snapshot.news.slice(0, limit) : snapshot.news;
+  const items = useMemo(() => {
+    const filtered = source ? snapshot.news.filter((item) => item.source === source) : snapshot.news;
+    return limit ? filtered.slice(0, limit) : filtered;
+  }, [snapshot.news, source, limit]);
 
   if (items.length === 0) return <p className="empty">{emptyMessage ?? "표시할 소식이 없습니다."}</p>;
 

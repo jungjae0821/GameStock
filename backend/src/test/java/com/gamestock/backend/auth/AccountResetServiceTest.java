@@ -73,4 +73,19 @@ class AccountResetServiceTest {
 
         verify(jdbc).update(contains("nickname = ?"), eq(1_000_000L), eq("슈엔단0420"), eq(7L));
     }
+
+    @Test void resetPausesStrategiesBeforeClearingBalances() throws Exception {
+        JdbcTemplate jdbc = database(null);
+        new AccountResetService(jdbc, auth).reset(7L);
+        var order = inOrder(jdbc);
+        order.verify(jdbc).update(contains("UPDATE quant_projects SET status='PAUSED'"), eq(7L));
+        order.verify(jdbc).update("DELETE FROM portfolios WHERE user_id = ?", 7L);
+    }
+
+    @Test void resetRejectsUnfinishedStrategyOrder() throws Exception {
+        JdbcTemplate jdbc = database(null);
+        doReturn(List.of("RUNNING")).when(jdbc).query(contains("SELECT status FROM quant_projects"), any(RowMapper.class), eq(7L));
+        assertThrows(IllegalArgumentException.class, () -> new AccountResetService(jdbc, auth).reset(7L));
+        verify(jdbc, never()).update("DELETE FROM portfolios WHERE user_id = ?", 7L);
+    }
 }

@@ -1,0 +1,256 @@
+/*
+ * 지표 차트 · 종목 채팅 · 퀀트 전략. 공통 부품(next-kit.css)을 그대로 쓰고 여기서는 배치와 새 부품만 정한다.
+ * 지표 선 색(tone)은 상승 적·하락 청과 겹치지 않는 색만 쓴다. 블록 색은 분류를 나타내는 옅은 면이다.
+ */
+
+html[data-nx][data-nx-theme="dark"] {
+  --study-tone-1: #f5a524;
+  --study-tone-2: #3ccfb4;
+  --study-tone-3: #b48cff;
+  --study-tone-4: #e5e07a;
+  --study-tone-5: #ff8fc7;
+  --study-tone-6: #6f6986;
+  --qb-value: #1f2b36;
+  --qb-indicator: #2e2440;
+  --qb-math: #1e3330;
+  --qb-compare: #3a2e1a;
+  --qb-logic: #3a1d2c;
+  --qb-edge: #3a3452;
+}
+
+html[data-nx][data-nx-theme="light"] {
+  --study-tone-1: #c87400;
+  --study-tone-2: #0f8f7a;
+  --study-tone-3: #7a4fd6;
+  --study-tone-4: #8a8300;
+  --study-tone-5: #c2408a;
+  --study-tone-6: #b9b4c7;
+  --qb-value: #eef4fa;
+  --qb-indicator: #f2edfc;
+  --qb-math: #eaf6f3;
+  --qb-compare: #fbf3e4;
+  --qb-logic: #fcedf3;
+  --qb-edge: #dedae8;
+}
+
+/* ───────── 여러 칸 차트 ───────── */
+
+.study-chart { position: relative; min-width: 0; touch-action: pan-y; user-select: none; }
+.study-chart-drawing { display: block; width: 100%; height: auto; overflow: visible; }
+.study-grid line { stroke: var(--nx-line); stroke-width: 1; shape-rendering: crispEdges; }
+.study-grid text, .study-time text { fill: var(--ink-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.study-guide { stroke: var(--ink-faint); stroke-dasharray: 3 3; stroke-width: 1; }
+.study-pane-rule { stroke: var(--nx-line); stroke-width: 1; }
+.study-candle { shape-rendering: crispEdges; }
+.study-candle.is-up { color: var(--up); }
+.study-candle.is-down { color: var(--down); }
+.study-candle line { stroke: currentColor; stroke-width: 1; }
+.study-candle rect { fill: currentColor; }
+.study-line { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.study-line.is-dash { stroke-width: 1; stroke-dasharray: 4 3; }
+.study-bars rect { fill: currentColor; opacity: 0.75; }
+.study-bars rect.is-negative { opacity: 0.4; }
+.study-marker.is-buy { fill: var(--up); }
+.study-marker.is-sell { fill: var(--down); }
+.is-tone-1 { color: var(--study-tone-1); }
+.is-tone-2 { color: var(--study-tone-2); }
+.is-tone-3 { color: var(--study-tone-3); }
+.is-tone-4 { color: var(--study-tone-4); }
+.is-tone-5 { color: var(--study-tone-5); }
+.is-tone-6 { color: var(--study-tone-6); }
+.study-crosshair { position: absolute; top: 0; bottom: 22px; width: 1px; background: var(--ink-faint); pointer-events: none; }
+.study-legend {
+  position: absolute; left: 0; right: 64px;
+  display: flex; flex-wrap: nowrap; gap: 4px 12px; overflow: hidden;
+  color: var(--ink-muted); font-size: 11px; line-height: 18px; white-space: nowrap; pointer-events: none;
+}
+.study-legend strong { color: var(--ink); font-weight: 500; }
+.study-legend-item .nx-num { color: var(--ink); }
+
+/* ───────── 지표 분석 ───────── */
+
+.nx-indicators { display: grid; gap: 12px; min-width: 0; }
+.nx-indicators > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.nx-indicators h2 { margin: 0; font-size: 18px; font-weight: 500; }
+.nx-indicator-ranges { max-width: 100%; overflow-x: auto; scrollbar-width: none; justify-self: start; }
+.nx-indicator-ranges button { flex: none; }
+.nx-indicator-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.nx-indicator-chips li { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding-left: 12px; border: 1px solid var(--nx-line); border-radius: 999px; }
+.nx-indicator-chips li.nx-muted { padding-right: 12px; border-style: dashed; }
+.nx-indicator-chips button { width: 32px; height: 32px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-muted); font: inherit; font-size: 16px; cursor: pointer; }
+.nx-indicator-chips button:hover { color: var(--ink); background: var(--nx-tint); }
+.nx-indicator-add { display: grid; grid-template-columns: minmax(0, 1fr) 88px auto; gap: 8px; max-width: 520px; }
+.nx-indicator-add .nx-select, .nx-indicator-add .nx-input { height: 36px; font-size: 13px; }
+.nx-indicator-chart { min-height: 200px; }
+
+/* ───────── 토론 · 채팅 ───────── */
+
+.nx-trade-community { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); align-items: start; gap: 32px; }
+@media (max-width: 1150px) { .nx-trade-community { grid-template-columns: minmax(0, 1fr); } }
+
+.nx-stock-chat { display: grid; gap: 12px; min-width: 0; }
+.nx-stock-chat > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.nx-stock-chat h2 { margin: 0; font-size: 18px; font-weight: 500; }
+.nx-stock-chat > header .nx-muted { font-size: 12px; }
+.nx-chat-window { border: 1px solid var(--nx-line); border-radius: var(--nx-radius); }
+.nx-chat-window > .nx-skeleton { padding: 16px; }
+.nx-chat-list { height: 380px; margin: 0; padding: 8px 14px; overflow-y: auto; list-style: none; overscroll-behavior: contain; scrollbar-width: thin; }
+.nx-chat-older { display: flex; justify-content: center; }
+.nx-chat-empty { padding: 32px 0; font-size: 13px; text-align: center; }
+.nx-chat-item { padding: 6px 0; }
+.nx-chat-meta { display: flex; align-items: center; gap: 8px; min-height: 20px; font-size: 12px; }
+.nx-chat-meta strong { font-weight: 500; overflow-wrap: anywhere; }
+.nx-chat-meta time { color: var(--ink-faint); }
+.nx-chat-item.is-mine .nx-chat-meta strong { color: var(--brand-deep); }
+.nx-chat-delete { min-height: 20px; margin-left: auto; font-size: 12px; opacity: 0; }
+.nx-chat-item:hover .nx-chat-delete, .nx-chat-delete:focus-visible { opacity: 1; }
+@media (hover: none) { .nx-chat-delete { opacity: 1; } }
+.nx-chat-body { margin: 2px 0 0; font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nx-chat-item.is-deleted .nx-chat-body { color: var(--ink-faint); font-style: italic; }
+.nx-chat-compose { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 8px; }
+.nx-chat-input { height: auto; min-height: 36px; max-height: 120px; padding: 8px 12px; font-size: 14px; line-height: 1.4; resize: vertical; }
+html[data-nx] .nx-chat-input:focus-visible { outline: none; }
+.nx-chat-compose .nx-field-note, .nx-chat-compose .nx-msg { grid-column: 1 / -1; }
+
+/* ───────── 퀀트 화면 ───────── */
+
+.qx-page { display: grid; gap: 32px; }
+.qx-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); align-items: start; gap: 40px; }
+.qx-main { display: grid; gap: 48px; min-width: 0; }
+.qx-projects { position: sticky; top: 88px; display: grid; gap: 12px; min-width: 0; }
+.qx-projects > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.qx-projects h2 { margin: 0; font-size: 15px; font-weight: 500; }
+.qx-projects ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.qx-projects-empty { margin: 0; font-size: 13px; }
+.qx-project {
+  display: grid; gap: 2px; width: 100%; padding: 10px 12px; border: 0; border-radius: var(--nx-radius);
+  background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.qx-project:hover { background: var(--nx-tint); }
+.qx-project.is-active { background: var(--nx-tint); box-shadow: inset 2px 0 0 var(--ink); }
+.qx-project strong { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.qx-project .nx-muted { font-size: 12px; }
+
+.qx-status { justify-self: start; display: inline-flex; align-items: center; gap: 6px; color: var(--ink-muted); font-size: 12px; }
+.qx-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+.qx-status.is-active::before, .qx-status.is-running::before { background: var(--study-tone-2); }
+.qx-status.is-active, .qx-status.is-running { color: var(--ink); }
+.qx-status.is-pausing::before { background: var(--amber-deep); }
+
+.qx-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.qx-field-name { grid-column: 1 / -1; max-width: 480px; }
+.qx-settings > .nx-field-note { margin: 12px 0 0; }
+
+.qx-code { display: grid; gap: 12px; }
+.qx-code > .nx-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.qx-compile { min-height: 20px; margin: 0; color: var(--ink-muted); font-size: 13px; }
+.qx-compile.is-error { color: var(--up-deep); }
+.qx-help { font-size: 13px; color: var(--ink-muted); }
+.qx-help summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.qx-help ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.8; }
+.qx-help code, .qs-diagnostic .nx-num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.qx-help code { padding: 1px 4px; border-radius: 4px; background: var(--nx-tint); color: var(--ink); }
+
+.qx-savebar { display: grid; gap: 8px; margin-top: -24px; }
+.qx-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.qx-conflict { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.qx-backtest-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: end; gap: 12px; }
+.qx-result { display: grid; gap: 20px; margin-top: 16px; }
+.qx-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; margin: 0; }
+.qx-stats dt { color: var(--ink-muted); font-size: 12px; }
+.qx-stats dd { margin: 4px 0 0; font-size: 18px; font-weight: 500; }
+.qx-stats .is-up { color: var(--up-deep); }
+.qx-stats .is-down { color: var(--down-deep); }
+.qx-trades { max-height: 360px; overflow-y: auto; }
+
+.qx-live { display: grid; gap: 16px; }
+.qx-live > .nx-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 0; }
+.qx-live-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
+.qx-usage { display: flex; flex-wrap: wrap; gap: 16px 32px; margin: 0; }
+.qx-usage dt { color: var(--ink-muted); font-size: 12px; }
+.qx-usage dd { display: grid; gap: 6px; margin: 4px 0 0; font-size: 14px; }
+.qx-meter { display: block; width: 140px; height: 4px; border-radius: 2px; background: var(--nx-line); overflow: hidden; }
+.qx-meter > span { display: block; height: 100%; background: var(--ink); }
+.qx-live-rules { margin: 0; padding-left: 18px; color: var(--ink-muted); font-size: 13px; line-height: 1.7; }
+.qx-run { font-size: 12px; }
+.qx-run.is-accepted { color: var(--ink); }
+.qx-run.is-rejected { color: var(--up-deep); }
+.qx-run.is-unknown, .qx-run.is-submitting { color: var(--amber-deep); font-weight: 600; }
+.qx-runs .qx-run-message { max-width: 360px; white-space: normal; text-align: left; font-weight: 400; }
+
+@media (max-width: 960px) {
+  .qx-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .qx-projects { position: static; }
+  .qx-projects ul { display: flex; overflow-x: auto; scrollbar-width: none; gap: 8px; }
+  .qx-project { min-width: 200px; border: 1px solid var(--nx-line); }
+  .qx-project.is-active { box-shadow: inset 0 -2px 0 var(--ink); }
+  .qx-backtest-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .qx-backtest-form > .nx-btn { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .qx-backtest-form { grid-template-columns: minmax(0, 1fr); }
+  .nx-indicator-add { grid-template-columns: minmax(0, 1fr) 72px; }
+  .nx-indicator-add .nx-btn { grid-column: 1 / -1; }
+}
+
+/* ───────── snScript 편집기 ───────── */
+
+.qs-editor { display: grid; gap: 8px; }
+.qs-frame {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); height: 320px;
+  border: 1px solid var(--nx-line); border-radius: var(--nx-radius); background: var(--nx-raised); overflow: hidden;
+}
+.qs-frame:focus-within { border-color: var(--ink-muted); }
+.qs-gutter, .qs-input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 20px; }
+.qs-gutter { display: flex; flex-direction: column; padding: 12px 8px 12px 12px; overflow: hidden; color: var(--ink-faint); text-align: right; user-select: none; }
+.qs-gutter span { min-width: 2ch; }
+.qs-gutter span.is-error { color: var(--up-deep); font-weight: 700; }
+.qs-input { width: 100%; height: 100%; padding: 12px; border: 0; background: transparent; color: var(--ink); resize: none; tab-size: 2; white-space: pre; overflow: auto; }
+.qs-input:focus { outline: none; }
+html[data-nx] .qs-input:focus-visible { outline: none; }
+.qs-diagnostics { display: grid; gap: 4px; }
+.qs-diagnostic { justify-self: start; padding: 4px 8px; border: 0; border-radius: 4px; background: var(--up-wash); color: var(--up-deep); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+
+/* ───────── 블록 편집기 ───────── */
+
+.qb-editor { display: grid; gap: 24px; }
+.qb-section { display: grid; gap: 8px; }
+.qb-section > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.qb-section h3 { margin: 0; font-size: 15px; font-weight: 500; }
+.qb-empty { margin: 0; font-size: 12px; }
+.qb-rows { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.qb-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px;
+  border: 1px solid var(--qb-edge); border-left-width: 4px; border-radius: var(--nx-radius); background: var(--nx-stage);
+}
+.qb-row.is-buy { border-left-color: var(--up); }
+.qb-row.is-sell { border-left-color: var(--down); }
+.qb-keyword { color: var(--ink-muted); font-size: 12px; font-weight: 600; }
+.qb-text { color: var(--ink-muted); font-size: 12px; }
+.qb-row-tools { display: inline-flex; gap: 2px; margin-left: auto; }
+.qb-tool { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-muted); font: inherit; cursor: pointer; }
+.qb-tool:hover:not(:disabled) { background: var(--nx-tint); color: var(--ink); }
+.qb-tool:disabled { opacity: 0.35; cursor: default; }
+.qb-block {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; max-width: 100%; padding: 3px 6px;
+  border: 1px solid var(--qb-edge); border-radius: 8px; font-size: 13px;
+}
+.qb-block.is-value { background: var(--qb-value); }
+.qb-block.is-indicator { background: var(--qb-indicator); }
+.qb-block.is-math { background: var(--qb-math); }
+.qb-block.is-compare { background: var(--qb-compare); }
+.qb-block.is-logic { background: var(--qb-logic); }
+.qb-block select, .qb-side, .qb-number, .qb-name-input {
+  height: 28px; padding: 0 6px; border: 1px solid var(--qb-edge); border-radius: 6px;
+  background: var(--nx-stage); color: var(--ink); font: inherit; font-size: 13px;
+}
+.qb-kind { font-weight: 500; }
+.qb-number { width: auto; min-width: 3ch; text-align: right; }
+.qb-number[aria-invalid], .qb-name-input[aria-invalid], .qb-ref[aria-invalid] { border-color: var(--up-deep); color: var(--up-deep); }
+.qb-name { display: inline-grid; gap: 2px; }
+.qb-name-input { width: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.qb-issue { color: var(--up-deep); font-size: 11px; }
+.qb-qty { display: inline-flex; align-items: center; gap: 4px; }
+.qb-warn { color: var(--amber-deep); font-size: 11px; }
+.qb-usage { margin: 0; }

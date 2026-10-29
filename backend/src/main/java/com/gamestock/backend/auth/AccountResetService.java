@@ -35,6 +35,13 @@ public class AccountResetService {
         if (state.resetUsedAt() != null)
             throw new IllegalArgumentException("인생 리셋은 계정당 한 번만 사용할 수 있습니다.");
 
+        // Serialize with strategy claims so a pre-reset signal cannot spend the new starting cash.
+        var strategies = jdbc.query("SELECT status FROM quant_projects WHERE user_id=? ORDER BY id FOR UPDATE",
+                (rs, row) -> rs.getString(1), userId);
+        if (strategies.stream().anyMatch(status -> status.equals("RUNNING") || status.equals("PAUSING")))
+            throw new IllegalArgumentException("자동매매 주문 처리 중입니다. 전략을 중지하고 주문 결과를 확인한 뒤 리셋해 주세요.");
+        jdbc.update("UPDATE quant_projects SET status='PAUSED',updated_at=CURRENT_TIMESTAMP(3) WHERE user_id=?", userId);
+
         String resetNickname = auth.generateNickname();
 
         // Pending T+1 entries are matured first, so counterparties receive the

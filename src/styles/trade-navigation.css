@@ -35,7 +35,7 @@
 .nx-animated-nav > :not(.nx-nav-indicator) { position: relative; z-index: 1; transition: color 180ms cubic-bezier(.2,.8,.2,1), background-color 180ms cubic-bezier(.2,.8,.2,1); }
 .nx-nav-indicator { position: absolute; pointer-events: none; transform-origin: 0 0; background: var(--ink); transition: background-color 180ms cubic-bezier(.2,.8,.2,1); }
 .nx-tabbar > .nx-nav-indicator { top: -1px; height: 3px; border-radius: 0 0 3px 3px; }
-html[data-app-shell="web"][data-nx] .nx-tabbar.nx-animated-nav { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+html[data-app-shell="web"][data-nx] .nx-tabbar.nx-animated-nav { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 html[data-app-shell="web"][data-nx] .nx-tabbar.nx-animated-nav .nx-tabbar-link.is-active::before { content: none; }
 @media (prefers-reduced-motion: reduce) {
   .nx-animated-nav > *, .nx-filter-chips button { transition: none; }
