@@ -18,7 +18,6 @@ import { NxAccountPanel, type NxAccountTab } from "./trade/NxAccountPanel";
 import { NxOrderTicket } from "./trade/NxOrderTicket";
 import { OrderDock } from "./trade/OrderDock";
 import { PriceDrivers } from "./trade/PriceDrivers";
-import { IndicatorChart } from "./trade/IndicatorChart";
 import { MarketTabs } from "./MarketTabs";
 import { AnimatedNav } from "./AnimatedNav";
 
@@ -447,11 +446,10 @@ export function TradeTerminal({ ticker }: { ticker: string | null }) {
         <section className="nx-trade-chart" aria-label={`${listing.name} 시세와 차트`}>
           <StockHead code={code} quote={quote} />
           <div className="nx-chart integration-tools">
-            <SeriesChart key={code} code={code} markers={markers} initialMode="candle" />
+            <SeriesChart key={code} code={code} markers={markers} initialMode="candle" studies />
           </div>
         </section>
         <StockStats quote={quote} />
-        <IndicatorChart key={code} code={code} name={listing.name} />
         <PriceDrivers code={code} />
         <section className="nx-panel nx-account" aria-label="내 잔고와 주문 내역" tabIndex={-1}>
           <NxAccountPanel code={code} tab={accountTab} onTabChange={setAccountTab}

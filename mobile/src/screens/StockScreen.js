@@ -5,8 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccount, heldQuantity } from '../account';
 import { useAuth } from '../auth';
 import { GameIcon } from '../components/GameIcon';
-import { CandleChart } from '../components/CandleChart';
-import { IndicatorCard } from '../components/IndicatorCard';
+import { IndicatorButton, PickerSheet, StudyChart, useIndicatorSettings } from '../components/StudyChart';
 import { LineChart } from '../components/LineChart';
 import { cleanTitle, clockTime, newsSourceUrl, newsSummary, price, relativeTime, signedPercent } from '../format';
 import { api, sessionRate } from '../market';
@@ -19,12 +18,12 @@ const RANGES = [
   { key: '24h', label: '하루' },
   { key: '7d', label: '일주일' },
 ];
-// 캔들은 봉 간격으로 고른다. 키는 /api/stocks/{code}/chart의 range 값이다(웹 SeriesChart와 같다).
+// 캔들은 봉 간격으로 고른다. 키는 /api/stocks/{code}/chart의 range 값이고, 이름은 웹 SeriesChart와 같다.
 const CANDLE_RANGES = [
-  { key: '1h', label: '1분봉' },
-  { key: '6h', label: '5분봉' },
-  { key: '1d', label: '30분봉' },
-  { key: '3d', label: '1시간봉' },
+  { key: '1h', label: '1분' },
+  { key: '6h', label: '5분' },
+  { key: '1d', label: '30분' },
+  { key: '3d', label: '1시간' },
 ];
 const MODES = [{ key: 'line', label: '선' }, { key: 'candle', label: '캔들' }];
 const BOOK_DEPTH = 5;
@@ -44,6 +43,8 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, onOpenTal
   const [mode, setMode] = useState('line');
   const [candleRange, setCandleRange] = useState('1h');
   const [candles, setCandles] = useState({ range: null, bars: null, error: false });
+  const studies = useIndicatorSettings();
+  const [pickingStudy, setPickingStudy] = useState(false);
   const [drivers, setDrivers] = useState(null);
   const [news, setNews] = useState(null);
   // 근거·뉴스를 한 번도 못 받았을 때만 실패로 보인다. 받은 값이 있으면 다음 갱신까지 그 값을 둔다.
@@ -204,11 +205,13 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, onOpenTal
                 );
               })}
             </View>
+            {/* 지표는 봉으로 계산하므로 선 보기에서 누르면 캔들로 바꾼 뒤 연다. */}
+            <IndicatorButton count={studies.indicators.length} onPress={() => { setMode('candle'); setPickingStudy(true); }} />
           </View>
           {mode === 'candle' ? (
             candles.bars == null ? (
               <View style={styles.chartLoading}>{candles.error ? <Txt variant="caption" tone="inkSoft">봉 기록을 불러오지 못했어요.</Txt> : <ActivityIndicator color={theme.inkSoft} />}</View>
-            ) : <CandleChart candles={candles.bars} reference={stock.referencePrice} />
+            ) : <StudyChart candles={candles.bars} indicators={studies.indicators} reference={stock.referencePrice} onRemove={studies.remove} />
           ) : history.points == null && !history.error ? (
             <View style={styles.chartLoading}><ActivityIndicator color={theme.inkSoft} /></View>
           ) : history.error && history.points == null ? (
@@ -222,10 +225,8 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, onOpenTal
               tone={tone}
             />
           )}
-          <Txt variant="micro" tone="inkSoft" style={{ marginTop: SPACE.sm }}>{mode === 'candle' ? '최근 60개 봉이에요. 점선은 오늘 기준가예요.' : range === '7d' ? '아래 점과 세로선은 관련 뉴스가 나온 시점이에요.' : '아래 점과 세로선은 관련 뉴스가 나온 시점, 점선은 오늘 기준가예요.'}</Txt>
+          <Txt variant="micro" tone="inkSoft" style={{ marginTop: SPACE.sm }}>{mode === 'candle' ? '최근 60개 봉이에요. 회색 점선은 오늘 기준가, 핑크 점선은 마지막 종가예요. 막대는 거래량이 아니라 체결 건수예요.' : range === '7d' ? '아래 점과 세로선은 관련 뉴스가 나온 시점이에요.' : '아래 점과 세로선은 관련 뉴스가 나온 시점, 점선은 오늘 기준가예요.'}</Txt>
         </Card>
-
-        <IndicatorCard key={code} code={code} name={stock.name} />
 
         <Card>
           <Txt variant="headline" accessibilityRole="header">움직인 이유</Txt>
@@ -328,6 +329,7 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, onOpenTal
         </Pressable>
       </View>
 
+      <PickerSheet visible={pickingStudy} count={studies.indicators.length} oscillators={studies.oscillators} onAdd={studies.add} onClose={() => setPickingStudy(false)} />
       <OrderSheet
         visible={Boolean(order)}
         stock={stock}

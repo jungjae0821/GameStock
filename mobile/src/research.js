@@ -27,18 +27,6 @@ export function loadChat(code, cursor = {}, limit = 50) {
 export const sendChat = (code, body) => request(`${stock(code)}/community/chat`, { method: 'POST', body: { body } });
 export const deleteChat = (code, id) => request(`${stock(code)}/community/entries/${id}`, { method: 'DELETE' });
 
-// 지표 차트
-
-// 키는 서버의 range 값, 이름은 캔들 한 개의 간격이다.
-export const CHART_RANGES = [
-  { key: '1h', label: '1분' }, { key: '6h', label: '5분' }, { key: '12h', label: '10분' },
-  { key: '1d', label: '30분' }, { key: '3d', label: '1시간' }, { key: '1w', label: '2시간' },
-  { key: '2w', label: '6시간' }, { key: '1m', label: '일' }, { key: '1y', label: '주' },
-];
-
-export const analyzeChart = (code, range, indicators) =>
-  request(`${stock(code)}/chart-analysis`, { method: 'POST', body: { range, indicators }, auth: false });
-
 /** 서버가 문구 없이 상태만 돌려줄 때 쓰는 기본 문구. */
 const STATUS_TEXT = {
   401: '로그인이 필요해요.',
