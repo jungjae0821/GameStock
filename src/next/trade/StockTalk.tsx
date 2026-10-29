@@ -2,14 +2,14 @@ import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
 import { openLoginPrompt, useAuthUser } from "../../lib/auth";
 import { deleteTalk, likeTalk, loadTalk, writeTalk, type TalkPage, type TalkPost } from "../../lib/stockTalk";
 import { serverTimestamp, since } from "../../market/format";
-import { MARKET_PATH } from "../../router";
+import { TALK_PATH } from "../../router";
 
 const MAX_LENGTH = 300;
 
 const failure = (error: unknown, fallback: string) => (error instanceof Error && error.message ? error.message : fallback);
 const length = (text: string) => [...text.trim()].length;
 
-/** 종목 상세 아래의 토론. 최신 글부터 보이고, 답글은 한 단계까지만 단다. */
+/** 종목토론 화면의 글 목록. 최신 글부터 보이고, 답글은 한 단계까지만 단다. */
 export function StockTalk({ code, name }: { code: string; name: string }) {
   const { user, ready } = useAuthUser();
   const [page, setPage] = useState<TalkPage | null>(null);
@@ -64,15 +64,11 @@ export function StockTalk({ code, name }: { code: string; name: string }) {
   });
 
   return (
-    <section className="nx-stock-talk" aria-labelledby="nx-stock-talk-title">
-      <header>
-        <h2 id="nx-stock-talk-title">종목토론</h2>
-        <span className="nx-muted">글은 {page?.retentionDays ?? 7}일 뒤 사라져요</span>
-      </header>
+    <div className="nx-stock-talk">
       {ready && user ? <TalkComposer code={code} parentId={null} placeholder={`${name}에 대한 생각을 남겨 주세요`} onPosted={posted} />
         : <div className="nx-talk-signin">
             <p className="nx-muted">로그인하면 글을 쓰고 좋아요를 누를 수 있어요.</p>
-            <button type="button" className="nx-btn" onClick={() => openLoginPrompt(MARKET_PATH(code))}>로그인하기</button>
+            <button type="button" className="nx-btn" onClick={() => openLoginPrompt(TALK_PATH(code))}>로그인하기</button>
           </div>}
       {error && <p className="nx-note is-error" role="alert">{error} <button type="button" className="nx-link-button" onClick={() => reload()}>다시 시도</button></p>}
       {!page ? (!error && <div className="nx-skeleton" role="status" aria-label="토론 글을 불러오는 중"><span /><span /></div>)
@@ -86,7 +82,7 @@ export function StockTalk({ code, name }: { code: string; name: string }) {
         </ol>
       )}
       {page?.hasMore && <button type="button" className="nx-link-button nx-talk-more" disabled={loadingMore} onClick={() => void more()}>{loadingMore ? "불러오는 중…" : "이전 글 더 보기"}</button>}
-    </section>
+    </div>
   );
 }
 
@@ -149,7 +145,7 @@ function TalkItem({ code, post, signedIn, onChange, onPosted, reply = false }: {
   const [message, setMessage] = useState("");
 
   const like = async () => {
-    if (!signedIn) { openLoginPrompt(MARKET_PATH(code)); return; }
+    if (!signedIn) { openLoginPrompt(TALK_PATH(code)); return; }
     setBusy(true);
     setMessage("");
     try {
@@ -189,7 +185,7 @@ function TalkItem({ code, post, signedIn, onChange, onPosted, reply = false }: {
           좋아요 <span className="nx-num">{post.likes}</span>
         </button>
         {!reply && <button type="button" className="nx-link-button" aria-expanded={replying}
-          onClick={() => (signedIn ? setReplying((open) => !open) : openLoginPrompt(MARKET_PATH(code)))}>
+          onClick={() => (signedIn ? setReplying((open) => !open) : openLoginPrompt(TALK_PATH(code)))}>
           답글{post.replies.length > 0 && <> <span className="nx-num">{post.replies.length}</span></>}
         </button>}
         {post.mine && <button type="button" className="nx-link-button" disabled={busy} onClick={() => void remove()}>지우기</button>}

@@ -9,6 +9,7 @@ export type Route =
   | { name: "trade"; ticker: string | null }
   | { name: "news"; id: number | null }
   | { name: "ranking" }
+  | { name: "talk"; code: string | null }
   | { name: "apiDocs" }
   | { name: "mypage" }
   | { name: "settings" }
@@ -57,6 +58,7 @@ function parse(pathname: string): Route {
   }
   if (parts[0] === "heatmap") return parts.length === 1 ? { name: "heatmap" } : { name: "notFound" };
   if (parts[0] === "ranking") return { name: "ranking" };
+  if (parts[0] === "talk") return parts.length <= 2 ? { name: "talk", code: parts[1]?.toUpperCase() ?? null } : { name: "notFound" };
   if (parts[0] === "api-docs") return parts.length === 1 ? { name: "apiDocs" } : { name: "notFound" };
   if (parts[0] === "mypage") return { name: "mypage" };
   if (parts[0] === "settings") return { name: "settings" };
@@ -120,5 +122,6 @@ export const HEATMAP_PATH = "/heatmap";
 export const MARKET_PATH = (ticker: string | null): string => (ticker ? `/market/${ticker}` : "/market");
 export const ETF_PATH = (ticker: string | null = null): string => (ticker ? `/market/etf/${ticker}` : "/market/etf");
 export const NEWS_PATH = (id: number | null): string => (id === null ? "/news" : `/news/${id}`);
+export const TALK_PATH = (code: string | null): string => (code ? `/talk/${code}` : "/talk");
 export const QUANT_PATH = (id: number | null): string => (id === null ? "/quant" : `/quant/${id}`);
 export const TRADE_PATH = (ticker: string | null): string => (ticker ? `/trade/${ticker}` : "/trade");

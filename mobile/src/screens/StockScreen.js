@@ -6,6 +6,7 @@ import { useAccount, heldQuantity } from '../account';
 import { useAuth } from '../auth';
 import { GameIcon } from '../components/GameIcon';
 import { CandleChart } from '../components/CandleChart';
+import { IndicatorCard } from '../components/IndicatorCard';
 import { LineChart } from '../components/LineChart';
 import { cleanTitle, clockTime, newsSourceUrl, newsSummary, price, relativeTime, signedPercent } from '../format';
 import { api, sessionRate } from '../market';
@@ -31,7 +32,7 @@ const TRADE_COUNT = 10;
 const amount = value => `${Math.round(Number(value) || 0).toLocaleString('ko-KR')}주`;
 
 /** 종목 상세. 할 일은 판단 하나다: 가격과 흐름, 움직인 이유, 지금 호가, 그리고 주문. */
-export function StockScreen({ code, market, onBack, onLogin, onSwitch, initialOrder }) {
+export function StockScreen({ code, market, onBack, onLogin, onSwitch, onOpenTalk, initialOrder }) {
   const [picking, setPicking] = useState(false);
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -151,7 +152,12 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, initialOr
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACE.lg, paddingBottom: SPACE.xl }}>
+      {/* 채팅 입력칸이 키보드에 가리지 않도록 키보드 높이만큼 스크롤 여백을 늘린다. */}
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: SPACE.lg, paddingBottom: SPACE.xl }}
+      >
         <View style={styles.hero}>
           <View style={styles.heroName}>
             <GameIcon code={code} size={36} />
@@ -218,6 +224,8 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, initialOr
           )}
           <Txt variant="micro" tone="inkSoft" style={{ marginTop: SPACE.sm }}>{mode === 'candle' ? '최근 60개 봉이에요. 점선은 오늘 기준가예요.' : range === '7d' ? '아래 점과 세로선은 관련 뉴스가 나온 시점이에요.' : '아래 점과 세로선은 관련 뉴스가 나온 시점, 점선은 오늘 기준가예요.'}</Txt>
         </Card>
+
+        <IndicatorCard key={code} code={code} name={stock.name} />
 
         <Card>
           <Txt variant="headline" accessibilityRole="header">움직인 이유</Txt>
@@ -297,6 +305,17 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, initialOr
               );
             }) : <Txt variant="caption" tone="inkSoft" style={styles.bookEmpty}>이 종목의 관련 뉴스가 아직 없어요</Txt>}
         </Card>
+        {/* 글과 채팅은 토론 탭에만 둔다. 여기서는 그 종목 토론방으로 가는 길만 낸다. */}
+        {onOpenTalk ? (
+          <Card>
+            <Txt variant="headline" accessibilityRole="header">종목토론</Txt>
+            <Txt variant="callout" tone="inkSoft" style={{ marginTop: SPACE.xs }}>글과 실시간 채팅은 토론 탭에 모여 있어요.</Txt>
+            <Pressable accessibilityRole="button" onPress={() => onOpenTalk(code)} style={({ pressed }) => [styles.talkButton, { borderColor: theme.edge }, pressed && { backgroundColor: theme.pressed }]}>
+              <Ionicons name="chatbubbles-outline" size={18} color={theme.ink} />
+              <Txt variant="callout">토론방 열기</Txt>
+            </Pressable>
+          </Card>
+        ) : null}
         <Txt variant="micro" tone="inkSoft" style={styles.footer}>모의 시장이에요. 실제 주식이나 현금을 거래하지 않아요.</Txt>
       </ScrollView>
 
@@ -331,7 +350,7 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, initialOr
 }
 
 /** 목록으로 돌아가지 않고 다른 종목으로 바꾸는 시트. 웹 거래 화면의 종목 선택과 같은 일을 한다. */
-function StockPicker({ visible, stocks, current, onPick, onClose }) {
+export function StockPicker({ visible, stocks, current, onPick, onClose }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   return (
@@ -507,6 +526,7 @@ const styles = StyleSheet.create({
   sourceLink: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
   underline: { textDecorationLine: 'underline' },
   footer: { textAlign: 'center', marginTop: SPACE.sm },
+  talkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACE.sm, minHeight: 48, marginTop: SPACE.md, borderWidth: 1, borderRadius: RADIUS },
   actions: { flexDirection: 'row', gap: SPACE.sm, paddingHorizontal: SPACE.lg, paddingTop: SPACE.sm, borderTopWidth: StyleSheet.hairlineWidth },
   action: { flex: 1, minHeight: 52, borderRadius: RADIUS, alignItems: 'center', justifyContent: 'center' },
 });

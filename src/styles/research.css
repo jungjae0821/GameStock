@@ -24,7 +24,8 @@ html[data-nx][data-nx-theme="light"] {
   --study-tone-3: #7a4fd6;
   --study-tone-4: #8a8300;
   --study-tone-5: #c2408a;
-  --study-tone-6: #b9b4c7;
+  /* 막대·히스토그램 색. 흰 바탕 대비 3:1을 넘도록 한 단계 진하게(3.8:1). 앱과 같은 값이다. */
+  --study-tone-6: #857f99;
   --qb-value: #eef4fa;
   --qb-indicator: #f2edfc;
   --qb-math: #eaf6f3;
@@ -69,24 +70,118 @@ html[data-nx][data-nx-theme="light"] {
 
 /* ───────── 지표 분석 ───────── */
 
-.nx-indicators { display: grid; gap: 12px; min-width: 0; }
+/* 열을 화면 폭에 묶어 둔다. 없으면 간격 탭 아홉 개 폭만큼 차트까지 넓어진다. */
+.nx-indicators { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
 .nx-indicators > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .nx-indicators h2 { margin: 0; font-size: 18px; font-weight: 500; }
-.nx-indicator-ranges { max-width: 100%; overflow-x: auto; scrollbar-width: none; justify-self: start; }
-.nx-indicator-ranges button { flex: none; }
-.nx-indicator-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
-.nx-indicator-chips li { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding-left: 12px; border: 1px solid var(--nx-line); border-radius: 999px; }
-.nx-indicator-chips li.nx-muted { padding-right: 12px; border-style: dashed; }
-.nx-indicator-chips button { width: 32px; height: 32px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-muted); font: inherit; font-size: 16px; cursor: pointer; }
-.nx-indicator-chips button:hover { color: var(--ink); background: var(--nx-tint); }
-.nx-indicator-add { display: grid; grid-template-columns: minmax(0, 1fr) 88px auto; gap: 8px; max-width: 520px; }
-.nx-indicator-add .nx-select, .nx-indicator-add .nx-input { height: 36px; font-size: 13px; }
+
+/* 차트 머리 한 줄: 캔들 간격 글자 탭과 지표 버튼. 상자 없이 아래 괘선 하나로 차트와 나눈다. */
+.nx-study-toolbar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--nx-line); }
+.nx-study-ranges { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.nx-study-ranges button {
+  position: relative; flex: none; display: inline-grid; place-items: center; min-width: 44px; height: 44px; padding: 0 10px;
+  border: 0; background: transparent; color: var(--ink-muted); font: inherit; font-size: 13px; cursor: pointer;
+}
+/* 굵기가 바뀌어도 옆 탭이 밀리지 않게 굵은 글자 폭을 미리 잡는다. */
+.nx-study-ranges button::before { content: attr(data-label); grid-area: 1 / 1; font-weight: 600; visibility: hidden; }
+.nx-study-ranges button:hover { color: var(--ink); }
+.nx-study-ranges button.is-active { color: var(--ink); font-weight: 600; }
+.nx-study-ranges button.is-active::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; background: var(--ink); }
+
+.nx-study-menu-root { position: relative; flex: none; }
+.nx-study-menu-trigger {
+  display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer;
+}
+.nx-study-menu-trigger:hover, .nx-study-menu-trigger[aria-expanded="true"] { background: var(--nx-tint); }
+.nx-study-fx { font-style: italic; font-weight: 600; letter-spacing: -0.02em; }
+/* 무대 위에 겹쳐 뜨는 면. 그림자 없이 한 단계 밝은 돋움색으로 뜬다. */
+.nx-study-menu {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 20; width: min(340px, calc(100vw - 32px));
+  display: grid; gap: 8px; padding: 8px; border-radius: var(--nx-radius); background: var(--nx-tint);
+}
+html[data-nx][data-nx-theme="light"] .nx-study-menu { background: var(--nx-panel); box-shadow: inset 0 0 0 1px var(--nx-line); }
+.nx-study-types { display: grid; }
+.nx-study-types button {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer;
+}
+.nx-study-types button .nx-muted { font-size: 12px; }
+.nx-study-types button:hover { background: color-mix(in srgb, var(--nx-line) 50%, transparent); }
+.nx-study-types button.is-active { font-weight: 600; background: var(--nx-line); }
+.nx-study-add { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 4px 8px; padding: 8px 10px 2px; border-top: 1px solid var(--nx-line); font-size: 13px; }
+.nx-study-add .nx-input { height: 36px; font-size: 13px; text-align: right; }
+.nx-study-add .nx-field-hint { grid-column: 1 / -1; margin: 0; font-size: 12px; }
 .nx-indicator-chart { min-height: 200px; }
+
+/* 쌓은 범례: 칸 이름과 봉 값 한 줄, 그 아래 지표마다 한 줄. 끄기 버튼만 누를 수 있다. */
+.study-legend.is-stacked { flex-direction: column; gap: 0; }
+.study-legend-row { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.study-legend-name { color: var(--ink-muted); }
+/* 값 글자는 잉크색, 선 색은 앞의 작은 칸으로만 보인다. 몇몇 선 색은 글자 대비 4.5:1에 못 미친다. */
+.study-legend-value { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.study-swatch { width: 8px; height: 8px; border-radius: 2px; background: currentColor; }
+.study-ohlc.is-up { color: var(--up-deep); }
+.study-ohlc.is-down { color: var(--down-deep); }
+.study-legend-remove {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: 4px; background: transparent; color: var(--ink-muted); font: inherit; font-size: 14px; line-height: 1;
+  cursor: pointer; pointer-events: auto; opacity: 0;
+}
+/* 범례는 마우스를 받지 않으므로 차트에 올렸을 때 끄기 버튼을 보인다. */
+.study-chart:hover .study-legend-remove, .study-legend-remove:focus-visible { opacity: 1; }
+.study-legend-remove:hover { background: var(--nx-tint); color: var(--ink); }
+@media (hover: none) { .study-legend-remove { opacity: 1; } }
+/* 좁은 화면에서는 종목 이름과 시각을 빼고 봉 값만 남긴다. 둘 다 화면 위에 이미 있다. */
+@media (max-width: 480px) { .study-legend-context { display: none; } }
+/* 마지막 종가. 주 차트의 현재가 꼬리표와 같은 판정색이다. */
+.study-last line { stroke: var(--brand); stroke-width: 1; stroke-dasharray: 2 3; shape-rendering: crispEdges; }
+.study-last rect { fill: var(--brand); }
+.study-last text { fill: var(--brand-ink); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 /* ───────── 토론 · 채팅 ───────── */
 
-.nx-trade-community { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); align-items: start; gap: 32px; }
-@media (max-width: 1150px) { .nx-trade-community { grid-template-columns: minmax(0, 1fr); } }
+/* 거래 화면의 종목토론 줄. 제목과 한 줄 설명, 오른쪽에 토론방으로 가는 버튼 하나. */
+.nx-talk-entry { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.nx-talk-entry h2 { margin: 0; font-size: 18px; font-weight: 500; }
+.nx-talk-entry p { margin: 6px 0 0; font-size: 13px; }
+
+/* 종목토론 화면: 종목 목록 | 글 | 채팅. 좁아지면 채팅이 글 아래로, 더 좁으면 목록이 선택 상자로 바뀐다. */
+.nx-talk-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr) minmax(0, 360px); align-items: start; gap: 40px; }
+.nx-talk-stocks { position: sticky; top: 88px; display: grid; gap: 8px; min-width: 0; max-height: calc(100vh - 120px); overflow-y: auto; scrollbar-width: thin; }
+.nx-talk-search { height: 40px; font-size: 13px; }
+.nx-talk-stocks ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.nx-talk-stocks-empty { margin: 4px 0 0; font-size: 13px; }
+.nx-talk-stock {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; padding: 4px 10px;
+  border-radius: 8px; color: var(--ink-muted); font-size: 14px; text-decoration: none;
+}
+.nx-talk-stock:hover { background: var(--nx-tint); color: var(--ink); }
+.nx-talk-stock.is-active { background: var(--nx-tint); color: var(--ink); font-weight: 600; }
+.nx-talk-stock-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx-talk-stock-rate { font-size: 12px; font-weight: 400; }
+.nx-talk-stock-rate.is-up { color: var(--up-deep); }
+.nx-talk-stock-rate.is-down { color: var(--down-deep); }
+.nx-talk-picker { display: none; }
+.nx-talk-main { display: grid; gap: 24px; min-width: 0; }
+.nx-talk-stock-head { display: flex; align-items: center; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid var(--nx-line); }
+.nx-talk-stock-id { flex: 1; min-width: 0; }
+.nx-talk-stock-id h2 { margin: 0; font-size: 20px; font-weight: 500; }
+.nx-talk-stock-id p { margin: 4px 0 0; font-size: 14px; }
+.nx-talk-page .nx-stock-chat { position: sticky; top: 88px; }
+/* 종목 이름은 글 머리에 이미 있어 채팅 머리의 '○○ 채널'은 뺀다. */
+.nx-talk-page .nx-stock-chat > header .nx-muted { display: none; }
+@media (max-width: 1150px) {
+  .nx-talk-layout { grid-template-columns: 220px minmax(0, 1fr); }
+  .nx-talk-page .nx-stock-chat { position: static; grid-column: 2; }
+}
+@media (max-width: 900px) {
+  .nx-talk-layout { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .nx-talk-stocks { display: none; }
+  .nx-talk-picker { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; font-size: 14px; }
+  .nx-talk-picker .nx-select { height: 44px; }
+  .nx-talk-page .nx-stock-chat { grid-column: auto; }
+}
 
 .nx-stock-chat { display: grid; gap: 12px; min-width: 0; }
 .nx-stock-chat > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }

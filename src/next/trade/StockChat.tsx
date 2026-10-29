@@ -3,7 +3,7 @@ import { openLoginPrompt, useAuthUser } from "../../lib/auth";
 import { useProfile } from "../../lib/profile";
 import { CHAT_MAX_LENGTH, deleteChat, failure, isAbort, loadChat, sendChat, type ChatEntry } from "../../lib/research";
 import { clock, kstDateTime, serverTimestamp } from "../../market/format";
-import { MARKET_PATH } from "../../router";
+import { TALK_PATH } from "../../router";
 
 /** 새 메시지 조회 간격. 서버 이벤트가 없어 커서로 따라잡는다. */
 const POLL_MS = 2_000;
@@ -209,7 +209,7 @@ export function StockChat({ code, name }: { code: string; name: string }) {
       {ready && user ? <ChatComposer code={code} onSent={sent} />
         : <div className="nx-talk-signin">
             <p className="nx-muted">로그인하면 채팅에 참여할 수 있어요.</p>
-            <button type="button" className="nx-btn is-small" onClick={() => openLoginPrompt(MARKET_PATH(code))}>로그인하기</button>
+            <button type="button" className="nx-btn is-small" onClick={() => openLoginPrompt(TALK_PATH(code))}>로그인하기</button>
           </div>}
     </section>
   );

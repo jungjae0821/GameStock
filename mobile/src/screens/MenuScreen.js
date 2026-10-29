@@ -14,6 +14,7 @@ const ITEMS = [
   { label: '충전하기', detail: '오늘의 투자 미션과 모의 자금 보상', icon: 'gift-outline', path: '/charge' },
   { label: '대출', detail: '모의 대출과 상환, 한도와 이자', icon: 'cash-outline', path: '/loan' },
   { label: '전광판', detail: '홈 맨 위에 한 줄 문구 띄우기', icon: 'megaphone-outline', path: '/billboard' },
+  { label: '퀀트 전략', detail: '매매 조건을 짜서 백테스트하고 자동 주문 켜기', icon: 'git-branch-outline', path: '/quant' },
   { label: '칭호 설정', detail: '칭호 조건과 획득 현황, 장착', icon: 'ribbon-outline', path: '/titles' },
   { label: '프로필·계정 설정', detail: '닉네임, 프로필 사진, 계좌 초기화', icon: 'person-circle-outline', path: '/settings' },
 ];

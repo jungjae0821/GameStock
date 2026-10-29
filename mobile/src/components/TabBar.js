@@ -9,11 +9,12 @@ export const TABS = [
   { key: 'market', label: '시장', icon: 'stats-chart', path: null },
   { key: 'news', label: '뉴스', icon: 'newspaper', path: null },
   { key: 'ranking', label: '랭킹', icon: 'trophy', path: null },
+  { key: 'talk', label: '토론', icon: 'chatbubbles', path: null },
   { key: 'more', label: '설정', icon: 'settings', path: null },
 ];
 
 /**
- * 하단 탭바. 다섯 탭 모두 네이티브 화면이다. 설정 메뉴의 계정 화면만 아직 WebView로 연다.
+ * 하단 탭바. 여섯 탭 모두 네이티브 화면이다. 설정 메뉴의 계정 화면만 아직 WebView로 연다.
  * 현재 탭은 채워진 아이콘과 잉크색 글자로 표시한다. 색만이 아니라 아이콘 모양도 바뀐다.
  */
 export function TabBar({ active, onSelect }) {
