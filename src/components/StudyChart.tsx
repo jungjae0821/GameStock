@@ -29,23 +29,12 @@ export type StudyPane = {
   domain?: [number, number];
   format: (value: number) => string;
   markers?: StudyMarker[];
-  /** 범례를 지표마다 한 줄씩 쌓는다. 있으면 줄마다 끄기 버튼을 둘 수 있다. */
-  legendRows?: StudyLegendRow[];
-  /** 마지막 종가를 가격축에 꼬리표로 표시한다. */
-  lastPrice?: boolean;
 };
-export type StudyLegendRow = { id: string; label: string; keys: string[]; onRemove?: () => void };
 
 const AXIS = 64;
 const PAD_TOP = 22;
 const PAD_BOTTOM = 6;
 const TIME_AXIS = 22;
-const LEGEND_ROW = 24;
-
-/** 지표 한 줄만 있는 칸은 칸 이름 줄을 따로 두지 않는다. 같은 이름을 두 번 쓰게 된다. */
-const titleRow = (pane: StudyPane) => !pane.legendRows || Boolean(pane.candles) || pane.legendRows.length !== 1;
-/** 쌓은 범례가 차지하는 높이. 그만큼 그림을 내려 범례가 값을 가리지 않게 한다. */
-const padTop = (pane: StudyPane) => (titleRow(pane) ? PAD_TOP : 6) + (pane.legendRows?.length ?? 0) * LEGEND_ROW;
 
 function niceTicks(low: number, high: number, count: number) {
   const span = high - low || Math.abs(high) * 0.01 || 1;
@@ -121,8 +110,8 @@ const Drawing = memo(function Drawing({ times, panes, layout, label }: { times: 
       {panes.map((pane, paneIndex) => {
         const top = tops[paneIndex];
         const scale = paneScale(pane, 0, times.length);
-        const innerTop = top + padTop(pane);
-        const innerHeight = Math.max(1, pane.height - padTop(pane) - PAD_BOTTOM);
+        const innerTop = top + PAD_TOP;
+        const innerHeight = Math.max(1, pane.height - PAD_TOP - PAD_BOTTOM);
         const y = (value: number) => innerTop + (1 - (value - scale.low) / (scale.high - scale.low || 1)) * innerHeight;
         const ticks = niceTicks(scale.low, scale.high, Math.max(2, Math.floor(innerHeight / 36)));
         const zero = y(Math.min(Math.max(0, scale.low), scale.high));
@@ -159,15 +148,6 @@ const Drawing = memo(function Drawing({ times, panes, layout, label }: { times: 
             ) : (
               <path key={series.key} className={`study-line is-tone-${series.tone ?? 1}${series.style === "dash" ? " is-dash" : ""}`} d={linePath(series.values, x, y)} />
             ))}
-            {pane.lastPrice && pane.candles?.length ? (() => {
-              const last = pane.candles[pane.candles.length - 1].closePrice;
-              const ly = Math.round(y(last)) + 0.5;
-              return <g className="study-last" aria-hidden="true">
-                <line x1={0} x2={plotWidth} y1={ly} y2={ly} />
-                <rect x={plotWidth + 2} y={ly - 9} width={width - plotWidth - 2} height={18} rx={4} />
-                <text x={plotWidth + 6} y={ly} dominantBaseline="middle">{pane.format(last)}</text>
-              </g>;
-            })() : null}
             {pane.markers?.map((marker, index) => {
               const value = pane.series[0]?.values[marker.index];
               if (value === null || value === undefined) return null;
@@ -209,7 +189,6 @@ export function StudyChart({ times, panes, label }: { times: number[]; panes: St
         {hover !== null && <span className="study-crosshair" style={{ left: layout.x(hover) }} aria-hidden="true" />}
         {panes.map((pane, paneIndex) => {
           const candle = pane.candles?.[index];
-          if (pane.legendRows) return <StackedLegend key={pane.id} pane={pane} index={index} top={layout.tops[paneIndex]} time={paneIndex === 0 ? fullTime.format(times[index]) : null} />;
           return (
             <div key={pane.id} className="study-legend" style={{ top: layout.tops[paneIndex] + 2 }}>
               <strong>{pane.title}</strong>
@@ -225,42 +204,6 @@ export function StudyChart({ times, panes, label }: { times: number[]; panes: St
           );
         })}
       </>}
-    </div>
-  );
-}
-
-const valueText = (pane: StudyPane, value: number | null | undefined) =>
-  value === null || value === undefined || !Number.isFinite(value) ? "–" : pane.format(value);
-
-/** 첫 줄은 칸 이름과 고른 봉의 시가·고가·저가·종가, 그 아래는 지표마다 한 줄. */
-function StackedLegend({ pane, index, top, time }: { pane: StudyPane; index: number; top: number; time: string | null }) {
-  const candle = pane.candles?.[index];
-  const byKey = new Map(pane.series.map((series) => [series.key, series]));
-  const previous = pane.candles?.[index - 1]?.closePrice;
-  const change = candle && previous ? (candle.closePrice - previous) / previous : null;
-  return (
-    <div className="study-legend is-stacked" style={{ top: top + 2 }}>
-      {titleRow(pane) && <div className="study-legend-row">
-        <strong className={candle ? "study-legend-context" : undefined}>{pane.title}</strong>
-        {time && <span className="nx-num study-legend-context">{time}</span>}
-        {candle && <span className={`nx-num study-ohlc is-${!change ? "flat" : change > 0 ? "up" : "down"}`}>
-          시 {pane.format(candle.openPrice)} 고 {pane.format(candle.highPrice)} 저 {pane.format(candle.lowPrice)} 종 {pane.format(candle.closePrice)}
-          {change !== null && ` ${change >= 0 ? "+" : ""}${(change * 100).toFixed(2)}%`}
-        </span>}
-      </div>}
-      {pane.legendRows?.map((row) => (
-        <div key={row.id} className="study-legend-row">
-          <span className="study-legend-name">{row.label}</span>
-          {row.keys.map((key) => {
-            const series = byKey.get(key);
-            if (!series) return null;
-            return <span key={key} className="nx-num study-legend-value">
-              <i className={`study-swatch is-tone-${series.tone ?? 1}`} aria-hidden="true" />{valueText(pane, series.values[index])}
-            </span>;
-          })}
-          {row.onRemove && <button type="button" className="study-legend-remove" aria-label={`${row.label} 끄기`} onClick={row.onRemove}>×</button>}
-        </div>
-      ))}
     </div>
   );
 }

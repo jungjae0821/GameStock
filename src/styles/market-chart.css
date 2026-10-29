@@ -13,16 +13,19 @@
 }
 html[data-nx-theme="light"] .market-chart { --chart-label-bg: #625b70; }
 .market-chart-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 12px; }
+/* 지표 버튼이 있으면 간격 탭은 왼쪽, 선/캔들과 지표 버튼은 오른쪽에 붙인다. */
+.market-chart-toolbar:has(.nx-study-menu-root) { justify-content: flex-start; }
+.market-chart-toolbar:has(.nx-study-menu-root) .market-chart-modes { margin-left: auto; }
 .market-chart-ranges, .market-chart-modes { display: flex; align-items: center; gap: 2px; min-width: 0; }
-.market-chart-toolbar button {
+.market-chart-toolbar > * > button {
   min-height: 36px; padding: 5px 9px; border: 0; border-radius: 4px;
   background: transparent; color: var(--ink-muted); font: inherit; font-size: 12px;
   white-space: nowrap; cursor: pointer; transition: color 120ms cubic-bezier(.22, 1, .36, 1), background-color 120ms cubic-bezier(.22, 1, .36, 1);
 }
-.market-chart-toolbar button:hover:not(.is-active) { color: var(--ink); background: var(--nx-tint); }
-.market-chart-toolbar button.is-active { color: var(--ink); font-weight: 600; }
+.market-chart-toolbar > * > button:hover:not(.is-active) { color: var(--ink); background: var(--nx-tint); }
+.market-chart-toolbar > * > button.is-active { color: var(--ink); font-weight: 600; }
 .market-chart-toolbar .nx-nav-indicator { border-radius: 4px; background: var(--nx-tint); }
-.market-chart-toolbar button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.market-chart-toolbar > * > button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .market-chart-readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 18px; min-height: 58px; padding: 0 0 10px; }
 .market-chart-symbol { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; color: var(--ink-muted); font-size: 12px; }
 .market-chart-symbol time { font-size: 11px; }
@@ -76,7 +79,7 @@ html[data-nx-theme="light"] .market-chart { --chart-label-bg: #625b70; }
   .market-chart-toolbar { gap: 6px; margin-bottom: 10px; }
   .market-chart-ranges { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .market-chart-modes { margin-left: auto; }
-  .market-chart-toolbar button { min-height: 38px; padding-inline: 5px; }
+  .market-chart-toolbar > * > button { min-height: 38px; padding-inline: 5px; }
   .market-chart-readout { min-height: 62px; gap: 5px; }
   .market-chart-symbol { width: 100%; gap: 6px; }
   .market-chart-symbol time { margin-left: auto; }
@@ -85,5 +88,5 @@ html[data-nx-theme="light"] .market-chart { --chart-label-bg: #625b70; }
   .market-chart-plot { height: 310px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .market-chart-toolbar button { transition: none; }
+  .market-chart-toolbar > * > button { transition: none; }
 }

@@ -9,6 +9,8 @@ import type { ChartCandle, ChartGeometry, ChartMode, ChartSample } from "../mark
 import { CANDLE_INTERVAL_MS, collectLiveCandles, mergeLiveCandles } from "../market/liveCandles";
 import type { LiveCandle } from "../market/liveCandles";
 import { AnimatedNav } from "../next/AnimatedNav";
+import { IndicatorMenu } from "../next/trade/IndicatorMenu";
+import { StudyLegend, StudyOverlay, StudyPanes, useIndicatorSettings, useStudies } from "./ChartStudies";
 
 export type ChartRange = "1h" | "6h" | "12h" | "1d" | "3d" | "2w" | "1m" | "1y";
 type PricePoint = { recordedAt: string; price: number };
@@ -100,8 +102,9 @@ const ChartDrawing = memo(function ChartDrawing({ samples, geometry: g, mode, ma
 type IndexFeed = { price: number; prevClose: number };
 const INDEX_RANGE_OPTIONS = RANGE_OPTIONS.filter(option => option.value !== "1y");
 
-export function SeriesChart({ code, tone, markers = NO_MARKERS, fitMarkers = false, initialMode = "line", index }: {
-  code: string; tone?: "up" | "down" | "flat"; markers?: Marker[]; fitMarkers?: boolean; initialMode?: ChartMode; index?: IndexFeed;
+/** studies를 켜면 캔들 위에 지표를 겹치고 아래에 체결 건수·보조 지표 칸을 붙인다(종목 상세에서만). */
+export function SeriesChart({ code, tone, markers = NO_MARKERS, fitMarkers = false, initialMode = "line", index, studies: studiesOn = false }: {
+  code: string; tone?: "up" | "down" | "flat"; markers?: Marker[]; fitMarkers?: boolean; initialMode?: ChartMode; index?: IndexFeed; studies?: boolean;
 }) {
   const snapshot = useMarket();
   const stock = index ? undefined : snapshot.quotes[code];
@@ -135,6 +138,9 @@ export function SeriesChart({ code, tone, markers = NO_MARKERS, fitMarkers = fal
   const samples = useMemo(() => mode === "candle"
     ? mergeLiveCandles(recordedSamples, liveBars) : recordedSamples, [recordedSamples, mode, liveBars]);
   const currentPrice = quote?.price ?? 1;
+  const indicatorSettings = useIndicatorSettings();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const studies = useStudies(samples, indicatorSettings.indicators, studiesOn && !isIndex && mode === "candle");
   const geometry = useMemo(() => chartGeometry(samples, mode, size.width, size.height, currentPrice), [samples, mode, size.width, size.height, currentPrice]);
   const pointerModel = useRef({ samples, geometry });
   pointerModel.current = { samples, geometry };
@@ -256,6 +262,12 @@ export function SeriesChart({ code, tone, markers = NO_MARKERS, fitMarkers = fal
           className={mode === value ? "is-active" : undefined} aria-pressed={mode === value}
           onClick={() => { clearInspection(); setMode(value); }}>{label}</button>)}
       </AnimatedNav>
+      {/* 지표는 봉으로 계산하므로 선 보기에서 누르면 캔들로 바꾼 뒤 연다. */}
+      {studiesOn && !isIndex && <IndicatorMenu open={menuOpen} count={indicatorSettings.indicators.length} oscillators={indicatorSettings.oscillators}
+        onAdd={indicatorSettings.add} onOpenChange={(next) => {
+          if (next && mode !== "candle") { clearInspection(); setMode("candle"); }
+          setMenuOpen(next);
+        }} />}
     </div>
     <div className="market-chart-readout" aria-live="off">
       {/* 종목 코드는 화면 머리에, 통화는 차트 아래 줄에 이미 있다. 여기에는 봉 간격만 둔다. */}
@@ -291,6 +303,8 @@ export function SeriesChart({ code, tone, markers = NO_MARKERS, fitMarkers = fal
       }}>
       <ChartDrawing samples={samples} geometry={geometry} mode={mode} markers={markers} currentPrice={currentPrice} prevClose={quote.prevClose}
         code={code} rangeLabel={rangeOption.label} tone={chartTone} width={size.width} height={size.height} formatValue={formatValue} />
+      {studies && <StudyOverlay rows={studies.overlay} geometry={geometry} width={size.width} height={size.height} />}
+      {studies && <StudyLegend rows={studies.overlay} index={hovered ? hoveredIndex : samples.length - 1} onRemove={indicatorSettings.remove} />}
       {samples.length > 0 && <span className={`market-chart-price-tag num is-${chartTone}`} aria-hidden="true"
         style={{ top: clamp(geometry.y(currentPrice), 10, geometry.plotHeight - 10), width: geometry.axisWidth }}>{formatPrice(currentPrice)}</span>}
       {hovered && <div className="market-chart-crosshair" aria-hidden="true">
@@ -302,6 +316,8 @@ export function SeriesChart({ code, tone, markers = NO_MARKERS, fitMarkers = fal
       </div>}
       {!samples.length && <p className="market-chart-empty" role="status">{status}</p>}
     </div>
+    {studies && <StudyPanes panes={studies.panes} geometry={geometry} width={size.width} index={hovered ? hoveredIndex : samples.length - 1}
+      crossX={hovered ? crossX : null} onRemove={indicatorSettings.remove} />}
     <figcaption className="market-chart-footer"><span role="status">{samples.length ? status : ""}</span><span className="num">{isIndex ? "UTC+9 · 지수 포인트" : "UTC+9 · KRW"}</span></figcaption>
     <p id={helpId} className="vh">마우스나 터치로 가격과 시각을 확인합니다. 키보드 좌우 방향키로 기록을 이동하고 Home·End로 처음과 끝을 선택합니다.</p>
     <table className="vh"><caption>{`${code} ${rangeOption.label} 차트 요약`}</caption><tbody>
