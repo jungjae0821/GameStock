@@ -48,6 +48,8 @@ const dark = {
   // 담보비율 게이지의 반대매매·경고 구간. 연한 바탕색은 트랙과 구분되지 않아(1.0~1.2:1) 진한 면을 쓴다.
   gaugeDanger: '#FF6B79',
   gaugeWarn: '#FFC83D',
+  // 지표 선 색. 상승 적·하락 청과 겹치지 않는 색만 쓴다(웹 research.css의 --study-tone-1~6). 마지막은 막대용 무채색.
+  study: ['#F5A524', '#3CCFB4', '#B48CFF', '#E5E07A', '#FF8FC7', '#6F6986'],
 };
 
 const light = {
@@ -82,6 +84,8 @@ const light = {
   alloc: ['#1B1726', '#3A3449', '#554F66', '#6F6986', '#857F99'],
   gaugeDanger: '#C01F34',
   gaugeWarn: '#9A6D00',
+  // 막대용 무채색은 웹 값(#B9B4C7, 카드 대비 2.0:1)이 그래픽 기준 3:1에 못 미쳐 자산 막대의 한 단계(3.8:1)를 쓴다.
+  study: ['#C87400', '#0F8F7A', '#7A4FD6', '#8A8300', '#C2408A', '#857F99'],
 };
 
 export const palettes = { dark, light };

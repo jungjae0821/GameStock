@@ -12,14 +12,12 @@ import { rate, shares, since, won } from "../market/format";
 import { marketOpinion, newsEffect, sessionRate, strengthRatio, type OpinionTone } from "../market/selectors";
 import type { Quote, TradePrint } from "../market/types";
 import { LISTING_BY_CODE } from "../market/universe";
-import { API_DOCS_PATH, HEATMAP_PATH, MARKET_PATH, NEWS_PATH, navigate, type Route } from "../router";
+import { API_DOCS_PATH, HEATMAP_PATH, MARKET_PATH, NEWS_PATH, TALK_PATH, navigate, type Route } from "../router";
 import { toggleNxTheme, useNxTheme } from "./uiMode";
 import { NxAccountPanel, type NxAccountTab } from "./trade/NxAccountPanel";
 import { NxOrderTicket } from "./trade/NxOrderTicket";
 import { OrderDock } from "./trade/OrderDock";
 import { PriceDrivers } from "./trade/PriceDrivers";
-import { StockTalk } from "./trade/StockTalk";
-import { StockChat } from "./trade/StockChat";
 import { IndicatorChart } from "./trade/IndicatorChart";
 import { MarketTabs } from "./MarketTabs";
 import { AnimatedNav } from "./AnimatedNav";
@@ -30,6 +28,7 @@ const NAV = [
   { label: "히트맵", to: HEATMAP_PATH, match: "heatmap" },
   { label: "뉴스", to: "/news", match: "news" },
   { label: "랭킹", to: "/ranking", match: "ranking" },
+  { label: "토론", to: "/talk", match: "talk" },
   { label: "퀀트", to: "/quant", match: "quant" },
   { label: "API", to: API_DOCS_PATH, match: "apiDocs" },
 ] as const;
@@ -462,10 +461,14 @@ export function TradeTerminal({ ticker }: { ticker: string | null }) {
           <Book quote={quote} onPriceSelect={(price) => { setSelected((previous) => ({ code, price, revision: (previous?.revision ?? 0) + 1 })); focusTicket(); }} />
           <StockNews code={code} quote={quote} />
         </div>
-        <div className="nx-trade-community">
-          <StockTalk key={code} code={code} name={listing.name} />
-          <StockChat key={`chat-${code}`} code={code} name={listing.name} />
-        </div>
+        {/* 글과 채팅은 종목토론 화면에만 둔다. 여기서는 그 화면으로 가는 길만 낸다. */}
+        <section className="nx-talk-entry" aria-labelledby="nx-talk-entry-title">
+          <div>
+            <h2 id="nx-talk-entry-title">종목토론</h2>
+            <p className="nx-muted">글과 실시간 채팅은 종목토론 화면에 모여 있어요.</p>
+          </div>
+          <Link to={TALK_PATH(code)} className="nx-btn">토론방 열기</Link>
+        </section>
         <p className="nx-trade-disclaimer">게임 뉴스와 모의 주문으로 형성되는 시세입니다. 실제 금융상품이나 투자 수익과 관계없습니다.</p>
         </div>
         <OrderDock title={listing.name} open={orderOpen} onOpenChange={setOrderOpen}

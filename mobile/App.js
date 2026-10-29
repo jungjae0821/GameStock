@@ -11,6 +11,7 @@ import { EtfScreen } from './src/screens/derivatives/EtfScreen';
 import { SwipeBack } from './src/components/SwipeBack';
 import { NewsScreen } from './src/screens/NewsScreen';
 import { RankingScreen } from './src/screens/RankingScreen';
+import { TalkScreen } from './src/screens/TalkScreen';
 import { NewsDetailScreen } from './src/screens/NewsDetailScreen';
 import { MyAccountScreen } from './src/screens/account/MyAccountScreen';
 import { ChargeScreen } from './src/screens/account/ChargeScreen';
@@ -59,6 +60,7 @@ function tabForPath(path) {
   if (first === 'market' || first === 'trade') return 'market';
   if (first === 'news') return 'news';
   if (first === 'ranking') return 'ranking';
+  if (first === 'talk') return 'talk';
   return 'more';
 }
 
@@ -108,6 +110,9 @@ function ShellBody({ web }) {
   const [stockOrder, setStockOrder] = useState(null);
   // 뉴스 탭에서 연 기사 id. null이면 뉴스 목록. 읽던 기사가 실시간 갱신으로 목록에서 밀려나도 계속 보여 준다.
   const [newsId, setNewsId] = useState(null);
+  // 종목토론 탭에서 보는 종목. null이면 목록 첫 종목을 보여 준다.
+  const [talkCode, setTalkCode] = useState(null);
+  const openTalk = useCallback(code => { setTalkCode(code ?? null); setTab('talk'); }, []);
   const lastNews = useRef(null);
   // 화면을 옮긴 뒤에도 보여야 하는 짧은 알림. 한 번에 여럿이 오면 3초씩 차례로 보여 준다.
   const [toasts, setToasts] = useState([]);
@@ -136,6 +141,7 @@ function ShellBody({ web }) {
     // 시장은 네이티브 화면이다. 주소에 종목 코드가 있으면 상세를 연다.
     if (key === 'market') { showMarket(path); return; }
     if (key === 'news') { setNewsId(newsFromPath(path)); setTab('news'); return; }
+    if (key === 'talk') { openTalk(stockFromPath(path)); return; }
     const target = path ?? TAB_BY_KEY[key]?.path;
     // 네이티브 계정 화면은 웹을 옮기지 않고 그 화면만 띄운다.
     if (key === 'more' && accountScreenFor(target)) { setMenuRoot(target); setTab('more'); return; }
@@ -153,6 +159,7 @@ function ShellBody({ web }) {
     if (key === 'market') { if (tab === 'market') { setStock(null); setEtf(null); } return setTab('market'); }
     if (key === 'news') { if (tab === 'news') setNewsId(null); return setTab('news'); }
     if (key === 'ranking') return setTab('ranking');
+    if (key === 'talk') return setTab('talk');
     // 설정 탭은 누를 때마다 메뉴 목록부터 보여 준다.
     setMenuRoot(null);
     return setTab('more');
@@ -173,12 +180,13 @@ function ShellBody({ web }) {
     const owner = tabForPath(path);
     const current = tabRef.current;
     // 홈이나 설정 메뉴 목록을 보는 동안 뒤에서 일어난 이동은 탭을 바꾸지 않는다.
-    if (['home', 'market', 'news', 'ranking'].includes(current) && owner !== 'home') return;
+    if (['home', 'market', 'news', 'ranking', 'talk'].includes(current) && owner !== 'home') return;
     if (current === 'more' && !menuRootRef.current) return;
     // 웹 화면(뉴스 등)의 종목 링크는 네이티브 종목 상세로 연다.
     if (owner === 'market') { showMarket(path); return; }
     if (owner === 'news') { setNewsId(newsFromPath(path)); setTab('news'); return; }
     if (owner === 'ranking') { setTab('ranking'); return; }
+    if (owner === 'talk') { openTalk(stockFromPath(path)); return; }
     // 웹 화면의 계정 메뉴에서 계정 화면으로 가면 설정 탭이 그 화면을 이어받는다.
     // 네이티브로 옮긴 화면이면 웹은 공개 화면으로 돌려 두고 네이티브 화면을 연다.
     if (owner === 'more' && accountScreenFor(path)) {
@@ -291,7 +299,7 @@ function ShellBody({ web }) {
           {tab === 'market' ? <MarketScreen market={market} onOpenStock={setStock} onOpenEtf={setEtf} onLogin={() => requestLogin(null)} /> : null}
           {tab === 'market' && stock ? (
             <SwipeBack key={stock} onBack={() => setStock(null)}>
-              <StockScreen code={stock} market={market} initialOrder={stockOrder} onBack={() => setStock(null)} onSwitch={setStock} onLogin={() => requestLogin(null)} />
+              <StockScreen code={stock} market={market} initialOrder={stockOrder} onBack={() => setStock(null)} onSwitch={setStock} onLogin={() => requestLogin(null)} onOpenTalk={openTalk} />
             </SwipeBack>
           ) : null}
           {tab === 'market' && etf && !stock ? (
@@ -300,6 +308,15 @@ function ShellBody({ web }) {
             </SwipeBack>
           ) : null}
           {tab === 'ranking' ? <RankingScreen /> : null}
+          {tab === 'talk' ? (
+            <TalkScreen
+              code={talkCode}
+              market={market}
+              onSwitch={setTalkCode}
+              onOpenStock={code => { setEtf(null); setStock(code); setStockOrder(null); setTab('market'); }}
+              onLogin={() => requestLogin(null)}
+            />
+          ) : null}
           {tab === 'news' ? <NewsScreen market={market} onOpenNews={setNewsId} /> : null}
           {tab === 'news' && newsId ? (
             <SwipeBack key={newsId} onBack={() => setNewsId(null)}>

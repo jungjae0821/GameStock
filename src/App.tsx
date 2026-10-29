@@ -28,6 +28,7 @@ import { NxSettingsPage } from "./next/pages/NxSettingsPage";
 import { NxTitlesPage } from "./next/pages/NxTitlesPage";
 import { NxAttendancePage } from "./next/pages/NxAttendancePage";
 import { NxQuantPage } from "./next/pages/NxQuantPage";
+import { NxTalkPage } from "./next/pages/NxTalkPage";
 import { DerivativesPage } from "./pages/DerivativesPage";
 import type { Route } from "./router";
 
@@ -48,6 +49,7 @@ function titleFor(route: Route): string {
   if (route.name === "heatmap") return "히트맵 · 슈엔증권";
   if (route.name === "news") return "뉴스 · 슈엔증권";
   if (route.name === "ranking") return "투자 랭킹 · 슈엔증권";
+  if (route.name === "talk") return `${route.code ? `${LISTING_BY_CODE[route.code]?.name ?? route.code} · ` : ""}종목토론 · 슈엔증권`;
   if (route.name === "apiDocs") return "OpenAPI · 슈엔증권";
   if (route.name === "mypage") return "내 계좌 · 슈엔증권";
   if (route.name === "settings") return "설정 · 슈엔증권";
@@ -118,6 +120,7 @@ export default function App() {
         {route.name === "derivatives" && <DerivativesPage key={route.tab} tab={route.tab} />}
         {route.name === "news" && <NxNewsPage id={route.id} />}
         {route.name === "ranking" && <NxRankingPage />}
+        {route.name === "talk" && <NxTalkPage code={route.code} />}
         {route.name === "apiDocs" && <NxApiDocsPage />}
         {PRIVATE_ROUTES.has(route.name) && !auth.user && (auth.ready ? (
           /* 로그인 창을 닫아도 이 화면에서 다시 열 수 있게 한다. */

@@ -8,6 +8,8 @@ import { cleanTitle, indexValue, price, relativeTime, signedPercent } from '../f
 import { newsWithIds, sessionRate, useIndexToday, usePriceHistory } from '../market';
 import { useDerivatives } from '../derivatives';
 import { useBillboard } from '../billboard';
+import { Chips } from '../components/Kit';
+import { VISIBLE_NEWS_SOURCES, classifyNewsSource } from '../newsSource';
 import { RADIUS, RADIUS_XS, SPACE, Txt, toneOf, useTheme } from '../theme';
 
 const MOVER_COUNT = 5;
@@ -22,6 +24,8 @@ const MIN_NAME_WIDTH = 96;
 const INDEX_TRAIL_WIDTH = 80;
 const PRICE_COLUMN = 72;
 const INDEX_TRAIL_HEIGHT = 36;
+const NEWS_COUNT = 3;
+const NEWS_SOURCES = [{ key: 'all', label: '전체' }, ...VISIBLE_NEWS_SOURCES.map(source => ({ key: source, label: source }))];
 
 export function HomeScreen({ market, onOpen }) {
   const theme = useTheme();
@@ -34,6 +38,8 @@ export function HomeScreen({ market, onOpen }) {
   // 지수 그래프: 시작은 종목 줄 추이선의 왼쪽 끝, 끝은 카드 안쪽 오른쪽 경계("전체 종목 >" 화살표와 같은 선).
   const indexTrailWidth = showTrail ? TRAIL_WIDTH + SPACE.md + priceColumn : INDEX_TRAIL_WIDTH;
   const [refreshing, setRefreshing] = useState(false);
+  // 최신 뉴스의 출처 필터. 웹 홈과 같이 전체·업데이트 노트·미디어 보도로 나눈다.
+  const [newsSource, setNewsSource] = useState('all');
   const { stocks, events, status, loaded, error } = market;
 
   const view = useMemo(() => {
@@ -43,10 +49,11 @@ export function HomeScreen({ market, onOpen }) {
     const rated = stocks.map(stock => ({ ...stock, rate: sessionRate(stock) }));
     const movers = [...rated].sort((a, b) => Math.abs(b.rate) - Math.abs(a.rate)).slice(0, MOVER_COUNT);
     const names = Object.fromEntries(stocks.map(stock => [stock.code, stock.name]));
-    return { news: news.slice(0, 3), latestByCode, movers, names };
+    return { news: news.map(item => ({ ...item, source: classifyNewsSource(item, names) })), latestByCode, movers, names };
   }, [stocks, events]);
 
   // 지수 흐름은 전 종목 기록으로 다시 계산하므로 기록과 기준가가 바뀔 때만 계산한다.
+  const shownNews = useMemo(() => (newsSource === 'all' ? view.news : view.news.filter(item => item.source === newsSource)).slice(0, NEWS_COUNT), [view.news, newsSource]);
   const history = usePriceHistory(stocks.map(stock => stock.code));
   const trail = useIndexToday();
   // 게임주 지수는 선물·옵션과 같은 지수 ETF NAV라 자정에 1,000으로 돌아가지 않는다. 2초마다 받는 파생 시세가 먼저다.
@@ -196,7 +203,11 @@ export function HomeScreen({ market, onOpen }) {
       {view.news.length ? (
         <Card padded={false}>
           <SectionHead title="최신 뉴스" action="전체 뉴스" onAction={() => onOpen('news')} />
-          {view.news.map((item, index) => (
+          <View style={styles.newsFilter}>
+            <Chips options={NEWS_SOURCES} value={newsSource} onChange={setNewsSource} />
+          </View>
+          {shownNews.length ? null : <Txt variant="callout" tone="inkSoft" style={styles.news}>{`${newsSource}가 아직 없어요. 전체에서 다른 소식을 볼 수 있어요.`}</Txt>}
+          {shownNews.map((item, index) => (
             <Pressable
               key={item.id}
               accessibilityRole="button"
@@ -336,5 +347,6 @@ const styles = StyleSheet.create({
   reason: { marginTop: 6, marginLeft: 40 + SPACE.md },
   legend: { paddingHorizontal: SPACE.lg + 2, paddingBottom: SPACE.md, paddingTop: SPACE.xs },
   news: { paddingHorizontal: SPACE.lg + 2, paddingVertical: SPACE.md },
+  newsFilter: { paddingHorizontal: SPACE.lg + 2, paddingBottom: SPACE.sm },
   footer: { textAlign: 'center', marginTop: SPACE.sm },
 });
