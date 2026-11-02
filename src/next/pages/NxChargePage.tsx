@@ -2,6 +2,7 @@ import { Link } from "../../components/Link";
 import { missionLabel, MISSION_REWARD, useDailyMissions } from "../../components/MissionBoard";
 import { usePromoCode } from "../../components/PromoCodePanel";
 import { won } from "../../market/format";
+import { AccountTabs } from "../AccountTabs";
 
 function Missions() {
   const { user, ready, error, pending, completed, count, visibleMissionIds, complete } = useDailyMissions();
@@ -79,9 +80,10 @@ function PromoCode() {
 export function NxChargePage() {
   return (
     <div className="nx-screen nx-charge">
+      <AccountTabs group="funds" active="charge" />
       <header className="nx-screen-head">
         <div>
-          <h1 className="nx-page-title">충전하기</h1>
+          <h1 className="vh">충전하기</h1>
           <p className="nx-screen-sub">오늘의 투자 미션을 끝내면 모의 자금이 충전돼요. 실제 돈은 오가지 않아요.</p>
         </div>
       </header>

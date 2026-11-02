@@ -4,6 +4,7 @@ import { useAuthUser } from "../../lib/auth";
 import { kstDateTime, serverTimestamp, won } from "../../market/format";
 import { useMarket, useMarketApi } from "../../market/MarketProvider";
 import type { LoanEntry, LoanStatus } from "../../market/types";
+import { AccountTabs } from "../AccountTabs";
 
 /* 대출 규칙과 서버 호출은 기존 대출 화면과 같다. 배치와 게이지만 새로 그렸다. */
 
@@ -121,9 +122,10 @@ export function NxLoanPage() {
 
   return (
     <div className="nx-screen nx-loan">
+      <AccountTabs group="funds" active="loan" />
       <header className="nx-screen-head">
         <div>
-          <h1 className="nx-page-title">대출</h1>
+          <h1 className="vh">대출</h1>
           <p className="nx-screen-sub">모의 자금을 빌려 더 크게 투자할 수 있어요. 빌린 돈은 수익률과 랭킹에 넣지 않고, 실제 돈은 오가지 않아요.</p>
         </div>
       </header>

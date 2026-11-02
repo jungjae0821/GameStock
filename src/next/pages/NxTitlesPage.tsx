@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useProfile } from "../../lib/profile";
 import { checkTitles, equipTitle, titleInkStyle, type TitleStatus, type UserTitle } from "../../lib/titles";
 import { AnimatedNav } from "../AnimatedNav";
+import { AccountTabs } from "../AccountTabs";
 
 const CATEGORY_ORDER = ["자산", "수익률", "보유", "거래", "활동", "수집", "주간", "특별"];
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });
@@ -74,9 +75,10 @@ export function NxTitlesPage() {
 
   return (
     <div className="nx-screen nx-titles">
+      <AccountTabs group="decor" active="titles" />
       <header className="nx-screen-head">
         <div>
-          <h1 className="nx-page-title">칭호</h1>
+          <h1 className="vh">칭호</h1>
           <p className="nx-screen-sub">조건을 달성하면 자동으로 지급돼요. 획득한 칭호를 누르면 랭킹에서 닉네임 위에 달려요.</p>
         </div>
       </header>
