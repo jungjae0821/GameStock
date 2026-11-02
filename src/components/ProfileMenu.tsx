@@ -100,6 +100,10 @@ export function ProfileMenu({ route }: { route: Route }) {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Tab") {
+        trapFocus(event, panel.current);
+        return;
+      }
       if (event.key !== "Escape") return;
       setOpen(false);
       trigger.current?.focus();
@@ -185,12 +189,14 @@ export function ProfileMenu({ route }: { route: Route }) {
                 </svg>
               </button>
             </div>
-            <ul className="profile-panel-list profile-panel-list-nav">
-              {NAV_ITEMS.map((item) => <PanelItem key={item.to} item={item} active={route.name === item.match} onClick={close} />)}
-            </ul>
-            <ul className="profile-panel-list">
-              {items.map((item) => <PanelItem key={item.to} item={item} active={route.name === item.match} onClick={close} />)}
-            </ul>
+            <div className="profile-panel-scroll">
+              <ul className="profile-panel-list profile-panel-list-nav">
+                {NAV_ITEMS.map((item) => <PanelItem key={item.to} item={item} active={route.name === item.match} onClick={close} />)}
+              </ul>
+              <ul className="profile-panel-list">
+                {items.map((item) => <PanelItem key={item.to} item={item} active={route.name === item.match} onClick={close} />)}
+              </ul>
+            </div>
             <button type="button" className="profile-panel-logout" onClick={() => void logout()}>
               로그아웃
             </button>
@@ -224,6 +230,23 @@ function PanelItem({ item, active, onClick }: { item: PanelEntry; active: boolea
       </Link>
     </li>
   );
+}
+
+/* Tab이 뒤 화면으로 빠지지 않게 패널 안에서 돌린다. 숨은 목록(넓은 화면의 퀀트·API)은 건너뛴다. */
+function trapFocus(event: KeyboardEvent, root: HTMLElement | null) {
+  if (!root) return;
+  const focusable = [...root.querySelectorAll<HTMLElement>("a[href], button")].filter((el) => el.offsetParent !== null);
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+  if (event.shiftKey && (active === first || active === root)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || !root.contains(active))) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function fallbackAvatar(event: SyntheticEvent<HTMLImageElement>) {

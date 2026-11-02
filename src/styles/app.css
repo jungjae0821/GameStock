@@ -194,8 +194,7 @@
     border: 1px solid var(--rule);
     border-radius: 16px;
     background: var(--paper);
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
     outline: none;
     transform: translateX(calc(100% + var(--panel-gap) * 2 + 24px));
     transition: transform var(--drawer-time) var(--drawer-ease);
@@ -242,8 +241,8 @@
     display: grid;
     flex: 0 0 auto;
     align-self: flex-start;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     place-items: center;
     border: 0;
     border-radius: 50%;
@@ -258,11 +257,19 @@
     color: var(--ink);
   }
 
+  /* 화면이 낮으면 이 칸만 스크롤된다. 머리(닫기)와 로그아웃은 칸 밖이라 항목을 가리지 않는다. */
+  .profile-panel-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* 목록은 줄어들지 않는다. 줄어들면 항목이 아래 목록·로그아웃 위로 겹쳐 그려진다. */
   .profile-panel-list {
     display: flex;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     flex-direction: column;
-    min-height: 0;
     padding: var(--space-2) 0;
   }
 
