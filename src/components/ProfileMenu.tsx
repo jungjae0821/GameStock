@@ -6,7 +6,7 @@ import { firebaseAuth } from "../lib/firebase";
 import { openLoginPrompt, useAuthUser } from "../lib/auth";
 import { useProfile } from "../lib/profile";
 import { DEFAULT_PROFILE_AVATAR, profileImageSrc } from "../lib/profileAvatars";
-import { PRIVATE_ROUTES, navigate, type Route } from "../router";
+import { API_DOCS_PATH, PRIVATE_ROUTES, navigate, type Route } from "../router";
 
 const ITEMS = [
   {
@@ -57,6 +57,24 @@ const ITEMS = [
     to: "/settings",
     match: "settings",
     icon: "M4 7h10M18 7h2M4 17h2M10 17h10M16 4.5v5M8 14.5v5",
+  },
+] as const;
+
+/* 휴대폰 웹의 아래 탭바에서 뺀 화면. 넓은 화면은 상단 메뉴에 이미 있으니 CSS로 휴대폰 웹에서만 보인다. */
+const NAV_ITEMS = [
+  {
+    label: "퀀트",
+    hint: "지표 분석 · 전략 연구",
+    to: "/quant",
+    match: "quant",
+    icon: "M4 19.5h16M6 16l4-5 3.5 3 5-7",
+  },
+  {
+    label: "API",
+    hint: "시세 · 주문 API 문서",
+    to: API_DOCS_PATH,
+    match: "apiDocs",
+    icon: "M8.5 7l-5 5 5 5M15.5 7l5 5-5 5M13.5 5l-3 14",
   },
 ] as const;
 
@@ -167,26 +185,11 @@ export function ProfileMenu({ route }: { route: Route }) {
                 </svg>
               </button>
             </div>
+            <ul className="profile-panel-list profile-panel-list-nav">
+              {NAV_ITEMS.map((item) => <PanelItem key={item.to} item={item} active={route.name === item.match} onClick={close} />)}
+            </ul>
             <ul className="profile-panel-list">
-              {items.map((item) => (
-                <li key={item.to}>
-                  <Link
-                    className={`profile-panel-item${route.name === item.match ? " is-active" : ""}`}
-                    to={item.to}
-                    aria-current={route.name === item.match ? "page" : undefined}
-                    onClick={close}
-                  >
-                    <svg className="profile-panel-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-                      <path d={item.icon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span className="profile-panel-label">{item.label}</span>
-                    <span className="profile-panel-hint">{item.hint}</span>
-                    <svg className="profile-panel-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                      <path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </Link>
-                </li>
-              ))}
+              {items.map((item) => <PanelItem key={item.to} item={item} active={route.name === item.match} onClick={close} />)}
             </ul>
             <button type="button" className="profile-panel-logout" onClick={() => void logout()}>
               로그아웃
@@ -196,6 +199,30 @@ export function ProfileMenu({ route }: { route: Route }) {
         document.body,
       )}
     </div>
+  );
+}
+
+type PanelEntry = { label: string; hint: string; to: string; icon: string };
+
+function PanelItem({ item, active, onClick }: { item: PanelEntry; active: boolean; onClick: () => void }) {
+  return (
+    <li>
+      <Link
+        className={`profile-panel-item${active ? " is-active" : ""}`}
+        to={item.to}
+        aria-current={active ? "page" : undefined}
+        onClick={onClick}
+      >
+        <svg className="profile-panel-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <path d={item.icon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="profile-panel-label">{item.label}</span>
+        <span className="profile-panel-hint">{item.hint}</span>
+        <svg className="profile-panel-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </Link>
+    </li>
   );
 }
 

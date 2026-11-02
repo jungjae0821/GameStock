@@ -10,6 +10,9 @@
 /* 아래 탭바는 휴대폰 웹에서만 보인다. 나머지 화면에서는 상단 바 메뉴가 같은 일을 한다. */
 .nx-tabbar { display: none; }
 
+/* 탭바에서 뺀 화면(퀀트·API)을 계정 메뉴 맨 위에 둔다. 넓은 화면은 상단 메뉴에 있으니 숨긴다. */
+.profile-panel-list-nav { display: none; }
+
 /*
  * viewport-fit=cover(main.tsx)로 화면이 노치 아래까지 펼쳐지므로, 가로로 눕힌 휴대폰에서는
  * 노치 폭만큼 좌우를 비운다. 노치가 없는 화면에서는 값이 0이라 아무것도 바뀌지 않는다.
@@ -68,7 +71,7 @@ html[data-app-shell="web"] body {
     left: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     height: var(--nx-tabbar);
     padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
     border-top: 1px solid var(--nx-line);
@@ -107,6 +110,11 @@ html[data-app-shell="web"] body {
   }
 
   html[data-app-shell="web"][data-nx] .nx-tabbar-link:focus-visible { outline-offset: -4px; }
+
+  html[data-app-shell="web"][data-nx] .profile-panel-list-nav {
+    display: flex;
+    border-bottom: 1px solid var(--rule);
+  }
 
   /* 고정된 탭바 위로 알림을 띄운다. */
   html[data-app-shell="web"][data-nx] .mission-toast {
