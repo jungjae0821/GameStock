@@ -67,7 +67,7 @@ function PromoCode() {
       <form className="nx-inline-form" onSubmit={submit}>
         <label htmlFor="nx-promo-input" className="vh">프로모션 코드</label>
         <input id="nx-promo-input" className="nx-input" value={code} onChange={(event) => setCode(event.target.value)}
-          placeholder={user ? "코드를 입력하면 특별 칭호를 받을 수 있어요" : "로그인 후 입력할 수 있어요"}
+          placeholder={user ? "코드를 넣으면 특별 칭호를 받아요" : "로그인 후 입력할 수 있어요"}
           autoComplete="off" spellCheck={false} maxLength={40} disabled={!user || pending} />
         <button type="submit" className="nx-btn is-primary" disabled={!user || pending || !code.trim()}>{pending ? "확인 중…" : "사용"}</button>
       </form>

@@ -477,6 +477,8 @@ html[data-nx] .nx-admin .account-form .promo-title-option input { width: 16px; h
   .nx-mission-reward,
   .nx-mission-list li > :last-child { grid-column: 2; justify-self: start; }
   .nx-inline-form { flex-direction: column; }
+  /* 세로로 쌓이면 flex: 1의 기준 0이 높이에 걸려 입력칸이 글자 높이(17px)로 눌린다. 44px 높이를 그대로 쓴다. */
+  .nx-inline-form .nx-input { flex: none; }
   .nx-mission-steps li { width: 40px; }
 }
 
