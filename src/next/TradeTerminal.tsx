@@ -32,6 +32,9 @@ const NAV = [
   { label: "API", to: API_DOCS_PATH, match: "apiDocs" },
 ] as const;
 
+/* 휴대폰 아래 탭바는 칸이 좁아 자주 안 쓰는 화면을 뺀다. 빠진 화면은 계정 메뉴(ProfileMenu)에서 연다. */
+const TABBAR_NAV = NAV.filter((item) => item.match !== "quant" && item.match !== "apiDocs");
+
 /** 테마와 새 화면 표시는 html에 단다. 포털로 뜨는 팝오버도 같은 색을 받아야 한다. */
 export function useNxRoot(): void {
   const theme = useNxTheme();
@@ -88,8 +91,8 @@ export function NxTopbar({ route }: { route: Route }) {
  */
 export function NxTabbar({ route }: { route: Route }) {
   return (
-    <AnimatedNav animationId="main-bottom" activeKey={NAV.find(item => navActive(route, item.match))?.match ?? ""} className="nx-tabbar" aria-label="주요 화면" inset={.28}>
-      {NAV.map((item) => {
+    <AnimatedNav animationId="main-bottom" activeKey={TABBAR_NAV.find(item => navActive(route, item.match))?.match ?? ""} className="nx-tabbar" aria-label="주요 화면" inset={.28}>
+      {TABBAR_NAV.map((item) => {
         const active = navActive(route, item.match);
         return (
           <Link key={item.to} to={item.to} className={`nx-tabbar-link${active ? " is-active" : ""}`} aria-current={active ? "page" : undefined}>
