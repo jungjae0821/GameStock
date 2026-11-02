@@ -8,6 +8,7 @@ import { useProfile } from "../../lib/profile";
 import { won } from "../../market/format";
 import { useMarket, useMarketApi } from "../../market/MarketProvider";
 import { BillboardLine } from "../BillboardStrip";
+import { AccountTabs } from "../AccountTabs";
 
 const STATE_LABEL: Record<BillboardState, string> = {
   UPCOMING: "예약됨",
@@ -91,9 +92,10 @@ export function NxBillboardPage() {
 
   return (
     <div className="nx-screen nx-billboard-page">
+      <AccountTabs group="decor" active="billboard" />
       <header className="nx-screen-head">
         <div>
-          <h1 className="nx-page-title">전광판</h1>
+          <h1 className="vh">전광판</h1>
           <p className="nx-screen-sub">홈 맨 위, 게임주 지수 바로 위에 한 줄 문구를 띄워요. 모의 자금으로 사고, 실제 돈은 오가지 않아요.</p>
         </div>
       </header>

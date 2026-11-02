@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ATTENDANCE_STEPS, fetchAttendance, type Attendance, type AttendanceDay } from "../../lib/attendance";
+import { AccountTabs } from "../AccountTabs";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -104,9 +105,10 @@ export function NxAttendancePage() {
 
   return (
     <div className="nx-screen nx-att">
+      <AccountTabs group="funds" active="attendance" />
       <header className="nx-screen-head">
         <div>
-          <h1 className="nx-page-title">출석체크</h1>
+          <h1 className="vh">출석체크</h1>
           <p className="nx-screen-sub">하루에 한 번 접속하면 자동으로 출석돼요. 이어서 출석할수록 보상이 10만원씩 커지고, 하루를 건너뛰면 1일차부터 다시 시작해요.</p>
         </div>
       </header>

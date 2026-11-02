@@ -5,7 +5,8 @@
 .nx-product-tabs > a:hover, .nx-product-tabs > a.is-active { color: var(--ink); }
 .nx-product-tabs > a.is-active { font-weight: 700; }
 .nx-product-tabs > .nx-nav-indicator { bottom: -1px; height: 2px; }
-.nx-product-page > .nx-product-tabs { margin-bottom: -16px; }
+.nx-product-page > .nx-product-tabs,
+.nx-screen > .nx-product-tabs { margin-bottom: -16px; }
 /* 굵기가 바뀌어도 옆 탭이 밀리지 않게 굵은 글자 폭을 미리 잡아 둔다. */
 .nx-bold-reserve { display: inline-grid; }
 .nx-bold-reserve::after { content: attr(data-label); height: 0; overflow: hidden; font-weight: 700; visibility: hidden; }

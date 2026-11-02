@@ -6,86 +6,62 @@ import { firebaseAuth } from "../lib/firebase";
 import { openLoginPrompt, useAuthUser } from "../lib/auth";
 import { useProfile } from "../lib/profile";
 import { DEFAULT_PROFILE_AVATAR, profileImageSrc } from "../lib/profileAvatars";
+import { ACCOUNT_GROUPS, type AccountGroup } from "../next/AccountTabs";
 import { API_DOCS_PATH, PRIVATE_ROUTES, navigate, type Route } from "../router";
 
-const ITEMS = [
+type PanelEntry = { label: string; hint: string; to: string; matches: readonly Route["name"][]; icon: string };
+
+/* 묶음 항목은 첫 탭 화면으로 열고, 설명 줄에 안에 든 화면 이름을 그대로 적는다. 화면 위 탭(AccountTabs)과 이름이 같다. */
+function groupItem(group: AccountGroup, icon: string): PanelEntry {
+  const { label, tabs } = ACCOUNT_GROUPS[group];
+  return { label, hint: tabs.map((tab) => tab.label).join(" · "), to: tabs[0].to, matches: tabs.map((tab) => tab.id), icon };
+}
+
+const ITEMS: readonly PanelEntry[] = [
   {
     label: "내 계좌",
     hint: "보유 종목 · 미체결 주문 · 체결 내역",
     to: "/mypage",
-    match: "mypage",
+    matches: ["mypage"],
     icon: "M3.5 7.5h17v11a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1zM3.5 7.5l2.5-3h12l2.5 3M15.5 13.5h2",
   },
-  {
-    label: "칭호 설정",
-    hint: "모은 칭호를 닉네임 옆에 달기",
-    to: "/titles",
-    match: "titles",
-    icon: "M12 3.5l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z",
-  },
-  {
-    label: "출석체크",
-    hint: "연속 출석 일수 · 날짜별 보상",
-    to: "/attendance",
-    match: "attendance",
-    icon: "M4.5 6.5h15v13h-15zM4.5 10.5h15M8.5 4v4M15.5 4v4M9 15l2 2 4-4",
-  },
-  {
-    label: "충전하기",
-    hint: "모의 자금 채우기",
-    to: "/charge",
-    match: "charge",
-    icon: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM12 8v8M8 12h8",
-  },
-  {
-    label: "대출",
-    hint: "모의 자금 빌리기 · 갚기",
-    to: "/loan",
-    match: "loan",
-    icon: "M3.5 9.5L12 4.5l8.5 5M5.5 10v7M10 10v7M14 10v7M18.5 10v7M3.5 19.5h17",
-  },
-  {
-    label: "전광판",
-    hint: "홈 맨 위에 한 줄 문구 띄우기",
-    to: "/billboard",
-    match: "billboard",
-    icon: "M3.5 6.5h17v9h-17zM7.5 11h9M8 15.5l-1.5 4M16 15.5l1.5 4",
-  },
+  groupItem("funds", "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM12 8v8M8 12h8"),
+  groupItem("decor", "M12 3.5l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.5-.8z"),
   {
     label: "설정",
     hint: "닉네임 · 프로필 사진 · 계좌 초기화",
     to: "/settings",
-    match: "settings",
+    matches: ["settings"],
     icon: "M4 7h10M18 7h2M4 17h2M10 17h10M16 4.5v5M8 14.5v5",
   },
-] as const;
+];
 
 /* 휴대폰 웹의 아래 탭바에서 뺀 화면. 넓은 화면은 상단 메뉴에 이미 있으니 CSS로 휴대폰 웹에서만 보인다. */
-const NAV_ITEMS = [
+const NAV_ITEMS: readonly PanelEntry[] = [
   {
     label: "퀀트",
     hint: "지표 분석 · 전략 연구",
     to: "/quant",
-    match: "quant",
+    matches: ["quant"],
     icon: "M4 19.5h16M6 16l4-5 3.5 3 5-7",
   },
   {
     label: "API",
     hint: "시세 · 주문 API 문서",
     to: API_DOCS_PATH,
-    match: "apiDocs",
+    matches: ["apiDocs"],
     icon: "M8.5 7l-5 5 5 5M15.5 7l5 5-5 5M13.5 5l-3 14",
   },
-] as const;
+];
 
 /* 관리자 계정에만 설정 아래에 붙는다. 실제 권한은 서버가 매 요청마다 확인한다. */
-const ADMIN_ITEM = {
+const ADMIN_ITEM: PanelEntry = {
   label: "관리자",
   hint: "계정 조회 · 거래 제한 · 닉네임 변경",
   to: "/admin",
-  match: "admin",
+  matches: ["admin"],
   icon: "M12 3.5l7.5 3v5.5c0 4.2-3.1 7.4-7.5 8.5-4.4-1.1-7.5-4.3-7.5-8.5V6.5zM9 12l2.2 2.2L15.5 10",
-} as const;
+};
 
 /** 상단 오른쪽 프로필 버튼. 누르면 오른쪽에서 계좌·설정·칭호·충전·로그아웃 패널이 밀려 나온다. */
 export function ProfileMenu({ route }: { route: Route }) {
@@ -191,10 +167,10 @@ export function ProfileMenu({ route }: { route: Route }) {
             </div>
             <div className="profile-panel-scroll">
               <ul className="profile-panel-list profile-panel-list-nav">
-                {NAV_ITEMS.map((item) => <PanelItem key={item.to} item={item} active={route.name === item.match} onClick={close} />)}
+                {NAV_ITEMS.map((item) => <PanelItem key={item.to} item={item} active={item.matches.includes(route.name)} onClick={close} />)}
               </ul>
               <ul className="profile-panel-list">
-                {items.map((item) => <PanelItem key={item.to} item={item} active={route.name === item.match} onClick={close} />)}
+                {items.map((item) => <PanelItem key={item.to} item={item} active={item.matches.includes(route.name)} onClick={close} />)}
               </ul>
             </div>
             <button type="button" className="profile-panel-logout" onClick={() => void logout()}>
@@ -208,14 +184,13 @@ export function ProfileMenu({ route }: { route: Route }) {
   );
 }
 
-type PanelEntry = { label: string; hint: string; to: string; icon: string };
-
 function PanelItem({ item, active, onClick }: { item: PanelEntry; active: boolean; onClick: () => void }) {
   return (
     <li>
       <Link
         className={`profile-panel-item${active ? " is-active" : ""}`}
-        to={item.to}
+        /* 묶음 안 다른 탭(예: 대출)을 보고 있을 때 누르면 첫 탭으로 옮기지 않고 패널만 닫는다. */
+        to={active ? window.location.pathname : item.to}
         aria-current={active ? "page" : undefined}
         onClick={onClick}
       >
