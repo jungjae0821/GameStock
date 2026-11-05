@@ -121,4 +121,47 @@ class OfficialNoticeServiceTest {
                 OfficialNoticeService.cafeArticleBody(html));
         assertEquals("", OfficialNoticeService.cafeArticleBody("<div id=\"article\"><img src=\"a.png\"></div><script>"));
     }
+
+    /* 넥슨 포럼 게시판 목록 API 응답 모양. */
+    private static final String FORUM_BOARD = """
+            {"threads":[
+              {"threadId":"3573065","boardId":"1018","title":"11/3(화) 특별 픽업 모집 &amp; 픽업 모집 안내",
+               "release":"ON","isSticky":true,"isDelete":false,"isWebHide":false,
+               "createDate":1793610000,"displayStartDate":1793610000},
+              {"threadId":"3573999","boardId":"1018","title":"예약 공지","release":"ON","isDelete":false,
+               "isWebHide":false,"createDate":1793600000,"displayStartDate":1893610000},
+              {"threadId":"3573998","boardId":"1018","title":"삭제된 공지","release":"ON","isDelete":true,
+               "isWebHide":false,"createDate":1793600000,"displayStartDate":1793600000},
+              {"threadId":"../x","boardId":"1018","title":"이상한 번호","release":"ON","createDate":1793600000},
+              {"threadId":"3500000","boardId":"1076","title":"다른 게시판 글","release":"ON","createDate":1793600000}
+            ],"totalElements":5}
+            """;
+
+    @Test void parsesForumBoardAndSkipsHiddenOrScheduledThreads() throws Exception {
+        Instant now = Instant.parse("2026-11-05T05:00:00Z");
+        var notices = OfficialNoticeService.parseForumBoard(FORUM_BOARD, "1018", now);
+        assertEquals(1, notices.size());
+        var notice = notices.get(0);
+        assertEquals("11/3(화) 특별 픽업 모집 & 픽업 모집 안내", notice.title());
+        assertEquals("1018-3573065", notice.id());
+        assertEquals("https://forum.nexon.com/bluearchive/board_view?board=1018&thread=3573065", notice.link());
+        assertEquals(Instant.ofEpochSecond(1793610000), notice.publishedAt());
+        assertTrue(OfficialNoticeService.isOfficialLink(notice.link()));
+    }
+
+    @Test void forumErrorIsAFailureNotAnEmptyBoard() {
+        assertThrows(IllegalStateException.class,
+                () -> OfficialNoticeService.parseForumBoard("{\"message\":\"점검 중\"}", "1018", Instant.now()));
+    }
+
+    @Test void forumThreadBodyReadsContentAndSkipsTheGreeting() throws Exception {
+        String thread = """
+                {"content":"<p>📣 선생님께 샬레운영사무국에서 안내드립니다.</p><p>아래 일정에 게임 개선을 위한 무중단 패치가 진행됩니다.<br><img src=\\"a.png\\"></p>",
+                 "summary":"요약"}
+                """;
+        String body = OfficialNoticeService.forumThreadBody(thread);
+        assertEquals("📣 선생님께 샬레운영사무국에서 안내드립니다.\n아래 일정에 게임 개선을 위한 무중단 패치가 진행됩니다.", body);
+        assertEquals(List.of("아래 일정에 게임 개선을 위한 무중단 패치가 진행됩니다."), OfficialNoticeService.paragraphs(body));
+        assertEquals("요약", OfficialNoticeService.forumThreadBody("{\"content\":\"<p><img src='a.png'></p>\",\"summary\":\"요약\"}"));
+    }
 }
