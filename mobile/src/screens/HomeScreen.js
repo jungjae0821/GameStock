@@ -216,6 +216,7 @@ export function HomeScreen({ market, onOpen }) {
             >
               <Txt variant="callout" numberOfLines={2}>{cleanTitle(item.title)}</Txt>
               <Txt variant="caption" tone="inkSoft" style={{ marginTop: SPACE.xs }}>
+                {item.source === '업데이트 노트' ? <Txt variant="caption" tone="brandText">{'업데이트 노트 · '}</Txt> : null}
                 {`${view.names[item.stockCode] ?? '시장 전체'} · ${relativeTime(item.publishedAt)}`}
               </Txt>
             </Pressable>
