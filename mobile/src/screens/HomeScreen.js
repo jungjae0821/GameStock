@@ -38,7 +38,7 @@ export function HomeScreen({ market, onOpen }) {
   // 지수 그래프: 시작은 종목 줄 추이선의 왼쪽 끝, 끝은 카드 안쪽 오른쪽 경계("전체 종목 >" 화살표와 같은 선).
   const indexTrailWidth = showTrail ? TRAIL_WIDTH + SPACE.md + priceColumn : INDEX_TRAIL_WIDTH;
   const [refreshing, setRefreshing] = useState(false);
-  // 최신 뉴스의 출처 필터. 웹 홈과 같이 전체·업데이트 노트·미디어 보도로 나눈다.
+  // 최신 뉴스의 출처 필터. 웹 홈과 같이 전체·공식 발표·미디어 보도로 나눈다.
   const [newsSource, setNewsSource] = useState('all');
   const { stocks, events, status, loaded, error } = market;
 
@@ -216,7 +216,7 @@ export function HomeScreen({ market, onOpen }) {
             >
               <Txt variant="callout" numberOfLines={2}>{cleanTitle(item.title)}</Txt>
               <Txt variant="caption" tone="inkSoft" style={{ marginTop: SPACE.xs }}>
-                {item.source === '업데이트 노트' ? <Txt variant="caption" tone="brandText">{'업데이트 노트 · '}</Txt> : null}
+                {item.source === '공식 발표' ? <Txt variant="caption" tone="brandText">{'공식 발표 · '}</Txt> : null}
                 {`${view.names[item.stockCode] ?? '시장 전체'} · ${relativeTime(item.publishedAt)}`}
               </Txt>
             </Pressable>

@@ -186,7 +186,7 @@ public class NewsExcerptService {
         /* 원문 주소를 못 푼 소식은 6시간 뒤 다시 시도하고, 2주 지난 소식은 클릭할 때만 푼다. */
         List<Map.Entry<Long, String>> pending = jdbc.query("""
                 SELECT id, description FROM market_events
-                WHERE event_type = 'NEWS' AND source <> '업데이트 노트' AND excerpt IS NULL
+                WHERE event_type = 'NEWS' AND source <> '공식 발표' AND excerpt IS NULL
                   AND (excerpt_checked_at IS NULL OR excerpt_checked_at < UTC_TIMESTAMP() - INTERVAL 6 HOUR)
                   AND COALESCE(published_at, created_at) > UTC_TIMESTAMP() - INTERVAL 14 DAY
                 ORDER BY COALESCE(published_at, created_at) DESC, id DESC

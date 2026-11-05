@@ -119,14 +119,14 @@ export interface Quote {
 export type { TradePrint };
 
 export type NewsSource =
-  | "업데이트 노트"
+  | "공식 발표"
   | "퍼블리셔 공지"
   | "커뮤니티 집계"
   | "스토어 지표"
   | "미디어 보도";
 
 /** 뉴스 화면에 노출하는 출처. 나머지는 내부 시뮬레이션 신호로만 남긴다. */
-export const VISIBLE_NEWS_SOURCES: NewsSource[] = ["업데이트 노트", "미디어 보도"];
+export const VISIBLE_NEWS_SOURCES: NewsSource[] = ["공식 발표", "미디어 보도"];
 
 export interface NewsItem {
   id: number;
@@ -134,7 +134,7 @@ export interface NewsItem {
   code: string;
   source: NewsSource;
   title: string;
-  /** 공식 업데이트 노트의 원문. 화면에서 생략 없이 펼쳐 보인다. */
+  /** 공식 발표의 원문. 화면에서 생략 없이 펼쳐 보인다. */
   description?: string;
   /** 서버가 원문 기사에서 미리 뽑아 둔 첫 문단. 있으면 본문 패널이 따로 묻지 않는다. */
   excerpt?: string[];

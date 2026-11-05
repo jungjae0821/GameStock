@@ -3,7 +3,7 @@
 // 원문 주소와 게시처, 공식 채널 특유의 제목 형식으로 다시 나눈다.
 
 /** 화면에 보이는 출처. 나머지는 내부 시뮬레이션 신호로만 남는다. */
-export const VISIBLE_NEWS_SOURCES = ['업데이트 노트', '미디어 보도'];
+export const VISIBLE_NEWS_SOURCES = ['공식 발표', '미디어 보도'];
 
 /* 게임사·게임 공식 사이트. 하위 도메인까지 공식으로 본다. */
 const OFFICIAL_HOSTS = [
@@ -55,12 +55,12 @@ function hasOfficialSignature(headline, name) {
 
 /** names는 종목 코드별 이름이다. 웹은 상장 목록에서, 앱은 시세 목록에서 꺼낸다. */
 export function classifyNewsSource(event, names = {}) {
-  if (event.source === '업데이트 노트') return '업데이트 노트';
+  if (event.source === '공식 발표') return '공식 발표';
   const host = hostOf(event.articleUrl);
-  if (host && OFFICIAL_HOSTS.some(official => host === official || host.endsWith(`.${official}`))) return '업데이트 노트';
+  if (host && OFFICIAL_HOSTS.some(official => host === official || host.endsWith(`.${official}`))) return '공식 발표';
   const { headline, publisher } = splitTitle(event.title);
-  if (OFFICIAL_PUBLISHERS.has(publisher)) return '업데이트 노트';
-  if (hasOfficialSignature(headline, names[event.stockCode])) return '업데이트 노트';
-  if (OFFICIAL_TITLE.test(headline)) return '업데이트 노트';
+  if (OFFICIAL_PUBLISHERS.has(publisher)) return '공식 발표';
+  if (hasOfficialSignature(headline, names[event.stockCode])) return '공식 발표';
+  if (OFFICIAL_TITLE.test(headline)) return '공식 발표';
   return '미디어 보도';
 }

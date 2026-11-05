@@ -59,12 +59,12 @@ function hasOfficialSignature(headline: string, code: string): boolean {
 }
 
 export function classifyNewsSource(event: { source?: string; title: string; stockCode: string; articleUrl?: string | null }): NewsSource {
-  if (event.source === "업데이트 노트") return "업데이트 노트";
+  if (event.source === "공식 발표") return "공식 발표";
   const host = hostOf(event.articleUrl);
-  if (host && OFFICIAL_HOSTS.some((official) => host === official || host.endsWith(`.${official}`))) return "업데이트 노트";
+  if (host && OFFICIAL_HOSTS.some((official) => host === official || host.endsWith(`.${official}`))) return "공식 발표";
   const { headline, publisher } = splitTitle(event.title);
-  if (OFFICIAL_PUBLISHERS.has(publisher)) return "업데이트 노트";
-  if (hasOfficialSignature(headline, event.stockCode)) return "업데이트 노트";
-  if (OFFICIAL_TITLE.test(headline)) return "업데이트 노트";
+  if (OFFICIAL_PUBLISHERS.has(publisher)) return "공식 발표";
+  if (hasOfficialSignature(headline, event.stockCode)) return "공식 발표";
+  if (OFFICIAL_TITLE.test(headline)) return "공식 발표";
   return "미디어 보도";
 }
