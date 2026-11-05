@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameIcon } from '../components/GameIcon';
 import { cleanTitle, relativeTime, signedPercent } from '../format';
 import { newsEffect, newsWithIds } from '../market';
+import { classifyNewsSource } from '../newsSource';
 import { RADIUS, SPACE, Txt, toneOf, useTheme } from '../theme';
 
 /** 뉴스 목록. 할 일은 읽을 기사 고르기 하나다: 최신순 목록, 그리고 발행 뒤 가격이 어떻게 움직였는지. */
@@ -13,6 +14,7 @@ export function NewsScreen({ market, onOpenNews }) {
   const [refreshing, setRefreshing] = useState(false);
   const stocks = useMemo(() => Object.fromEntries(market.stocks.map(stock => [stock.code, stock])), [market.stocks]);
   const news = useMemo(() => newsWithIds(market.events), [market.events]);
+  const names = useMemo(() => Object.fromEntries(market.stocks.map(stock => [stock.code, stock.name])), [market.stocks]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -64,6 +66,7 @@ export function NewsScreen({ market, onOpenNews }) {
               <View style={styles.body}>
                 <Txt variant="callout" numberOfLines={2}>{cleanTitle(item.title)}</Txt>
                 <Txt variant="caption" tone="inkSoft" style={{ marginTop: SPACE.xs }} numberOfLines={1}>
+                  {classifyNewsSource(item, names) === '업데이트 노트' ? <Txt variant="caption" tone="brandText">{'업데이트 노트 · '}</Txt> : null}
                   {`${stock?.name ?? '시장 전체'} · ${relativeTime(item.publishedAt)}`}
                 </Txt>
               </View>

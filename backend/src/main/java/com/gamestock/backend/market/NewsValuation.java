@@ -67,7 +67,7 @@ final class NewsValuation {
                 Objects.toString(rs.getString("description"), ""), rs.getDouble("impact"),
                 rs.getTimestamp("published").toInstant()), code, Timestamp.from(now.minusSeconds(seconds)),
                 Timestamp.from(now), Timestamp.from(now.minusSeconds(9 * DAY)))
-                .stream().filter(a -> NewsRelevance.isRelevant(code, a.title(), a.description())).toList();
+                .stream().filter(a -> official(a) || NewsRelevance.isRelevant(code, a.title(), a.description())).toList();
     }
 
     void project(long stock, String code, Instant now) {
@@ -126,7 +126,14 @@ final class NewsValuation {
     static double effect(Article article) {
         double magnitude = Math.min(10, Math.abs(article.impact())) / 10;
         double limit = article.impact() < 0 && NewsRelevance.hasIncidentContext(article.title(), article.description()) ? .10 : .05;
-        return Math.copySign(limit * magnitude * magnitude, article.impact());
+        double weight = official(article) ? OfficialNoticeService.WEIGHT : 1;
+        return Math.copySign(limit * magnitude * magnitude * weight, article.impact());
+    }
+
+    /** 게임사 공식 공지. 게임 이름이 없어도 그 게임의 글이고, 언론 기사보다 크게 반영한다. */
+    static boolean official(Article article) {
+        var match = SOURCE.matcher(article.description());
+        return match.find() && OfficialNoticeService.isOfficialLink(match.group(1));
     }
 
     static double bias(List<Article> articles, Instant now) {
