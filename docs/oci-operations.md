@@ -22,6 +22,21 @@ sudo systemctl restart gamestock
 
 `matchingEnabled`, `batchBotsEnabled`와 스케줄러 시작 상태가 켜져 있어야 한다. HTTP 200만 보지 말고 종목·호가·최근 체결, 로그인, 계좌, 주문·취소, WebSocket 재연결도 확인한다. 관리자 계정은 주문이 차단된다.
 
+## DB 유지보수와 자동 재연결
+
+2026-11-04 한국 시간 23:02~23:26 Oracle MySQL 자동 업그레이드 이후 DB 연결이 끊기고 매칭이 재개되지 않은 장애가 있었다. DB가 중단되는 동안 주문을 계속 처리할 수는 없다. 기존 화면의 캐시와 WebSocket 재연결을 유지하면서 DB 복귀 후 매칭을 자동 재개한다.
+
+매칭 소유권 복구는 일반 시장 스케줄러와 별도의 `matching-ownership-recovery` 스레드가 2초 간격으로 수행한다. 연결 검증에 실패하면 신규 매칭을 막고 해당 세션을 풀에서 폐기한 뒤 새 MySQL advisory lock을 획득한다. 다른 서버가 소유권을 가지고 있으면 대기하므로 매칭 엔진이 동시에 실행되지 않는다. 기존 배치 영수증으로 커밋 여부가 불명확한 재시도의 중복 처리를 방지하며, 클라이언트 주문 POST를 임의로 재전송하지 않는다.
+
+기본 풀 획득·TCP 연결 대기는 5초, 소켓 응답 대기는 10초로 제한한다. TLS 연결 정리와 재연결 재시도가 더해질 수 있어 전체 복구가 항상 2초 이내라는 뜻은 아니다. 운영 `DB_URL`에 같은 타임아웃 속성을 따로 넣으면 드라이버 설정을 덮어쓸 수 있으므로 함께 확인한다.
+
+`/api/health`는 프로세스 상태를 확인한다. `/api/health/ready`는 실제 DB 쿼리와 현재 매칭 소유권·봇 스케줄러를 확인하며, 복구 중에는 HTTP 503과 `{"status":"recovering"}`을 반환한다. 준비가 되면 HTTP 200과 `{"status":"ready"}`를 반환한다. 외부 점검과 배포 검증에는 준비 상태 경로를 포함한다. 장시간 503이면 소유권 복구 로그와 DB 유지보수 이력을 확인하고, 200이어도 최신 체결 시각이 진행되는지 확인한다.
+
+```sh
+curl -fsS https://gamestock-api.161-33-33-45.sslip.io/api/health/ready
+sudo journalctl -u gamestock --since '10 minutes ago' --no-pager | grep 'Matching ownership'
+```
+
 ## 백업
 
 `gamestock-backup.timer`가 매일 한국 시간 03:30에 논리 백업을 생성한다. `/var/backups/gamestock/`에는 최근 7일의 압축 SQL을 root 전용으로 보관한다. 원본 DB 외부에 복사한 백업도 유지해야 VM 손실에 대비할 수 있다. 이전 시점의 Railway 최종 백업은 Windows의 접근 제한된 OCI 설정 폴더에 별도로 보존한다. 백업에는 개인정보가 포함되므로 공유·커밋하지 않는다.

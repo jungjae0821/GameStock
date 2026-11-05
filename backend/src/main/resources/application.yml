@@ -14,8 +14,15 @@ spring:
     password: "${DB_PASSWORD:${MYSQLPASSWORD:}}"
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
+      connection-timeout: 5000
+      validation-timeout: 2000
+      keepalive-time: 30000
+      max-lifetime: 600000
       connection-init-sql: "SET time_zone = '+00:00'"
       data-source-properties:
+        connectTimeout: "5000"
+        socketTimeout: "10000"
+        tcpKeepAlive: "true"
         connectionTimeZone: UTC
         forceConnectionTimeZoneToSession: true
         useServerPrepStmts: true

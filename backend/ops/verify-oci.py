@@ -15,6 +15,8 @@ with urllib.request.urlopen(base + '/api/health', timeout=20) as response:
     health = json.load(response)
 assert health['status'] == 'ok' and health['matchingEnabled'] and health['batchBotsEnabled']
 assert health['botScheduler']['started']
+with urllib.request.urlopen(base + '/api/health/ready', timeout=20) as response:
+    assert json.load(response)['status'] == 'ready'
 with urllib.request.urlopen(base + '/api/stocks', timeout=20) as response:
     stocks = json.load(response)
 assert stocks

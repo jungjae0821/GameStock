@@ -11,6 +11,7 @@ def get(path):
         return json.load(response)
 
 health = get('/api/health')
+assert get('/api/health/ready')['status'] == 'ready'
 assert health['status'] == 'ok'
 assert health['matchingEnabled'] is True and health['batchBotsEnabled'] is True
 assert health['botScheduler']['started'] is True and health['botScheduler']['tasks'] > 0
