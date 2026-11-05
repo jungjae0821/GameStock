@@ -36,13 +36,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 게임사 공식 채널의 글을 "공식 발표"로 수집한다. 지금 받는 곳은 두 군데다.
+ * 게임사 공식 채널의 글을 "공식 발표"로 수집한다. 지금 받는 곳은 세 군데다.
  * <ul>
  *   <li>니케: 한국 공식 사이트(nikke-kr.com/news.html)의 공지사항 탭. 사이트가 Level Infinite
  *       커뮤니티 서버의 공개 JSON API로 목록을 받으므로 그 API를 그대로 호출한다.</li>
  *   <li>우마무스메 프리티 더비: 다음 공식 카페(cafe.daum.net/umamusume-kor)의 공지사항·업데이트
  *       게시판. 모바일 게시판 페이지가 글 목록을 스크립트 변수로 내려 주므로 그것을 읽고,
  *       본문은 글 페이지에서 뽑는다.</li>
+ *   <li>블루 아카이브: 넥슨 공식 포럼(forum.nexon.com/bluearchive)의 공지사항·업데이트 게시판.
+ *       포럼 화면이 쓰는 공개 JSON API로 목록과 글 본문을 받는다.</li>
  * </ul>
  *
  * 공식 글은 언론 기사와 달리 게임 이름이 제목에 없어도 해당 게임의 글이므로 관련성 필터를
@@ -77,9 +79,17 @@ public class OfficialNoticeService {
     private static final String BROWSER_AGENT =
             "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36";
 
+    static final String BA_CODE = "BA";
+    static final String BA_FORUM = "https://forum.nexon.com/bluearchive/";
+    private static final String BA_API = "https://forum.nexon.com/api/v1/";
+    /** 공지사항(1018)과 업데이트(1076) 게시판. */
+    static final List<String> BA_BOARDS = List.of("1018", "1076");
+    private static final int BA_PER_BOARD = 10;
+
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Pattern CONTENT_ID = Pattern.compile("[A-Za-z0-9]{8,64}");
     private static final Pattern BOARD_ID = Pattern.compile("[A-Za-z0-9]{2,10}");
+    private static final Pattern THREAD_ID = Pattern.compile("\\d{1,12}");
     private static final Pattern CAFE_ITEM = Pattern.compile("articles\\.push\\(\\{(.*?)\\}\\);", Pattern.DOTALL);
     private static final Pattern CAFE_DATAID = Pattern.compile("dataid:\\s*(\\d+)");
     private static final Pattern CAFE_FLDID = Pattern.compile("fldid:\\s*\"([A-Za-z0-9]+)\"");
@@ -90,7 +100,8 @@ public class OfficialNoticeService {
     private static final DateTimeFormatter CAFE_DATE = DateTimeFormatter.ofPattern("yy.MM.dd");
     private static final Pattern BLOCK_END = Pattern.compile("(?i)<br\\s*/?>|</p\\s*>|</div\\s*>");
     private static final Pattern TAG = Pattern.compile("<[^>]*>");
-    private static final Pattern GREETING = Pattern.compile("^(?:안녕하세요|지휘관|트레이너)");
+    /* 블루 아카이브 공지는 "📣 선생님께 …"처럼 이모지로 시작하므로 앞의 기호는 건너뛴다. */
+    private static final Pattern GREETING = Pattern.compile("^[^\\p{L}\\p{N}]*(?:안녕하세요|지휘관|트레이너|선생님)");
     private static final ObjectMapper JSON = new ObjectMapper();
 
     record Notice(String id, String title, String body, Instant publishedAt, String link) {
@@ -148,6 +159,12 @@ public class OfficialNoticeService {
         } catch (Exception error) {
             log.warn("우마무스메 공식 발표 수집 실패", error);
         }
+        try {
+            List<Notice> notices = fetchBlueArchive();
+            log.info("블루 아카이브 공식 발표 수집 완료: {}개 중 새 글 {}개", notices.size(), save(BA_CODE, BA_FORUM, notices));
+        } catch (Exception error) {
+            log.warn("블루 아카이브 공식 발표 수집 실패", error);
+        }
         events.publishEvent(new NewsChangedEvent());
     }
 
@@ -162,6 +179,28 @@ public class OfficialNoticeService {
                     body = cafeArticleBody(get(UMA_MOBILE + board + "/" + notice.id().substring(board.length() + 1)));
                 } catch (Exception error) {
                     log.debug("카페 글 본문을 읽지 못했습니다: {}", notice.link(), error);
+                }
+                notices.add(notice.withBody(body));
+                Thread.sleep(500);
+            }
+        }
+        return notices;
+    }
+
+    private List<Notice> fetchBlueArchive() throws Exception {
+        List<Notice> notices = new ArrayList<>();
+        Instant now = Instant.now();
+        for (String board : BA_BOARDS) {
+            List<Notice> listed = parseForumBoard(get(BA_API + "board/" + board
+                    + "/threads?alias=bluearchive&paginationType=PAGING&pageSize=" + BA_PER_BOARD
+                    + "&pageNo=1&blockSize=5&hideType=WEB"), board, now);
+            for (Notice notice : listed) {
+                String body = "";
+                try {
+                    String thread = notice.id().substring(board.length() + 1);
+                    body = forumThreadBody(get(BA_API + "thread/" + thread + "?alias=bluearchive"));
+                } catch (Exception error) {
+                    log.debug("포럼 글 본문을 읽지 못했습니다: {}", notice.link(), error);
                 }
                 notices.add(notice.withBody(body));
                 Thread.sleep(500);
@@ -269,13 +308,50 @@ public class OfficialNoticeService {
         if (start < 0) return "";
         start = html.indexOf('>', start) + 1;
         int end = html.indexOf("<script", start);
-        String region = html.substring(start, end < 0 ? html.length() : end);
+        return htmlText(html.substring(start, end < 0 ? html.length() : end));
+    }
+
+    /** 본문 HTML을 줄 단위 글자로 바꾼다. 문단과 줄바꿈 태그를 줄로 보고 빈 줄은 버린다. */
+    private static String htmlText(String region) {
         StringBuilder text = new StringBuilder();
         for (String line : plain(BLOCK_END.matcher(region).replaceAll("\n")).split("\\n")) {
             String clean = line.replaceAll("\\s+", " ").strip();
             if (!clean.isEmpty()) text.append(clean).append('\n');
         }
         return cut(text.toString().strip(), 3_000);
+    }
+
+    /**
+     * 넥슨 포럼 게시판 목록 API 응답. 위에 고정된 글도 이 목록에 함께 들어 있다.
+     * 지워졌거나 웹에서 숨긴 글, 아직 게시 시각이 오지 않은 글은 뺀다.
+     */
+    static List<Notice> parseForumBoard(String response, String board, Instant now) throws Exception {
+        JsonNode root = JSON.readTree(response);
+        // 점검 화면이나 오류 응답처럼 목록 필드가 없는 응답은 "글 없음"이 아니라 실패로 남긴다.
+        if (!root.path("threads").isArray())
+            throw new IllegalStateException("포럼 게시판 형식을 알아볼 수 없습니다: " + board);
+        List<Notice> notices = new ArrayList<>();
+        for (JsonNode item : root.path("threads")) {
+            String threadId = item.path("threadId").asText("");
+            String title = plain(item.path("title").asText("")).trim();
+            if (!THREAD_ID.matcher(threadId).matches() || !board.equals(item.path("boardId").asText(""))
+                    || title.isEmpty() || item.path("isDelete").asBoolean(false)
+                    || item.path("isWebHide").asBoolean(false) || !"ON".equals(item.path("release").asText("ON")))
+                continue;
+            if (item.path("displayStartDate").asLong(0) > now.getEpochSecond()) continue;
+            long created = item.path("createDate").asLong(0);
+            notices.add(new Notice(board + "-" + threadId, cut(title, 150), "",
+                    created > 0 ? Instant.ofEpochSecond(created) : null,
+                    BA_FORUM + "board_view?board=" + board + "&thread=" + threadId));
+        }
+        return notices;
+    }
+
+    /** 포럼 글 API 응답에서 본문 글자만 뽑는다. 본문이 비면 목록 요약을 쓴다. */
+    static String forumThreadBody(String response) throws Exception {
+        JsonNode root = JSON.readTree(response);
+        String text = htmlText(root.path("content").asText(""));
+        return text.isEmpty() ? cut(plain(root.path("summary").asText("")).strip(), 3_000) : text;
     }
 
     /** 상세 화면 미리보기용 문단. 인사말을 건너뛰고 내용이 있는 줄 두 개를 고른다. */
@@ -371,7 +447,7 @@ public class OfficialNoticeService {
 
     /** 원문 주소로 공식 발표인지 판단한다. 가치 계산 표에는 출처 열이 없어 설명의 주소로 알아본다. */
     static boolean isOfficialLink(String link) {
-        return link != null && (link.startsWith(NIKKE_DETAIL) || link.startsWith(UMA_CAFE));
+        return link != null && (link.startsWith(NIKKE_DETAIL) || link.startsWith(UMA_CAFE) || link.startsWith(BA_FORUM));
     }
 
     private static String group(Pattern pattern, String text) {
