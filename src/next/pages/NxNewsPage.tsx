@@ -26,7 +26,7 @@ function tone(value: number): string {
 
 /** 게임사가 직접 올린 공지에만 붙는 표시. 대부분인 언론 기사에는 줄마다 같은 글자를 반복하지 않는다. */
 function SourceTag({ source }: { source: NewsSource }) {
-  return source === "업데이트 노트" ? <span className="nx-news-kind is-official">{source}</span> : null;
+  return source === "공식 발표" ? <span className="nx-news-kind is-official">{source}</span> : null;
 }
 
 function NewsRow({ item, selected, now }: { item: NewsItem; selected: boolean; now: number }) {
@@ -142,7 +142,7 @@ export function NxNewsPage({ id }: { id: number | null }) {
   const selected = id === null ? null : found ?? (lastSeen.current?.id === id ? lastSeen.current : null);
   /* 출처 버튼의 건수는 종목·관심 조건을 먼저 적용한 뒤 센다. 눌렀을 때 보일 개수와 같아야 한다. */
   const scoped = snapshot.news.filter((item) => (game === "all" || item.code === game) && (!watchOnly || snapshot.watch.includes(item.code)));
-  const counts: Record<SourceFilter, number> = { all: scoped.length, "업데이트 노트": 0, "미디어 보도": 0, "퍼블리셔 공지": 0, "커뮤니티 집계": 0, "스토어 지표": 0 };
+  const counts: Record<SourceFilter, number> = { all: scoped.length, "공식 발표": 0, "미디어 보도": 0, "퍼블리셔 공지": 0, "커뮤니티 집계": 0, "스토어 지표": 0 };
   for (const item of scoped) counts[item.source] += 1;
   const items = scoped.filter((item) => source === "all" || item.source === source);
   const games = [...new Set(snapshot.news.map((item) => item.code))]
@@ -230,7 +230,7 @@ export function NxNewsPage({ id }: { id: number | null }) {
         <section className="nx-panel nx-news-list" aria-label="뉴스 목록" ref={scroller}>
           {items.length === 0 ? (
             <div className="nx-empty-state">
-              <p>{snapshot.news.length === 0 ? "아직 들어온 뉴스가 없어요." : source === "업데이트 노트" ? "이 조건에는 게임사가 직접 올린 공지가 없어요." : "조건에 맞는 뉴스가 없어요."}</p>
+              <p>{snapshot.news.length === 0 ? "아직 들어온 뉴스가 없어요." : source === "공식 발표" ? "이 조건에는 게임사가 직접 올린 공지가 없어요." : "조건에 맞는 뉴스가 없어요."}</p>
               {snapshot.news.length > 0 && <button type="button" className="nx-link-button" onClick={resetFilters}>필터 초기화</button>}
             </div>
           ) : (

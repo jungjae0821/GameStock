@@ -233,6 +233,8 @@ final class MarketSchema {
         Integer sourceCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'market_events' AND column_name = 'source'", Integer.class);
         if (sourceCount != null && sourceCount == 0) jdbc.execute("ALTER TABLE market_events ADD COLUMN source VARCHAR(40) NOT NULL DEFAULT '미디어 보도' AFTER event_type");
         jdbc.update("UPDATE market_events SET source = '미디어 보도' WHERE source IS NULL OR source = ''");
+        // 게임사 공식 글의 출처 이름을 "업데이트 노트"에서 "공식 발표"로 바꿨다. 이미 저장된 글도 맞춘다.
+        jdbc.update("UPDATE market_events SET source = '공식 발표' WHERE source = '업데이트 노트'");
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'market_events' AND column_name = 'published_at'", Integer.class);
         if (count != null && count == 0) jdbc.execute("ALTER TABLE market_events ADD COLUMN published_at TIMESTAMP NULL AFTER impact");
         Integer priceAtPublishCount = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'market_events' AND column_name = 'price_at_publish'", Integer.class);

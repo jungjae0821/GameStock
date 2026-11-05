@@ -51,7 +51,8 @@ class OfficialNoticeIntegrationTest {
     }
 
     private OfficialNoticeService.Notice notice(String id, String title, Instant at) {
-        return new OfficialNoticeService.Notice(id, title, "신규 캐릭터와 신규 이벤트가 추가됩니다.\n편의성 개선 항목을 확인해 주세요.", at);
+        return new OfficialNoticeService.Notice(id, title, "신규 캐릭터와 신규 이벤트가 추가됩니다.\n편의성 개선 항목을 확인해 주세요.", at,
+                OfficialNoticeService.NIKKE_DETAIL + id);
     }
 
     private double value() {
@@ -59,24 +60,24 @@ class OfficialNoticeIntegrationTest {
     }
 
     @Test void firstCollectionIsListedButDoesNotMoveThePrice() {
-        assertEquals(1, service.save("GOV", List.of(notice("aaaaaaaa01", "11월 5일 업데이트 공지", now.minusSeconds(3600)))));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM market_events WHERE source='업데이트 노트'", Integer.class));
+        assertEquals(1, service.save("GOV", OfficialNoticeService.NIKKE_DETAIL, List.of(notice("aaaaaaaa01", "11월 5일 업데이트 공지", now.minusSeconds(3600)))));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM market_events WHERE source='공식 발표'", Integer.class));
         assertNotNull(NewsExcerptService.readStored(jdbc.queryForObject("SELECT excerpt FROM market_events", String.class)));
         valuation.project(1, "GOV", now);
         assertEquals(10000, value(), 1e-8);
     }
 
     @Test void laterNoticeMovesThePriceEvenWithoutTheGameName() {
-        service.save("GOV", List.of(notice("aaaaaaaa01", "11월 5일 업데이트 공지", now.minusSeconds(7200))));
+        service.save("GOV", OfficialNoticeService.NIKKE_DETAIL, List.of(notice("aaaaaaaa01", "11월 5일 업데이트 공지", now.minusSeconds(7200))));
         valuation.project(1, "GOV", now);
-        assertEquals(1, service.save("GOV", List.of(notice("aaaaaaaa02", "11월 12일 업데이트 공지", now.minusSeconds(60)))));
+        assertEquals(1, service.save("GOV", OfficialNoticeService.NIKKE_DETAIL, List.of(notice("aaaaaaaa02", "11월 12일 업데이트 공지", now.minusSeconds(60)))));
         valuation.project(1, "GOV", now);
         assertTrue(value() > 10000, "새 공식 공지는 게임 이름이 없어도 주가에 반영돼야 한다");
     }
 
     @Test void editedTitleUpdatesTheSameRow() {
-        service.save("GOV", List.of(notice("aaaaaaaa01", "10월 29일 업데이트 공지", now)));
-        assertEquals(0, service.save("GOV", List.of(notice("aaaaaaaa01", "10월 29일 업데이트 공지(10/29 내용 업데이트)", now))));
+        service.save("GOV", OfficialNoticeService.NIKKE_DETAIL, List.of(notice("aaaaaaaa01", "10월 29일 업데이트 공지", now)));
+        assertEquals(0, service.save("GOV", OfficialNoticeService.NIKKE_DETAIL, List.of(notice("aaaaaaaa01", "10월 29일 업데이트 공지(10/29 내용 업데이트)", now))));
         assertEquals(List.of("10월 29일 업데이트 공지(10/29 내용 업데이트)"),
                 jdbc.queryForList("SELECT title FROM market_events", String.class));
     }

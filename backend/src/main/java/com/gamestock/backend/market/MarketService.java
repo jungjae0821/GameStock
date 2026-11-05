@@ -566,17 +566,17 @@ public class MarketService {
                 .filter(this::isRelevantNews)
                 .toList();
         List<MarketEvent> updates = relevant.stream()
-                .filter(event -> "업데이트 노트".equals(event.source()))
+                .filter(event -> "공식 발표".equals(event.source()))
                 .toList();
         List<MarketEvent> media = relevant.stream()
-                .filter(event -> !"업데이트 노트".equals(event.source()))
+                .filter(event -> !"공식 발표".equals(event.source()))
                 .toList();
         // 한 게임의 글이 최신이라는 이유로 다른 게임의 공식 글을
         // 전부 밀어내지 않도록, 종류별로 게임마다 최신 2개씩 확보한다.
         updates = takeLatestPerStock(updates, 2);
         media = takeLatestPerStock(media, 2);
         // 두 종류를 모두 확보하되, 화면에서는 게시 시각의 전체 흐름으로
-        // 섞어서 보여준다. 업데이트 노트를 억지로 상단에 고정하지 않는다.
+        // 섞어서 보여준다. 공식 발표를 억지로 상단에 고정하지 않는다.
         return java.util.stream.Stream.concat(updates.stream(), media.stream())
                 .sorted(java.util.Comparator.comparing(this::publishedInstant,
                         java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
@@ -641,7 +641,7 @@ public class MarketService {
     }
 
     private boolean isRelevantNews(MarketEvent event) {
-        return "업데이트 노트".equals(event.source())
+        return "공식 발표".equals(event.source())
                 || event.stockCode() == null
                 || NewsRelevance.isRelevant(event.stockCode(), event.title(), event.description());
     }

@@ -66,7 +66,7 @@ export function NewsScreen({ market, onOpenNews }) {
               <View style={styles.body}>
                 <Txt variant="callout" numberOfLines={2}>{cleanTitle(item.title)}</Txt>
                 <Txt variant="caption" tone="inkSoft" style={{ marginTop: SPACE.xs }} numberOfLines={1}>
-                  {classifyNewsSource(item, names) === '업데이트 노트' ? <Txt variant="caption" tone="brandText">{'업데이트 노트 · '}</Txt> : null}
+                  {classifyNewsSource(item, names) === '공식 발표' ? <Txt variant="caption" tone="brandText">{'공식 발표 · '}</Txt> : null}
                   {`${stock?.name ?? '시장 전체'} · ${relativeTime(item.publishedAt)}`}
                 </Txt>
               </View>
