@@ -158,6 +158,27 @@ class OrderPipelineIntegrationTest {
         }
         finally{first.close();second.close();}
     }
+    @Test void killedDatabaseSessionsRecoverOwnershipAndTradingWithoutRestart()throws Exception{
+        var owner=new MarketOwnership(db);owner.start();
+        market.configurePipeline(matching,metrics,owner);
+        try{
+            Long oldSession=db.queryForObject("SELECT IS_USED_LOCK(?)",Long.class,"gamestock:matching:"+database);
+            for(Long session:root.queryForList("SELECT ID FROM information_schema.PROCESSLIST WHERE DB=?",Long.class,database))
+                root.execute("KILL CONNECTION "+session);
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,owner::requireOwner);
+            assertFalse(owner.available());
+            owner.startRecovery();
+            org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(8)).until(owner::available);
+            owner.requireOwner();
+            Long recoveredSession=db.queryForObject("SELECT IS_USED_LOCK(?)",Long.class,"gamestock:matching:"+database);
+            assertNotEquals(oldSession,recoveredSession);
+            orders.submit(seller,new OrderRequest("UMA","SELL",10,"LIMIT",10000L)).get(5,TimeUnit.SECONDS);
+            var fill=orders.submit(buyer,new OrderRequest("UMA","BUY",7,"MARKET",null)).get(5,TimeUnit.SECONDS);
+            assertEquals("FILLED",fill.status());
+            assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM trades",Integer.class));
+            assertEquals(7,db.queryForObject("SELECT quantity FROM portfolios WHERE user_id=?",Integer.class,buyer));
+        }finally{market.configurePipeline(matching,metrics,null);owner.close();}
+    }
     @Test void shutdownFlushesAdmittedHumanOrders()throws Exception{
         var local=new OrderService(market,persistence,metrics,event->{});
         var request=local.submit(buyer,new OrderRequest("UMA","BUY",3,"LIMIT",9900L));local.close();
