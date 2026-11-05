@@ -37,6 +37,10 @@ curl -fsS https://gamestock-api.161-33-33-45.sslip.io/api/health/ready
 sudo journalctl -u gamestock --since '10 minutes ago' --no-pager | grep 'Matching ownership'
 ```
 
+## Discord 장애 알림
+
+서버·DB 장애를 Discord로 받으려면 [별도 서버 장애 감시 설치](discord-monitoring.md)를 따른다. 운영 OCI 밖에서 30초마다 웹·API·DB 준비 상태·두 WebSocket 경로를 확인하고 장애·복구 알림을 보낸다. 운영 서버 안에서만 실행하면 VM 자체의 중단을 알릴 수 없다.
+
 ## 백업
 
 `gamestock-backup.timer`가 매일 한국 시간 03:30에 논리 백업을 생성한다. `/var/backups/gamestock/`에는 최근 7일의 압축 SQL을 root 전용으로 보관한다. 원본 DB 외부에 복사한 백업도 유지해야 VM 손실에 대비할 수 있다. 이전 시점의 Railway 최종 백업은 Windows의 접근 제한된 OCI 설정 폴더에 별도로 보존한다. 백업에는 개인정보가 포함되므로 공유·커밋하지 않는다.
