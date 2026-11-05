@@ -1,0 +1,36 @@
+name: Check external monitor
+
+on:
+  push:
+    paths:
+      - 'backend/ops/monitor.py'
+      - 'backend/ops/monitor-targets.json'
+      - 'backend/ops/install-monitor.py'
+      - 'backend/ops/test-monitor.py'
+      - 'backend/ops/gamestock-monitor.service'
+      - '.github/workflows/monitor-checks.yml'
+  pull_request:
+    paths:
+      - 'backend/ops/monitor.py'
+      - 'backend/ops/monitor-targets.json'
+      - 'backend/ops/install-monitor.py'
+      - 'backend/ops/test-monitor.py'
+      - 'backend/ops/gamestock-monitor.service'
+      - '.github/workflows/monitor-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test outage, recovery and webhook delivery handling
+        run: python3 -B backend/ops/test-monitor.py
+      - name: Validate production target configuration
+        run: python3 -B -c 'import sys; from pathlib import Path; sys.path.insert(0, "backend/ops"); import monitor; monitor.load_config(Path("backend/ops/monitor-targets.json"))'
+      - name: Validate Linux service
+        run: systemd-analyze verify backend/ops/gamestock-monitor.service

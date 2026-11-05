@@ -1,0 +1,42 @@
+{
+  "interval_seconds": 30,
+  "timeout_seconds": 8,
+  "attempts": 2,
+  "retry_delay_seconds": 3,
+  "reminder_seconds": 1800,
+  "targets": [
+    {
+      "name": "웹 프론트엔드",
+      "type": "http",
+      "url": "https://gamestock-20994.web.app",
+      "contains": "id=\"root\""
+    },
+    {
+      "name": "API·매칭 스케줄러",
+      "type": "json",
+      "url": "https://gamestock-api.161-33-33-45.sslip.io/api/health",
+      "expect": {
+        "status": "ok",
+        "matchingEnabled": true,
+        "batchBotsEnabled": true,
+        "botScheduler.started": true
+      }
+    },
+    {
+      "name": "DB·매칭 준비 상태",
+      "type": "json",
+      "url": "https://gamestock-api.161-33-33-45.sslip.io/api/health/ready",
+      "expect": {"status": "ready"}
+    },
+    {
+      "name": "시장 WebSocket",
+      "type": "websocket",
+      "url": "wss://gamestock-api.161-33-33-45.sslip.io/ws/market"
+    },
+    {
+      "name": "구독 WebSocket",
+      "type": "websocket",
+      "url": "wss://gamestock-api.161-33-33-45.sslip.io/ws/stream"
+    }
+  ]
+}

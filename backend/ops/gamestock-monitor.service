@@ -1,0 +1,34 @@
+[Unit]
+Description=GameStock external availability and Discord alerts
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=main
+DynamicUser=yes
+StateDirectory=gamestock-monitor
+StateDirectoryMode=0700
+LoadCredential=discord-webhook:/etc/gamestock-monitor/discord-webhook
+ExecStart=/usr/bin/python3 -B -u /opt/gamestock-monitor/monitor.py --config /etc/gamestock-monitor/targets.json
+Restart=always
+RestartSec=5
+WatchdogSec=90
+TimeoutStartSec=30
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
