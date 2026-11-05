@@ -4,7 +4,7 @@
 
 서브컬처 게임 15종을 가상 주식 종목으로 상장했습니다. 사용자는 모의 자금 100만원으로 게임 주식을 사고팔고, 실제 게임 뉴스와 다른 투자자들의 주문이 가격을 움직이는 과정을 실시간으로 지켜봅니다. 서비스 이름은 **슈엔증권**, 저장소와 백엔드 프로젝트 이름은 **GameStock**입니다.
 
-- 웹: https://gamestock-20994.web.app or syuenasset.xyz
+- 웹: https://gamestock-20994.web.app /  https://syuenasset.xyz
 - API: https://gamestock-api.161-33-33-45.sslip.io (상태 확인 `/api/health`)
 - 모바일: Expo(React Native) 앱, Android·iOS 대상
 
