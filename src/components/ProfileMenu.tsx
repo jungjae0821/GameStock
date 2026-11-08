@@ -39,6 +39,13 @@ const ITEMS: readonly PanelEntry[] = [
 /* 휴대폰 웹의 아래 탭바에서 뺀 화면. 넓은 화면은 상단 메뉴에 이미 있으니 CSS로 휴대폰 웹에서만 보인다. */
 const NAV_ITEMS: readonly PanelEntry[] = [
   {
+    label: "탭 베팅",
+    hint: "5초 뒤 가격 칸 맞히기",
+    to: "/tap",
+    matches: ["tap"],
+    icon: "M3.5 3.5h7v7h-7zM13.5 3.5h7v7h-7zM3.5 13.5h7v7h-7zM13.5 13.5h7v7h-7z",
+  },
+  {
     label: "퀀트",
     hint: "지표 분석 · 전략 연구",
     to: "/quant",

@@ -29,6 +29,7 @@ import { NxTitlesPage } from "./next/pages/NxTitlesPage";
 import { NxAttendancePage } from "./next/pages/NxAttendancePage";
 import { NxQuantPage } from "./next/pages/NxQuantPage";
 import { NxTalkPage } from "./next/pages/NxTalkPage";
+import { NxTapPage } from "./next/pages/NxTapPage";
 import { DerivativesPage } from "./pages/DerivativesPage";
 import type { Route } from "./router";
 
@@ -47,6 +48,7 @@ function titleFor(route: Route): string {
   }
   if (route.name === "etf") return `${route.ticker ? `${route.ticker} · ` : ""}ETF · 주식 · 슈엔증권`;
   if (route.name === "heatmap") return "히트맵 · 슈엔증권";
+  if (route.name === "tap") return `${route.code ? `${LISTING_BY_CODE[route.code]?.name ?? route.code} · ` : ""}탭 베팅 · 슈엔증권`;
   if (route.name === "news") return "뉴스 · 슈엔증권";
   if (route.name === "ranking") return "투자 랭킹 · 슈엔증권";
   if (route.name === "talk") return `${route.code ? `${LISTING_BY_CODE[route.code]?.name ?? route.code} · ` : ""}종목토론 · 슈엔증권`;
@@ -116,6 +118,7 @@ export default function App() {
         {terminal && <TradeTerminal ticker={route.name === "trade" || route.name === "market" ? route.ticker : null} />}
         {route.name === "market" && !terminal && <MarketBoard />}
         {route.name === "heatmap" && <HeatmapBoard />}
+        {route.name === "tap" && <NxTapPage code={route.code} />}
         {route.name === "etf" && (route.ticker ? <DerivativesPage key={`etf:${route.ticker}`} tab="etf" etfTicker={route.ticker} /> : <MarketBoard />)}
         {route.name === "derivatives" && <DerivativesPage key={route.tab} tab={route.tab} />}
         {route.name === "news" && <NxNewsPage id={route.id} />}

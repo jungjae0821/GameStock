@@ -25,6 +25,7 @@ const NAV = [
   { label: "홈", to: "/", match: "home" },
   { label: "거래", to: "/market", match: "market" },
   { label: "히트맵", to: HEATMAP_PATH, match: "heatmap" },
+  { label: "탭 베팅", to: "/tap", match: "tap" },
   { label: "뉴스", to: "/news", match: "news" },
   { label: "랭킹", to: "/ranking", match: "ranking" },
   { label: "토론", to: "/talk", match: "talk" },
@@ -33,7 +34,7 @@ const NAV = [
 ] as const;
 
 /* 휴대폰 아래 탭바는 칸이 좁아 자주 안 쓰는 화면을 뺀다. 빠진 화면은 계정 메뉴(ProfileMenu)에서 연다. */
-const TABBAR_NAV = NAV.filter((item) => item.match !== "quant" && item.match !== "apiDocs");
+const TABBAR_NAV = NAV.filter((item) => item.match !== "quant" && item.match !== "apiDocs" && item.match !== "tap");
 
 /** 테마와 새 화면 표시는 html에 단다. 포털로 뜨는 팝오버도 같은 색을 받아야 한다. */
 export function useNxRoot(): void {
