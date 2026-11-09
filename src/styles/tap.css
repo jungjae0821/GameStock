@@ -1,0 +1,83 @@
+/* 탭 베팅. 격자 캔버스 하나가 화면의 주인공이고, 나머지는 조용한 거래소 부품으로 둔다. */
+.nx-tap { display: grid; gap: 20px; min-width: 0; }
+.nx-tap-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; }
+.nx-tap-quote { display: flex; align-items: center; gap: 12px; }
+.nx-tap-quote strong { display: block; font-size: 15px; font-weight: 500; }
+.nx-tap-quote span { display: block; margin-top: 2px; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nx-tap-quote em { margin-left: 6px; font-size: 13px; font-style: normal; font-weight: 600; color: var(--ink-muted); }
+.nx-tap-quote em.is-up, .nx-tap .is-up { color: var(--up-deep); }
+.nx-tap-quote em.is-down, .nx-tap .is-down { color: var(--down-deep); }
+
+.nx-tap-codes { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-inline: -2px; padding: 2px; }
+.nx-tap-codes::-webkit-scrollbar { display: none; }
+.nx-tap-code {
+  display: inline-flex; flex: none; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 8px;
+  border: 1px solid var(--nx-line); border-radius: 999px; background: transparent; color: var(--ink-muted);
+  font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.nx-tap-code .game-icon { width: 24px; height: 24px; border-radius: 7px; }
+.nx-tap-code:hover { color: var(--ink); border-color: var(--ink-faint); }
+.nx-tap-code.is-active { border-color: var(--ink); color: var(--ink); background: var(--nx-raised); }
+.nx-tap-code:focus-visible, .nx-tap-stake:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.nx-tap-board {
+  position: relative; overflow: hidden; height: min(560px, 68vh); min-height: 380px;
+  border: 1px solid var(--nx-line); border-radius: 14px; background: var(--nx-stage);
+}
+.nx-tap-canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+.nx-tap-canvas:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 14px; }
+.nx-tap-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 24px;
+  color: var(--ink-muted); text-align: center;
+}
+.nx-tap-notice {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); max-width: calc(100% - 32px); margin: 0;
+  padding: 9px 16px; border-radius: 999px; background: var(--ink); color: var(--nx-stage);
+  font-size: 13px; font-weight: 600; pointer-events: none; animation: nx-tap-notice 0.18s ease-out;
+}
+.nx-tap-notice.is-error { background: var(--nx-raised); color: var(--ink); box-shadow: inset 0 0 0 1px var(--nx-line); }
+.nx-tap-notice.is-win { background: var(--brand); color: var(--brand-ink); }
+@keyframes nx-tap-notice { from { opacity: 0; transform: translate(-50%, -6px); } }
+@media (prefers-reduced-motion: reduce) { .nx-tap-notice { animation: none; } }
+
+.nx-tap-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 32px; }
+.nx-tap-stakes { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0; border: 0; }
+.nx-tap-stakes legend { float: left; margin-right: 8px; color: var(--ink-muted); font-size: 13px; }
+.nx-tap-stake {
+  min-width: 72px; height: 40px; padding: 0 14px; border: 1px solid var(--nx-line); border-radius: 10px;
+  background: transparent; color: var(--ink-muted); font: inherit; font-size: 14px; font-weight: 600;
+  font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.nx-tap-stake:hover { color: var(--ink); border-color: var(--ink-faint); }
+.nx-tap-stake.is-active { border-color: var(--ink); background: var(--ink); color: var(--nx-stage); }
+
+.nx-tap-stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
+.nx-tap-stats div { display: grid; gap: 2px; }
+.nx-tap-stats dt { color: var(--ink-muted); font-size: 12px; }
+.nx-tap-stats dd { margin: 0; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.nx-tap-foot { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px 48px; padding-top: 8px; border-top: 1px solid var(--nx-line); }
+.nx-tap-foot h2 { margin: 16px 0 12px; font-size: 16px; font-weight: 500; }
+.nx-tap-rules ul { display: grid; gap: 8px; margin: 0 0 16px; padding-left: 18px; color: var(--ink-muted); font-size: 14px; line-height: 1.55; max-width: 60ch; }
+.nx-tap-link { color: var(--brand-deep); font-size: 14px; }
+.nx-tap-empty { margin: 0; color: var(--ink-muted); font-size: 14px; }
+.nx-tap-history ol { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.nx-tap-history li {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; padding: 10px 0;
+  border-bottom: 1px solid var(--nx-line); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.nx-tap-history li span:nth-child(2) { color: var(--ink-muted); }
+.nx-tap-history li strong { min-width: 92px; text-align: right; font-weight: 700; }
+.nx-tap-history li.is-won strong { color: var(--brand-deep); }
+.nx-tap-history li.is-lost strong, .nx-tap-history li.is-void strong { color: var(--ink-muted); }
+
+@media (max-width: 760px) {
+  .nx-tap { gap: 16px; }
+  .nx-tap-board { height: min(460px, 62vh); min-height: 340px; border-radius: 12px; }
+  .nx-tap-controls { align-items: stretch; flex-direction: column; }
+  .nx-tap-stakes { flex-wrap: wrap; }
+  .nx-tap-stakes legend { float: none; width: 100%; margin: 0 0 6px; }
+  .nx-tap-stake { flex: 1; min-width: 0; }
+  .nx-tap-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .nx-tap-foot { grid-template-columns: 1fr; gap: 8px; }
+}

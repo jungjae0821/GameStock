@@ -60,6 +60,7 @@ final class MarketSchema {
         StopOrderService.ensureTables(jdbc);
         AssetHistoryService.ensureTables(jdbc);
         ResearchSchema.ensureTables(jdbc);
+        TapService.ensureTables(jdbc);
     }
 
     private void ensureOrderTimestampPrecision() {

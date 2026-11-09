@@ -280,7 +280,9 @@ export function MarketProvider({ children }: { children: ReactNode }) {
             bids: data.orderbook ? topLevels(data.orderbook.bids) : old.bids, asks: data.orderbook ? topLevels(data.orderbook.asks) : old.asks,
           } } };
         });
-      } else if (["AUTHENTICATED", "ACCOUNT_UPDATED", "PORTFOLIO_UPDATED", "ORDER_CANCELLED", "ORDER_EXPIRED", "LOAN_LIQUIDATED"].includes(message.type)) {
+      } else if (["AUTHENTICATED", "ACCOUNT_UPDATED", "PORTFOLIO_UPDATED", "ORDER_CANCELLED", "ORDER_EXPIRED", "LOAN_LIQUIDATED", "TAP_SETTLED"].includes(message.type)) {
+        // 탭 베팅 결과는 화면(NxTapPage)에도 넘긴다. 계좌 현금은 아래에서 같이 갱신한다.
+        if (message.type === "TAP_SETTLED") window.dispatchEvent(new CustomEvent("gamestock:tap", { detail: message.payload }));
         const data = message.payload as { portfolio?: BackendPortfolio; settlements?: BackendSettlement[] };
         if (!firebaseAuth.currentUser || !data?.portfolio) return;
         privateRevisionRef.current++;

@@ -56,6 +56,8 @@ public class AccountResetService {
         jdbc.update("DELETE FROM mission_rewards WHERE user_id = ?", userId);
         jdbc.update("INSERT INTO admin_cash_epochs(user_id,last_adjustment_id) SELECT ?,COALESCE(MAX(id),0) FROM admin_cash_adjustments WHERE user_id=? ON DUPLICATE KEY UPDATE last_adjustment_id=VALUES(last_adjustment_id)",userId,userId);
         jdbc.update("DELETE FROM loan_ledger WHERE user_id = ?", userId);
+        // 결과를 기다리는 탭 베팅이 리셋 뒤 새 잔고에 당첨금을 얹지 않게 한다.
+        jdbc.update("DELETE FROM tap_bets WHERE user_id = ?", userId);
         // 상세 화면의 개인 기능도 계정 리셋 범위에 포함한다.
         jdbc.update("DELETE FROM price_alerts WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM stock_comments WHERE user_id = ?", userId);
