@@ -401,7 +401,7 @@ class MarketSimulationIntegrationTest {
         String keptCode=codes.get(4);
         market.order(new OrderRequest(keptCode,"BUY",2,"LIMIT",9900L),bot);
         var before=jdbc.queryForMap("SELECT id,expires_at,reserved_cash,remaining_quantity FROM orders WHERE user_id=? AND status='OPEN'",bot);
-        @SuppressWarnings("unchecked") var cursors=(Map<String,Integer>)ReflectionTestUtils.getField(market,"researchCursors");
+        var cursors=market.research().researchCursors();
         cursors.put(username,0); // Review only symbols 0..2, not the existing order's symbol 4.
         market.participantBotAction(username);
         assertEquals(before,jdbc.queryForMap("SELECT id,expires_at,reserved_cash,remaining_quantity FROM orders WHERE id=? AND status='OPEN'",before.get("id")));
@@ -458,7 +458,7 @@ class MarketSimulationIntegrationTest {
         var stock=market.stocks().stream().filter(s->s.code().equals(catalyst)).findFirst().orElseThrow();
         jdbc.update("INSERT INTO market_events(stock_id,event_type,title,description,impact,source,created_at) SELECT id,'NEWS',?,?,9,'test',DATE_SUB(CURRENT_TIMESTAMP,INTERVAL 10 SECOND) FROM stocks WHERE stock_code=?",
                 stock.name()+" 매출 급증",stock.name()+" 대규모 업데이트 흥행",catalyst);
-        @SuppressWarnings("unchecked") var cursors=(Map<String,Integer>)ReflectionTestUtils.getField(market,"researchCursors");
+        var cursors=market.research().researchCursors();
         cursors.put(profile.username(),0);
         Object observation=ReflectionTestUtils.invokeMethod(market,"selectBotObservation",profile,id(profile.username()),codes);
         assertEquals(catalyst,ReflectionTestUtils.invokeMethod(observation,"code"));
