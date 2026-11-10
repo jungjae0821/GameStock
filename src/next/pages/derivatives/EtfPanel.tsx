@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Sparkline } from "../../components/Sparkline";
-import { Delta } from "../../components/Delta";
-import { Link } from "../../components/Link";
-import { OrderDock } from "../../next/trade/OrderDock";
-import { MARKET_PATH } from "../../router";
-import { won, rate, indexValue } from "../../market/format";
-import type { DerivativeAccount, DerivativeOrderRequest, EtfQuote } from "../../market/derivatives";
-import { AnimatedNav } from "../../next/AnimatedNav";
+import { Sparkline } from "../../../components/Sparkline";
+import { Delta } from "../../../components/Delta";
+import { Link } from "../../../components/Link";
+import { OrderDock } from "../../trade/OrderDock";
+import { MARKET_PATH } from "../../../router";
+import { won, rate, indexValue } from "../../../market/format";
+import type { DerivativeAccount, DerivativeOrderRequest, EtfQuote } from "../../../market/derivatives";
+import { AnimatedNav } from "../../AnimatedNav";
 
 interface Props {
   selected: EtfQuote;

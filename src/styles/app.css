@@ -59,16 +59,6 @@
     background: var(--paper);
   }
 
-  .topbar-inner {
-    display: flex;
-    align-items: center;
-    gap: var(--space-5);
-    width: 100%;
-    /* 상단 바만 창 양끝까지 편다. 본문은 --page 폭 그대로다. */
-    padding: 0 clamp(var(--space-5), 2.5vw, 48px);
-    height: var(--bar);
-  }
-
   .brand {
     display: flex;
     align-items: center;
@@ -86,12 +76,6 @@
   .brand-logo-dark { display: none !important; }
   html[data-nx-theme="dark"] .brand-logo-light { display: none !important; }
   html[data-nx-theme="dark"] .brand-logo-dark { display: block !important; }
-
-  .brand-text {
-    font-size: var(--step-3);
-    font-weight: 700;
-    letter-spacing: var(--tracking);
-  }
 
   .nav {
     display: flex;
@@ -407,21 +391,6 @@
     }
   }
 
-  .statusbar {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: var(--space-4);
-    width: 100%;
-    max-width: var(--page);
-    margin: 0 auto;
-    padding: var(--space-5);
-    font-size: var(--step--1);
-    font-weight: 700;
-    color: var(--ink-muted);
-    text-align: center;
-  }
-
   /* ---------------------------------------------------------------- 공통 */
 
   .panel-head {
@@ -553,77 +522,11 @@
     flex-wrap: wrap;
   }
 
-  .head-label {
-    font-size: var(--step-1);
-    font-weight: 600;
-    color: var(--ink-muted);
-  }
-
-  .head-value {
-    margin-top: 2px;
-    font-size: var(--step-7);
-    font-weight: 700;
-    letter-spacing: var(--tracking);
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .head-value.is-small {
-    font-size: var(--step-5);
-    letter-spacing: var(--tracking);
-  }
-
   .head-sub {
     display: flex;
     align-items: center;
     gap: var(--space-4);
     margin-top: var(--space-2);
-  }
-
-  .head-me {
-    text-align: right;
-  }
-
-  .head-me .head-sub {
-    justify-content: flex-end;
-  }
-
-  .head-me.is-guest {
-    display: grid;
-    justify-items: end;
-    align-content: start;
-    gap: var(--space-2);
-    max-width: 340px;
-  }
-
-  /* 두 줄로 넘어갈 때 마지막 줄에 한 단어만 남지 않게 줄 길이를 고른다. */
-  .head-guest {
-    font-size: var(--step-1);
-    color: var(--ink-muted);
-    text-wrap: balance;
-    word-break: keep-all;
-  }
-
-  .head-me.is-guest .account-button {
-    min-height: 44px;
-  }
-
-  .kv {
-    display: flex;
-    gap: var(--space-6);
-    margin: 0;
-  }
-
-  .kv dt {
-    font-size: var(--step-1);
-    color: var(--ink-muted);
-  }
-
-  .kv dd {
-    margin: 2px 0 0;
-    font-size: var(--step-3);
-    font-weight: 700;
-    letter-spacing: var(--tracking);
   }
 
   .spark {
@@ -686,24 +589,6 @@
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: var(--space-4);
-  }
-
-  .spot-item {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    text-decoration: none;
-  }
-
-  .spot-item .game-icon {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 1;
-  }
-
-  .spot-item:hover .game-icon {
-    opacity: 0.88;
   }
 
   /* 인기 종목·뉴스 목록의 이름(.name-text, .news-title)과 같은 크기·굵기로 맞춘다. */
@@ -769,24 +654,6 @@
     min-width: 200px;
   }
 
-  .table .cell-watch {
-    width: 36px;
-    padding-right: 0;
-    text-align: center;
-  }
-
-  .sort-button {
-    font-size: var(--step-0);
-    font-weight: 600;
-    color: var(--ink-muted);
-    white-space: nowrap;
-  }
-
-  .sort-button:hover,
-  .sort-button.is-active {
-    color: var(--ink);
-  }
-
   .name-link {
     display: flex;
     align-items: center;
@@ -806,38 +673,6 @@
     text-underline-offset: 3px;
   }
 
-  /* 누를 수 있는 아이콘이므로 배경 대비 3:1 이상인 --ink-muted를 쓴다(--ink-faint는 2.9:1). */
-  .watch-button {
-    font-size: var(--step-2);
-    line-height: 1;
-    color: var(--ink-muted);
-  }
-
-  .watch-button:hover {
-    color: var(--ink);
-  }
-
-  .watch-button[aria-pressed="true"] {
-    color: var(--amber);
-  }
-
-  /* 긴 종목명 옆에서도 "관심"이 두 줄로 쪼개지지 않게 버튼은 줄지 않고, 종목명 쪽이 줄바꿈된다. */
-  .watch-button.is-text {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    gap: 4px;
-    min-height: 44px;
-    white-space: nowrap;
-    margin-left: auto;
-    font-size: var(--step-1);
-    color: var(--ink-muted);
-  }
-
-  .watch-button.is-text.is-on {
-    color: var(--amber-deep);
-  }
-
   /* ---------------------------------------------------------------- 시장 화면 */
 
   .controls {
@@ -846,64 +681,6 @@
     justify-content: space-between;
     gap: var(--space-4);
     flex-wrap: wrap;
-  }
-
-  .control-group {
-    display: flex;
-    gap: var(--space-5);
-  }
-
-  .filter-button {
-    padding: 4px 0;
-    border-bottom: 2px solid transparent;
-    font-size: var(--step-2);
-    font-weight: 700;
-    color: var(--ink-muted);
-  }
-
-  .filter-button:hover {
-    color: var(--ink);
-  }
-
-  .filter-button.is-active {
-    color: var(--ink);
-    border-bottom-color: var(--brand);
-  }
-
-  /* 입력칸 경계는 종이 바탕 대비 3:1 이상이어야 위치가 보인다. 회색 면만으로는 1.1:1이라 선을 둔다. */
-  .control-field input {
-    width: 220px;
-    height: 36px;
-    padding: 0 var(--space-3);
-    background: var(--paper);
-    border: 1px solid var(--ink-muted);
-    border-radius: var(--radius);
-    font-size: var(--step-1);
-  }
-
-  .control-field input::placeholder {
-    color: var(--ink-muted);
-  }
-
-  .market-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-7);
-    align-items: start;
-  }
-
-  .market-layout.has-detail {
-    grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
-  }
-
-  .market-list,
-  .market-detail {
-    min-width: 0;
-  }
-
-  .market-detail {
-    position: sticky;
-    top: calc(var(--bar) + var(--space-4));
   }
 
   /* ---------------------------------------------------------------- 뉴스 */
@@ -955,36 +732,11 @@
     gap: var(--space-5);
   }
 
-  .detail-head {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-  }
-
   .detail-name {
     font-size: var(--step-4);
     font-weight: 700;
     letter-spacing: var(--tracking);
     line-height: 1.25;
-  }
-
-  .detail-sub {
-    font-size: var(--step-0);
-    color: var(--ink-muted);
-  }
-
-  .detail-price {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-3);
-    flex-wrap: wrap;
-    margin-top: calc(var(--space-2) * -1);
-  }
-
-  .detail-price-value {
-    font-size: var(--step-6);
-    font-weight: 700;
-    letter-spacing: var(--tracking);
   }
 
   .chart {
@@ -1001,27 +753,6 @@
     height: 100%;
   }
 
-  .chart-prevclose {
-    stroke: var(--ink-faint);
-    stroke-width: 1;
-    stroke-dasharray: 3 4;
-  }
-
-  .chart-area {
-    fill: var(--ink-faint);
-    opacity: 0.15;
-  }
-
-  .chart.is-up .chart-area {
-    fill: var(--up);
-    opacity: 0.1;
-  }
-
-  .chart.is-down .chart-area {
-    fill: var(--down);
-    opacity: 0.1;
-  }
-
   .chart-line {
     fill: none;
     stroke-width: 2;
@@ -1036,14 +767,6 @@
 
   .chart.is-down .chart-line {
     stroke: var(--down);
-  }
-
-  .chart-caption {
-    display: flex;
-    justify-content: space-between;
-    margin-top: var(--space-2);
-    font-size: var(--step-0);
-    color: var(--ink-muted);
   }
 
   .facts {
@@ -1070,35 +793,6 @@
     white-space: nowrap;
   }
 
-  .mine-line {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-4);
-    font-size: var(--step-2);
-    font-weight: 700;
-  }
-
-  .fill-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .fill-list li {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-3);
-    font-size: var(--step-1);
-  }
-
-  .fill-time {
-    color: var(--ink-muted);
-  }
-
-  .fill-amount {
-    margin-left: auto;
-  }
-
   /* ---------------------------------------------------------------- 주문 */
 
   .ticket-side {
@@ -1106,115 +800,6 @@
     grid-template-columns: 1fr 1fr;
     gap: var(--space-2);
     margin-bottom: var(--space-3);
-  }
-
-  .side-button {
-    padding: 10px 0;
-    border-radius: var(--radius);
-    background: var(--sunken);
-    font-size: var(--step-2);
-    font-weight: 700;
-    color: var(--ink-muted);
-  }
-
-  .side-button:hover {
-    color: var(--ink);
-  }
-
-  .side-button.is-buy.is-active {
-    background: var(--up-wash);
-    color: var(--up-deep);
-  }
-
-  .side-button.is-sell.is-active {
-    background: var(--down-wash);
-    color: var(--down-deep);
-  }
-
-  .ticket-field label {
-    display: block;
-    margin-bottom: 4px;
-    font-size: var(--step-0);
-    color: var(--ink-muted);
-  }
-
-  .ticket-input {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: 0 var(--space-3);
-    background: var(--sunken);
-    border-radius: var(--radius);
-  }
-
-  .ticket-input input {
-    flex: 1;
-    min-width: 0;
-    height: 44px;
-    border: none;
-    background: none;
-    font-size: var(--step-3);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
-
-  .ticket-input input:focus-visible {
-    /* frontend-apex-ignore: focus-outline-removed -- 감싸는 상자가 :focus-within 으로 같은 초점 표시를 그린다 */
-    outline: none;
-  }
-
-  .ticket-input:focus-within {
-    outline: 2px solid var(--focus);
-    outline-offset: 1px;
-  }
-
-  .ticket-unit {
-    font-size: var(--step-1);
-    color: var(--ink-muted);
-  }
-
-  .ticket-ratios {
-    display: flex;
-    gap: var(--space-4);
-    margin: var(--space-2) 0 var(--space-4);
-  }
-
-  .submit-button {
-    width: 100%;
-    padding: 14px 0;
-    border-radius: var(--radius);
-    font-size: var(--step-2);
-    font-weight: 700;
-    color: var(--paper);
-  }
-
-  .submit-button.is-buy {
-    background: var(--up);
-  }
-
-  .submit-button.is-sell {
-    background: var(--down);
-  }
-
-  .submit-button:hover:not(:disabled) {
-    filter: brightness(0.95);
-  }
-
-  .submit-button:disabled {
-    background: var(--sunken);
-    color: var(--ink-faint);
-  }
-
-  .ticket-message {
-    min-height: 20px;
-    margin-top: var(--space-2);
-    font-size: var(--step-0);
-    font-weight: 600;
-  }
-
-  .ticket-message.is-error {
-    color: var(--up-deep);
   }
 
   .text-button {
@@ -1236,15 +821,6 @@
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .market-layout.has-detail {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .market-detail {
-      order: -1;
-      position: static;
-    }
-
     .spot {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -1257,16 +833,6 @@
 
     .page-stack {
       gap: var(--space-6);
-    }
-
-    .topbar-inner {
-      gap: var(--space-3);
-      padding-inline: var(--space-4);
-      height: 52px;
-    }
-
-    .brand-text {
-      display: none;
     }
 
     /* 엄지로 누를 수 있게 메뉴마다 44px 정사각 이상의 영역을 준다. 간격 대신 영역이 글자를 띄운다. */
@@ -1294,35 +860,6 @@
       margin-right: calc(var(--space-2) * -1);
     }
 
-    .head-value {
-      font-size: var(--step-6);
-    }
-
-    .head-me {
-      text-align: left;
-    }
-
-    .head-me .head-sub {
-      justify-content: flex-start;
-    }
-
-    .head-me.is-guest {
-      justify-items: start;
-    }
-
-    .statusbar {
-      padding-inline: var(--space-4);
-    }
-
-    .control-field,
-    .control-field input {
-      width: 100%;
-    }
-
-    .control-field input {
-      height: 44px;
-    }
-
     .table th,
     .table td {
       padding-inline: 6px;
@@ -1330,12 +867,6 @@
 
     .table .cell-name {
       min-width: 0;
-    }
-
-    /* 시세표는 화면 폭 안에 들어와야 한다. 종목명 칸이 남는 폭만 쓰고 넘치면 말줄임으로 자른다. */
-    .quote-table .cell-name {
-      width: 100%;
-      max-width: 0;
     }
 
     .table .name-link {
@@ -1356,15 +887,6 @@
       font-size: var(--step-1);
     }
 
-    .watch-button {
-      min-width: 32px;
-      min-height: 32px;
-    }
-
-    .watch-button.is-text {
-      min-height: 44px;
-    }
-
     .text-button {
       min-height: 32px;
     }
@@ -1378,24 +900,4 @@
     }
   }
 
-  /* 360px 안팎의 휴대폰에서는 아이콘과 관심 칸을 줄여 종목명이 덜 잘리게 한다. */
-  @media (max-width: 400px) {
-    .quote-table .game-icon {
-      width: 32px;
-      height: 32px;
-    }
-
-    .quote-table .name-link {
-      gap: var(--space-2);
-    }
-
-    .quote-table .cell-watch {
-      width: 28px;
-      padding-inline: 0;
-    }
-
-    .quote-table .watch-button {
-      min-width: 28px;
-    }
-  }
 }

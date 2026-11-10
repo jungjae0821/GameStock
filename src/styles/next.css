@@ -451,29 +451,8 @@ html[data-nx] .restriction-badge {
 html[data-nx] .nx-chart { --rule-width: 1px; }
 html[data-nx] .nx-chart .chart { margin: 0; border: 0; background: transparent; }
 html[data-nx] .nx-chart .stock-series-chart .chart-toolbar { gap: 12px; }
-html[data-nx] .nx-chart .stock-series-chart .chart-range-control,
-html[data-nx] .nx-chart .stock-series-chart .chart-mode-control { gap: 2px; padding: 0; }
-html[data-nx] .nx-chart .stock-series-chart .chart-control-button { padding: 4px 10px; border-radius: 6px; color: var(--ink-muted); font-size: 13px; }
-html[data-nx] .nx-chart .stock-series-chart .chart-control-button.is-active { background: var(--nx-tint); color: var(--ink); font-weight: 500; }
 html[data-nx] .nx-chart .stock-series-chart .chart-readout { min-height: 44px; padding: 4px 0 6px; justify-content: flex-start; text-align: left; }
-html[data-nx] .nx-chart .stock-series-chart .chart-status { color: var(--ink-muted); font-size: 12px; }
 html[data-nx] .nx-chart .stock-series-chart .chart-plot { height: clamp(280px, 38vh, 440px); }
-html[data-nx] .nx-chart .stock-series-chart .chart-current { border-radius: 4px; background: var(--brand); color: var(--brand-ink); }
-html[data-nx] .nx-chart .chart-prevclose { stroke: var(--ink-faint); }
-html[data-nx] .nx-chart .chart-timeline { padding-top: 8px; }
-
-.chart-news-dot {
-  position: absolute;
-  z-index: 2;
-  width: 12px;
-  height: 12px;
-  border: 3px solid var(--nx-stage, #1b1726);
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 1px var(--ink-faint, #a29db0);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
 
 /* 뉴스 띠: 두 테마 모두 흰 면. 가격을 움직인 이유가 들어오는 자리. */
 .nx-news {

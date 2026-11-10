@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Panel } from "../../components/Panel";
-import { apiFetch } from "../../lib/api";
+import { Panel } from "../../../components/Panel";
+import { apiFetch } from "../../../lib/api";
 import { adminTime, count, num, toInstant, toLocalInput, type Row } from "./adminShared";
 
 type CatalogTitle = { id: string; name: string; category: string };

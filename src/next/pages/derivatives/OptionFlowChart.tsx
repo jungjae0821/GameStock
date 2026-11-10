@@ -1,9 +1,9 @@
 import { useState, type PointerEvent } from "react";
-import { Delta } from "../../components/Delta";
-import { useNarrow, useWidth } from "../../lib/useWidth";
-import { useOptionFlow, type OptionFlowBucket, type OptionFlowRange } from "../../market/derivatives";
-import { compactWon, indexValue, signedWon, won } from "../../market/format";
-import { AnimatedNav } from "../../next/AnimatedNav";
+import { Delta } from "../../../components/Delta";
+import { useNarrow, useWidth } from "../../../lib/useWidth";
+import { useOptionFlow, type OptionFlowBucket, type OptionFlowRange } from "../../../market/derivatives";
+import { compactWon, indexValue, signedWon, won } from "../../../market/format";
+import { AnimatedNav } from "../../AnimatedNav";
 
 interface Props {
   spot: number;

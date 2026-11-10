@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccount } from '../account';
 import { useAuth } from '../auth';
 import { GameIcon } from '../components/GameIcon';
-import { cleanTitle, relativeTime, signedPercent, won } from '../format';
+import { cleanTitle, relativeTime, serverTimestamp, signedPercent, won } from '../format';
 import { api, newsEffect } from '../market';
 import { RADIUS, SPACE, Txt, toneOf, useTheme } from '../theme';
 
@@ -94,7 +94,7 @@ export function NewsDetailScreen({ item, market, onBack, onOpenStock, onLogin })
   const paragraphs = excerpt?.paragraphs?.length ? excerpt.paragraphs : loading ? [] : stored.paragraphs;
   const original = excerpt?.url ?? stored.link;
   const host = excerpt?.url ? hostOf(excerpt.url) : null;
-  const recent = Date.now() - (Date.parse(item.publishedAt) || 0) < 60 * 60_000 ? relativeTime(item.publishedAt) : null;
+  const recent = Date.now() - (serverTimestamp(item.publishedAt) || 0) < 60 * 60_000 ? relativeTime(item.publishedAt) : null;
   const watching = account.watchlist.includes(item.stockCode);
 
   const toggleWatch = async () => {

@@ -6,7 +6,7 @@ import {
   formatCountdown, formatWeekDay, RANKING_CACHE_KEY, RANKING_TAB_KEY, readRankingCache, readTab, readWeeklyCache,
   usePolledRanking, WEEKLY_RANKING_CACHE_KEY,
   type RankingEntry, type RankingTab, type WeeklyRanking,
-} from "../../pages/RankingPage";
+} from "./rankingData";
 import { AnimatedNav } from "../AnimatedNav";
 
 type Row = Omit<RankingEntry, "changePercent">;

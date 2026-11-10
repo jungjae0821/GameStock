@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Panel } from "../../components/Panel";
-import { apiFetch } from "../../lib/api";
-import { won } from "../../market/format";
+import { Panel } from "../../../components/Panel";
+import { apiFetch } from "../../../lib/api";
+import { won } from "../../../market/format";
 import { adminTime, count, num, useCursorList, type Row } from "./adminShared";
 
 const STATE_LABEL: Record<string, string> = {

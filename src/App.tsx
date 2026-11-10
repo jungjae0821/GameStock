@@ -30,7 +30,7 @@ import { NxAttendancePage } from "./next/pages/NxAttendancePage";
 import { NxQuantPage } from "./next/pages/NxQuantPage";
 import { NxTalkPage } from "./next/pages/NxTalkPage";
 import { NxTapPage } from "./next/pages/NxTapPage";
-import { DerivativesPage } from "./pages/DerivativesPage";
+import { NxDerivativesPage } from "./next/pages/NxDerivativesPage";
 import type { Route } from "./router";
 
 function titleFor(route: Route): string {
@@ -119,8 +119,8 @@ export default function App() {
         {route.name === "market" && !terminal && <MarketBoard />}
         {route.name === "heatmap" && <HeatmapBoard />}
         {route.name === "tap" && <NxTapPage code={route.code} />}
-        {route.name === "etf" && (route.ticker ? <DerivativesPage key={`etf:${route.ticker}`} tab="etf" etfTicker={route.ticker} /> : <MarketBoard />)}
-        {route.name === "derivatives" && <DerivativesPage key={route.tab} tab={route.tab} />}
+        {route.name === "etf" && (route.ticker ? <NxDerivativesPage key={`etf:${route.ticker}`} tab="etf" etfTicker={route.ticker} /> : <MarketBoard />)}
+        {route.name === "derivatives" && <NxDerivativesPage key={route.tab} tab={route.tab} />}
         {route.name === "news" && <NxNewsPage id={route.id} />}
         {route.name === "ranking" && <NxRankingPage />}
         {route.name === "talk" && <NxTalkPage code={route.code} />}

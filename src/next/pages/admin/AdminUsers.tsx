@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Panel } from "../components/Panel";
-import { apiFetch } from "../lib/api";
-import { won } from "../market/format";
-import type { AdminSection } from "../router";
-import { AdminMemberDetail, CashAdjustment, MissionRecovery } from "./admin/AdminMember";
+import { Panel } from "../../../components/Panel";
+import { apiFetch } from "../../../lib/api";
+import { won } from "../../../market/format";
+import { AdminMemberDetail, CashAdjustment, MissionRecovery } from "./AdminMember";
 
 type AdminUser = {
   id: number;
@@ -17,15 +16,6 @@ type AdminUser = {
   tradeBannedUntil: string | null;
   tradeBanReason: string | null;
 };
-
-export const ADMIN_SECTIONS: { section: AdminSection; label: string; to: string }[] = [
-  { section: "users", label: "회원", to: "/admin" },
-  { section: "orders", label: "주문", to: "/admin/orders" },
-  { section: "notices", label: "공지", to: "/admin/notices" },
-  { section: "billboard", label: "전광판", to: "/admin/billboard" },
-  { section: "promos", label: "프로모션 코드", to: "/admin/promos" },
-  { section: "audit", label: "감사 기록", to: "/admin/audit" },
-];
 
 const BAN_PRESETS = [1, 3, 7, 30] as const;
 
