@@ -36,12 +36,6 @@ public class MarketService {
     static final List<String> MISSION_IDS = MarketRankingMissions.MISSION_IDS;
     /** GameStock charges a small, transparent 0.10% commission per side. */
     private static final double TRADING_FEE_RATE = 0.001;
-    /** Per-headline news influence limits used to update fair value only. */
-    private static final String LP_USERNAME = "liquidity_provider";
-    private static final long LP_STARTING_CASH = 50_000_000L;
-    private static final long LP_ONE_TIME_RESERVE = 50_000_000L;
-    private static final int LP_RESERVE_VERSION = 1;
-    private static final int LP_INITIAL_INVENTORY = 100;
     static final String TRADER_BOT_PASSWORD = "TRADER";
     private List<BotProfile> traderProfiles = List.of();
     private MarketRegimeEngine regimes;
@@ -169,6 +163,7 @@ public class MarketService {
     private final MarketNewsFeed newsFeed;
     private final MarketChartQueries chartQueries;
     private final MarketBootstrap bootstrap;
+    private final LiquidityProviderAccounts liquidity;
     private static final class BotLane {
         final Set<Long> stocks,users;
         final BotActivityEngine engine;
@@ -193,6 +188,7 @@ public class MarketService {
         this.newsFeed = new MarketNewsFeed(this, jdbc, newsValuation);
         this.chartQueries = new MarketChartQueries(this, jdbc);
         this.bootstrap = new MarketBootstrap(this, jdbc);
+        this.liquidity = new LiquidityProviderAccounts(this, jdbc);
         this.userFeatures = userFeatures;
         this.protection = protection;
     }
@@ -270,7 +266,7 @@ public class MarketService {
         jdbc.query("SELECT p.user_id,p.stock_id FROM portfolios p JOIN users u ON u.id=p.user_id WHERE u.password_hash='TRADER' AND p.quantity>0",
                 rs->{heldStocks.computeIfAbsent(rs.getLong(1),key->new HashSet<>()).add(rs.getLong(2));});
         List<BotActivityEngine.Participant> participants=BotParticipantAssignments.assign(traderProfiles,ids,stocks,heldStocks);
-        activityLpId=jdbc.queryForObject("SELECT id FROM users WHERE username=?",Long.class,LP_USERNAME);
+        activityLpId=jdbc.queryForObject("SELECT id FROM users WHERE username=?",Long.class,LiquidityProviderAccounts.USERNAME);
         botLanes.clear();
         int count=Math.min(4,stocks.size());
         for(int shard=0;shard<count;shard++) {
@@ -310,9 +306,9 @@ public class MarketService {
         }
         if(inlineMarketMaker)for(var stock:book.stocks.values()) {
             book.restoreLiquidityInventory(activityLpId,stock.id,
-                    StockMarketProfile.initialLiquidityInventory(stock.code,LP_INITIAL_INVENTORY),stock.last);
+                    StockMarketProfile.initialLiquidityInventory(stock.code,LiquidityProviderAccounts.INITIAL_INVENTORY),stock.last);
             if(!book.lpCashBudgets.containsKey(stock.id)) {
-                long total=liquidityAllocatedCash(stock.id,activityLpId);
+                long total=liquidity.allocatedCash(stock.id,activityLpId);
                 long reserved=book.working(activityLpId,stock.id).stream().mapToLong(o->o.reservedCash).sum();
                 book.lpCashBudgets.put(stock.id,total-reserved);
             }
@@ -798,11 +794,11 @@ public class MarketService {
         if (!protection.marketStatus().open()) return;
         TradingRestriction restriction = protection.restriction(code);
         if (restriction != null && !restriction.limitOrdersAllowed()) return;
-        long lp = ensureLiquidityProvider(code);
+        long lp = liquidity.ensureProvider();
         // Measure live depth before withdrawing our quotes; replacement itself is not a liquidity crisis.
         PriceMetricService.Metrics metrics = metrics(code, 0);
         cancelBotOrders(lp, stockId(code));
-        ensureLiquidityInventory(code, lp);
+        liquidity.ensureInventory(code, lp);
         OrderBook externalBook=orderBook(code);
         double news=newsFeed.recentNewsBias(code).rate();
         long reference=dailyReferencePrice(code);
@@ -1009,60 +1005,9 @@ public class MarketService {
                 Timestamp.from(clock.instant().plusMillis(4000)),compactLedger);
     }
 
-    /**
-     * Seed a new LP lot and top up a nearly depleted lot within the finite supply bound.
-     *
-     * A few remaining shares must not block an otherwise eligible refill.
-     */
-    private void ensureLiquidityInventory(String code, long userId) {
-        long id = stockId(code);
-        int initialInventory = StockMarketProfile.initialLiquidityInventory(code,LP_INITIAL_INVENTORY);
-        List<HoldingState> holdings = jdbc.query("""
-                SELECT quantity, settled_quantity, average_price, realized_profit_loss
-                FROM portfolios WHERE user_id = ? AND stock_id = ? FOR UPDATE
-                """, (rs, row) -> new HoldingState(
-                rs.getInt("quantity"),
-                rs.getInt("settled_quantity"),
-                rs.getLong("average_price"),
-                rs.getLong("realized_profit_loss")), userId, id);
-        if (holdings.isEmpty()) {
-            jdbc.update("""
-                    INSERT INTO portfolios (user_id, stock_id, quantity, settled_quantity, average_price, realized_profit_loss)
-                    VALUES (?, ?, ?, ?, ?, 0)
-                    """, userId, id, initialInventory, initialInventory, findStock(code).price());
-            recordLiquidityIssuance(id, initialInventory);
-        } else if (holdings.get(0).quantity() <= 4) {
-            // The startup/legacy path obeys the same finite supply bound as inline quotes.
-            long circulating=jdbc.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM portfolios WHERE stock_id=?",Long.class,id);
-            long nearbyAsks=jdbc.queryForObject("SELECT COALESCE(SUM(remaining_quantity),0) FROM orders WHERE stock_id=? AND user_id<>? AND side='SELL' AND status='OPEN' AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP) AND price<=?",Long.class,id,userId,findStock(code).price()*1.02);
-            int refill=(int)Math.min(32,Math.max(0,Math.max(512L,initialInventory*4L)-circulating));
-            if(refill==0 || nearbyAsks>=4)return;
-            HoldingState current=holdings.get(0);
-            int nextQuantity=current.quantity()+refill;
-            long average=Math.round((current.averagePrice()*(double)current.quantity()
-                    +findStock(code).price()*(double)refill)/nextQuantity);
-            jdbc.update("""
-                    UPDATE portfolios
-                    SET quantity = ?, settled_quantity = ?, average_price = ?
-                    WHERE user_id = ? AND stock_id = ?
-                    """, nextQuantity, current.settledQuantity()+refill, average, userId, id);
-            recordLiquidityIssuance(id, refill);
-        }
-    }
-
-    private void recordLiquidityIssuance(long stockId, int quantity) {
-        jdbc.update("INSERT INTO market_inventory_issuance(stock_id,quantity) VALUES(?,?) ON DUPLICATE KEY UPDATE quantity=quantity+VALUES(quantity)", stockId, quantity);
-    }
-
     private long traderBotId(String username) {
         return jdbc.queryForObject("SELECT id FROM users WHERE username = ? AND password_hash = ?",
                 Long.class, username, TRADER_BOT_PASSWORD);
-    }
-
-    private long ensureLiquidityProvider(String code) {
-        jdbc.update("INSERT IGNORE INTO users (username, password_hash, nickname, cash) VALUES (?, 'BOT', ?, ?)",
-                LP_USERNAME, "유동성 공급자", LP_STARTING_CASH);
-        return jdbc.queryForObject("SELECT id FROM users WHERE username = ?", Long.class, LP_USERNAME);
     }
 
     /** PostConstruct bypasses the transaction proxy, so startup writes that must be atomic use this. */
@@ -1071,11 +1016,18 @@ public class MarketService {
                 new org.springframework.jdbc.datasource.DataSourceTransactionManager(jdbc.getDataSource()));
     }
 
+    /** Tests read the provider's budget through this name, and quoting uses it on every refresh. */
+    private MarketMakerEngine.RiskBook liquidityRiskBook(String code,long lp) {
+        return liquidity.riskBook(code,lp);
+    }
+
+    LiquidityProviderAccounts liquidity() {return liquidity;}
+
     private void initializeSimulationBooks() {
         // Startup cancellation and finite allocations must commit together.
         startupTransaction().executeWithoutResult(status->{
             acquireMarketLock();
-            long lp = ensureLiquidityProvider("");
+            long lp = liquidity.ensureProvider();
             cancelBotOrders(lp, null);
             List<String> codes = botStockCodes();
             long baseline = jdbc.queryForObject("SELECT COALESCE(MAX(id),0) FROM trades", Long.class);
@@ -1084,11 +1036,11 @@ public class MarketService {
             for (String code : codes) {
                 long id = stockId(code);
                 Stock stock = findStock(code);
-                ensureLiquidityInventory(code,lp);
+                liquidity.ensureInventory(code,lp);
                 // Non-zero allocations and trade baselines are retained across restarts.
                 jdbc.update("INSERT IGNORE INTO lp_risk_books VALUES (?,?,?,?,?,?)",
                         id,allocation,baseline,batchEnabled?100:400,1200,stock.price()*1200L);
-                int target=StockMarketProfile.initialLiquidityInventory(code,LP_INITIAL_INVENTORY);
+                int target=StockMarketProfile.initialLiquidityInventory(code,LiquidityProviderAccounts.INITIAL_INVENTORY);
                 // A profile migration may increase the budget; an ordinary
                 // restart must not inflate it just because the last price rose.
                 jdbc.update("UPDATE lp_risk_books SET target_inventory=?,max_inventory=GREATEST(max_inventory,?),risk_limit=GREATEST(risk_limit,?) WHERE stock_id=? AND (target_inventory<>? OR max_inventory<?)",
@@ -1097,53 +1049,8 @@ public class MarketService {
                         id,stock.price(),stock.price(),stock.price());
                 sectors.put(code,stock.genre());
             }
-            ensureLiquidityCashReserve(lp,codes);
+            liquidity.ensureCashReserve(lp,codes);
         });
-    }
-
-    /** Apply one finite simulation-only LP reserve and keep its per-symbol projection consistent. */
-    private void ensureLiquidityCashReserve(long lp,List<String> codes) {
-        jdbc.update("INSERT IGNORE INTO market_liquidity_state(id,reserve_version) VALUES (1,0)");
-        if(jdbc.update("UPDATE market_liquidity_state SET reserve_version=? WHERE id=1 AND reserve_version=0",LP_RESERVE_VERSION)!=1)return;
-        jdbc.update("UPDATE users SET cash=cash+? WHERE id=?",LP_ONE_TIME_RESERVE,lp);
-        long share=LP_ONE_TIME_RESERVE/Math.max(1,codes.size()),remainder=LP_ONE_TIME_RESERVE%Math.max(1,codes.size());
-        for(int i=0;i<codes.size();i++) {
-            long delta=share+(i<remainder?1:0),id=stockId(codes.get(i));
-            jdbc.update("UPDATE lp_risk_books SET opening_cash=opening_cash+? WHERE stock_id=?",delta,id);
-            jdbc.update("UPDATE lp_cash_projection SET cash=cash+? WHERE stock_id=?",delta,id);
-        }
-    }
-
-    private MarketMakerEngine.RiskBook liquidityRiskBook(String code,long lp) {
-        long id = stockId(code);
-        refreshLiquidityProjection(id,lp);
-        return jdbc.queryForObject("""
-                SELECT c.cash + COALESCE((SELECT lp_cash_delta FROM bot_ledger_totals b WHERE b.stock_id=r.stock_id),0) - COALESCE((SELECT SUM(o.reserved_cash) FROM orders o
-                    WHERE o.user_id=? AND o.stock_id=r.stock_id AND o.status='OPEN'),0) AS budget,
-                    r.target_inventory,r.max_inventory,r.risk_limit
-                FROM lp_risk_books r JOIN lp_cash_projection c ON c.stock_id=r.stock_id WHERE r.stock_id=?
-                """, (rs,n)->new MarketMakerEngine.RiskBook(Math.max(0,Math.min(availableCash(lp),rs.getLong(1))),
-                        holdingState(id,lp).quantity(),rs.getInt(2),rs.getInt(3),rs.getLong(4)),lp,id);
-    }
-
-    private long liquidityAllocatedCash(long id,long lp) {
-        refreshLiquidityProjection(id,lp);
-        return jdbc.queryForObject("SELECT c.cash+COALESCE(b.lp_cash_delta,0) FROM lp_cash_projection c LEFT JOIN bot_ledger_totals b ON b.stock_id=c.stock_id WHERE c.stock_id=?",Long.class,id);
-    }
-
-    private void refreshLiquidityProjection(long id,long lp) {
-        jdbc.update("INSERT IGNORE INTO lp_cash_projection SELECT stock_id,baseline_trade_id,opening_cash FROM lp_risk_books WHERE stock_id=?",id);
-        long cursor=jdbc.queryForObject("SELECT last_id FROM lp_cash_projection WHERE stock_id=?",Long.class,id);
-        long end=jdbc.queryForObject("SELECT COALESCE(MAX(id),0) FROM trades WHERE stock_id=?",Long.class,id);
-        if(end>cursor) {
-            long delta=jdbc.queryForObject("""
-                    SELECT COALESCE(SUM(CASE WHEN t.seller_id=? THEN t.quantity*t.price-t.seller_fee ELSE 0 END
-                        - CASE WHEN t.buyer_id=? THEN t.quantity*t.price+t.buyer_fee ELSE 0 END),0)
-                    FROM trades t WHERE t.stock_id=? AND t.id>? AND t.id<=?
-                      AND NOT EXISTS (SELECT 1 FROM settlements s WHERE s.trade_id=t.id AND s.status='CANCELLED')
-                    """,Long.class,lp,lp,id,cursor,end);
-            jdbc.update("UPDATE lp_cash_projection SET cash=cash+?,last_id=? WHERE stock_id=?",delta,end,id);
-        }
     }
 
     private void refreshEnvironments() {
@@ -1607,7 +1514,7 @@ public class MarketService {
         jdbc.update("UPDATE orders SET status = 'CANCELLED', remaining_quantity = 0, reserved_cash = 0, reserved_quantity = 0 WHERE id = ?", orderId);
     }
 
-    private long availableCash(long userId) {
+    long availableCash(long userId) {
         return jdbc.queryForObject("SELECT cash FROM users WHERE id = ?", Long.class, userId);
     }
 
@@ -1651,7 +1558,7 @@ public class MarketService {
                     """, userId, stockId, next, nextSettled, nextAverage, nextRealized);
     }
 
-    private HoldingState holdingState(long stockId, long userId) {
+    HoldingState holdingState(long stockId, long userId) {
         return jdbc.query("""
                 SELECT quantity, COALESCE(settled_quantity, quantity), average_price,
                        COALESCE(realized_profit_loss, 0)
@@ -1769,7 +1676,7 @@ public class MarketService {
     private record OrderReservation(long id, long userId, long reservedCash) { }
     private record OpenLimitOrder(long id, long userId, String stockCode, String side, long price,
                                   int remainingQuantity, long reservedCash, boolean bot) { }
-    private record HoldingState(int quantity, int settledQuantity, long averagePrice, long realizedProfitLoss) { }
+    record HoldingState(int quantity, int settledQuantity, long averagePrice, long realizedProfitLoss) { }
     private record PendingSettlement(long id, long buyerId, long sellerId, long stockId, int quantity,
                                      long grossAmount, long sellerFee) { }
     private record CancelableSettlement(long id, long tradeId, long buyerId, long sellerId, long stockId,

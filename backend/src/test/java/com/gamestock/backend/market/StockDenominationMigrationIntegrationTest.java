@@ -209,7 +209,7 @@ class StockDenominationMigrationIntegrationTest {
         assertEquals(opening+10000,value("SELECT cash FROM lp_cash_projection WHERE stock_id=?",gi));
         assertEquals(opening+10000,value("SELECT opening_cash FROM lp_risk_books WHERE stock_id=?",gi));
         db.update("DELETE FROM lp_cash_projection WHERE stock_id=?",gi);
-        ReflectionTestUtils.invokeMethod(market,"refreshLiquidityProjection",gi,lp);
+        market.liquidity().refreshProjection(gi,lp);
         assertEquals(opening+10000,value("SELECT cash FROM lp_cash_projection WHERE stock_id=?",gi));
         long fresh=trade(kd,10,"SETTLED");
         db.update("UPDATE trades SET price=100 WHERE id=?",fresh);
