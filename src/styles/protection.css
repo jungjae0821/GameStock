@@ -43,14 +43,6 @@
     .site-notice-actions { flex-direction: column-reverse; padding: 24px 22px 22px; }
     .site-notice-button { white-space: normal; }
   }
-  .stock-name-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-  .stock-name-group > .name-link { flex: 1; min-width: 0; }
   .restriction-badge {
     display: inline-flex;
     align-items: center;
@@ -92,8 +84,5 @@
   .restriction-popover p { margin-top: 10px; overflow-wrap: anywhere; }
   .restriction-countdown { font-weight: 700; color: var(--notice-ink); font-variant-numeric: tabular-nums; }
   .restriction-time { color: var(--ink-muted); font-size: var(--step-0); }
-  .ticket-restriction { margin-bottom: 16px; padding: 14px 16px; border-radius: 8px; background: var(--notice-bg); color: var(--notice-ink); line-height: 1.5; }
-  .board-value-link { display: flex; flex-direction: column; gap: 2px; text-decoration: none; }
-  .board-cell .stock-name-group { gap: 4px; }
   @media (pointer: coarse) { .restriction-badge { min-height: 34px; } }
 }

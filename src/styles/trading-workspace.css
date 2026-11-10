@@ -41,8 +41,6 @@ html[data-nx] .nx-trade-page .stock-series-chart { display: flex; flex-direction
 html[data-nx] .nx-trade-page .chart-toolbar { order: 2; flex-wrap: wrap; padding-top: 16px; border: 0; }
 html[data-nx] .nx-trade-page .chart-readout { min-height: 32px; }
 html[data-nx] .nx-trade-page .chart-plot { height: clamp(260px, 34vh, 360px); }
-html[data-nx] .nx-trade-page .chart-control-button { min-height: 38px; padding: 6px 10px; }
-html[data-nx] .nx-trade-page .chart-control-button.is-active { background: var(--trade-field); }
 .nx-trade-facts h2, .nx-stock-news h2, .nx-acct-title, .nx-futures-wallet h2, .nx-futures-rules h2 { margin: 0 0 24px; font-size: 18px; font-weight: 500; }
 .nx-trade-page .nx-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: auto; grid-auto-flow: row; gap: 28px 32px; margin: 0; padding: 0; border: 0; }
 .nx-trade-page .nx-stats > div { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
@@ -146,8 +144,6 @@ html[data-nx] .nx-order-dialog :is(.nx-seg, .nx-ticket-sides, .nx-ticket-submit:
 .nx-product-page .derivatives-head { padding: 0; border: 0; }
 .nx-product-page .derivatives-head h1 { font-size: 28px; font-weight: 500; }
 .nx-product-page .derivatives-lede { font-size: 14px; }
-.nx-product-page .derivatives-tabs { border: 0; gap: 28px; }
-.nx-product-page .derivatives-tab { text-decoration: none; }
 .nx-product-page .derivative-account { grid-template-columns: repeat(3, minmax(0, 1fr)); border: 0; padding: 0; }
 .nx-product-page .derivative-ticket { padding: 0; border: 0; background: transparent; }
 .nx-product-page .derivative-signin { padding: 0; border: 0; background: transparent; }
