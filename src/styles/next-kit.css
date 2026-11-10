@@ -74,7 +74,6 @@
 /* 고른 칸의 바탕은 칸 사이를 미끄러지는 막대(AnimatedNav)가 칠한다. */
 .nx-seg > .nx-nav-indicator { border-radius: 6px; background: var(--nx-panel); }
 .nx-seg a { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
-.nx-seg.nx-seg--large :is(button, a) { min-height: 44px; padding-inline: 20px; font-size: 16px; }
 .nx-seg button:disabled { color: var(--ink-faint); cursor: not-allowed; }
 
 .nx-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }

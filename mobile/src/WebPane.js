@@ -23,9 +23,9 @@ const beforeLoad = scheme => `(function () {
       indexedDB.deleteDatabase('firebaseLocalStorageDb');
     }
   } catch (error) {}
-  // 네이티브 탭바가 있으니 웹 상단의 이동 메뉴 줄만 숨긴다(.topbar는 예전 화면, .nx-top은 새 화면).
+  // 네이티브 탭바가 있으니 웹 상단의 이동 메뉴 줄만 숨긴다.
   var style = document.createElement('style');
-  style.textContent = '.topbar .nav, .nx-top .nx-nav { display: none !important; }';
+  style.textContent = '.nx-top .nx-nav { display: none !important; }';
   (document.head || document.documentElement).appendChild(style);
   // 웹 라우터의 주소 변경을 앱에 알려 앱이 현재 탭을 맞춘다.
   function report() {

@@ -52,13 +52,6 @@
 
   /* ---------------------------------------------------------------- 상단 */
 
-  .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: var(--paper);
-  }
-
   .brand {
     display: flex;
     align-items: center;
@@ -419,13 +412,6 @@
     text-underline-offset: 3px;
   }
 
-  .sub-title {
-    margin-bottom: var(--space-2);
-    font-size: var(--step-1);
-    font-weight: 700;
-    color: var(--ink-muted);
-  }
-
   .delta {
     display: inline-flex;
     align-items: baseline;
@@ -591,14 +577,6 @@
     gap: var(--space-4);
   }
 
-  /* 인기 종목·뉴스 목록의 이름(.name-text, .news-title)과 같은 크기·굵기로 맞춘다. */
-  .spot-name {
-    font-size: var(--step-2);
-    font-weight: 700;
-    letter-spacing: var(--tracking);
-    line-height: 1.35;
-  }
-
   /* ---------------------------------------------------------------- 표 */
 
   .table {
@@ -730,13 +708,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
-  }
-
-  .detail-name {
-    font-size: var(--step-4);
-    font-weight: 700;
-    letter-spacing: var(--tracking);
-    line-height: 1.25;
   }
 
   .chart {
@@ -882,7 +853,7 @@
     }
 
     /* 폰에서는 표 종목명이 14px로 줄어드니 카드 이름·뉴스 제목도 함께 줄인다. */
-    .spot-name,
+    
     .news-title {
       font-size: var(--step-1);
     }

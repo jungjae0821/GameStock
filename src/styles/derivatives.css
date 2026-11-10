@@ -93,21 +93,6 @@
     gap: var(--space-5);
   }
 
-  /* ------------------------------------------------------------ ETF */
-
-  .etf-card-name {
-    overflow: hidden;
-    font-size: var(--step-1);
-    font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .etf-card-code {
-    color: var(--ink-faint);
-    font-size: var(--step--2);
-  }
-
   /* ------------------------------------------------------------ 공통 카드 */
 
   .derivative-card {
@@ -380,10 +365,6 @@
     .derivative-signin {
       flex-direction: column;
       align-items: stretch;
-    }
-
-    .etf-card-name {
-      font-size: var(--step-0);
     }
   }
 }

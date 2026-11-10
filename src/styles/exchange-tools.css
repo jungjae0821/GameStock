@@ -9,11 +9,6 @@
 --shadow-float: 0 18px 44px rgb(0 0 0 / 28%); } }
 @layer component {
 
-  .integration-tools .trading-shortcuts-title {
-    color: var(--ink);
-    font-weight: 700;
-  }
-
   .integration-tools .detail {
     display: flex;
     flex-direction: column;
@@ -35,12 +30,6 @@
     min-width: 0;
     width: 100%;
     container-type: inline-size;
-  }
-
-  .integration-tools .ticket-hint {
-    margin-top: 5px;
-    font-size: var(--step--1);
-    color: var(--ink-muted);
   }
 }
 
@@ -199,28 +188,6 @@
     gap: var(--space-5);
   }
 
-  .integration-tools .mover-title {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding-bottom: 5px;
-    font-size: var(--step-0);
-    font-weight: 700;
-  }
-
-  /* 소제목 막대는 글자 높이를 따른다(기본 18px는 12px 글자보다 크다). */
-  .integration-tools .mover-title .panel-mark {
-    height: 0.95em;
-  }
-
-  .integration-tools .panel-mark.is-up {
-    background: var(--up);
-  }
-
-  .integration-tools .panel-mark.is-down {
-    background: var(--down);
-  }
-
   /* ------------------------------------------------------------- 필터 */
 
   .integration-tools .controls {
@@ -370,14 +337,6 @@
     border-bottom: var(--rule-width) solid var(--rule);
   }
 
-  .integration-tools .panel-mark {
-    flex: none;
-    width: 5px;
-    height: 18px;
-    border-radius: var(--radius-pill);
-    background: var(--brand);
-  }
-
   .integration-tools .panel-title {
     font-size: var(--step-0);
     font-weight: 700;
@@ -401,10 +360,6 @@
   .integration-tools .panel-action:hover {
     color: var(--brand-deep);
     border-color: var(--brand);
-  }
-
-  .integration-tools .panel-body {
-    padding: var(--space-3);
   }
 
   /* ---------------------------------------------------------------- 막대 */

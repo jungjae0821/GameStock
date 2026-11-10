@@ -257,21 +257,7 @@ html[data-nx] .nx-tape-streak .is-up { color: var(--up-deep); }
 html[data-nx] .nx-num.is-down,
 html[data-nx] .nx-tape-streak .is-down { color: var(--down-deep); }
 
-/* 터미널 격자: 목록 | 시세·차트 위 잔고 | 호가 위 주문. 가운데와 오른쪽은 각자 세로로 쌓는다. */
-.nx-terminal {
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr) 420px;
-  grid-template-areas: "watch main side";
-  gap: var(--nx-gap);
-  min-height: calc(100vh - 56px);
-  box-sizing: border-box;
-  padding: var(--nx-gap);
-  background: var(--nx-stage);
-}
-
-.nx-terminal .nx-panel { border-radius: var(--nx-radius); }
 /* 라이트는 무대와 상자가 같은 흰색이라 괘선 한 줄로만 경계를 그린다. */
-html[data-nx][data-nx-theme="light"] .nx-terminal .nx-panel { box-shadow: inset 0 0 0 1px var(--nx-line); }
 
 .nx-panel {
   min-width: 0;
@@ -306,27 +292,6 @@ html[data-nx][data-nx-theme="light"] .nx-terminal .nx-panel { box-shadow: inset 
 .nx-watch .nx-panel-title { padding: 0 8px; }
 .nx-watch ul { margin: 0; padding: 0; list-style: none; }
 
-.nx-watch-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  grid-template-areas: "icon name name" "icon price rate";
-  align-items: center;
-  column-gap: 12px;
-  min-height: 60px;
-  padding: 8px 10px;
-  border-radius: var(--nx-radius);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.nx-watch-row:hover { background: var(--nx-tint); }
-.nx-watch-row.is-active { background: var(--nx-tint); }
-.nx-watch-row .game-icon { grid-area: icon; width: 28px; height: 28px; border-radius: 6px; }
-.nx-watch-name { grid-area: name; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.nx-watch-price { grid-area: price; color: var(--ink-muted); font-size: 12px; }
-.nx-watch-rate { grid-area: rate; font-size: 13px; text-align: right; }
-
 .nx-watch-limit {
   position: absolute;
   top: 6px;
@@ -339,10 +304,7 @@ html[data-nx][data-nx-theme="light"] .nx-terminal .nx-panel { box-shadow: inset 
   line-height: 15px;
 }
 
-.nx-watch-row:has(.nx-watch-limit) .nx-watch-name { padding-right: 26px; }
-
 /* 가운데: 종목 머리, 차트, 뉴스 */
-.nx-center { grid-area: center; display: flex; flex-direction: column; gap: 24px; padding: 28px var(--nx-pad); }
 
 .nx-head-id { display: flex; align-items: center; gap: 14px; }
 .nx-head-id .game-icon { width: 48px; height: 48px; border-radius: 8px; }
@@ -472,26 +434,10 @@ html[data-nx] .nx-chart .stock-series-chart .chart-plot { height: clamp(280px, 3
 .nx-news:hover .nx-news-title { text-decoration: underline; text-underline-offset: 3px; }
 .nx-news.is-empty { display: block; margin: 0; background: var(--nx-raised); color: var(--ink-muted); font-size: 13px; }
 
-.nx-news-tag {
-  grid-area: tag;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: var(--brand);
-  color: var(--brand-ink);
-  font-size: 12px;
-}
-
 .nx-news-title { grid-area: title; overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
-.nx-news-meta { grid-area: meta; color: var(--nx-news-muted); font-size: 12px; }
-.nx-news-effect { grid-area: effect; display: grid; justify-items: end; font-size: 18px; font-weight: 600; }
-.nx-news-effect-label { color: var(--nx-news-muted); font-size: 11px; font-weight: 400; }
 /* 공통 등락색 규칙(html[data-nx] .nx-num.is-up)보다 구체적이어야 밝은 뉴스 면에서 진한 색이 적용된다. */
 html[data-nx] a.nx-news .nx-num.is-up { color: #c01f34; }
 html[data-nx] a.nx-news .nx-num.is-down { color: #2f5fe0; }
-
-/* 오른쪽 열: 호가 바로 아래에 주문서를 붙인다. 가운데 차트 높이와 상관없이 이어진다. */
-.nx-main { grid-area: main; display: flex; flex-direction: column; gap: var(--nx-gap); min-width: 0; }
-.nx-rail { grid-area: side; display: flex; flex-direction: column; gap: var(--nx-gap); min-width: 0; }
 
 /* 호가: 매도 5단계, 현재가 줄, 매수 5단계. 그 아래에 최근 체결 테이프. */
 .nx-book { display: flex; flex-direction: column; }
@@ -623,11 +569,6 @@ html[data-nx] a.nx-news .nx-num.is-down { color: #2f5fe0; }
 
 .nx-text-button:hover { color: var(--ink); }
 
-/* 넓은 노트북: 목록을 줄인다. */
-@media (max-width: 1360px) {
-  .nx-terminal { grid-template-columns: 208px minmax(0, 1fr) 380px; }
-}
-
 /* 태블릿·휴대폰: 한 줄로 쌓고, 종목 목록은 가로로 넘긴다. */
 @media (max-width: 1080px) {
   html[data-nx] { --nx-gap: 14px; --nx-pad: 20px; }
@@ -635,24 +576,13 @@ html[data-nx] a.nx-news .nx-num.is-down { color: #2f5fe0; }
   .nx-brand .brand-logo { display: none; }
   .nx-brand .brand-mark { display: block; }
   .nx-top .profile-menu { margin-left: -8px; }
-  .nx-terminal {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "watch" "center" "side" "account";
-  }
-  .nx-main { display: contents; }
   .nx-watch { padding: 10px 0; }
   .nx-watch .nx-panel-title { display: none; }
   .nx-watch ul { display: flex; gap: 6px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; }
-  .nx-watch-row { grid-template-columns: 24px auto; grid-template-areas: "icon name" "icon rate"; min-width: 132px; }
-  .nx-watch-row .game-icon { width: 24px; height: 24px; }
-  .nx-watch-price { display: none; }
-  .nx-watch-rate { text-align: left; }
-  .nx-center { padding: 20px var(--nx-pad); }
   .nx-price { font-size: 36px; }
   .nx-head-name { font-size: 18px; }
   .nx-news { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "tag title" "tag meta" "effect effect"; }
   .nx-news-title { white-space: normal; }
-  .nx-news-effect { justify-items: start; grid-auto-flow: column; gap: 8px; align-items: baseline; margin-top: 6px; }
 }
 
 @media (max-width: 520px) {

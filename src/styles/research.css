@@ -268,8 +268,6 @@ html[data-nx] .nx-chat-input:focus-visible { outline: none; }
 }
 @media (max-width: 600px) {
   .qx-backtest-form { grid-template-columns: minmax(0, 1fr); }
-  .nx-indicator-add { grid-template-columns: minmax(0, 1fr) 72px; }
-  .nx-indicator-add .nx-btn { grid-column: 1 / -1; }
 }
 
 /* ───────── snScript 편집기 ───────── */
