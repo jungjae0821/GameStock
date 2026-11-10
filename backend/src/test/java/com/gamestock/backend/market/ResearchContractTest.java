@@ -31,7 +31,7 @@ class ResearchContractTest {
         for(JsonNode child:node)references(child,root);
     }
     @Test void handoffExamplesCompileAsWritten() throws Exception {
-        String doc=Files.readString(Path.of("../docs/research-backend.md"));
+        String doc=Files.readString(Path.of("../docs/research-backend.md")).replace("\r\n","\n");
         var blocks=Pattern.compile("```(json|text)\\n(.*?)\\n```",Pattern.DOTALL).matcher(doc);int compiled=0;
         while(blocks.find()) {
             QuantCompiler.Compilation result=null;

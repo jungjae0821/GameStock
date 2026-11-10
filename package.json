@@ -14,7 +14,8 @@
     "export": "node scripts/export-zip.mjs",
     "preview": "vite preview",
     "start": "node server/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"tests/**/*.test.*\""
   },
   "dependencies": {
     "firebase": "^12.19.0",
@@ -26,6 +27,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.8.0",
     "vite": "^7.0.0"
   },
