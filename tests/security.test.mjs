@@ -9,14 +9,30 @@ import vm from 'node:vm';
 import { createStaticServer } from '../server/index.js';
 import { collect, exportablePath } from '../scripts/export-zip.mjs';
 
-test('malformed requests cannot stop the server or expose sibling directories/symlinks', async () => {
+// Windows는 개발자 모드나 관리자 권한이 없으면 심볼릭 링크를 만들 수 없다(EPERM).
+// 그때는 테스트를 건너뛰고, 링크를 만들 수 있는 환경(Linux CI 등)에서만 검사한다.
+async function symlinkOrSkip(t, target, path) {
+  try {
+    await symlink(target, path);
+    return true;
+  } catch (error) {
+    if (process.platform !== 'win32' || error.code !== 'EPERM') throw error;
+    t.skip('심볼릭 링크 생성 권한 없음(Windows 개발자 모드를 켜면 실행됨)');
+    return false;
+  }
+}
+
+test('malformed requests cannot stop the server or expose sibling directories/symlinks', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'gamestock-http-test-'));
   const root = join(dir, 'dist');
   await mkdir(root);
   await mkdir(join(dir, 'dist-private'));
   await writeFile(join(root, 'index.html'), 'APP');
   await writeFile(join(dir, 'dist-private', 'private.txt'), 'PRIVATE');
-  await symlink(join(dir, 'dist-private', 'private.txt'), join(root, 'linked.txt'));
+  if (!await symlinkOrSkip(t, join(dir, 'dist-private', 'private.txt'), join(root, 'linked.txt'))) {
+    await rm(dir, { recursive: true, force: true });
+    return;
+  }
   const server = createStaticServer(root).listen(0, '127.0.0.1');
   try {
     await once(server, 'listening');
@@ -32,7 +48,7 @@ test('malformed requests cannot stop the server or expose sibling directories/sy
   }
 });
 
-test('export excludes secrets, untracked files and symlinks before reading any content', async () => {
+test('export excludes secrets, untracked files and symlinks before reading any content', async t => {
   for (const name of ['.env', '.env.local', 'backend/secrets/firebase-admin.json', '.aws/config', 'logs/debug.log', 'private.key', 'serviceAccount.json', '../escape'])
     assert.equal(exportablePath(name), false, name);
   const dir = await mkdtemp(join(tmpdir(), 'gamestock-export-test-'));
@@ -40,7 +56,7 @@ test('export excludes secrets, untracked files and symlinks before reading any c
     execFileSync('git', ['init', '-q', dir]);
     await writeFile(join(dir, 'source.ts'), 'export const x = 1;');
     await writeFile(join(dir, 'local.json'), 'untracked');
-    await symlink('local.json', join(dir, 'linked.json'));
+    if (!await symlinkOrSkip(t, 'local.json', join(dir, 'linked.json'))) return;
     execFileSync('git', ['-C', dir, 'add', 'source.ts', 'linked.json']);
     assert.deepEqual(collect(dir), [join(dir, 'source.ts')]);
   } finally { await rm(dir, { recursive: true, force: true }); }
