@@ -111,7 +111,7 @@ final class DerivativeChartQueries {
 
     // ------------------------------------------------------------ 지수 선물 차트
 
-    /** 차트 기간과 봉 간격(초). 주식 차트(MarketService.chartBucketSeconds)와 같은 버튼을 쓴다. 지수 기록은 30일만 남는다. */
+    /** 차트 기간과 봉 간격(초). 주식 차트(MarketChartQueries.chartBucketSeconds)와 같은 버튼을 쓴다. 지수 기록은 30일만 남는다. */
     private static final Map<String, long[]> FUTURE_CHART_RANGES = Map.of(
             "1h", new long[]{3_600, 60}, "6h", new long[]{21_600, 300}, "12h", new long[]{43_200, 600},
             "1d", new long[]{86_400, 1_800}, "3d", new long[]{259_200, 3_600}, "2w", new long[]{1_209_600, 21_600},
