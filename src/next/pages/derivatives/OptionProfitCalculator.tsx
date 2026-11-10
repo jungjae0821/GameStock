@@ -1,10 +1,10 @@
 import { useId, useMemo, useState, type PointerEvent } from "react";
-import { useNarrow, useWidth } from "../../lib/useWidth";
-import { indexValue, rate, signedWon, won } from "../../market/format";
+import { useNarrow, useWidth } from "../../../lib/useWidth";
+import { indexValue, rate, signedWon, won } from "../../../market/format";
 import {
   CONTRACT_MULTIPLIER, legBreakeven, legExitValue, optionDelta, optionPoints, probabilityBeyond, type OptionLeg,
-} from "../../market/optionMath";
-import { AnimatedNav } from "../../next/AnimatedNav";
+} from "../../../market/optionMath";
+import { AnimatedNav } from "../../AnimatedNav";
 
 interface Props {
   leg: OptionLeg;

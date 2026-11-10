@@ -1,14 +1,14 @@
 import { useRef, useState } from "react";
-import { Link } from "../components/Link";
-import { EtfBoard } from "../next/EtfBoard";
-import { MarketTabs } from "../next/MarketTabs";
-import { requireSignIn } from "../lib/auth";
-import { useMarketApi } from "../market/MarketProvider";
-import { closeDerivative, openDerivative, useDerivativeMarket } from "../market/derivatives";
-import type { DerivativeAccount, DerivativeOrderRequest } from "../market/derivatives";
-import { productAccount } from "../market/derivativeAccount";
-import { indexValue, kstDateTime, serverTimestamp, signedWon, won } from "../market/format";
-import { ETF_PATH, type DerivativesTab } from "../router";
+import { Link } from "../../components/Link";
+import { EtfBoard } from "../EtfBoard";
+import { MarketTabs } from "../MarketTabs";
+import { requireSignIn } from "../../lib/auth";
+import { useMarketApi } from "../../market/MarketProvider";
+import { closeDerivative, openDerivative, useDerivativeMarket } from "../../market/derivatives";
+import type { DerivativeAccount, DerivativeOrderRequest } from "../../market/derivatives";
+import { productAccount } from "../../market/derivativeAccount";
+import { indexValue, kstDateTime, serverTimestamp, signedWon, won } from "../../market/format";
+import { ETF_PATH, type DerivativesTab } from "../../router";
 import { EtfPanel } from "./derivatives/EtfPanel";
 import { FuturesTerminal } from "./derivatives/FuturesTerminal";
 import { OptionsPanel } from "./derivatives/OptionsPanel";
@@ -20,7 +20,7 @@ const ACTION_LABEL: Record<string, string> = {
   LIQUIDATE: "강제청산",
 };
 
-export function DerivativesPage({ tab, etfTicker = null }: { tab: DerivativesTab | "etf"; etfTicker?: string | null }) {
+export function NxDerivativesPage({ tab, etfTicker = null }: { tab: DerivativesTab | "etf"; etfTicker?: string | null }) {
   const { snapshot, account, loading, error, setAccount, user } = useDerivativeMarket();
   const stockApi = useMarketApi();
   const [busy, setBusy] = useState(false);

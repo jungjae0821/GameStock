@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Panel } from "../../components/Panel";
+import { Panel } from "../../../components/Panel";
 import { adminTime, count, useCursorList, type Row } from "./adminShared";
 
 /* 서버가 남기는 조치 이름. 목록에 없는 새 조치는 원래 이름 그대로 보인다. */

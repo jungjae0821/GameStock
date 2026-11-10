@@ -29,40 +29,6 @@
     line-height: 1.55;
   }
 
-  .derivatives-tabs {
-    display: flex;
-    gap: var(--space-5);
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .derivatives-tab {
-    display: grid;
-    gap: 2px;
-    padding: 10px 2px 12px;
-    border-bottom: 2px solid transparent;
-    color: var(--ink-muted);
-    text-align: left;
-  }
-
-  .derivatives-tab strong {
-    font-size: var(--step-2);
-    font-weight: 700;
-  }
-
-  .derivatives-tab span {
-    color: var(--ink-muted);
-    font-size: var(--step--2);
-  }
-
-  .derivatives-tab:hover {
-    color: var(--ink);
-  }
-
-  .derivatives-tab.is-active {
-    color: var(--ink);
-    border-bottom-color: var(--ink);
-  }
-
   .derivative-account {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -129,40 +95,6 @@
 
   /* ------------------------------------------------------------ ETF */
 
-  .etf-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: var(--space-3);
-  }
-
-  .etf-card {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 2px var(--space-2);
-    align-items: center;
-    padding: var(--space-3);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius);
-    background: var(--paper);
-    text-align: left;
-  }
-
-  .etf-card:hover {
-    border-color: var(--ink-muted);
-  }
-
-  .etf-card.is-active {
-    border-color: var(--ink);
-    background: var(--nx-tint, var(--sunken));
-  }
-
-  .etf-card-theme {
-    grid-column: 1 / -1;
-    color: var(--ink-muted);
-    font-size: var(--step--2);
-    font-weight: 700;
-  }
-
   .etf-card-name {
     overflow: hidden;
     font-size: var(--step-1);
@@ -174,32 +106,6 @@
   .etf-card-code {
     color: var(--ink-faint);
     font-size: var(--step--2);
-  }
-
-  .etf-card-price {
-    font-size: var(--step-3);
-    font-weight: 700;
-    letter-spacing: var(--tracking);
-  }
-
-  .etf-card-change {
-    font-size: var(--step-0);
-    font-weight: 700;
-    text-align: right;
-  }
-
-  .etf-card .spark {
-    grid-column: 1 / -1;
-    width: 100%;
-    height: 28px;
-    margin-top: 2px;
-  }
-
-  .etf-detail-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
-    gap: var(--space-5);
-    align-items: start;
   }
 
   /* ------------------------------------------------------------ 공통 카드 */
@@ -460,28 +366,11 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .etf-detail-grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 
   @media (max-width: 620px) {
     .derivatives-head h1 {
       font-size: var(--step-4);
-    }
-
-    .derivatives-tabs {
-      gap: var(--space-3);
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-
-    .derivatives-tab {
-      flex: none;
-    }
-
-    .derivatives-tab span {
-      display: none;
     }
 
     .derivative-account {
@@ -491,10 +380,6 @@
     .derivative-signin {
       flex-direction: column;
       align-items: stretch;
-    }
-
-    .etf-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .etf-card-name {

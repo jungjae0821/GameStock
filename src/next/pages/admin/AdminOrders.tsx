@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { LISTINGS, LISTING_BY_CODE } from "../../market/universe";
-import { won } from "../../market/format";
-import { Panel } from "../../components/Panel";
+import { LISTINGS, LISTING_BY_CODE } from "../../../market/universe";
+import { won } from "../../../market/format";
+import { Panel } from "../../../components/Panel";
 import { ORDER_STATUS, adminTime, count, num, useCursorList, type Row } from "./adminShared";
 
 type Filters = { userId: string; stockCode: string; status: string };

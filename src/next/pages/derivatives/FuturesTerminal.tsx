@@ -1,12 +1,12 @@
 import { useId, useState } from "react";
-import { Delta } from "../../components/Delta";
-import { PriceCell } from "../../components/PriceCell";
-import { SeriesChart } from "../../components/SeriesChart";
-import { useProfile } from "../../lib/profile";
-import { indexValue, kstDateTime, serverTimestamp, signedNumber, signedWon, won } from "../../market/format";
-import type { DerivativeAccount, DerivativeOrderRequest, DerivativePosition, DerivativeSnapshot, DerivativeTrade, FutureQuote } from "../../market/derivatives";
-import { AnimatedNav } from "../../next/AnimatedNav";
-import { OrderDock } from "../../next/trade/OrderDock";
+import { Delta } from "../../../components/Delta";
+import { PriceCell } from "../../../components/PriceCell";
+import { SeriesChart } from "../../../components/SeriesChart";
+import { useProfile } from "../../../lib/profile";
+import { indexValue, kstDateTime, serverTimestamp, signedNumber, signedWon, won } from "../../../market/format";
+import type { DerivativeAccount, DerivativeOrderRequest, DerivativePosition, DerivativeSnapshot, DerivativeTrade, FutureQuote } from "../../../market/derivatives";
+import { AnimatedNav } from "../../AnimatedNav";
+import { OrderDock } from "../../trade/OrderDock";
 
 /*
  * 지수 선물 거래 화면. 주식 거래 화면(TradeTerminal)과 같은 판을 쓴다:
