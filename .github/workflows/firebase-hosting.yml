@@ -36,9 +36,10 @@ jobs:
           sed -i '/^VITE_API_BASE_URL=/d' .env.production
           echo 'VITE_API_BASE_URL=https://gamestock-api.161-33-33-45.sslip.io' >> .env.production
 
-      - name: Typecheck and build
+      - name: Typecheck, test and build
         run: |
           npm run typecheck
+          npm test
           npm run build
 
       - name: Configure Firebase credentials
