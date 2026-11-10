@@ -115,9 +115,10 @@ test("체결 시각: 기기 시간대와 상관없이 웹 clock처럼 한국 시
   }
 });
 
-test("앱은 웹이 그대로 드러내는 -0·NaN을 0으로 읽는다(웹의 결함은 따르지 않는다)", () => {
-  // 웹 won(-0.4)은 "-₩0", won(NaN)은 "₩NaN"이다. 앱은 부호 없는 0으로 보인다.
-  assert.equal(webFormat.won(-0.4), "-₩0");
+test("-0·NaN은 앱과 웹 모두 부호 없는 0으로 보인다", () => {
+  // 웹도 PR #45에서 -0.4를 "-₩0", NaN을 "₩NaN"으로 보이던 결함을 고쳤다.
+  assert.equal(webFormat.won(-0.4), "₩0");
+  assert.equal(webFormat.won(Number.NaN), "₩0");
   assert.equal(appFormat.won(-0.4), "0원");
   assert.equal(appFormat.price(-0.4), "0");
   assert.equal(appFormat.signedWon(-0.4), "0원");
@@ -242,11 +243,12 @@ test("옵션 델타: 만기 전·양수 가격에서는 웹과 같다", () => {
   }
 });
 
-test("옵션 델타: 만기가 지났거나 가격이 0 이하면 앱은 서버 DerivativePricing처럼 0이다(웹은 1/0/−1)", () => {
-  assert.equal(appOption.optionDelta(1100, 1000, 0, 0.8, true), 0);
-  assert.equal(appOption.optionDelta(900, 1000, -5, 0.8, false), 0);
-  assert.equal(appOption.optionDelta(0, 1000, 600, 0.8, true), 0);
-  assert.equal(webOption.optionDelta(1100, 1000, 0, 0.8, true), 1);
+test("옵션 델타: 만기가 지났거나 가격이 0 이하면 앱·웹 모두 서버 DerivativePricing처럼 0이다", () => {
+  for (const option of [appOption, webOption]) {
+    assert.equal(option.optionDelta(1100, 1000, 0, 0.8, true), 0);
+    assert.equal(option.optionDelta(900, 1000, -5, 0.8, false), 0);
+    assert.equal(option.optionDelta(0, 1000, 600, 0.8, true), 0);
+  }
 });
 
 test("내재 변동성과 정리 금액이 웹과 같다", () => {
