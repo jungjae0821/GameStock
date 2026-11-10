@@ -7,11 +7,11 @@
 | `backend/` | Spring Boot 3.5 + Java 17 | MySQL 저장소, Firebase 토큰 검증, 주문·체결, 봇, 뉴스·수온 수집, REST/WebSocket |
 | `src/` + `public/` | React·Vite 웹 프론트엔드 | 웹 시장 화면과 로그인·메뉴·뉴스·호가·가격 설명 |
 | `mobile/` | Expo React Native | 웹과 같은 API를 사용하는 Android/iOS 테스트 앱 |
-| `server/src/` | 기존 데모 서버 | 현재 실행 기준이 아님. 비교용으로만 보존 |
+| `server/index.js` | Node 정적 파일 서버 | `npm start`로 빌드된 웹(`dist/`)을 제공 |
 | `database/schema.sql` | MySQL 8 스키마 | 신규 DB 초기화 기준 |
 | `scripts/` | Windows 실행·종료·검증 | MySQL 확인, Maven 실행, 웹 서버, 품질 점검 |
 
-배포와 발표에서 기준으로 삼는 경로는 `backend/` + `frontend/` + `mobile/`이다. `server/src/`는 기능을 중복 실행하지 않으며, 제거 여부는 최종 제출물 크기와 비교 필요성에 따라 결정한다.
+배포와 발표에서 기준으로 삼는 경로는 `backend/` + `frontend/` + `mobile/`이다.
 
 ## 처음 설치하는 사람의 순서
 
