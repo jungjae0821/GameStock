@@ -36,15 +36,21 @@ export function serverTimestamp(value: string): number {
   return Date.parse(hasOffset ? normalized : `${normalized}Z`);
 }
 
-/** ₩25,710 */
+/** 원 단위로 반올림한 정수. 숫자가 아니면 0이고, -0.4처럼 0으로 반올림되면 부호 없는 0이다. */
+function roundWon(value: number): number {
+  return Number.isFinite(value) ? Math.round(value) || 0 : 0;
+}
+
+/** ₩25,710. 부호는 반올림한 뒤에 정해서 -0.4가 "-₩0"이 되지 않는다. */
 export function won(value: number): string {
-  const sign = value < 0 ? "-" : "";
-  return `${sign}₩${wonFormatter.format(Math.abs(Math.round(value)))}`;
+  const rounded = roundWon(value);
+  const sign = rounded < 0 ? "-" : "";
+  return `${sign}₩${wonFormatter.format(Math.abs(rounded))}`;
 }
 
 /** +₩1,200 / -₩300 / ₩0 */
 export function signedWon(value: number): string {
-  const rounded = Math.round(value);
+  const rounded = roundWon(value);
   if (rounded === 0) return won(0);
   return `${rounded > 0 ? "+" : "-"}₩${wonFormatter.format(Math.abs(rounded))}`;
 }
@@ -82,7 +88,7 @@ export function shares(value: number): string {
 
 /** 1,024.31 — 지수 표기 */
 export function indexValue(value: number): string {
-  return value.toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (Number.isFinite(value) ? value : 0).toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /** +24.31 / -8.20 — 지수 변화량 */
@@ -92,18 +98,24 @@ export function signedNumber(value: number, digits = 2): string {
   return `${rounded > 0 ? "+" : "-"}${Math.abs(rounded).toFixed(digits)}`;
 }
 
+/*
+ * 시각을 읽지 못한 값(NaN)을 Intl에 넘기면 RangeError가 나서 화면 전체가 멈춘다.
+ * 시각 표시 함수는 그런 값에 빈 글자를 돌려준다.
+ */
+
 /** 12:04:31 */
 export function clock(at: number): string {
-  return kstClockFormatter.format(new Date(at));
+  return Number.isFinite(at) ? kstClockFormatter.format(new Date(at)) : "";
 }
 
 /** 12:04 */
 export function minutes(at: number): string {
-  return kstMinuteFormatter.format(new Date(at));
+  return Number.isFinite(at) ? kstMinuteFormatter.format(new Date(at)) : "";
 }
 
 /** 방금 / 42초 전 / 3분 전 / 12:04 / 어제 18:46 / 10월 13일 17:06 */
 export function since(at: number, now: number): string {
+  if (!Number.isFinite(at) || !Number.isFinite(now)) return "";
   const seconds = Math.max(0, Math.round((now - at) / 1000));
   if (seconds < 5) return "방금";
   if (seconds < 60) return `${seconds}초 전`;
@@ -121,17 +133,19 @@ export function recentSince(at: number, now: number): string | null {
 
 /** 체결 시각. 오늘 체결은 12:04:31, 그 전 체결은 날짜를 붙여 "어제 23:37" / "10월 13일 17:06". */
 export function fillTime(at: number, now = Date.now()): string {
+  if (!Number.isFinite(at) || !Number.isFinite(now)) return "";
   const day = dayLabel(at, now);
   return day === "오늘" ? clock(at) : `${day} ${minutes(at)}`;
 }
 
 /** 공식 게시 시각을 한국 시간으로 고정해 표시한다. */
 export function kstDateTime(at: number): string {
-  return kstDateTimeFormatter.format(new Date(at));
+  return Number.isFinite(at) ? kstDateTimeFormatter.format(new Date(at)) : "";
 }
 
 /** 오늘 / 어제 / 9월 15일 */
 export function dayLabel(at: number, now: number): string {
+  if (!Number.isFinite(at) || !Number.isFinite(now)) return "";
   const day = new Date(at);
   const today = new Date(now);
   const dateKey = (date: Date) => {
