@@ -17,8 +17,10 @@ public class AdminController {
     private final JdbcTemplate jdbc;
     private final OrderService orders;
     private final AdminSupport access;
+    private final UserDeletionService deletion;
 
-    public AdminController(AdminService admin, JdbcTemplate jdbc, OrderService orders, AdminSupport access) {
+    public AdminController(AdminService admin, JdbcTemplate jdbc, OrderService orders, AdminSupport access, UserDeletionService deletion) {
+        this.deletion = deletion;
         this.admin = admin;
         this.jdbc = jdbc;
         this.orders = orders;
@@ -68,6 +70,14 @@ public class AdminController {
     public AdminService.AdminUser forceNickname(@PathVariable long userId, @RequestBody AdminService.NicknameChange request,
                                                 @RequestHeader(value = "Authorization", required = false) String authorization) {
         return admin.forceNickname(access.require(authorization,"USERS"), userId, request);
+    }
+
+    /** 회원 완전 삭제. 실수로 다른 회원을 지우지 않도록 대상의 현재 닉네임을 confirm으로 함께 받는다. */
+    @DeleteMapping("/users/{userId}")
+    public ResponseEntity<Void> deleteUser(@PathVariable long userId, @RequestParam("confirm") String confirm,
+                                           @RequestHeader(value = "Authorization", required = false) String authorization) {
+        deletion.delete(access.require(authorization, "USERS"), userId, confirm);
+        return ResponseEntity.noContent().build();
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

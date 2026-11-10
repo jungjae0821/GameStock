@@ -7,6 +7,7 @@ const ACTIONS: Record<string, string> = {
   TRADE_BAN: "이용 정지",
   TRADE_BAN_LIFT: "이용 정지 해제",
   NICKNAME_FORCE: "닉네임 변경",
+  USER_DELETE: "회원 삭제",
   ORDER_CANCEL: "주문 취소",
   SETTLEMENT_SETTLE: "정산 완료 처리",
   SETTLEMENT_REVERSE: "체결 취소",
