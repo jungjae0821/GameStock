@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
+import { takeSourceLink } from "../lib/sourceLink";
 
 
 export const EXCERPT_PARAGRAPHS = 2;
@@ -7,11 +8,9 @@ export const EXCERPT_PARAGRAPHS = 2;
 /** 저장된 설명에서 원문 링크와 글을 나눈다. 미디어 보도는 RSS의 HTML 조각에 "출처: 주소" 줄이 붙어 온다. */
 export function readDescription(raw: string | undefined, title: string): { paragraphs: string[]; link: string | null } {
   if (!raw?.trim()) return { paragraphs: [], link: null };
-  let link: string | null = null;
-  let source = raw.replace(/출처:\s*(https?:\/\/\S+)/gi, (_, url: string) => {
-    link ??= url;
-    return "";
-  });
+  const taken = takeSourceLink(raw);
+  let link = taken.link;
+  let source = taken.text;
   if (/<[a-z][\s\S]*>/i.test(source)) {
     const doc = new DOMParser().parseFromString(source, "text/html");
     const href = doc.querySelector("a[href]")?.getAttribute("href");

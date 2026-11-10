@@ -37,7 +37,8 @@ export function optionPoints(spot: number, strike: number, secondsLeft: number, 
 
 /** 지수 1포인트가 움직일 때 1계약 가격이 움직이는 포인트. */
 export function optionDelta(spot: number, strike: number, secondsLeft: number, volatility: number, call: boolean): number {
-  if (secondsLeft <= 0) return call ? (spot > strike ? 1 : 0) : (spot < strike ? -1 : 0);
+  // 서버 DerivativePricing.optionDelta처럼 만기가 지났거나 가격이 0 이하면 0이다(log(0)으로 NaN이 나오지 않게).
+  if (!(spot > 0) || !(strike > 0) || !(secondsLeft > 0)) return 0;
   const t = Math.max(1, secondsLeft) / YEAR_SECONDS;
   const root = Math.max(0.01, volatility) * Math.sqrt(t);
   const d1 = (Math.log(spot / strike) + 0.5 * root * root) / root;
