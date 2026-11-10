@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { API_BASE_URL } from './config';
+import { serverTimestamp } from './format';
 
 const STREAM_URL = API_BASE_URL.replace(/^http/, 'ws') + '/ws/stream';
 
@@ -211,7 +212,8 @@ export function newsWithIds(events) {
       let id = (hash >>> 0) % 2_000_000_000 + 1;
       while (used.has(id)) id += 1;
       used.add(id);
-      return { ...event, id, at: Date.parse(event.publishedAt) || 0 };
+      // 시각은 웹처럼 시간대가 없으면 UTC로 읽는다. 시각이 없는 글은 웹과 달리 맨 뒤로 보낸다.
+      return { ...event, id, at: serverTimestamp(event.publishedAt) || 0 };
     })
     .sort((a, b) => b.at - a.at);
 }
