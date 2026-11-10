@@ -2,7 +2,6 @@ package com.gamestock.backend.market;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -56,8 +55,8 @@ class BackendBoundaryRegressionTest {
     }
     @Test void OppositeParticipantFlowsDoNotBecomeOppositeCausalClaimsWhenOnlyPriceSignChanges() {
         var market=new MarketService(null,null,null,null);
-        String up=ReflectionTestUtils.invokeMethod(market,"priceDriversReason",1.0,0.0,10L,-10L,0L);
-        String down=ReflectionTestUtils.invokeMethod(market,"priceDriversReason",-1.0,0.0,10L,-10L,0L);
+        String up=MarketChartQueries.priceDriversReason(1.0,0.0,10L,-10L,0L);
+        String down=MarketChartQueries.priceDriversReason(-1.0,0.0,10L,-10L,0L);
         assertEquals(up,down);
     }
 }
