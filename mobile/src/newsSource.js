@@ -35,10 +35,36 @@ const OFFICIAL_PUBLISHERS = new Set([
 /* 공식 공지에서만 쓰는 제목 표현. 기사 제목의 '업데이트 총정리' 같은 말은 걸리지 않게 좁게 잡는다. */
 const OFFICIAL_TITLE = /패치\s?노트|업데이트\s?(?:안내|노트|공지)|점검\s?(?:안내|공지)|patch\s?notes?|release\s?notes?/i;
 
-// React Native의 URL은 hostname을 지원하지 않는 버전이 있어 정규식으로 꺼낸다.
-function hostOf(url) {
-  const match = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?([^:/?#]+)/i.exec(String(url || ''));
-  return match ? match[1].toLowerCase() : '';
+/*
+ * 웹처럼 URL로 hostname을 읽는다. React Native의 URL은 hostname을 지원하지 않는 버전이 있어
+ * 그때는 정규식으로 꺼낸다. 정규식도 URL처럼 앞뒤 공백·탭·줄바꿈을 걷고 역슬래시를 슬래시로 읽는다.
+ */
+const URL_HAS_HOSTNAME = (() => {
+  try {
+    return new URL('https://a.example/').hostname === 'a.example';
+  } catch {
+    return false;
+  }
+})();
+
+export function hostOf(url, useUrl = URL_HAS_HOSTNAME) {
+  if (!url) return '';
+  if (!useUrl) return hostPattern(url);
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+/** URL이 없을 때의 대안. 퍼센트 인코딩·국제 도메인 변환은 하지 않는다. */
+function hostPattern(url) {
+  const text = String(url || '').replace(/[\t\n\r]/g, '').trim().replace(/\\/g, '/');
+  const match = /^([a-z][a-z0-9+.-]*):(\/\/)?(?:[^@/?#]*@)?([^:/?#]*)/i.exec(text);
+  if (!match) return '';
+  // "https:host"처럼 슬래시가 빠진 주소도 URL은 http(s)면 호스트로 읽는다.
+  if (!match[2] && !/^https?$/i.test(match[1])) return '';
+  return match[3].toLowerCase();
 }
 
 /** Google News 제목은 '기사 제목 - 게시처' 꼴이다. */

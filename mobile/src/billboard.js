@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { serverTimestamp } from './format';
 import { api } from './market';
 
 /*
@@ -18,7 +19,8 @@ export function useBillboard() {
         if (!alive) return;
         setState({ board, failed: false });
         clearTimeout(endTimer);
-        const end = board?.live?.length ? Math.min(...board.live.map(item => Date.parse(item.endsAt))) : NaN;
+        // 끝 시각에 시간대가 빠져 있으면 웹처럼 UTC로 읽는다. 기기 시간으로 읽으면 9시간 어긋난다.
+        const end = board?.live?.length ? Math.min(...board.live.map(item => serverTimestamp(item.endsAt))) : NaN;
         if (Number.isFinite(end)) endTimer = setTimeout(load, Math.max(0, end - Date.now()) + 500);
       } catch {
         if (alive) setState(current => ({ ...current, failed: true }));
