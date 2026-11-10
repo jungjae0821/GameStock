@@ -11,10 +11,6 @@ html[data-nx-theme="light"] :is(.nx-trade-page, .nx-product-page) {
   --trade-field: #eeebf4;
 }
 .nx-trade-page { max-width: 1240px; margin: 0 auto; padding: 16px 32px 72px; }
-.nx-market-tabs { display: flex; align-items: center; gap: 32px; margin-bottom: 32px; }
-.nx-market-tabs a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px; color: var(--ink-muted); font-size: 16px; text-decoration: none; }
-.nx-market-tabs a.is-active { color: var(--ink); box-shadow: inset 0 -2px var(--ink); }
-.nx-market-tabs a:hover { color: var(--ink); }
 .nx-trade-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 24px; margin-bottom: 40px; }
 .nx-back-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--ink-muted); font-size: 14px; text-decoration: none; }
 .nx-back-link:hover { color: var(--ink); }
@@ -140,7 +136,6 @@ html[data-nx] .nx-order-dialog :is(.nx-seg, .nx-ticket-sides, .nx-ticket-submit:
 
 /* ETF lives in the stock section; futures and options keep their own navigation. */
 .nx-product-page { gap: 40px; }
-.nx-product-page .nx-market-tabs { margin-bottom: 0; }
 .nx-product-page .derivatives-head { padding: 0; border: 0; }
 .nx-product-page .derivatives-head h1 { font-size: 28px; font-weight: 500; }
 .nx-product-page .derivatives-lede { font-size: 14px; }
@@ -246,7 +241,6 @@ html[data-nx] .nx-order-dialog :is(.nx-seg, .nx-ticket-sides, .nx-ticket-submit:
 }
 @media (max-width: 600px) {
   .nx-trade-page { padding: 12px 16px 100px; }
-  .nx-market-tabs { margin-bottom: 16px; gap: 24px; }
   .nx-trade-toolbar { align-items: flex-start; gap: 8px; margin-bottom: 24px; }
   .nx-stock-selector { gap: 8px; max-width: 100%; }
   .nx-stock-selector select { max-width: 240px; }

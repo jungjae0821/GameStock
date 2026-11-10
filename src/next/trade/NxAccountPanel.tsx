@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "../../components/Link";
 import { apiFetch } from "../../lib/api";
 import { useAuthUser } from "../../lib/auth";
-import { fillTime, won } from "../../market/format";
+import { fillTime, signedWon, won } from "../../market/format";
 import { useMarket } from "../../market/MarketProvider";
 import { LISTING_BY_CODE } from "../../market/universe";
 import type { Fill } from "../../market/types";
@@ -119,7 +119,6 @@ export function NxAccountPanel({ code, tab, onTabChange, onFocusTicket }: {
   const fills = user ? snapshot.portfolio.fills.filter((fill) => fill.code === code) : [];
   const visibleOrders = user ? orders.filter((order) => order.stockCode === code) : [];
   const count = tab === "holdings" ? positions.length : tab === "fills" ? fills.length : tab === "orders" ? visibleOrders.length : 0;
-  const signed = (amount: number) => `${amount > 0 ? "+" : ""}${won(amount)}`;
   const tone = (amount: number) => amount > 0 ? "is-up" : amount < 0 ? "is-down" : "";
   const name = (stock: string) => LISTING_BY_CODE[stock]?.name ?? stock;
 
@@ -174,7 +173,7 @@ export function NxAccountPanel({ code, tab, onTabChange, onFocusTicket }: {
                 return <tr key={position.code}>
                   <th scope="row"><Link to={TRADE_PATH(position.code)}>{name(position.code)}</Link></th>
                   <td className="nx-num">{position.qty.toLocaleString()}주</td><td className="nx-num">{won(position.avgCost)}</td><td className="nx-num">{won(price)}</td>
-                  <td className={`nx-num ${tone(pnl)}`}>{signed(pnl)}</td><td className={`nx-num ${tone(pnl)}`}>{ratio > 0 ? "+" : ""}{ratio.toFixed(2)}%</td>
+                  <td className={`nx-num ${tone(pnl)}`}>{signedWon(pnl)}</td><td className={`nx-num ${tone(pnl)}`}>{ratio > 0 ? "+" : ""}{ratio.toFixed(2)}%</td>
                 </tr>;
               })}
               {tab === "fills" && fills.map((fill) => <tr key={fill.id}>

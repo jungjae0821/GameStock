@@ -72,15 +72,6 @@
     color: var(--brand-wine);
   }
 
-  .news-detail-title {
-    font-size: var(--step-3);
-    font-weight: 700;
-    letter-spacing: var(--tracking);
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-    outline: none;
-  }
-
   @keyframes news-skeleton {
     from { background-position: 100% 0; }
     to { background-position: -100% 0; }
