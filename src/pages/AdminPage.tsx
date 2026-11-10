@@ -54,6 +54,11 @@ export function AdminUsers() {
   useEffect(() => { void search(""); }, [search]);
 
   const replace = (next: AdminUser) => setUsers((list) => list.map((user) => (user.id === next.id ? next : user)));
+  const remove = (removed: AdminUser) => {
+    setUsers((list) => list.filter((user) => user.id !== removed.id));
+    setSelectedId(null);
+    setMessage(`${removed.nickname}(#${removed.id}) 계정을 삭제했습니다.`);
+  };
   const selected = users.find((user) => user.id === selectedId) ?? null;
 
   return (
@@ -115,12 +120,12 @@ export function AdminUsers() {
           </table>
         </div>
       </Panel>
-      {selected && <AdminUserActions key={selected.id} user={selected} onChange={replace} />}
+      {selected && <AdminUserActions key={selected.id} user={selected} onChange={replace} onDeleted={remove} />}
     </div>
   );
 }
 
-function AdminUserActions({ user, onChange }: { user: AdminUser; onChange: (user: AdminUser) => void }) {
+function AdminUserActions({ user, onChange, onDeleted }: { user: AdminUser; onChange: (user: AdminUser) => void; onDeleted: (user: AdminUser) => void }) {
   const [days, setDays] = useState("7");
   // 사유는 정지당한 사용자에게 그대로 보이므로 미리 채우지 않는다. 관리자가 직접 적어야 정지할 수 있다.
   const [reason, setReason] = useState("");
@@ -239,6 +244,51 @@ function AdminUserActions({ user, onChange }: { user: AdminUser; onChange: (user
           </>
         )}
       </div>
+      {user.role !== "ADMIN" && <AdminUserDelete user={user} onDeleted={onDeleted} />}
     </Panel>
+  );
+}
+
+/**
+ * 회원 완전 삭제. 되돌릴 수 없어서 다른 조치와 떨어진 맨 아래에 두고,
+ * 닉네임을 그대로 입력해야 버튼이 켜진다. 서버도 같은 닉네임을 다시 확인한다.
+ */
+function AdminUserDelete({ user, onDeleted }: { user: AdminUser; onDeleted: (user: AdminUser) => void }) {
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const matches = typed.trim() === user.nickname;
+
+  const submit = async () => {
+    if (!matches) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      await apiFetch<void>(`/api/admin/users/${user.id}?confirm=${encodeURIComponent(typed.trim())}`, { method: "DELETE" });
+      onDeleted(user);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "계정을 삭제하지 못했습니다.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="account-form admin-delete" aria-labelledby="admin-delete-title">
+      <h4 id="admin-delete-title" className="admin-action-title">계정 삭제</h4>
+      <p className="account-hint">
+        계정과 주문·체결·보유 주식·댓글 등 이 회원의 모든 기록을 지웁니다. 이 회원과 맺은 체결은 상대 회원의 거래 내역에서도 사라지고, 되돌릴 수 없습니다.
+        미체결 주문은 먼저 취소하며, 정산 대기 중인 체결이 있으면 삭제하지 않습니다.
+      </p>
+      <label htmlFor="admin-delete-confirm">확인을 위해 닉네임 <strong>{user.nickname}</strong>을(를) 입력하세요</label>
+      <div className="account-input-row">
+        <input id="admin-delete-confirm" value={typed} autoComplete="off" spellCheck={false}
+          onChange={(event) => setTyped(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") void submit(); }} />
+        <button type="button" className="account-button is-danger" disabled={busy || !matches} onClick={() => void submit()}>
+          {busy ? "삭제하는 중" : "계정 삭제"}
+        </button>
+      </div>
+      {message && <p className="admin-form-message" role="alert">{message}</p>}
+    </section>
   );
 }

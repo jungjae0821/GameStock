@@ -28,6 +28,7 @@
 | GET `/dashboard` | READ | 일반 회원 수, 이용 제한 수, 미체결 수, 최근 24시간 거래 수·수량·금액, 미처리 신고, 런타임, 매칭 소유 상태, 내부 metrics |
 | GET `/users?q=...` | READ | 기존 회원 검색. 최근/검색 결과 최대 50명 |
 | GET `/users/{id}` | READ | 계정 정보, 대출 잔액·최근 원장 100개, 포트폴리오, 보유 주식 |
+| DELETE `/users/{id}?confirm=닉네임` | USERS | 회원 완전 삭제(204). `confirm`이 현재 닉네임과 같아야 함. 관리자·본인 계정 거부, 정산 대기 체결이 있으면 거부. 미체결·자동 주문을 취소한 뒤 회원을 참조하는 모든 행(상대 회원과의 체결·정산 포함)을 외래 키 순서로 지운다. `admin_actions`·`admin_audit`에 `USER_DELETE`로 남음 |
 | GET `/orders` | READ | `userId`, `stockCode`, `status`, `before`, `limit`. 상태 OPEN/FILLED/PARTIAL/CANCELLED |
 | GET `/trades` | READ | `userId`, `stockCode`, `before`, `limit`. 체결과 정산 상태 |
 | GET `/settlements` | READ | `userId`, `status`, `before`, `limit`. 상태 PENDING/SETTLED/CANCELLED |
