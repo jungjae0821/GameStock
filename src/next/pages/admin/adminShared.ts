@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { apiFetch } from "../../lib/api";
+import { apiFetch } from "../../../lib/api";
 
 /** 관리자 API가 내려주는 DB 행. 열 이름은 DB 그대로(snake_case)다. */
 export type Row = Record<string, unknown>;

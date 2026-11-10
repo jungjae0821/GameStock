@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Panel } from "../../components/Panel";
-import { SiteNoticeCard } from "../../components/SiteNoticeDialog";
-import { apiFetch } from "../../lib/api";
-import { joinNoticeCode, splitNoticeCode, type SiteNoticeItem } from "../../notice";
+import { Panel } from "../../../components/Panel";
+import { SiteNoticeCard } from "../../../components/SiteNoticeDialog";
+import { apiFetch } from "../../../lib/api";
+import { joinNoticeCode, splitNoticeCode, type SiteNoticeItem } from "../../../notice";
 import { adminTime, num, type Row } from "./adminShared";
 
 type Draft = {

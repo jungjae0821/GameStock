@@ -1,14 +1,23 @@
 import { Link } from "../../components/Link";
 import { useProfile } from "../../lib/profile";
-import { ADMIN_SECTIONS, AdminUsers } from "../../pages/AdminPage";
-import { AdminAudit } from "../../pages/admin/AdminAudit";
-import { AdminBillboard } from "../../pages/admin/AdminBillboard";
-import { AdminNotices } from "../../pages/admin/AdminNotices";
-import { AdminOrders } from "../../pages/admin/AdminOrders";
-import { AdminPromos } from "../../pages/admin/AdminPromos";
-import { AdminRuntime } from "../../pages/admin/AdminRuntime";
-import { useRoute } from "../../router";
+import { useRoute, type AdminSection } from "../../router";
 import { AnimatedNav } from "../AnimatedNav";
+import { AdminAudit } from "./admin/AdminAudit";
+import { AdminBillboard } from "./admin/AdminBillboard";
+import { AdminNotices } from "./admin/AdminNotices";
+import { AdminOrders } from "./admin/AdminOrders";
+import { AdminPromos } from "./admin/AdminPromos";
+import { AdminRuntime } from "./admin/AdminRuntime";
+import { AdminUsers } from "./admin/AdminUsers";
+
+const ADMIN_SECTIONS: { section: AdminSection; label: string; to: string }[] = [
+  { section: "users", label: "회원", to: "/admin" },
+  { section: "orders", label: "주문", to: "/admin/orders" },
+  { section: "notices", label: "공지", to: "/admin/notices" },
+  { section: "billboard", label: "전광판", to: "/admin/billboard" },
+  { section: "promos", label: "프로모션 코드", to: "/admin/promos" },
+  { section: "audit", label: "감사 기록", to: "/admin/audit" },
+];
 
 /** 관리자 화면. 서버가 모든 요청에서 ADMIN 권한을 다시 확인한다. 각 구획의 동작은 기존 관리 화면과 같다. */
 export function NxAdminPage() {
