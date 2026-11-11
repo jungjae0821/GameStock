@@ -120,7 +120,7 @@ class BotMarketBalanceTest {
                     if(id!=lp)assertTrue(working.size()<=1,"A participant has at most one working order");
                     for(Order order:working) {
                         open+=order.remaining;
-                        if(id!=lp)assertTrue(order.remaining<=10);
+                        if(id!=lp)assertTrue(order.remaining<=BotProfile.MAX_ORDER_SIZE);
                     }
                 }
                 maxOpen=Math.max(maxOpen,open);

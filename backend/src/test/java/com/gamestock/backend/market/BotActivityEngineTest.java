@@ -245,7 +245,7 @@ class BotActivityEngineTest {
     @Test void fastDecisionsRetainStrategicHoldingHorizonsAndSmallOrders() {
         var profiles=BotProfile.activePopulation(91,100);
         for(var p:profiles.subList(20,profiles.size())) {
-            assertEquals(5,p.minOrderSize());assertEquals(10,p.maxOrderSize());
+            assertEquals(BotProfile.MIN_ORDER_SIZE,p.minOrderSize());assertEquals(BotProfile.MAX_ORDER_SIZE,p.maxOrderSize());
             if(!BotStrategyEngine.hasInventoryDemand(p)) {
                 assertTrue(p.holdingTimePreference()>=30_000);
                 assertTrue(p.positionLimit()>=8);
@@ -267,7 +267,7 @@ class BotActivityEngineTest {
         engine.act(book,Map.of(1L,observation()),Map.of(),40_000,100,Map.of(),-1);
         assertEquals("CANCELLED",bot.status);assertEquals("OPEN",human.status);
         assertTrue(book.working(1,1).size()<=1);
-        assertTrue(book.working(1,1).stream().allMatch(o->o.remaining<=10));
+        assertTrue(book.working(1,1).stream().allMatch(o->o.remaining<=BotProfile.MAX_ORDER_SIZE));
         assertEquals(10_000_000,book.accounts.get(1L).cash+book.working(1,1).stream().mapToLong(o->o.reservedCash).sum());
     }
 

@@ -54,9 +54,9 @@ class BotLiquidityRecoveryTest {
             engine.microBatches(book,Map.of(1L,observation),Map.of(),now,1000,Map.of(1L,risk),lp,300);
             assertTrue(book.accepted.size()<=400,"Immediate replenishment must retain the two-pass order bound");
             for(var order:book.accepted)if(order.user!=lp) {
-                assertTrue(order.quantity<=10);
+                assertTrue(order.quantity<=BotProfile.MAX_ORDER_SIZE);
                 assertTrue(order.quantity>=1,"Allocation adjustments and funded recovery may use single shares");
-                if(order.quantity>=5)largerOrders++;
+                if(order.quantity>=BotProfile.MIN_ORDER_SIZE)largerOrders++;
             }
             fills+=book.fills.size();
             if(elapsed>=120_000)lateFills+=book.fills.size();
@@ -71,14 +71,14 @@ class BotLiquidityRecoveryTest {
             for(var participant:participants) {
                 var working=book.working(participant.id(),1);
                 assertTrue(working.size()<=1);
-                assertTrue(working.stream().allMatch(o->o.remaining<=10));
+                assertTrue(working.stream().allMatch(o->o.remaining<=BotProfile.MAX_ORDER_SIZE));
             }
         }
         String context=code+" valuation="+valuation+" fills="+fills+" late="+lateFills+" twoSided="+twoSided+" lpPurchases="+lpPurchases
                 +" last="+stocks.get(1L).last+" lpInventory="+book.holding(lp,1).quantity()+" depth="+Arrays.toString(book.depth(1));
         System.out.println("RECOVERY "+context);
         assertTrue(fills>100,context);
-        assertTrue(largerOrders>100,"Recovery must use actual 5-10 share participant orders: "+context);
+        assertTrue(largerOrders>100,"Recovery must use actual minimum-lot participant orders: "+context);
         // LP top-ups change bot turnover. Verify continued activity separately from human fillability.
         assertTrue(lateFills>0,"Trading must continue after recovery: "+context);
         boolean executableValue=valuation>=.8 && valuation<=1.2;

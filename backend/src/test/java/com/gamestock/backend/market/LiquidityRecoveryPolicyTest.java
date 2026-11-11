@@ -72,7 +72,7 @@ class LiquidityRecoveryPolicyTest {
             var wall=book.submit(2,1,side,"LIMIT",200,10000,0,1000000);
             policy.stalled(stock,0);assertTrue(policy.stalled(stock,60000));
             assertTrue(policy.absorbWall(book,stock,risk(),1,10000,60000));
-            assertEquals(190,wall.remaining);assertEquals(1,book.fills.size());
+            assertEquals(200-BotProfile.MAX_ORDER_SIZE,wall.remaining);assertEquals(1,book.fills.size());
             assertEquals(side.equals("BUY")?1:-1,book.liquidityPressure(1,1),
                     "LP recovery executions must not generate their own demand signal");
             assertFalse(policy.absorbWall(book,stock,risk(),1,10000,60500));
