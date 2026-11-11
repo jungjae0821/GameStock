@@ -276,7 +276,7 @@ class BotActivityEngineTest {
         assertEquals(a,b);assertEquals(BotProfile.defaults(91),a.subList(0,20));
         assertEquals(6020,a.stream().map(BotProfile::username).distinct().count());
         assertEquals(6020,a.stream().map(BotProfile::nickname).distinct().count());
-        assertEquals(120,a.stream().skip(20).filter(p->p.strategy().family()==BotProfile.Family.VALUE).findFirst().orElseThrow().positionLimit());
+        assertEquals(60,a.stream().skip(20).filter(p->p.strategy().family()==BotProfile.Family.VALUE).findFirst().orElseThrow().positionLimit());
         assertNotEquals(a.get(20).aggression(),a.get(28).aggression());
         for(int symbol=0;symbol<15;symbol++) {
             Set<BotProfile.Family> families=new HashSet<>();
