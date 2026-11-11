@@ -74,7 +74,7 @@ public class OfficialNoticeService {
     private static final String UMA_MOBILE = "https://m.cafe.daum.net/umamusume-kor/";
     /** 공지사항(Z4os)과 업데이트(ZBhu) 게시판. */
     static final List<String> UMA_BOARDS = List.of("Z4os", "ZBhu");
-    /* 게시판마다 최신 몇 개까지 본문을 읽을지. 6시간에 한 번이라 카페에 주는 부담은 작다. */
+    /* 게시판마다 최신 몇 개까지 본문을 읽을지. 1시간에 한 번이라 카페에 주는 부담은 작다. */
     private static final int UMA_PER_BOARD = 10;
     private static final String BROWSER_AGENT =
             "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36";
@@ -137,8 +137,8 @@ public class OfficialNoticeService {
     }
 
     /* 시작할 때 한 번 받으므로 첫 예약 실행은 주기 하나 뒤에 돈다. */
-    @Scheduled(fixedDelayString = "${gamestock.news.official.refresh-ms:21600000}",
-            initialDelayString = "${gamestock.news.official.refresh-ms:21600000}")
+    @Scheduled(fixedDelayString = "${gamestock.news.official.refresh-ms:3600000}",
+            initialDelayString = "${gamestock.news.official.refresh-ms:3600000}")
     public void fetchScheduled() {
         fetch();
     }

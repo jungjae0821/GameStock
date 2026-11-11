@@ -86,7 +86,7 @@ gamestock:
     # 게임사 공식 발표. 니케 공식 사이트 공지사항 탭과 우마무스메 공식 카페, 블루 아카이브 넥슨 포럼의 공지사항·업데이트 게시판을 받는다.
     official:
       enabled: ${GAMESTOCK_OFFICIAL_NEWS_ENABLED:${GAMESTOCK_NEWS_ENABLED:true}}
-      refresh-ms: ${GAMESTOCK_OFFICIAL_NEWS_REFRESH_MS:21600000}
+      refresh-ms: ${GAMESTOCK_OFFICIAL_NEWS_REFRESH_MS:3600000}
     # stocks/games의 현재 종목명으로 모든 거래 종목의 RSS 검색을 자동 생성한다.
     # 아래 목록은 특정 종목의 검색 URL을 덮어쓰는 설정이다.
     feeds:
