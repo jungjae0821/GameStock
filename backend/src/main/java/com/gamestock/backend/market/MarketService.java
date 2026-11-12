@@ -23,8 +23,6 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Random;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 
 import static com.gamestock.backend.market.MarketModels.*;
@@ -168,6 +166,7 @@ public class MarketService {
     private final LiquidityProviderAccounts liquidity;
     private final BotResearch research;
     private final HoldingLedger holdings;
+    private final SinglePriceAuction auction;
     private static final class BotLane {
         final Set<Long> stocks,users;
         final BotActivityEngine engine;
@@ -197,6 +196,7 @@ public class MarketService {
         this.holdings = new HoldingLedger(jdbc);
         this.userFeatures = userFeatures;
         this.protection = protection;
+        this.auction = new SinglePriceAuction(this, jdbc, holdings, protection);
     }
 
     /**
@@ -1029,114 +1029,17 @@ public class MarketService {
         if (protection.marketAuctionDue()) {
             List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
             for (String code : codes) {
-                closeSinglePriceAuction(code);
+                auction.close(code);
                 protection.finishAuction(code, findStock(code).price());
             }
             protection.finishMarketAuction();
         }
         for (String code : protection.dueViAuctions()) {
             if (protection.marketStatus().restriction() != null) break;
-            closeSinglePriceAuction(code);
+            auction.close(code);
             protection.finishAuction(code, findStock(code).price());
         }
         protection.observeMarket();
-    }
-
-    /** Maximise executable volume, then minimise imbalance and distance from the quote. */
-    private void closeSinglePriceAuction(String code) {
-        if(adminRuntime!=null&&adminRuntime.restriction(code)!=null)return;
-        long stockId = stockId(code);
-        long reference = findStock(code).price();
-        PriceBand daily = dailyPriceBand(code);
-        PriceBand bots = botPriceBand(code);
-        List<MatchRow> orders = jdbc.query("""
-                SELECT o.id, o.user_id, o.price, o.quantity, o.remaining_quantity, o.order_type,
-                       o.created_at, o.reserved_cash, o.reserved_quantity, o.side,
-                       (u.password_hash = 'BOT') AS is_bot
-                FROM orders o JOIN users u ON u.id = o.user_id
-                WHERE o.stock_id = ? AND o.status = 'OPEN' AND o.order_type = 'LIMIT'
-                  AND o.remaining_quantity > 0 ORDER BY o.created_at, o.id
-                """, this::auctionRow, stockId);
-        java.util.SortedSet<Long> candidates = new java.util.TreeSet<>();
-        candidates.add(floorToTick(reference));
-        for (MatchRow order : orders) {
-            if (daily.contains(order.price()) && order.price() % tickSize(order.price()) == 0) candidates.add(order.price());
-        }
-        long price = reference;
-        long bestVolume = 0;
-        long bestImbalance = Long.MAX_VALUE;
-        for (long candidate : candidates) {
-            if (!daily.contains(candidate)) continue;
-            long buys = 0;
-            long sells = 0;
-            for (MatchRow order : orders) {
-                if (order.bot() && !bots.contains(candidate)) continue;
-                if ("BUY".equals(order.side()) && order.price() >= candidate) buys += order.remainingQuantity();
-                if ("SELL".equals(order.side()) && order.price() <= candidate) sells += order.remainingQuantity();
-            }
-            long volume = Math.min(buys, sells);
-            long imbalance = Math.abs(buys - sells);
-            if (volume > bestVolume || (volume == bestVolume && volume > 0 &&
-                    (imbalance < bestImbalance || (imbalance == bestImbalance
-                            && Math.abs(candidate - reference) < Math.abs(price - reference))))) {
-                price = candidate;
-                bestVolume = volume;
-                bestImbalance = imbalance;
-            }
-        }
-        if (bestVolume == 0) return;
-        long volume = 0;
-        while (true) {
-            MatchRow buy = topAuctionOrder(stockId, "BUY", price, bots.contains(price));
-            MatchRow sell = topAuctionOrder(stockId, "SELL", price, bots.contains(price));
-            if (buy == null || sell == null) break;
-            if (buy.userId() == sell.userId()) {
-                MatchRow alternativeSell = topAuctionOrder(stockId, "SELL", price, bots.contains(price), buy.userId());
-                if (alternativeSell == null) break;
-                sell = alternativeSell;
-            }
-            int quantity = Math.min(buy.remainingQuantity(), sell.remainingQuantity());
-            if (!canSettle(buy, sell, quantity, price, stockId)) {
-                if (!canPayForFill(buy,quantity,price)) cancelOrderInternal(buy.id());
-                else cancelOrderInternal(sell.id());
-                continue;
-            }
-            MatchRow maker = earlier(buy, sell) ? buy : sell;
-            MatchRow taker = maker.id() == buy.id() ? sell : buy;
-            settleTrade(stockId, buy, sell, maker, taker, quantity, price);
-            volume += quantity;
-        }
-        if (volume > 0) moveToPrice(code, price, volume);
-    }
-
-    private MatchRow topAuctionOrder(long stockId, String side, long price, boolean botsAllowed) {
-        return topAuctionOrder(stockId, side, price, botsAllowed, 0L);
-    }
-
-    private MatchRow topAuctionOrder(long stockId, String side, long price, boolean botsAllowed,
-                                     long excludedUserId) {
-        String comparison = "BUY".equals(side) ? ">=" : "<=";
-        String priority = "BUY".equals(side) ? "DESC" : "ASC";
-        String excluded = excludedUserId > 0 ? " AND o.user_id <> ? " : "";
-        List<MatchRow> rows = jdbc.query("""
-                SELECT o.id, o.user_id, o.price, o.quantity, o.remaining_quantity, o.order_type,
-                       o.created_at, o.reserved_cash, o.reserved_quantity, o.side,
-                       (u.password_hash = 'BOT') AS is_bot
-                FROM orders o JOIN users u ON u.id = o.user_id
-                WHERE o.stock_id = ? AND o.side = ? AND o.status = 'OPEN'
-                  AND o.order_type = 'LIMIT' AND o.remaining_quantity > 0 AND o.price
-                """ + comparison + " ? " + (botsAllowed ? "" : "AND u.password_hash <> 'BOT' ")
-                + excluded
-                + "ORDER BY o.price " + priority + ", o.created_at, o.id LIMIT 1",
-                this::auctionRow, excludedUserId > 0
-                        ? new Object[]{stockId, side, price, excludedUserId}
-                        : new Object[]{stockId, side, price});
-        return rows.isEmpty() ? null : rows.get(0);
-    }
-
-    private MatchRow auctionRow(ResultSet rs, int row) throws SQLException {
-        return new MatchRow(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4), rs.getInt(5),
-                rs.getString(6), databaseInstant(rs.getTimestamp(7)), rs.getLong(8), rs.getInt(9), rs.getString(10), rs.getBoolean(11));
     }
 
     private void matchOrders(String code) {
@@ -1148,91 +1051,6 @@ public class MarketService {
         repository.persist(book,now);
         for(var stock:book.stocks.values())if(stock.viTrigger>0)protection.beforeTrade(stock.code,stock.viTrigger);
         publishBookEvents(book);events.publishEvent(bookEvent(book,now));
-    }
-
-    private boolean canSettle(MatchRow buy, MatchRow sell, int quantity, long tradePrice, long stockId) {
-        if (!canPayForFill(buy,quantity,tradePrice)) return false;
-        return sell.reservedQuantity() > 0 || availableQuantity(sell.userId(), stockId) >= quantity;
-    }
-
-    private long releasedReservation(MatchRow buy,int quantity) {
-        if (buy.reservedCash()==0) return 0;
-        long remainingGross=buy.price()*(buy.remainingQuantity()-(long)quantity);
-        return buy.reservedCash()-remainingGross-feeFor(remainingGross);
-    }
-
-    private boolean canPayForFill(MatchRow buy,int quantity,long price) {
-        long gross=price*quantity;
-        return availableCash(buy.userId())+releasedReservation(buy,quantity)>=gross+feeFor(gross);
-    }
-
-    private void settleTrade(long stockId, MatchRow buy, MatchRow sell, MatchRow maker, MatchRow taker, int quantity, long tradePrice) {
-        long amount = tradePrice * quantity;
-        boolean internal=jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE id IN (?,?) AND password_hash IN ('BOT','TRADER')",Integer.class,buy.userId(),sell.userId())==2;
-        long buyerFee = internal?0:feeFor(amount);
-        long sellerFee = buyerFee;
-        HoldingState buyerBefore = holdingState(stockId, buy.userId());
-        HoldingState sellerBefore = holdingState(stockId, sell.userId());
-        if (buy.reservedCash() > 0) {
-            // Use the actual change in the remaining reservation: rounded per-fill fees are not additive.
-            long reservedChunk = releasedReservation(buy,quantity);
-            jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", reservedChunk - amount - buyerFee, buy.userId());
-        } else {
-            jdbc.update("UPDATE users SET cash = cash - ? WHERE id = ?", amount + buyerFee, buy.userId());
-        }
-        holdings.adjust(stockId, buy.userId(), quantity, tradePrice, buyerFee, true, buyerBefore);
-        holdings.adjust(stockId, sell.userId(), quantity, tradePrice, sellerFee, false, sellerBefore);
-        // GameStock settles fills immediately; the seller receives cash and
-        // the buyer's shares become settled in the same transaction.
-        jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", amount - sellerFee, sell.userId());
-        jdbc.update("""
-                INSERT INTO trades (stock_id, buy_order_id, sell_order_id, buyer_id, seller_id,
-                                    maker_order_id, taker_order_id, aggressor_side, quantity, price,
-                                    buyer_fee, seller_fee, fee)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, stockId, buy.id(), sell.id(), buy.userId(), sell.userId(), maker.id(), taker.id(),
-                taker.side(), quantity, tradePrice, buyerFee, sellerFee, buyerFee + sellerFee);
-        long tradeId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-        jdbc.update("""
-                INSERT INTO settlements (trade_id, buyer_id, seller_id, stock_id, quantity, gross_amount,
-                                         buyer_fee, seller_fee, settlement_at, status,
-                                         buyer_quantity_before, buyer_settled_quantity_before,
-                                         buyer_average_price_before, buyer_realized_profit_loss_before,
-                                         seller_quantity_before, seller_settled_quantity_before,
-                                         seller_average_price_before, seller_realized_profit_loss_before, settled_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'SETTLED',
-                        ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, tradeId, buy.userId(), sell.userId(), stockId, quantity, amount, buyerFee, sellerFee,
-                buyerBefore.quantity(), buyerBefore.settledQuantity(), buyerBefore.averagePrice(),
-                buyerBefore.realizedProfitLoss(), sellerBefore.quantity(), sellerBefore.settledQuantity(),
-                sellerBefore.averagePrice(), sellerBefore.realizedProfitLoss());
-        updateMatchedOrder(buy, quantity, tradePrice);
-        updateMatchedOrder(sell, quantity, tradePrice);
-        protection.recordTrade(stockId, tradePrice);
-    }
-
-    private void updateMatchedOrder(MatchRow order, int filledQuantity, long tradePrice) {
-        int remaining = order.remainingQuantity() - filledQuantity;
-        int filledBefore = order.quantity() - order.remainingQuantity();
-        long nextPrice = "MARKET".equals(order.orderType())
-                ? weightedAverage(order.price(), filledBefore, tradePrice, filledQuantity)
-                : order.price();
-        long reservedCash = order.reservedCash();
-        if (reservedCash > 0 && "BUY".equals(order.side())) {
-            // Recompute the reservation from the remaining quantity so fee
-            // rounding does not accumulate a one-won drift over many fills.
-            long remainingGross = order.price() * (long) remaining;
-            reservedCash = remaining == 0 ? 0 : remainingGross + feeFor(remainingGross);
-        }
-        int reservedQuantity = order.reservedQuantity();
-        if (reservedQuantity > 0 && "SELL".equals(order.side())) reservedQuantity = Math.max(0, reservedQuantity - filledQuantity);
-        jdbc.update("UPDATE orders SET price = ?, remaining_quantity = ?, reserved_cash = ?, reserved_quantity = ?, status = ? WHERE id = ?",
-                nextPrice, remaining, reservedCash, reservedQuantity, remaining == 0 ? "FILLED" : "OPEN", order.id());
-    }
-
-    private long weightedAverage(long previousAverage, int filledBefore, long tradePrice, int filledQuantity) {
-        int filled = filledBefore + filledQuantity;
-        return filled == 0 ? 0 : Math.round(((double) previousAverage * filledBefore + (double) tradePrice * filledQuantity) / filled);
     }
 
     private void cancelRemainingMarket(long orderId) {
@@ -1429,7 +1247,7 @@ public class MarketService {
         for(long user:people)events.publishEvent(new UserMarketEvent(user,"ORDER_EXPIRED",Map.of("portfolio",portfolioUnsafe(user))));
     }
 
-    private void cancelOrderInternal(long orderId) {
+    void cancelOrderInternal(long orderId) {
         OrderState order = findOrder(orderId);
         if (!"OPEN".equals(order.status())) return;
         if ("MARKET".equals(order.orderType())) { cancelRemainingMarket(orderId); return; }
@@ -1441,7 +1259,7 @@ public class MarketService {
         return jdbc.queryForObject("SELECT cash FROM users WHERE id = ?", Long.class, userId);
     }
 
-    private int availableQuantity(long userId, long stockId) {
+    int availableQuantity(long userId, long stockId) {
         int owned = jdbc.query("SELECT COALESCE(settled_quantity, quantity) FROM portfolios WHERE user_id = ? AND stock_id = ?", (rs, row) -> rs.getInt(1), userId, stockId).stream().findFirst().orElse(0);
         Integer reserved = jdbc.queryForObject("SELECT COALESCE(SUM(reserved_quantity), 0) FROM orders WHERE user_id = ? AND stock_id = ? AND side = 'SELL' AND status = 'OPEN'", Integer.class, userId, stockId);
         return owned - (reserved == null ? 0 : reserved);
@@ -1455,11 +1273,6 @@ public class MarketService {
                 """, (rs, row) -> new OrderState(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getInt(4),
                 rs.getInt(5), rs.getString(6), rs.getString(7), rs.getLong(8), rs.getInt(9)), orderId)
                 .stream().findFirst().orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
-    }
-
-    private boolean earlier(MatchRow first, MatchRow second) {
-        int compared = first.createdAt().compareTo(second.createdAt());
-        return compared < 0 || (compared == 0 && first.id() < second.id());
     }
 
     HoldingState holdingState(long stockId, long userId) {
@@ -1483,13 +1296,11 @@ public class MarketService {
         return rows.isEmpty() ? new ExecutionSummary(0, "NONE", null) : rows.get(0);
     }
 
-    private long feeFor(long grossAmount) {
+    static long feeFor(long grossAmount) {
         if (grossAmount <= 0) return 0;
         return Math.max(1L, Math.round(grossAmount * TRADING_FEE_RATE));
     }
 
-    private record MatchRow(long id, long userId, long price, int quantity, int remainingQuantity, String orderType,
-                            Instant createdAt, long reservedCash, int reservedQuantity, String side, boolean bot) { }
     private record OrderState(long id, long userId, long price, int quantity, int remainingQuantity, String status,
                               String orderType, long reservedCash, int reservedQuantity) { }
     private record OrderReservation(long id, long userId, long reservedCash) { }
@@ -1569,15 +1380,15 @@ public class MarketService {
         return jdbc.queryForObject("SELECT d.open_price FROM daily_market_summaries d JOIN stocks s ON s.id=d.stock_id WHERE s.stock_code=? AND d.trading_date=?",Long.class,code,tradingDate);
     }
 
-    private PriceBand dailyPriceBand(String code) {
+    PriceBand dailyPriceBand(String code) {
         return dailyBand(code,dailyReferencePrice(code));
     }
 
-    private PriceBand botPriceBand(String code) {
+    PriceBand botPriceBand(String code) {
         return botBand(code,dailyReferencePrice(code));
     }
 
-    private void moveToPrice(String code, long price, long volume) {
+    void moveToPrice(String code, long price, long volume) {
         PriceBand dailyBand = dailyPriceBand(code);
         long next = dailyBand.clamp(Math.max(PriceLimitPolicy.MIN_PRICE, price));
         jdbc.update("UPDATE stocks SET previous_price = current_price, current_price = ?, total_volume = total_volume + ? WHERE stock_code = ?", next, volume, code);
