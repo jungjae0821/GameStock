@@ -39,7 +39,6 @@ public class MarketService {
     private MarketRegimeEngine regimes;
     private PatternEngine patterns;
     private BotStrategyEngine strategies;
-    private final MarketMakerEngine marketMaker = new MarketMakerEngine();
     private PriceMetricService priceMetrics;
     private final Map<String, MarketEnvironment> environments = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, String> sectors = new HashMap<>();
@@ -165,6 +164,7 @@ public class MarketService {
     MarketMetrics pipelineMetrics(){return pipelineMetrics;}
     PriceMetricService priceMetrics(){return priceMetrics;}
     MatchingEngine matching(){return matching;}
+    boolean compactLedger(){return compactLedger;}
     BatchMarketRepository newBatchRepository(){return new BatchMarketRepository(jdbc,compactLedger?botJournal:null);}
     private final NewsValuation newsValuation;
     private final MarketRankingMissions rankingMissions;
@@ -178,6 +178,7 @@ public class MarketService {
     private final OpenOrderPriceNormalizer priceNormalizer;
     private final AccountQueries accountQueries;
     private final BotBatchLanes botBatches;
+    private final BotOrderActions botOrders;
     public int batchShardCount() {return botBatches.shardCount();}
     Map<String,Long> batchTimings(int shard) {return botBatches.timings(shard);}
     private Random tickRandom = new Random(20260910L);
@@ -201,6 +202,7 @@ public class MarketService {
         this.priceNormalizer = new OpenOrderPriceNormalizer(this, jdbc);
         this.accountQueries = new AccountQueries(this, jdbc);
         this.botBatches = new BotBatchLanes(this, jdbc, events, liquidity, newsFeed, protection);
+        this.botOrders = new BotOrderActions(jdbc, events, liquidity, newsFeed, protection);
     }
 
     /**
@@ -610,79 +612,13 @@ public class MarketService {
     @Transactional
     public synchronized void liquidityBotAction(String code, String ignoredSide) {
         prepareBotAction(code);
-        if(adminRuntime!=null&&adminRuntime.botsPaused())return;
-        if (!protection.marketStatus().open()) return;
-        TradingRestriction restriction = protection.restriction(code);
-        if (restriction != null && !restriction.limitOrdersAllowed()) return;
-        long lp = liquidity.ensureProvider();
-        // Measure live depth before withdrawing our quotes; replacement itself is not a liquidity crisis.
-        PriceMetricService.Metrics metrics = metrics(code, 0);
-        cancelBotOrders(lp, stockId(code));
-        liquidity.ensureInventory(code, lp);
-        OrderBook externalBook=orderBook(code);
-        double news=newsFeed.recentNewsBias(code).rate();
-        long reference=dailyReferencePrice(code);
-        PriceBand band=quoteBand(code,reference,news);
-        MarketMakerEngine.QuoteConstraints constraints=new MarketMakerEngine.QuoteConstraints(band.lowerPrice(),band.upperPrice(),
-                externalBook.bids().isEmpty()?0:externalBook.bids().get(0).price(),
-                externalBook.asks().isEmpty()?0:externalBook.asks().get(0).price());
-        MarketMakerEngine.RiskBook risk = liquidityRiskBook(code, lp);
-        double fundamental=jdbc.queryForObject("SELECT hidden_fundamental FROM market_price_metrics WHERE stock_id=?",Double.class,stockId(code));
-        fundamental=StockMarketProfile.valuationAnchor(code,reference,fundamental,news);
-        double nearbyRange=Math.max(metrics.lastPrice()*.01,tickSize(Math.round(metrics.lastPrice()))*4.0);
-        long externalBids=externalBook.bids().stream().filter(q->q.price()>=metrics.lastPrice()-nearbyRange).mapToLong(OrderBookLevel::quantity).sum();
-        long externalAsks=externalBook.asks().stream().filter(q->q.price()<=metrics.lastPrice()+nearbyRange).mapToLong(OrderBookLevel::quantity).sum();
-        double pressure=(externalBids-externalAsks)/(double)Math.max(1,externalBids+externalAsks);
-        for (MarketMakerEngine.Quote quote : marketMaker.quotes(metrics, environment(code), risk,
-                tickSize(Math.round(metrics.midPrice())), marketScale(code),constraints,fundamental,pressure)) {
-            insertLiquidityQuote(code, lp, quote);
-        }
-        matchOrders(code);
-        refreshMarkPrice(code);
-        events.publishEvent(new MarketChangedEvent());
+        botOrders.liquidityAction(this, code);
     }
 
     @Transactional
     public synchronized void participantBotAction(String username) {
         prepareBotAction(null);
-        if(adminRuntime!=null) {
-            double share=adminRuntime.settings().traderShare();
-            if(share<=0 || share<1 && java.util.concurrent.ThreadLocalRandom.current().nextDouble()>=share)return;
-        }
-        if (!protection.marketStatus().open()) return;
-        BotProfile profile = traderProfiles.stream().filter(p -> p.username().equals(username)).findFirst().orElseThrow();
-        List<String> codes = botStockCodes();
-        if (codes.isEmpty()) return;
-        long userId = traderBotId(username);
-        BotObservation observation = selectBotObservation(profile,userId,codes);
-        String code = observation.code();
-        if(adminRuntime!=null&&adminRuntime.restriction(code)!=null)return;
-        PriceMetricService.Metrics metrics = observation.metrics();
-        long id = stockId(code);
-        // Execute the same funded intent that won selection; do not redraw its signal after choosing a symbol.
-        BotStrategyEngine.Decision decision = observation.decision();
-        List<BotOrderPolicy.RestingOrder> resting=observation.resting();
-        if (!resting.isEmpty()) {
-            // An unrelated symbol or a fresh random pricing draw must not reset an order's queue priority/TTL.
-            if (!observation.replace()) return;
-            cancelBotOrders(userId,id);
-            events.publishEvent(new MarketChangedEvent());
-        }
-        if (decision.quantity() <= 0) return;
-        long price = "BUY".equals(decision.side()) ? floorToTick(Math.round(decision.limitPrice()))
-                : ceilToTick(Math.round(decision.limitPrice()));
-        PriceBand band = quoteBand(code,dailyReferencePrice(code),observation.news());
-        price = "BUY".equals(decision.side()) ? floorToTick(band.clamp(price)) : ceilToTick(band.clamp(price));
-        int quantity = Math.min(2,"SELL".equals(decision.side()) ? Math.min(decision.quantity(), availableQuantity(userId,id)) : decision.quantity());
-        if (quantity <= 0) return;
-        try {
-            order(new OrderRequest(code, decision.side(), quantity, decision.market() ? "MARKET" : "LIMIT",
-                    decision.market() ? null : price), userId);
-            if (!decision.market()) jdbc.update("UPDATE orders SET expires_at=? WHERE user_id=? AND stock_id=? AND status='OPEN'",
-                    Timestamp.from(clock.instant().plusMillis(Math.min(30_000,decision.ttlMillis()))), userId, id);
-        } catch (IllegalArgumentException unavailable) {
-            // Insufficient resources, protection, or user-style rate limits mean HOLD.
-        }
+        botOrders.participantAction(this, username);
     }
 
     record BotObservation(String code, PriceMetricService.Metrics metrics, BotStrategyEngine.Position position,
@@ -714,38 +650,11 @@ public class MarketService {
         return derivative.equals(MarketEnvironment.neutral()) ? base : base.combine(StockMarketProfile.applyTo(code, derivative));
     }
 
-    private void cancelBotOrders(long userId, Long stockId) {
+    void cancelBotOrders(long userId, Long stockId) {
         List<Long> ids = stockId == null
                 ? jdbc.query("SELECT id FROM orders WHERE user_id=? AND status='OPEN'", (rs,n)->rs.getLong(1),userId)
                 : jdbc.query("SELECT id FROM orders WHERE user_id=? AND stock_id=? AND status='OPEN'", (rs,n)->rs.getLong(1),userId,stockId);
         ids.forEach(this::cancelOrderInternal);
-    }
-
-    private void insertLiquidityQuote(String code,long lp,MarketMakerEngine.Quote quote) {
-        boolean buy = "BUY".equals(quote.side());
-        PriceBand band = botPriceBand(code);
-        long price = buy ? floorToTick(Math.round(quote.price())) : ceilToTick(Math.round(quote.price()));
-        if (!band.contains(price)) return;
-        OrderBook book = orderBook(code);
-        if (buy && !book.asks().isEmpty() && price >= book.asks().get(0).price()
-                || !buy && !book.bids().isEmpty() && price <= book.bids().get(0).price()) return;
-        long id = stockId(code);
-        MarketMakerEngine.RiskBook risk = liquidityRiskBook(code,lp);
-        int quantity = buy ? Math.min(quote.quantity(), (int)Math.min(Integer.MAX_VALUE,
-                risk.cashBudget()/Math.max(1,price*1.001))) : Math.min(quote.quantity(),availableQuantity(lp,id));
-        if (quantity<=0) return;
-        long reserved = buy ? price*quantity+feeFor(price*quantity) : 0;
-        if (buy && jdbc.update("UPDATE users SET cash=cash-? WHERE id=? AND cash>=?",reserved,lp,reserved)==0) return;
-        jdbc.update("""
-                INSERT INTO orders (user_id,stock_id,side,order_type,price,quantity,remaining_quantity,reserved_cash,reserved_quantity,status,expires_at,compact_origin)
-                VALUES (?,?,?,'LIMIT',?,?,?,?,?,'OPEN',?,?)
-                """,lp,id,quote.side(),price,quantity,quantity,reserved,buy?0:quantity,
-                Timestamp.from(clock.instant().plusMillis(4000)),compactLedger);
-    }
-
-    private long traderBotId(String username) {
-        return jdbc.queryForObject("SELECT id FROM users WHERE username = ? AND password_hash = ?",
-                Long.class, username, TRADER_BOT_PASSWORD);
     }
 
     /** PostConstruct bypasses the transaction proxy, so startup writes that must be atomic use this. */
@@ -755,7 +664,7 @@ public class MarketService {
     }
 
     /** Tests read the provider's budget through this name, and quoting uses it on every refresh. */
-    private MarketMakerEngine.RiskBook liquidityRiskBook(String code,long lp) {
+    MarketMakerEngine.RiskBook liquidityRiskBook(String code,long lp) {
         return liquidity.riskBook(code,lp);
     }
 
@@ -811,7 +720,7 @@ public class MarketService {
         newsValuation.project(stockId(code), code, clock.instant());
     }
 
-    private void refreshMarkPrice(String code) {
+    void refreshMarkPrice(String code) {
         if (priceMetrics == null) return;
         long id=stockId(code);
         Timestamp previous=jdbc.queryForObject("SELECT mark_updated_at FROM market_price_metrics WHERE stock_id=?",Timestamp.class,id);
@@ -857,7 +766,7 @@ public class MarketService {
         protection.observeMarket();
     }
 
-    private void matchOrders(String code) {
+    void matchOrders(String code) {
         if(!protection.continuous(code))return;
         long now=clock.millis(),id=stockId(code);
         var repository=newBatchRepository();
