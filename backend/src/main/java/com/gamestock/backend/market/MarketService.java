@@ -153,11 +153,19 @@ public class MarketService {
             tx.executeWithoutResult(status->maintainMarket());
         });
     }
-    Map<String,Long> bookCacheStats(){return Map.of("hits",botLanes.stream().mapToLong(l->l.cache.hits()).sum(),"misses",botLanes.stream().mapToLong(l->l.cache.misses()).sum());}
-    private final List<BotLane> botLanes=new ArrayList<>();
-    private long activityLpId;
-    // Bot indicators look 5 s to 5 min back; refreshing them every 2 s keeps that resolution at a quarter of the queries.
-    private static final long OBSERVATION_INTERVAL_MS=2_000;
+    Map<String,Long> bookCacheStats(){return botBatches.cacheStats();}
+    // Bot batch lanes read these per call; tests replace the fields by name, so they stay here.
+    List<BotProfile> traderProfiles(){return traderProfiles;}
+    int configuredTargetPerSymbol(){return targetPerSymbol;}
+    boolean adaptiveActivity(){return adaptiveActivity;}
+    MarketActivityPolicy activityPolicy(){return activityPolicy;}
+    long idleAfterMillis(){return idleAfterMillis;}
+    boolean bookCacheEnabled(){return bookCacheEnabled;}
+    boolean inlineMarketMaker(){return inlineMarketMaker;}
+    MarketMetrics pipelineMetrics(){return pipelineMetrics;}
+    PriceMetricService priceMetrics(){return priceMetrics;}
+    MatchingEngine matching(){return matching;}
+    BatchMarketRepository newBatchRepository(){return new BatchMarketRepository(jdbc,compactLedger?botJournal:null);}
     private final NewsValuation newsValuation;
     private final MarketRankingMissions rankingMissions;
     private final MarketNewsFeed newsFeed;
@@ -169,18 +177,9 @@ public class MarketService {
     private final SinglePriceAuction auction;
     private final OpenOrderPriceNormalizer priceNormalizer;
     private final AccountQueries accountQueries;
-    private static final class BotLane {
-        final Set<Long> stocks,users;
-        final BotActivityEngine engine;
-        final MarketBookCache cache=new MarketBookCache();
-        final Map<Long,MarketMakerEngine.RiskBook> risks=new HashMap<>();
-        final Map<Long,BotActivityEngine.Observation> observations=new HashMap<>();
-        long lastActivity,lastObservation,epoch=-1;
-        volatile Map<String,Long> timings=Map.of();
-        BotLane(Set<Long> stocks,Set<Long> users,BotActivityEngine engine) {this.stocks=stocks;this.users=users;this.engine=engine;}
-    }
-    public int batchShardCount() {return botLanes.size();}
-    Map<String,Long> batchTimings(int shard) {return botLanes.get(shard).timings;}
+    private final BotBatchLanes botBatches;
+    public int batchShardCount() {return botBatches.shardCount();}
+    Map<String,Long> batchTimings(int shard) {return botBatches.timings(shard);}
     private Random tickRandom = new Random(20260910L);
     private long demoUserId;
 
@@ -201,6 +200,7 @@ public class MarketService {
         this.auction = new SinglePriceAuction(this, jdbc, holdings, protection);
         this.priceNormalizer = new OpenOrderPriceNormalizer(this, jdbc);
         this.accountQueries = new AccountQueries(this, jdbc);
+        this.botBatches = new BotBatchLanes(this, jdbc, events, liquidity, newsFeed, protection);
     }
 
     /**
@@ -266,25 +266,7 @@ public class MarketService {
         simulationInitialized=true;
     }
 
-    private void initializeActivityEngine() {
-        if(targetPerSymbol<30||targetPerSymbol>1000)throw new IllegalArgumentException("Per-symbol target must be 30..1000 fills/second");
-        Map<String,Long> ids=new HashMap<>();
-        jdbc.query("SELECT username,id FROM users WHERE password_hash='TRADER'",rs->{ids.put(rs.getString(1),rs.getLong(2));});
-        List<Long> stocks=jdbc.queryForList("SELECT id FROM stocks ORDER BY id",Long.class);
-        Map<Long,Set<Long>> heldStocks=new HashMap<>();
-        jdbc.query("SELECT p.user_id,p.stock_id FROM portfolios p JOIN users u ON u.id=p.user_id WHERE u.password_hash='TRADER' AND p.quantity>0",
-                rs->{heldStocks.computeIfAbsent(rs.getLong(1),key->new HashSet<>()).add(rs.getLong(2));});
-        List<BotActivityEngine.Participant> participants=BotParticipantAssignments.assign(traderProfiles,ids,stocks,heldStocks);
-        activityLpId=jdbc.queryForObject("SELECT id FROM users WHERE username=?",Long.class,LiquidityProviderAccounts.USERNAME);
-        botLanes.clear();
-        int count=Math.min(4,stocks.size());
-        for(int shard=0;shard<count;shard++) {
-            Set<Long> symbols=new HashSet<>();for(int i=shard;i<stocks.size();i+=count)symbols.add(stocks.get(i));
-            var group=participants.stream().filter(p->symbols.contains(p.stock())).toList();
-            Set<Long> users=new HashSet<>();group.forEach(p->users.add(p.id()));users.add(activityLpId);
-            botLanes.add(new BotLane(Set.copyOf(symbols),Set.copyOf(users),new BotActivityEngine(group,simulationSeed^(shard*71L),targetPerSymbol)));
-        }
-    }
+    private void initializeActivityEngine() {botBatches.initialize();}
 
     public boolean batchBotsEnabled() {return batchEnabled;}
 
@@ -296,99 +278,7 @@ public class MarketService {
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public List<BotActivityEngine.Activity> participantBatch(int shard,java.util.concurrent.atomic.AtomicReference<BotBatchPlan> retryPlan) {
         requireMatchingOwner();
-        BotLane lane=botLanes.get(shard);
-        synchronized(lane) {
-        long now=clock.millis();
-        if(adaptiveActivity) {
-            long epoch=activityPolicy.claim("batch:"+shard,now,activeSimulation());
-            if(epoch<0){lane.timings=Map.of();return List.of();}
-            if(lane.epoch!=epoch || lane.lastActivity>0&&now-lane.lastActivity>idleAfterMillis) {
-                lane.engine.resume();lane.lastActivity=0;lane.lastObservation=0;lane.epoch=epoch;
-            }
-        }
-        long started=System.nanoTime();
-        BatchMarketRepository repository=new BatchMarketRepository(jdbc,compactLedger?botJournal:null);
-        BatchOrderBook book=bookCacheEnabled?lane.cache.borrow(repository,now,lane.stocks,lane.users):repository.load(now,lane.stocks,lane.users);
-        if(adminRuntime!=null){
-            var controls=adminRuntime.settings();if(controls.botsPaused()||controls.marketPaused())return List.of();
-            lane.engine.traderShare(controls.traderShare());adminRuntime.apply(book);
-        }
-        if(inlineMarketMaker)for(var stock:book.stocks.values()) {
-            book.restoreLiquidityInventory(activityLpId,stock.id,
-                    StockMarketProfile.initialLiquidityInventory(stock.code,LiquidityProviderAccounts.INITIAL_INVENTORY),stock.last);
-            if(!book.lpCashBudgets.containsKey(stock.id)) {
-                long total=liquidity.allocatedCash(stock.id,activityLpId);
-                long reserved=book.working(activityLpId,stock.id).stream().mapToLong(o->o.reservedCash).sum();
-                book.lpCashBudgets.put(stock.id,total-reserved);
-            }
-        }
-        if(inlineMarketMaker) {
-            Map<Long,Long> minimumCash=new HashMap<>();
-            for(var stock:book.stocks.values())
-                minimumCash.put(stock.id,MarketMakerEngine.emergencyCashRequirement(botBand(stock.code,stock.reference).upperPrice()));
-            long moved=book.rebalanceLiquidityCash(activityLpId,minimumCash);
-            if(moved>0)pipelineMetrics.add("bot.liquidity.cashRebalanced",moved);
-        }
-        long loaded=System.nanoTime();
-        if(lane.lastObservation==0 || now-lane.lastObservation>=OBSERVATION_INTERVAL_MS) {
-            Map<Long,Double> fundamentals=new HashMap<>();
-            jdbc.query("SELECT stock_id,hidden_fundamental FROM market_price_metrics WHERE stock_id IN ("
-                    +book.stocks.keySet().stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","))+")",
-                    rs->{fundamentals.put(rs.getLong(1),rs.getDouble(2));});
-            for(var stock:book.stocks.values()) {
-                priceMetrics.project(stock.id,now);
-                Double fundamental=fundamentals.get(stock.id);
-                if(fundamental==null)throw new org.springframework.dao.EmptyResultDataAccessException(1);
-                var observed=priceMetrics.read(stock.id,stock.last,now,0);
-                lane.observations.put(stock.id,new BotActivityEngine.Observation(observed,environment(stock.code),fundamental,newsFeed.observedNewsRate(stock.code,now),
-                        StockMarketProfile.liquidityScale(stock.code,.65)));
-                jdbc.update("UPDATE market_price_metrics SET mark_price=?,mark_updated_at=? WHERE stock_id=?",Math.round(observed.markPrice()),new Timestamp(now),stock.id);
-            }
-            lane.lastObservation=now;
-            lane.risks.clear();
-            jdbc.query("SELECT stock_id,target_inventory,max_inventory,risk_limit FROM lp_risk_books",rs->{lane.risks.put(rs.getLong(1),new MarketMakerEngine.RiskBook(0,0,rs.getInt(2),rs.getInt(3),rs.getLong(4)));});
-        }
-        Map<Long,Integer> recent=bookCacheEnabled?lane.cache.recent(now):repository.recentCounter(lane.stocks,now).recent(now);
-        long observed=System.nanoTime();
-        // Reload on a new decision so restart, ownership transfer and a failed transaction all
-        // continue from the committed checkpoint. A retry reuses its already chosen plan/state.
-        if (retryPlan.get() == null) {
-            Map<Long,MarketConsensusValue.Checkpoint> saved = new HashMap<>();
-            jdbc.query("SELECT stock_id,value,observed_at,random_state FROM market_consensus_state WHERE stock_id IN ("
-                    +lane.stocks.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","))+")",
-                    rs -> { saved.put(rs.getLong(1),new MarketConsensusValue.Checkpoint(rs.getDouble(2),rs.getLong(3),rs.getLong(4))); });
-            lane.engine.restoreConsensus(saved);
-        }
-        List<BotActivityEngine.Activity> activity;
-        if(retryPlan.get()!=null)activity=matching.compute(()->retryPlan.get().apply(book,now));
-        else{
-            book.capture();
-            activity=matching.compute(()->lane.engine.microBatches(book,lane.observations,recent,now,lane.lastActivity==0?50:now-lane.lastActivity,lane.risks,activityLpId,currentTargetPerSymbol()));
-            retryPlan.set(book.captured());
-        }
-        int acceptedCount=book.accepted.size();
-        if(org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
-            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization(){
-                @Override public void afterCommit(){pipelineMetrics.add("bot.orders",acceptedCount);}
-            });
-        else pipelineMetrics.add("bot.orders",acceptedCount);
-        long planned=System.nanoTime();
-        repository.persist(book,now);
-        repository.insert("market_consensus_state","stock_id,value,observed_at,random_state",
-                lane.engine.consensusCheckpoint().entrySet().stream().map(e -> new Object[]{e.getKey(),e.getValue().value(),e.getValue().at(),e.getValue().randomState()}).toList(), false,
-                " ON DUPLICATE KEY UPDATE value=VALUES(value),observed_at=VALUES(observed_at),random_state=VALUES(random_state)");
-        long persisted=System.nanoTime();
-        pipelineMetrics.timing("db.persist",persisted-planned);pipelineMetrics.gauge("db.batch.orders",book.accepted.size());
-        for(var stock:book.stocks.values())if(stock.viTrigger>0)protection.beforeTrade(stock.code,stock.viTrigger);
-        if(bookCacheEnabled)lane.cache.saved(now);
-        publishBookEvents(book);
-        lane.lastActivity=now;
-        if(!book.accepted.isEmpty()||!book.changedOrders.isEmpty())events.publishEvent(bookEvent(book,now));
-        Map<String,Long> timings=new HashMap<>(repository.timings);
-        timings.putAll(Map.of("load",loaded-started,"observe",observed-loaded,"decide",planned-observed,"persist",persisted-planned));
-        lane.timings=Map.copyOf(timings);
-        return activity;
-        }
+        return botBatches.run(shard,retryPlan);
     }
 
     // Locking policy: read-only queries below run without the service monitor; each
@@ -589,7 +479,7 @@ public class MarketService {
         }catch(IllegalArgumentException error){outcomes.set(i,OrderBatch.Outcome.rejected(error.getMessage()));}
         if(symbols.isEmpty())return outcomes;
         long now=clock.millis();
-        var repository=new BatchMarketRepository(jdbc,compactLedger?botJournal:null);
+        var repository=newBatchRepository();
         repository.lock(Set.copyOf(symbols.values()));
         java.util.SortedSet<Long> accounts=new java.util.TreeSet<>(users);
         for(var symbol:symbols.entrySet()){
@@ -658,7 +548,7 @@ public class MarketService {
     @Transactional(readOnly=true)
     public Map<String,Object> symbolSnapshot(String code){return chartQueries.symbolSnapshot(code);}
 
-    private MarketChangedEvent bookEvent(BatchOrderBook book,long now){
+    MarketChangedEvent bookEvent(BatchOrderBook book,long now){
         Map<String,Object> updates=new HashMap<>();
         for(var stock:book.stocks.values()){
             List<PublicTrade> trades=new ArrayList<>();
@@ -673,7 +563,7 @@ public class MarketService {
         return new MarketChangedEvent(updates);
     }
 
-    private void publishBookEvents(BatchOrderBook book){
+    void publishBookEvents(BatchOrderBook book){
         Set<Long> people=new HashSet<>();
         book.changedOrders.forEach(o->{if(!book.accounts.get(o.user).bot)people.add(o.user);});
         book.changedHoldings.forEach(k->{if(!book.accounts.get(k.user()).bot)people.add(k.user());});
@@ -970,7 +860,7 @@ public class MarketService {
     private void matchOrders(String code) {
         if(!protection.continuous(code))return;
         long now=clock.millis(),id=stockId(code);
-        var repository=new BatchMarketRepository(jdbc,compactLedger?botJournal:null);
+        var repository=newBatchRepository();
         var book=repository.load(now,Set.of(id),Set.of());
         matching.compute(()->{book.matchExisting(id);return null;});
         repository.persist(book,now);
