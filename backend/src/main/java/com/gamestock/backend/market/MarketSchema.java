@@ -61,6 +61,7 @@ final class MarketSchema {
         AssetHistoryService.ensureTables(jdbc);
         ResearchSchema.ensureTables(jdbc);
         TapService.ensureTables(jdbc);
+        EngagementSchema.ensureTables(jdbc);
     }
 
     private void ensureOrderTimestampPrecision() {

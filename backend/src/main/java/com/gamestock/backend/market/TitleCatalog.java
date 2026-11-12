@@ -26,6 +26,8 @@ final class TitleCatalog {
             new TitleDefinition("asset_100b", "세계1위 부자", "총 자산 1000억원 돌파", "자산", false),
             new TitleDefinition("bottom_10", "흑우", "수익률 하위 10% 달성", "수익률", false),
             new TitleDefinition("bottom_5", "호구", "수익률 하위 5% 달성", "수익률", false),
+            new TitleDefinition("loss_30", "구조대 대기 중", "수익률 -30% 달성", "수익률", false),
+            new TitleDefinition("loss_50", "한강 수온 체크", "수익률 -50% 달성", "수익률", false),
             new TitleDefinition("loss_99", "주식못함", "수익률 -99% 달성", "수익률", false),
             new TitleDefinition("holder_50", "큰손", "한 종목 50주 이상 보유", "보유", false),
             new TitleDefinition("holder_150", "대주주", "한 종목 150주 이상 보유", "보유", false),
@@ -37,6 +39,10 @@ final class TitleCatalog {
             new TitleDefinition("trades_100", "단타충", "하루 체결 100회 이상", "거래", false),
             new TitleDefinition("diversify", "존버의 신", "한 종목을 1주 이상 보유한 채로 다른 종목 1주 이상 매수", "거래", false),
             new TitleDefinition("all_in", "인생은 한방", "단일 종목에 전 재산의 90% 이상 투자", "거래", false),
+            new TitleDefinition("fan_holder", "찐팬", "주력 게임 주식 10주 이상 보유", "팬덤", false),
+            new TitleDefinition("fan_whale", "팬덤의 기둥", "주력 게임 주식 100주 이상 보유", "팬덤", false),
+            new TitleDefinition("prophet_3", "촉이 좋은 사람", "일일 예측 3번 적중", "예측", false),
+            new TitleDefinition("prophet_10", "예언자", "일일 예측 10번 적중", "예측", false),
             new TitleDefinition("collector_5", "칭호 수집가", "칭호 5종류 이상 보유", "수집", false),
             new TitleDefinition("collector_10", "칭호 컬렉터", "칭호 10종류 이상 보유", "수집", false),
             new TitleDefinition("collector_15", "칭호 컬렉팅 마스터", "칭호 15종류 이상 보유", "수집", false),
@@ -46,7 +52,10 @@ final class TitleCatalog {
             new TitleDefinition("special_syuaga", "슈아가", "프로모션 코드를 입력하면 획득 가능", "특별", false),
             new TitleDefinition("weekly_3", "주간 수익률 3위", "주간 수익률 3위 이내 · 매주 월요일 지급", "주간", true),
             new TitleDefinition("weekly_2", "주간 수익률 2위", "주간 수익률 2위 이내 · 매주 월요일 지급", "주간", true),
-            new TitleDefinition("weekly_1", "주간 수익률 1위", "주간 수익률 1위 · 매주 월요일 지급", "주간", true));
+            new TitleDefinition("weekly_1", "주간 수익률 1위", "주간 수익률 1위 · 매주 월요일 지급", "주간", true),
+            new TitleDefinition("season_3", "시즌 3위", "시즌 수익률 3위 이내 · 시즌 종료 때 지급", "시즌", true),
+            new TitleDefinition("season_2", "시즌 2위", "시즌 수익률 2위 이내 · 시즌 종료 때 지급", "시즌", true),
+            new TitleDefinition("season_1", "시즌 1위", "시즌 수익률 1위 · 시즌 종료 때 지급", "시즌", true));
     static final Map<String, TitleDefinition> BY_ID = new HashMap<>();
     static { for (TitleDefinition title : TITLES) BY_ID.put(title.id(), title); }
 }

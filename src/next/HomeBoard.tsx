@@ -16,6 +16,7 @@ import { useSteadySnapshot } from "../market/useSteadySnapshot";
 import { MARKET_PATH } from "../router";
 import { AnimatedNav } from "./AnimatedNav";
 import { HomeBillboard } from "./BillboardStrip";
+import { HomeFandoms, HomeLiveFeed } from "./engagement/LiveBoards";
 
 type IndexCandle = { recordedAt: string; closePrice: number };
 
@@ -281,6 +282,11 @@ export function HomeBoard() {
           </div>
           <NewsFeed limit={8} source={newsSource} emptyMessage={newsSource ? `${newsSource}가 아직 없어요.` : undefined} />
         </section>
+      </div>
+
+      <div className="nx-home-split nx-home-social">
+        <HomeFandoms />
+        <HomeLiveFeed />
       </div>
 
       {held.length > 0 && (

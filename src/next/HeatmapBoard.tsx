@@ -119,10 +119,11 @@ function Heatmap() {
                   const tone = percent > 0 ? "up" : percent < 0 ? "down" : "flat";
                   return (
                     <li key={code} className="nx-heat-cell" style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
-                      <Link to={MARKET_PATH(code)} className={`nx-heat-tile is-${tone} is-l${level}`}
+                      <Link to={MARKET_PATH(code)} className={`nx-heat-tile is-${tone} is-l${level}`} title={`${listing.name} ${rate(ratio)}`}
                         aria-label={`${listing.name} ${rate(ratio)} ${won(quote.price)}${quote.restriction ? ` ${quote.restriction.kind === "CIRCUIT_BREAKER" ? "서킷브레이커" : "VI"}` : ""}`}>
                         <GameIcon code={code} className="nx-heat-logo" />
                         <span className="nx-heat-name">{listing.name}</span>
+                        <span className="nx-heat-code" aria-hidden="true">{code}</span>
                         <span className="nx-heat-rate nx-num">{rate(ratio)}</span>
                         <span className="nx-heat-price nx-num">{won(quote.price)}</span>
                         {quote.restriction && <span className="nx-heat-guard">{quote.restriction.kind === "CIRCUIT_BREAKER" ? "서킷브레이커" : "VI"}</span>}

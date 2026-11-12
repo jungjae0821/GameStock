@@ -28,7 +28,7 @@ export type WeeklyRanking = {
   me: WeeklyRankingEntry | null;
 };
 
-export type RankingTab = "total" | "weekly";
+export type RankingTab = "total" | "weekly" | "season" | "fandom";
 
 export const RANKING_CACHE_KEY = "gamestock-ranking-cache";
 export const WEEKLY_RANKING_CACHE_KEY = "gamestock-weekly-ranking-cache";
@@ -52,7 +52,10 @@ export const readWeeklyCache = () =>
   readCache<WeeklyRanking>(WEEKLY_RANKING_CACHE_KEY, (value) => Array.isArray((value as WeeklyRanking | null)?.entries));
 
 export function readTab(): RankingTab {
-  try { return window.localStorage.getItem(RANKING_TAB_KEY) === "weekly" ? "weekly" : "total"; } catch { return "total"; }
+  try {
+    const saved = window.localStorage.getItem(RANKING_TAB_KEY);
+    return saved === "weekly" || saved === "season" || saved === "fandom" ? saved : "total";
+  } catch { return "total"; }
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];

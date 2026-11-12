@@ -77,7 +77,16 @@ html[data-nx-theme="light"] .market-chart { --chart-label-bg: #625b70; }
 .nx-article-chart .market-chart-plot { height: 260px; }
 @media (max-width: 600px) {
   .market-chart-toolbar { gap: 6px; margin-bottom: 10px; }
-  .market-chart-ranges { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* 봉 간격 8개를 두 줄로 쌓으면 차트가 첫 화면 밖으로 밀려난다. 한 줄로 두고 옆으로 넘긴다. */
+  .market-chart-ranges {
+    display: flex; width: 100%; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain;
+    /* 오른쪽 끝을 흐리게 해 뒤에 버튼이 더 있다는 걸 보인다. 끝 여백만큼 더 넘기면 마지막 버튼은 흐림 밖으로 나온다. */
+    padding-inline-end: 28px;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .market-chart-ranges::-webkit-scrollbar { display: none; }
+  .market-chart-ranges > button { flex: 0 0 auto; min-width: 52px; }
   .market-chart-modes { margin-left: auto; }
   .market-chart-toolbar > * > button { min-height: 38px; padding-inline: 5px; }
   .market-chart-readout { min-height: 62px; gap: 5px; }

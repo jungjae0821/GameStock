@@ -5,6 +5,10 @@ import { ProfileMenu } from "../components/ProfileMenu";
 import { API_DOCS_PATH, HEATMAP_PATH, type Route } from "../router";
 import { toggleNxTheme, useNxTheme } from "./uiMode";
 import { AnimatedNav } from "./AnimatedNav";
+import { featureLock, useEngagement, type FeatureId } from "../lib/engagement";
+import { LockGlyph } from "./engagement/UnlockNotice";
+
+const NAV_FEATURE: Partial<Record<string, FeatureId>> = { tap: "TAP", quant: "QUANT" };
 
 /* 모든 화면이 함께 쓰는 위쪽 메뉴, 아래쪽 탭 막대, 루트 테마 연결. */
 const NAV = [
@@ -44,6 +48,7 @@ function navActive(route: Route, match: (typeof NAV)[number]["match"]): boolean 
 
 export function NxTopbar({ route }: { route: Route }) {
   const theme = useNxTheme();
+  const engagement = useEngagement();
   return (
     <header className="nx-top">
       <Link className="nx-brand" to="/" aria-label="슈엔증권 홈">
@@ -56,6 +61,7 @@ export function NxTopbar({ route }: { route: Route }) {
           return (
             <Link key={item.to} to={item.to} className={`nx-nav-link${active ? " is-active" : ""}`} aria-current={active ? "page" : undefined}>
               {item.label}
+              {NAV_FEATURE[item.match] && featureLock(engagement, NAV_FEATURE[item.match]!) && <><LockGlyph small /><span className="vh"> (잠김)</span></>}
             </Link>
           );
         })}

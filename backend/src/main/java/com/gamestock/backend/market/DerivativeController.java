@@ -17,6 +17,11 @@ import static com.gamestock.backend.market.DerivativeModels.*;
 public class DerivativeController {
     private final DerivativeService derivatives;
     private final AuthService auth;
+    private FeatureUnlockService unlocks;
+
+    /** Optional so tests that build this class by hand keep working without the unlock gate. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureUnlocks(FeatureUnlockService unlocks) { this.unlocks = unlocks; }
 
     public DerivativeController(DerivativeService derivatives, AuthService auth) {
         this.derivatives = derivatives;
@@ -56,6 +61,7 @@ public class DerivativeController {
         AuthService.LoginUser user = auth.requireUser(authorization);
         if ("ADMIN".equalsIgnoreCase(user.role()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 계정은 파생상품을 거래할 수 없습니다.");
+        if (unlocks != null) unlocks.requireForDerivative(user.id(), request.kind());
         return derivatives.open(user.id(), request);
     }
 

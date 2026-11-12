@@ -12,6 +12,7 @@ import { ETF_PATH, type DerivativesTab } from "../../router";
 import { EtfPanel } from "./derivatives/EtfPanel";
 import { FuturesTerminal } from "./derivatives/FuturesTerminal";
 import { OptionsPanel } from "./derivatives/OptionsPanel";
+import { UnlockNotice } from "../engagement/UnlockNotice";
 
 const ACTION_LABEL: Record<string, string> = {
   OPEN: "신규",
@@ -60,6 +61,7 @@ export function NxDerivativesPage({ tab, etfTicker = null }: { tab: DerivativesT
   if (tab === "futures") return (
     <div className="nx-trade-page nx-futures-page">
       <MarketTabs active="futures" />
+      <UnlockNotice feature="FUTURES" />
       {snapshot
         ? <FuturesTerminal snapshot={snapshot} account={account} signedIn={Boolean(user)} busy={busy} notice={notice}
             stale={Boolean(error)} onOpen={open} onClose={close} />
@@ -78,6 +80,7 @@ export function NxDerivativesPage({ tab, etfTicker = null }: { tab: DerivativesT
   return (
     <div className={`page-stack derivatives-page nx-product-page${isEtf ? " nx-etf-page" : ""}`}>
       <MarketTabs active={isEtf ? "stocks" : tab} />
+      {tab === "options" && <UnlockNotice feature="OPTIONS" />}
       {!isEtf && <header className="derivatives-head">
         <div>
           {/* 화면 이름은 상단 메뉴가 이미 보여 준다. 제목은 화면 낭독기용으로만 둔다. */}

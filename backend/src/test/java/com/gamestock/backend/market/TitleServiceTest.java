@@ -181,7 +181,7 @@ class TitleServiceTest {
         assertEquals(List.of("newbie"), List.copyOf(titles.keySet()));
         assertTrue(first.titles().stream().anyMatch(title -> title.id().equals("newbie") && title.owned()));
         assertEquals(1, first.ownedCount());
-        assertEquals(33, first.totalCount());
+        assertEquals(42, first.totalCount());
     }
 
     @Test void holdingsAssetsAndActivityGrantMatchingTitles() {

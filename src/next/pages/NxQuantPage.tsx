@@ -17,6 +17,7 @@ import { blocksToScript, normalizeProgram } from "../quant/program";
 import { RuleEditor } from "../quant/RuleEditor";
 import { SCRIPT_MAX_LENGTH } from "../quant/ScriptEditor";
 import { StrategySettings } from "../quant/StrategySettings";
+import { UnlockNotice } from "../engagement/UnlockNotice";
 
 const COMPILE_DELAY_MS = 400;
 
@@ -248,6 +249,8 @@ export function NxQuantPage({ id }: { id: number | null }) {
           <p className="nx-screen-sub">블록이나 snScript로 매매 규칙을 만들고 지난 시세로 시험해 보세요. 자동매매를 켜면 완성된 캔들마다 조건을 확인해 지정가 주문을 내요.</p>
         </div>
       </header>
+
+      <UnlockNotice feature="QUANT" />
 
       <div className="qx-layout">
         <ProjectList formId={formId} id={id} projects={projects} listError={listError} capabilities={capabilities}

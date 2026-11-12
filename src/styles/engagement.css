@@ -1,0 +1,210 @@
+/*
+ * 팬덤·시즌·해금·예측·알림 화면. 새 색은 만들지 않고 next.css의 테마 변수만 쓴다.
+ * next.css 색 규칙을 그대로 따른다: 선택·내 것·진행은 무채색(잉크 테두리·옅은 바탕·굵기),
+ * 빨강·파랑은 오름·내림, 노랑은 거래 보호에만. 핑크는 판정선 면과 키보드 포커스 몫이라 여기서는 쓰지 않는다.
+ */
+
+/* ───────── 자물쇠 ───────── */
+
+.nx-lock-glyph { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+.nx-lock-glyph.is-small { width: 12px; height: 12px; margin-left: 4px; vertical-align: -1px; color: var(--nx-locked-ink); }
+.nx-nav-link .nx-lock-glyph.is-small,
+.nx-product-tabs .nx-lock-glyph.is-small { opacity: .9; }
+
+/* ───────── 잠금 안내 (탭·퀀트·선물·옵션 화면 위) ───────── */
+
+.nx-unlock-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  margin: 0 0 var(--nx-gap);
+  padding: 18px 20px;
+  border-radius: var(--nx-radius);
+  background: var(--nx-raised);
+  color: var(--ink-muted);
+}
+.nx-unlock-notice > .nx-lock-glyph { margin-top: 2px; color: var(--ink); }
+.nx-unlock-copy h2 { margin: 0 0 4px; color: var(--ink); font-size: 15px; font-weight: 600; }
+.nx-unlock-copy p { margin: 0; font-size: 13px; line-height: 1.6; }
+
+.nx-unlock-steps { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; max-width: 420px; }
+.nx-unlock-steps li { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 1fr) 44px; align-items: center; gap: 12px; font-size: 13px; }
+.nx-unlock-step-label { color: var(--ink); }
+.nx-unlock-steps li.is-done .nx-unlock-step-label { color: var(--ink-muted); }
+.nx-unlock-meter { position: relative; height: 6px; border-radius: 3px; background: var(--nx-line); overflow: hidden; }
+.nx-unlock-meter > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--ink); }
+.nx-unlock-count { color: var(--ink-muted); text-align: right; }
+
+/* ───────── 충전 화면: 해금 현황·예측·재기 지원금 ───────── */
+
+.nx-unlock-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.nx-unlock-list li { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: start; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--nx-line); }
+.nx-unlock-list li:last-child { border-bottom: 0; }
+.nx-unlock-list li.is-open { grid-template-columns: 1fr; }
+.nx-unlock-list .nx-unlock-steps { margin: 0; }
+.nx-unlock-name { display: inline-flex; align-items: center; gap: 2px; color: var(--ink); font-size: 15px; font-weight: 600; }
+.nx-unlock-name .nx-lock-glyph.is-small { margin: 0 6px 0 0; }
+.nx-unlock-badge { margin-left: 8px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--nx-tint); color: var(--ink); font-size: 11px; font-weight: 600; }
+
+.nx-predict-picked { display: flex; align-items: center; gap: 14px; }
+.nx-predict-picked strong { color: var(--ink); font-size: 16px; }
+.nx-predict-picked p { margin: 2px 0 0; }
+.nx-predict-last { margin: 16px 0 0; color: var(--ink-muted); font-size: 13px; }
+.nx-predict-last.is-hit { color: var(--ink); }
+.nx-predict .nx-inline-form select.nx-input { max-width: 320px; }
+
+.nx-rescue { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.nx-rescue p { margin: 6px 0 0; }
+
+/* ───────── 설정: 주력 게임·포트폴리오 공개 ───────── */
+
+.nx-fandom-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.nx-fandom-option {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px;
+  border: 1px solid var(--nx-line); border-radius: var(--nx-radius); background: transparent;
+  color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.nx-fandom-option:hover { background: var(--nx-tint); }
+.nx-fandom-option.is-active { border-color: var(--ink); background: var(--nx-tint); font-weight: 600; }
+/* 잠긴 칸도 방향키로 지나갈 수 있게 disabled 대신 aria-disabled를 쓴다. */
+.nx-fandom-option[aria-disabled="true"]:not(.is-active) { color: var(--nx-locked-ink); cursor: not-allowed; }
+.nx-fandom-option[aria-disabled="true"]:hover { background: transparent; }
+.nx-fandom-option span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.nx-public-setting { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.nx-public-setting p { margin: 6px 0 0; }
+.nx-switch {
+  position: relative; display: inline-flex; align-items: center; gap: 10px; flex: none;
+  min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--ink-muted); font: inherit; font-size: 13px; cursor: pointer;
+}
+.nx-switch::before { content: ""; width: 44px; height: 26px; border-radius: 13px; background: var(--nx-line); transition: background-color 160ms ease; }
+.nx-switch-knob { position: absolute; left: 7px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); transition: transform 160ms ease; }
+.nx-switch.is-on { color: var(--ink); }
+.nx-switch.is-on::before { background: var(--ink); }
+.nx-switch.is-on .nx-switch-knob { transform: translateX(18px); background: var(--nx-stage); }
+
+/* ───────── 랭킹: 시즌·팬덤·공개 프로필 ───────── */
+
+.nx-player-link { display: inline-flex; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.nx-player-link:hover .nx-player-name { text-decoration: underline; text-underline-offset: 3px; }
+
+.nx-fandom-name { display: inline-flex; align-items: center; gap: 10px; min-width: 0; color: var(--ink); }
+.nx-fandom-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx-fandom-fans { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.nx-fandom-bar { position: relative; display: inline-block; width: 72px; height: 6px; border-radius: 3px; background: var(--nx-line); overflow: hidden; }
+.nx-fandom-bar > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--ink-muted); }
+.is-mine .nx-fandom-bar > span { background: var(--ink); }
+
+.nx-profile-dialog {
+  width: min(560px, calc(100vw - 32px)); max-height: min(720px, calc(100dvh - 48px)); padding: 0;
+  border: 0; border-radius: var(--nx-radius); background: var(--nx-panel); color: var(--ink);
+  box-shadow: 0 0 0 1px var(--nx-line);
+}
+.nx-profile-dialog::backdrop { background: rgb(8 6 14 / 0.62); }
+.nx-profile-dialog-body { display: grid; gap: 20px; padding: 24px; }
+.nx-profile-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.nx-profile-dialog-head h2 { margin: 4px 0 2px; font-size: 20px; }
+.nx-profile-dialog-head p { margin: 0; }
+.nx-public-holdings { width: 100%; }
+.nx-public-holdings td:not(:first-child), .nx-public-holdings th:not(:first-child) { text-align: right; }
+.nx-grid-table.nx-public-holdings :is(th, td):first-child { text-align: left; }
+
+/* ───────── 홈: 팬덤 대항전·실시간 체결 소식 ───────── */
+
+.nx-fandom-mini { display: grid; margin: 0; padding: 0; list-style: none; }
+.nx-fandom-mini li {
+  display: grid; grid-template-columns: 20px auto minmax(0, 1fr) 72px 56px; align-items: center; gap: 12px;
+  min-height: 52px; border-bottom: 1px solid var(--nx-line); font-size: 14px;
+}
+.nx-fandom-mini li:last-child { border-bottom: 0; }
+.nx-fandom-rank { color: var(--ink-muted); text-align: center; }
+.nx-fandom-mini-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx-fandom-mini li.is-mine .nx-fandom-mini-name { font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.nx-fandom-count { color: var(--ink-muted); text-align: right; }
+.nx-fandom-cta { margin: 12px 0 0; font-size: 13px; }
+.nx-fandom-cta a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+.nx-live-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.nx-live-list li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px;
+  align-items: center; padding: 12px 0; border-bottom: 1px solid var(--nx-line); font-size: 14px;
+}
+.nx-live-list li:last-child { border-bottom: 0; }
+.nx-live-list li > .game-icon { grid-row: 1 / span 2; }
+.nx-live-list p { margin: 0; min-width: 0; color: var(--ink-muted); }
+.nx-live-list strong { color: var(--ink); font-weight: 600; }
+.nx-live-amount { color: var(--ink); text-align: right; }
+.nx-live-time { grid-column: 2 / span 2; font-size: 12px; }
+/* 고래는 오름·내림도, 내 것도, 거래 보호도 아니다. 노랑(거래 보호 전용)·핑크(내 것 전용)를 피해 무채 테두리로만 구분한다. */
+.nx-whale-badge { margin-left: 8px; padding: 1px 7px; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px var(--ink-muted); color: var(--ink); font-size: 11px; font-weight: 600; vertical-align: 1px; }
+.nx-live-empty { margin: 0; font-size: 13px; line-height: 1.6; }
+
+/* ───────── 화면 아래 알림 ───────── */
+
+.nx-alert-toast {
+  position: fixed; z-index: 70; left: 50%; bottom: 24px; transform: translateX(-50%);
+  display: flex; align-items: stretch; width: max-content; max-width: min(460px, calc(100vw - 32px));
+  border-radius: var(--nx-radius); background: var(--nx-raised); color: var(--ink);
+  box-shadow: 0 0 0 1px var(--nx-line), 0 12px 32px rgb(0 0 0 / 0.35);
+  animation: nx-alert-in 220ms ease-out;
+}
+/* 알림 왼쪽 띠는 종류를 구분하는 정보다. 고래는 진한 잉크, 뉴스는 옅은 잉크. 색 대신 명도로 나눈다. */
+.nx-alert-toast.is-whale { box-shadow: inset 3px 0 0 var(--ink), 0 0 0 1px var(--nx-line), 0 12px 32px rgb(0 0 0 / 0.35); }
+.nx-alert-toast.is-news { box-shadow: inset 3px 0 0 var(--ink-muted), 0 0 0 1px var(--nx-line), 0 12px 32px rgb(0 0 0 / 0.35); }
+.nx-alert-toast.is-impact { bottom: 84px; }
+.nx-alert-body {
+  display: grid; gap: 2px; min-width: 0; margin: 0; padding: 12px 8px 12px 18px; border: 0; background: transparent;
+  color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+p.nx-alert-body { padding-right: 18px; cursor: default; }
+.nx-alert-body strong { font-size: 14px; }
+.nx-alert-body > span { overflow: hidden; color: var(--ink-muted); text-overflow: ellipsis; white-space: nowrap; }
+.nx-alert-close { display: grid; place-items: center; width: 44px; border: 0; background: transparent; color: var(--ink-muted); cursor: pointer; }
+.nx-alert-close svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+@keyframes nx-alert-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .nx-alert-toast { animation: none; } }
+
+/* ───────── 내 계좌: 수익 인증 카드 ───────── */
+
+.nx-share-card { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; font-size: 13px; }
+
+/* ───────── 좁은 화면 ───────── */
+
+@media (max-width: 720px) {
+  .nx-unlock-notice { grid-template-columns: auto minmax(0, 1fr); }
+  .nx-unlock-notice > .nx-btn { grid-column: 1 / -1; justify-self: start; }
+  .nx-unlock-list li { grid-template-columns: 1fr; gap: 10px; }
+  .nx-unlock-steps li { grid-template-columns: minmax(88px, auto) minmax(0, 1fr) 40px; }
+  .nx-fandom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nx-fandom-mini li { grid-template-columns: 18px auto minmax(0, 1fr) 56px; }
+  .nx-fandom-mini .nx-fandom-bar { display: none; }
+  .nx-fandom-table .nx-fandom-bar { display: none; }
+  .nx-public-setting { align-items: flex-start; }
+  html[data-app-shell="web"][data-nx] .nx-alert-toast { bottom: calc(var(--nx-tabbar, 64px) + 12px); }
+  html[data-app-shell="web"][data-nx] .nx-alert-toast.is-impact { bottom: calc(var(--nx-tabbar, 64px) + 76px); }
+}
+
+/* 제목 아래 설명이 붙는 머리. 기본 머리는 제목과 링크를 한 줄에 둔다. */
+.nx-panel-head.is-stacked { display: grid; justify-content: start; gap: 6px; }
+.nx-panel-head.is-stacked p { margin: 0; font-size: 13px; line-height: 1.6; }
+.nx-rescue .nx-panel-title, .nx-public-setting .nx-panel-title { margin: 0; }
+.nx-rescue p.nx-muted, .nx-public-setting p.nx-muted { font-size: 13px; line-height: 1.6; }
+
+/* ───────── 화면 정리 ───────── */
+
+/* 뉴스 목록의 등락률이 무엇을 뜻하는지 붙여 둔다. */
+.news-effect { display: inline-flex; flex: none; flex-direction: column; align-items: flex-end; gap: 2px; margin-left: auto; }
+.news-effect-label { color: var(--ink-muted); font-size: 11px; line-height: 1; white-space: nowrap; }
+
+/* 히트맵: 이름이 빠지는 좁은 칸에는 종목 코드를 대신 둔다. 아주 작은 칸은 로고만. */
+.nx-heat-code { display: none; font-size: 11px; font-weight: 600; letter-spacing: .02em; line-height: 1.1; opacity: .85; }
+@container (max-width: 120px) or (max-height: 112px) { .nx-heat-code { display: block; } }
+@container (max-width: 64px) or (max-height: 56px) { .nx-heat-code { display: none; } }
+@container (max-height: 56px) and (min-width: 104px) { .nx-heat-code { display: block; } }
+
+/* 전광판: 휴대폰에서는 닉네임 아래로 문구를 내려 문구가 칸 폭을 다 쓰게 한다. */
+@media (max-width: 720px) {
+  .nx-billboard-line { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .nx-billboard-body { font-size: 14px; }
+}

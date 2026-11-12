@@ -63,6 +63,8 @@ final class TitleAchievements {
             grantIf(userId, owned, "ant", stats.maxQuantity >= 1);
             for (int index = 0; index < ASSET_TITLE_IDS.length; index++)
                 grantIf(userId, owned, ASSET_TITLE_IDS[index], stats.totalAsset >= ASSET_THRESHOLDS[index]);
+            grantIf(userId, owned, "loss_30", stats.returnPercent() <= -30.0);
+            grantIf(userId, owned, "loss_50", stats.returnPercent() <= -50.0);
             grantIf(userId, owned, "loss_99", stats.returnPercent() <= -99.0);
             if (stats.investor && (!owned.contains("bottom_10") || !owned.contains("bottom_5"))) {
                 Population current = population();
@@ -83,7 +85,30 @@ final class TitleAchievements {
             // Holding two different stocks at once means one was bought while the other was held.
             grantIf(userId, owned, "diversify", stats.heldStocks >= 2);
             grantIf(userId, owned, "all_in", stats.totalAsset > 0 && stats.maxPositionValue * 10 >= stats.totalAsset * 9L);
+            if (!owned.contains("fan_whale")) {
+                long fanShares = optionalCount("""
+                        SELECT COALESCE(MAX(p.quantity),0) FROM user_engagement e
+                        JOIN portfolios p ON p.user_id=e.user_id AND p.stock_id=e.fandom_stock_id WHERE e.user_id=?
+                        """, userId);
+                grantIf(userId, owned, "fan_holder", fanShares >= 10);
+                grantIf(userId, owned, "fan_whale", fanShares >= 100);
+            }
+            if (!owned.contains("prophet_10")) {
+                long hits = optionalCount("SELECT COUNT(*) FROM daily_predictions WHERE user_id=? AND result='HIT'", userId);
+                grantIf(userId, owned, "prophet_3", hits >= 3);
+                grantIf(userId, owned, "prophet_10", hits >= 10);
+            }
             grantCollectorTitles(userId, owned);
+        }
+    }
+
+    /** Counts from the engagement tables, which a partial test schema may not have. */
+    private long optionalCount(String sql, long userId) {
+        try {
+            Long value = jdbc.queryForObject(sql, Long.class, userId);
+            return value == null ? 0 : value;
+        } catch (org.springframework.jdbc.BadSqlGrammarException missingTable) {
+            return 0;
         }
     }
 

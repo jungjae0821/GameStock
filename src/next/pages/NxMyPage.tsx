@@ -10,6 +10,7 @@ import { holdings, sessionRate, totals } from "../../market/selectors";
 import { LISTING_BY_CODE } from "../../market/universe";
 import { TRADE_PATH } from "../../router";
 import { AssetHistory } from "../AssetHistory";
+import { ShareCardButton } from "../engagement/ShareCard";
 
 type ActiveOrder = {
   id: number; stockCode: string; side: string; quantity: number; remainingQuantity: number;
@@ -96,6 +97,8 @@ export function NxMyPage() {
           <p className="nx-panel-title">{money.loan > 0 ? "순자산" : "총 자산"}</p>
           <PriceCell className="nx-num nx-big" value={money.net} />
           <p className={`nx-num nx-account-pnl ${tone(money.pnl)}`}>{signedWon(money.pnl)} ({rate(money.pnlRate)}) <span className="nx-muted">시작 자금 대비</span></p>
+          <ShareCardButton pnl={money.pnl} pnlRate={money.pnlRate}
+            best={rows.length ? (([top]) => ({ code: top.listing.code, name: top.listing.name, pnlRate: top.pnlRate }))([...rows].sort((a, b) => b.pnl - a.pnl)) : null} />
         </div>
         <dl className="nx-figures">
           <div><dt>현금</dt><dd className="nx-num">{won(money.cash)}</dd></div>

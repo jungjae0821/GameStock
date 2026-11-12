@@ -213,6 +213,13 @@ public class TitleService {
         return achievements.ownedIds(userId);
     }
 
+    /** Every investor's return-basis asset by user id, for fandom return averages. */
+    Map<Long, Long> adjustedAssetsByUser() {
+        Map<Long, Long> result = new HashMap<>();
+        for (InvestorAsset asset : investorAssets()) result.put(asset.userId(), asset.adjustedAsset());
+        return result;
+    }
+
     /** Asset excluding attendance and mission payouts and loans, the basis of every return figure. */
     private List<InvestorAsset> investorAssets() {
         Map<Long,Long> externalCash=adminRuntime==null?Map.of():adminRuntime.externalCash();
