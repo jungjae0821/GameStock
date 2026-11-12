@@ -15,6 +15,11 @@ public class ResearchController {
     private final ResearchChartService charts;
     private final AuthService auth;
     private final Semaphore evaluations=new Semaphore(4);
+    private FeatureUnlockService unlocks;
+
+    /** Optional so tests that build this class by hand keep working without the unlock gate. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureUnlocks(FeatureUnlockService unlocks) { this.unlocks = unlocks; }
     public ResearchController(QuantProjectService projects,ResearchChartService charts,AuthService auth) {
         this.projects=projects;this.charts=charts;this.auth=auth;
     }
@@ -50,7 +55,9 @@ public class ResearchController {
     @PostMapping("/quant/projects") @ResponseStatus(HttpStatus.CREATED)
     public QuantProjectService.Project create(@RequestBody QuantProjectService.Save request,
         @RequestHeader(value="Authorization",required=false) String token) {
-        return projects.save(auth.requireUser(token).id(),null,request);
+        long userId=auth.requireUser(token).id();
+        if(unlocks!=null)unlocks.require(userId,FeatureUnlockService.Feature.QUANT);
+        return projects.save(userId,null,request);
     }
     @PutMapping("/quant/projects/{id}")
     public QuantProjectService.Project update(@PathVariable long id,@RequestBody QuantProjectService.Save request,
@@ -60,7 +67,9 @@ public class ResearchController {
     @PatchMapping("/quant/projects/{id}/state")
     public QuantProjectService.Project state(@PathVariable long id,@RequestBody State request,
         @RequestHeader(value="Authorization",required=false) String token) {
-        return projects.status(auth.requireUser(token).id(),id,request.active(),request.revision());
+        long userId=auth.requireUser(token).id();
+        if(request.active()&&unlocks!=null)unlocks.require(userId,FeatureUnlockService.Feature.QUANT);
+        return projects.status(userId,id,request.active(),request.revision());
     }
     @DeleteMapping("/quant/projects/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable long id,@RequestHeader(value="Authorization",required=false) String token) {

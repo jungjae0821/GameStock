@@ -8,6 +8,8 @@ import {
   type RankingEntry, type RankingTab, type WeeklyRanking,
 } from "./rankingData";
 import { AnimatedNav } from "../AnimatedNav";
+import { FandomBoard, ProfileButton, PublicProfileDialog, SeasonBoard } from "../engagement/RankingBoards";
+import { usePublicNicknames } from "../../lib/engagement";
 
 type Row = Omit<RankingEntry, "changePercent">;
 
@@ -16,6 +18,7 @@ const tone = (percent: number) => (percent > 0 ? "is-up" : percent < 0 ? "is-dow
 const MEDALS: Record<number, string> = { 1: "1위 금메달", 2: "2위 은메달", 3: "3위 동메달" };
 
 function RankRow({ entry, percent, mine = false }: { entry: Row; percent: number; mine?: boolean }) {
+  const publicNames = usePublicNicknames();
   return (
     <tr className={`${mine ? "is-mine" : ""}${entry.rank <= 3 ? " is-top" : ""}`} aria-current={mine ? "true" : undefined}>
       <th scope="row" className="nx-rank-cell" aria-label={MEDALS[entry.rank]}>
@@ -33,7 +36,9 @@ function RankRow({ entry, percent, mine = false }: { entry: Row; percent: number
                 {entry.equippedTitle}
               </span>
             )}
-            <span className="nx-player-name" title={entry.nickname}>{entry.nickname}{mine && <span className="nx-player-me">나</span>}</span>
+            <ProfileButton nickname={entry.nickname} open={publicNames.has(entry.nickname)}>
+              <span className="nx-player-name" title={entry.nickname}>{entry.nickname}{mine && <span className="nx-player-me">나</span>}</span>
+            </ProfileButton>
           </span>
         </span>
       </td>
@@ -137,10 +142,13 @@ export function NxRankingPage() {
         <AnimatedNav as="div" fill activeKey={tab} className="nx-seg nx-ranking-tabs" role="tablist" aria-label="랭킹 종류">
           <button type="button" role="tab" id="nx-rank-total" aria-selected={tab === "total"} aria-controls="nx-rank-panel" className={tab === "total" ? "is-active" : undefined} onClick={() => select("total")}>전체 자산</button>
           <button type="button" role="tab" id="nx-rank-weekly" aria-selected={tab === "weekly"} aria-controls="nx-rank-panel" className={tab === "weekly" ? "is-active" : undefined} onClick={() => select("weekly")}>이번 주 수익률</button>
+          <button type="button" role="tab" id="nx-rank-season" aria-selected={tab === "season"} aria-controls="nx-rank-panel" className={tab === "season" ? "is-active" : undefined} onClick={() => select("season")}>시즌</button>
+          <button type="button" role="tab" id="nx-rank-fandom" aria-selected={tab === "fandom"} aria-controls="nx-rank-panel" className={tab === "fandom" ? "is-active" : undefined} onClick={() => select("fandom")}>팬덤 대항전</button>
         </AnimatedNav>
-        <div id="nx-rank-panel" role="tabpanel" aria-labelledby={tab === "total" ? "nx-rank-total" : "nx-rank-weekly"}>
-          {tab === "total" ? <TotalBoard /> : <WeeklyBoard />}
+        <div id="nx-rank-panel" role="tabpanel" aria-labelledby={`nx-rank-${tab}`}>
+          {tab === "total" ? <TotalBoard /> : tab === "weekly" ? <WeeklyBoard /> : tab === "season" ? <SeasonBoard /> : <FandomBoard />}
         </div>
+        <PublicProfileDialog />
       </section>
     </div>
   );

@@ -9,6 +9,8 @@ import { totals } from "../../market/selectors";
 import type { OrderResult } from "../../market/types";
 import { nextTickPrice, previousTickPrice, roundToTick, tickSize } from "../../market/universe";
 import { AnimatedNav } from "../AnimatedNav";
+import { announceOrderImpact } from "../engagement/LiveBoards";
+import { refreshEngagement } from "../../lib/engagement";
 
 /*
  * 새 화면의 주문서. 주문 규칙(호가 단위, 수량 한도, 주문 가능 금액, 거래 제한)은
@@ -56,6 +58,9 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
   }, [selectedLimitPrice, selectedLimitPriceRevision]);
 
   const quote = snapshot.quotes[code];
+  /* 체결 뒤 가격을 읽으려고 최신 시세를 붙잡아 둔다. 주문 직후 1.5초 뒤 값과 비교해 내 주문의 영향을 보여 준다. */
+  const latestPrice = useRef(quote?.price ?? 0);
+  latestPrice.current = quote?.price ?? 0;
   const liveSuggestedLimit = quote ? (side === "buy" ? quote.asks[0]?.price ?? quote.price : quote.bids[0]?.price ?? quote.price) : null;
 
   // 수량을 입력하기 시작하면 단가를 더 움직이지 않는다. 주문이 끝나 수량이 비면 다시 호가를 따라간다.
@@ -175,9 +180,14 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
     setSubmitting(true);
     setResult(null);
     try {
+      const before = latestPrice.current;
       const outcome = await api.placeOrder({ code, side: orderSide, qty: parsed, orderType, ...(orderType === "LIMIT" ? { price: parsedLimitPrice } : {}) });
       setResult(outcome);
-      if (outcome.ok) setQty("");
+      if (outcome.ok) {
+        setQty("");
+        refreshEngagement();
+        window.setTimeout(() => announceOrderImpact(code, before, latestPrice.current, orderSide), 1_500);
+      }
     } catch {
       setResult({ ok: false, message: "주문을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
     } finally {

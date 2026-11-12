@@ -53,6 +53,9 @@ public class AdminSeasonService {
         int rank=0;for(var e:entries){rank++;long reward=rank<=request.rankRewards().size()?request.rankRewards().get(rank-1):0;
             db.update("UPDATE admin_season_entries SET rank_no=?,reward_cash=? WHERE season_id=? AND user_id=?",rank,reward,id,e.get("user_id"));
             if(reward>0)operations.cashLocked(actor,((Number)e.get("user_id")).longValue(),new AdminOperationsService.CashChange("season:"+id+":"+e.get("user_id"),reward,"시즌 "+id+" "+rank+"위 보상"));
+            // Season titles stack like the weekly ones: 1st gets 1·2·3, 2nd gets 2·3, 3rd gets 3.
+            long winner=((Number)e.get("user_id")).longValue();
+            for(int place=3;place>=rank&&place>=1;place--)awardSeasonTitle(winner,"season_"+place);
         }
         db.update("UPDATE admin_seasons SET status='CLOSED',ended_at=CURRENT_TIMESTAMP(3) WHERE id=?",id);
         support.audit(actor,"SEASON_CLOSE",id,request.reason(),before,Map.of("participants",entries.size(),"rankRewards",request.rankRewards()));return ranking(id,100);
@@ -80,6 +83,13 @@ public class AdminSeasonService {
         }
         db.update("UPDATE admin_seasons SET status='RESET' WHERE id=?",id);operations.changed();
         support.audit(actor,"SEASON_RESET",id,why,before,Map.of("users",users.size(),"status","RESET"));
+    }
+    private void awardSeasonTitle(long userId,String titleId){
+        db.update("""
+            INSERT INTO user_titles (user_id, title_id, win_count, notified, acquired_at, updated_at)
+            VALUES (?, ?, 1, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE win_count = win_count + 1, notified = FALSE, updated_at = CURRENT_TIMESTAMP
+            """,userId,titleId);
     }
     private Map<String,Object> season(long id,String status){var rows=db.queryForList("SELECT * FROM admin_seasons WHERE id=? AND status=? FOR UPDATE",id,status);if(rows.isEmpty())throw new IllegalArgumentException("시즌이 없거나 현재 상태에서 실행할 수 없습니다.");return rows.get(0);}
     private List<Map<String,Object>> assets(){return db.queryForList("SELECT u.id,u.nickname,("

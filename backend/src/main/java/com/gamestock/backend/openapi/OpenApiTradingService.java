@@ -32,6 +32,11 @@ public class OpenApiTradingService {
     private final OpenApiKeyService keys;
     private final MarketService market;
     private final DerivativeService derivatives;
+    private com.gamestock.backend.market.FeatureUnlockService unlocks;
+
+    /** Optional so tests that build this class by hand keep working without the unlock gate. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureUnlocks(com.gamestock.backend.market.FeatureUnlockService unlocks) { this.unlocks = unlocks; }
 
     public OpenApiTradingService(JdbcTemplate jdbc, ObjectMapper json, PersistenceWorker persistence,
                                  OpenApiKeyService keys, MarketService market, DerivativeService derivatives) {
@@ -41,6 +46,9 @@ public class OpenApiTradingService {
 
     public CompletableFuture<Receipt> order(Principal principal, String requestId, Order request) {
         request.validate();
+        // Opening futures or options needs the same unlock as the web; closing never does.
+        boolean closingOption = request.product() == Product.OPTION && request.side() == Side.SELL;
+        if (unlocks != null && !closingOption) unlocks.requireForDerivative(principal.userId(), request.product().name());
         return execute(principal, requestId, "ORDER", request, () -> {
             if (request.product() == Product.STOCK)
                 return market.order(new MarketModels.OrderRequest(request.symbol(), request.side().name(),

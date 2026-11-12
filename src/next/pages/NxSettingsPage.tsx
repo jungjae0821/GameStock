@@ -4,6 +4,7 @@ import { apiFetch } from "../../lib/api";
 import { openLoginPrompt } from "../../lib/auth";
 import { firebaseAuth } from "../../lib/firebase";
 import { setProfile as shareProfile, type Profile } from "../../lib/profile";
+import { FandomSettings, PublicProfileSettings } from "../engagement/FandomSettings";
 import { DEFAULT_PROFILE_AVATAR, isProfileAvatar, isUploadedPhoto, PROFILE_AVATARS, profileImageSrc } from "../../lib/profileAvatars";
 
 const PHOTO_ACCEPT = ["image/jpeg", "image/png", "image/webp"];
@@ -272,6 +273,9 @@ export function NxSettingsPage() {
                 </fieldset>
               )}
             </section>
+
+            <FandomSettings />
+            <PublicProfileSettings />
 
             <section className="nx-panel nx-danger-zone" aria-labelledby="nx-reset-title">
               <div>

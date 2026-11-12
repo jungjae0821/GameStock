@@ -13,6 +13,11 @@ import java.util.Map;
 public class TapController {
     private final TapService tap;
     private final AuthService auth;
+    private FeatureUnlockService unlocks;
+
+    /** Optional so tests that build this class by hand keep working without the unlock gate. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureUnlocks(FeatureUnlockService unlocks) { this.unlocks = unlocks; }
 
     public TapController(TapService tap, AuthService auth) {
         this.tap = tap;
@@ -29,7 +34,9 @@ public class TapController {
     @PostMapping("/bets")
     public TapService.PlaceResult place(@RequestBody TapService.PlaceRequest request,
                                         @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return tap.place(auth.requireUser(authorization).id(), request);
+        long userId = auth.requireUser(authorization).id();
+        if (unlocks != null) unlocks.require(userId, FeatureUnlockService.Feature.TAP);
+        return tap.place(userId, request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

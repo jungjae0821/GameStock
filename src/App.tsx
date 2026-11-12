@@ -33,6 +33,7 @@ import { NxTalkPage } from "./next/pages/NxTalkPage";
 import { NxTapPage } from "./next/pages/NxTapPage";
 import { NxDerivativesPage } from "./next/pages/NxDerivativesPage";
 import type { Route } from "./router";
+import { MarketAlerts, OrderImpactToast } from "./next/engagement/LiveBoards";
 
 function titleFor(route: Route): string {
   if (route.name === "market") {
@@ -161,6 +162,8 @@ export default function App() {
       </main>
       <NxTabbar route={route} />
       <MissionRewardToast />
+      <MarketAlerts />
+      <OrderImpactToast />
       <TitleWatcher />
       <LoginModal />
       <SiteNoticeDialog />

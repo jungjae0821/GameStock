@@ -48,7 +48,10 @@ export function NewsFeed({ limit, source, emptyMessage, compact = false, selecte
                 {LISTING_BY_CODE[item.code]?.name ?? item.code} · {since(item.at, snapshot.updatedAt)}
               </p>
             </div>
-            <Delta change={effect} ratio={effect} showAmount={false} />
+            <span className="news-effect" title="기사가 나온 뒤 지금까지 주가가 움직인 정도">
+              <span className="news-effect-label">발행 후</span>
+              <Delta change={effect} ratio={effect} showAmount={false} />
+            </span>
           </li>
         );
       })}
