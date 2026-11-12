@@ -12,10 +12,7 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,14 +28,15 @@ import java.util.Set;
  * investor's closing asset, so a late Monday run still ranks the week as it closed.
  * The weekly work lives in {@link WeeklyTitleAwards}, built here and sharing this
  * service's JdbcTemplate, TransactionTemplate, clock and investor-asset query.
+ *
+ * <p>One-time title evaluation and grants live in {@link TitleAchievements}, and the
+ * table DDL in {@link TitleSchema}; both are built here as well.
  */
 @Service
 public class TitleService {
     private static final Logger log = LoggerFactory.getLogger(TitleService.class);
     static final long STARTING_CASH = 1_000_000L;
     static final ZoneId TITLE_ZONE = ZoneId.of("Asia/Seoul");
-    /** Bottom-percentile cutoffs need the whole investor population; reuse it briefly. */
-    private static final long POPULATION_CACHE_MILLIS = 60_000L;
     /** Real investors only, the same population as the public ranking. */
     static final String INVESTOR_FILTER = """
             u.password_hash NOT IN ('BOT', 'TRADER') AND u.username <> 'demo'
@@ -58,12 +56,6 @@ public class TitleService {
     public static final List<TitleDefinition> TITLES = TitleCatalog.TITLES;
     private static final Map<String, TitleDefinition> BY_ID = TitleCatalog.BY_ID;
 
-    private static final long[] ASSET_THRESHOLDS = {
-            30_000_000L, 50_000_000L, 100_000_000L, 1_000_000_000L, 3_000_000_000L,
-            5_000_000_000L, 10_000_000_000L, 100_000_000_000L};
-    private static final String[] ASSET_TITLE_IDS = {
-            "asset_30m", "asset_50m", "asset_100m", "asset_1b", "asset_3b", "asset_5b", "asset_10b", "asset_100b"};
-
     /** The catalog entry for a stored title id, or null for an unknown or missing id. */
     static TitleDefinition definition(String titleId) {
         return titleId == null ? null : BY_ID.get(titleId);
@@ -80,56 +72,22 @@ public class TitleService {
     void configureAdminRuntime(AdminRuntimeControl runtime){this.adminRuntime=runtime;}
     private final TransactionTemplate transactions;
     private Clock clock = Clock.systemUTC();
-    private volatile Population population;
     private final WeeklyTitleAwards weekly;
+    private final TitleAchievements achievements;
+    private final TitleSchema schema;
 
     public TitleService(JdbcTemplate jdbc, PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.weekly = new WeeklyTitleAwards(jdbc, transactions, () -> this.clock, this::investorAssets);
+        this.achievements = new TitleAchievements(jdbc, () -> this.clock, () -> this.adminRuntime, this::investorAssets);
+        this.schema = new TitleSchema(jdbc);
     }
 
     void useClock(Clock clock) { this.clock = clock; }
 
     void ensureTables() {
-        jdbc.execute("""
-                CREATE TABLE IF NOT EXISTS user_titles (
-                  user_id BIGINT NOT NULL, title_id VARCHAR(40) NOT NULL,
-                  win_count INT NOT NULL DEFAULT 1, notified BOOLEAN NOT NULL DEFAULT FALSE,
-                  equipped BOOLEAN NOT NULL DEFAULT FALSE,
-                  acquired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                  PRIMARY KEY (user_id, title_id),
-                  CONSTRAINT fk_user_title_user FOREIGN KEY (user_id) REFERENCES users(id)
-                )
-                """);
-        Integer equippedColumn = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'user_titles' AND column_name = 'equipped'", Integer.class);
-        if (equippedColumn != null && equippedColumn == 0)
-            jdbc.execute("ALTER TABLE user_titles ADD COLUMN equipped BOOLEAN NOT NULL DEFAULT FALSE AFTER notified");
-        jdbc.execute("""
-                CREATE TABLE IF NOT EXISTS weekly_return_weeks (
-                  week_start DATE NOT NULL PRIMARY KEY,
-                  snapshot_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                  closing_at TIMESTAMP NULL,
-                  awarded_at TIMESTAMP NULL
-                )
-                """);
-        jdbc.execute("""
-                CREATE TABLE IF NOT EXISTS weekly_return_snapshots (
-                  week_start DATE NOT NULL, user_id BIGINT NOT NULL, baseline_asset BIGINT NOT NULL,
-                  closing_asset BIGINT NULL,
-                  PRIMARY KEY (week_start, user_id),
-                  CONSTRAINT fk_weekly_snapshot_user FOREIGN KEY (user_id) REFERENCES users(id)
-                )
-                """);
-        addColumnIfMissing("weekly_return_weeks", "closing_at", "TIMESTAMP NULL AFTER snapshot_at");
-        addColumnIfMissing("weekly_return_snapshots", "closing_asset", "BIGINT NULL AFTER baseline_asset");
-    }
-
-    private void addColumnIfMissing(String table, String column, String definition) {
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
-                Integer.class, table, column);
-        if (count != null && count == 0) jdbc.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+        schema.ensureTables();
     }
 
     /** Lists every title with the user's progress, without granting anything. */
@@ -144,34 +102,7 @@ public class TitleService {
      */
     public TitleStatus check(long userId) {
         Set<String> owned = ownedIds(userId);
-        Stats stats = stats(userId);
-        if (stats != null) {
-            grantIf(userId, owned, "newbie", true);
-            grantIf(userId, owned, "ant", stats.maxQuantity >= 1);
-            for (int index = 0; index < ASSET_TITLE_IDS.length; index++)
-                grantIf(userId, owned, ASSET_TITLE_IDS[index], stats.totalAsset >= ASSET_THRESHOLDS[index]);
-            grantIf(userId, owned, "loss_99", stats.returnPercent() <= -99.0);
-            if (stats.investor && (!owned.contains("bottom_10") || !owned.contains("bottom_5"))) {
-                Population current = population();
-                grantIf(userId, owned, "bottom_10", current.inBottom(userId, 0.10));
-                grantIf(userId, owned, "bottom_5", current.inBottom(userId, 0.05));
-            }
-            grantIf(userId, owned, "holder_50", stats.maxQuantity >= 50);
-            grantIf(userId, owned, "holder_150", stats.maxQuantity >= 150);
-            grantIf(userId, owned, "starter", stats.nicknameChanged);
-            grantIf(userId, owned, "attend_7", stats.maxStreak >= 7);
-            grantIf(userId, owned, "attend_30", stats.maxStreak >= 30);
-            grantIf(userId, owned, "attend_180", stats.maxStreak >= 180);
-            if (!owned.contains("trades_100")) {
-                long maxDailyTrades = maxDailyTrades(userId);
-                grantIf(userId, owned, "trades_10", maxDailyTrades >= 10);
-                grantIf(userId, owned, "trades_100", maxDailyTrades >= 100);
-            }
-            // Holding two different stocks at once means one was bought while the other was held.
-            grantIf(userId, owned, "diversify", stats.heldStocks >= 2);
-            grantIf(userId, owned, "all_in", stats.totalAsset > 0 && stats.maxPositionValue * 10 >= stats.totalAsset * 9L);
-            grantCollectorTitles(userId, owned);
-        }
+        achievements.grantEarned(userId, owned);
         List<String> fresh = jdbc.queryForList("SELECT title_id FROM user_titles WHERE user_id = ? AND notified = FALSE",
                 String.class, userId);
         if (!fresh.isEmpty())
@@ -274,106 +205,12 @@ public class TitleService {
                 owned, equipped, count, iso(acquiredAt), iso(updatedAt));
     }
 
-    private void grantCollectorTitles(long userId, Set<String> owned) {
-        // Collector titles count themselves too, so repeat until nothing new is granted.
-        boolean changed = true;
-        while (changed) {
-            int count = owned.size();
-            changed = grantIf(userId, owned, "collector_5", count >= 5)
-                    | grantIf(userId, owned, "collector_10", count >= 10)
-                    | grantIf(userId, owned, "collector_15", count >= 15);
-            boolean allOthers = TITLES.stream().filter(title -> !title.id().equals("collector_all"))
-                    .allMatch(title -> owned.contains(title.id()));
-            changed |= grantIf(userId, owned, "collector_all", allOthers);
-        }
-    }
-
     private boolean grantIf(long userId, Set<String> owned, String titleId, boolean condition) {
-        if (!condition || owned.contains(titleId)) return false;
-        jdbc.update("INSERT IGNORE INTO user_titles (user_id, title_id, acquired_at, updated_at) VALUES (?, ?, ?, ?)",
-                userId, titleId, now(), now());
-        owned.add(titleId);
-        return true;
+        return achievements.grantIf(userId, owned, titleId, condition);
     }
 
     private Set<String> ownedIds(long userId) {
-        return new LinkedHashSet<>(jdbc.queryForList("SELECT title_id FROM user_titles WHERE user_id = ?", String.class, userId));
-    }
-
-    private Stats stats(long userId) {
-        List<Stats> rows = jdbc.query("""
-                SELECT u.cash, u.loan_balance, u.nickname_changed_at IS NOT NULL AS nickname_changed,
-                       (""" + INVESTOR_FILTER + """
-                       ) AS investor,
-                       COALESCE((SELECT SUM(o.reserved_cash) FROM orders o WHERE o.user_id = u.id AND o.status = 'OPEN'), 0) AS reserved_cash,
-                       COALESCE((SELECT SUM(st.gross_amount - st.seller_fee) FROM settlements st WHERE st.seller_id = u.id AND st.status = 'PENDING'), 0) AS unsettled_cash,
-                       COALESCE((SELECT SUM(ar.reward_cash) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0)
-                         + COALESCE((SELECT SUM(mr.reward_cash) FROM mission_rewards mr WHERE mr.user_id = u.id), 0) AS reward_cash,
-                       COALESCE((SELECT MAX(ar.streak_day) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0) AS max_streak
-                FROM users u WHERE u.id = ?
-                """, (rs, row) -> {
-            Stats stats = new Stats();
-            stats.cash = rs.getLong("cash");
-            stats.loanBalance = rs.getLong("loan_balance");
-            stats.nicknameChanged = rs.getBoolean("nickname_changed");
-            stats.investor = rs.getBoolean("investor");
-            stats.reservedCash = rs.getLong("reserved_cash");
-            stats.unsettledCash = rs.getLong("unsettled_cash");
-            stats.rewardCash = rs.getLong("reward_cash");
-            stats.maxStreak = rs.getInt("max_streak");
-            return stats;
-        }, userId);
-        if (rows.isEmpty()) return null;
-        Stats stats = rows.get(0);
-        if(adminRuntime!=null)stats.rewardCash+=adminRuntime.externalCash(userId);
-        jdbc.query("""
-                SELECT p.quantity, p.quantity * COALESCE(pm.mark_price, s.current_price) AS market_value
-                FROM portfolios p JOIN stocks s ON s.id = p.stock_id
-                LEFT JOIN market_price_metrics pm ON pm.stock_id = s.id
-                WHERE p.user_id = ? AND p.quantity > 0
-                """, rs -> {
-            int quantity = rs.getInt(1);
-            long value = rs.getLong(2);
-            stats.heldStocks++;
-            stats.maxQuantity = Math.max(stats.maxQuantity, quantity);
-            stats.maxPositionValue = Math.max(stats.maxPositionValue, value);
-            stats.assetValue += value;
-        }, userId);
-        stats.totalAsset = stats.cash + stats.reservedCash + stats.unsettledCash + stats.assetValue + AccountValuation.derivatives(jdbc,userId) - stats.loanBalance;
-        return stats;
-    }
-
-    /** The most fills this user had on any single Korean calendar day. */
-    private long maxDailyTrades(long userId) {
-        Long count = jdbc.query("""
-                SELECT COUNT(*) FROM (
-                  SELECT id, created_at FROM trades WHERE buyer_id = ?
-                  UNION
-                  SELECT id, created_at FROM trades WHERE seller_id = ?
-                ) t
-                GROUP BY DATE(CONVERT_TZ(t.created_at, '+00:00', '+09:00'))
-                ORDER BY COUNT(*) DESC LIMIT 1
-                """, (rs, row) -> rs.getLong(1), userId, userId).stream().findFirst().orElse(0L);
-        return count == null ? 0 : count;
-    }
-
-    private Population population() {
-        Population current = population;
-        long nowMillis = clock.millis();
-        if (current != null && nowMillis - current.loadedAt < POPULATION_CACHE_MILLIS) return current;
-        List<long[]> returns = new ArrayList<>();
-        for (InvestorAsset investor : investorAssets()) {
-            // Return in basis points so ties compare exactly.
-            long basisPoints = Math.round((investor.adjustedAsset - STARTING_CASH) * 10_000.0 / STARTING_CASH);
-            returns.add(new long[]{investor.userId, basisPoints});
-        }
-        // Worst return first; on a tie the newer account counts as lower.
-        returns.sort(Comparator.<long[]>comparingLong(entry -> entry[1]).thenComparingLong(entry -> -entry[0]));
-        Map<Long, Integer> positionFromBottom = new HashMap<>();
-        for (int index = 0; index < returns.size(); index++) positionFromBottom.put(returns.get(index)[0], index + 1);
-        current = new Population(positionFromBottom, returns.size(), nowMillis);
-        population = current;
-        return current;
+        return achievements.ownedIds(userId);
     }
 
     /** Asset excluding attendance and mission payouts and loans, the basis of every return figure. */
@@ -416,25 +253,7 @@ public class TitleService {
         return weekly.weeklyRanking(viewerId);
     }
 
-    private Timestamp now() { return Timestamp.from(clock.instant()); }
     private static String iso(Timestamp timestamp) { return timestamp == null ? null : timestamp.toInstant().toString(); }
 
-    private static final class Stats {
-        long cash, loanBalance, reservedCash, unsettledCash, assetValue, totalAsset, rewardCash, maxPositionValue;
-        int maxQuantity, heldStocks, maxStreak;
-        boolean nicknameChanged, investor;
-
-        double returnPercent() { return (totalAsset - STARTING_CASH - rewardCash) * 100.0 / STARTING_CASH; }
-    }
-
     record InvestorAsset(long userId, long adjustedAsset, Timestamp resetAt) { }
-
-    private record Population(Map<Long, Integer> positionFromBottom, int size, long loadedAt) {
-        /** True when the user is within the worst {@code share} of investors (at least one full slot). */
-        boolean inBottom(long userId, double share) {
-            Integer position = positionFromBottom.get(userId);
-            int slots = (int) Math.floor(size * share);
-            return position != null && slots >= 1 && position <= slots;
-        }
-    }
 }
