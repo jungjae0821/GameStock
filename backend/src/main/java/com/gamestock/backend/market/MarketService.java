@@ -167,6 +167,8 @@ public class MarketService {
     private final BotResearch research;
     private final HoldingLedger holdings;
     private final SinglePriceAuction auction;
+    private final OpenOrderPriceNormalizer priceNormalizer;
+    private final AccountQueries accountQueries;
     private static final class BotLane {
         final Set<Long> stocks,users;
         final BotActivityEngine engine;
@@ -197,6 +199,8 @@ public class MarketService {
         this.userFeatures = userFeatures;
         this.protection = protection;
         this.auction = new SinglePriceAuction(this, jdbc, holdings, protection);
+        this.priceNormalizer = new OpenOrderPriceNormalizer(this, jdbc);
+        this.accountQueries = new AccountQueries(this, jdbc);
     }
 
     /**
@@ -240,7 +244,7 @@ public class MarketService {
         bootstrap.seedPriceHistory();
         seedDailySummaries();
         protection.repairPricesToDailyBands();
-        normalizeOpenOrderPrices();
+        priceNormalizer.normalize();
         initializeSimulationBooks();
         priceMetrics.seedCursors();
         startupTransaction().executeWithoutResult(status -> {
@@ -447,62 +451,11 @@ public class MarketService {
     }
 
     @Transactional(readOnly = true)
-    public List<ActiveOrder> activeOrders(long userId, String stockCode) {
-        return jdbc.query("""
-                SELECT o.id, s.stock_code, o.side, o.quantity, o.remaining_quantity, COALESCE(o.price, 0) AS price,
-                       o.status, o.order_type, COALESCE(o.reserved_cash, 0) AS reserved_cash,
-                       COALESCE(o.reserved_quantity, 0) AS reserved_quantity, o.created_at, o.expires_at
-                FROM orders o JOIN stocks s ON s.id = o.stock_id
-                WHERE o.user_id = ? AND o.status = 'OPEN'
-                  AND (? IS NULL OR s.stock_code = ?)
-                ORDER BY o.created_at DESC, o.id DESC
-                LIMIT 5
-                """, (rs, row) -> new ActiveOrder(
-                rs.getLong("id"), rs.getString("stock_code"), rs.getString("side"),
-                rs.getInt("quantity"), rs.getInt("remaining_quantity"), rs.getLong("price"),
-                rs.getString("status"), rs.getString("order_type"), rs.getLong("reserved_cash"),
-                rs.getInt("reserved_quantity"), databaseInstant(rs.getTimestamp("created_at")).toString(),
-                rs.getTimestamp("expires_at") == null ? null : databaseInstant(rs.getTimestamp("expires_at")).toString()), userId, stockCode, stockCode);
-    }
+    public List<ActiveOrder> activeOrders(long userId, String stockCode) {return accountQueries.activeOrders(userId, stockCode);}
 
     /** The user's recently completed fills. Cash and shares settle immediately. */
     @Transactional(readOnly = true)
-    public List<SettlementEntry> settlements(long userId) {
-        return jdbc.query("""
-                SELECT x.id, x.side, s.stock_code, x.quantity, x.gross_amount, x.fee,
-                       x.net_amount, x.status, x.settlement_at, x.created_at, x.cancellable
-                FROM (
-                  SELECT st.id, st.stock_id, st.quantity, st.gross_amount,
-                         CASE WHEN st.buyer_id = ? THEN 'BUY' ELSE 'SELL' END AS side,
-                         CASE WHEN st.buyer_id = ? THEN st.buyer_fee ELSE st.seller_fee END AS fee,
-                         CASE WHEN st.buyer_id = ? THEN st.gross_amount + st.buyer_fee
-                              ELSE st.gross_amount - st.seller_fee END AS net_amount,
-                         st.status, st.settlement_at, st.created_at,
-                         CASE WHEN st.status = 'PENDING'
-                                    AND st.buyer_quantity_before IS NOT NULL
-                                    AND st.buyer_settled_quantity_before IS NOT NULL
-                                    AND st.buyer_average_price_before IS NOT NULL
-                                    AND st.buyer_realized_profit_loss_before IS NOT NULL
-                                    AND st.seller_quantity_before IS NOT NULL
-                                    AND st.seller_settled_quantity_before IS NOT NULL
-                                    AND st.seller_average_price_before IS NOT NULL
-                                    AND st.seller_realized_profit_loss_before IS NOT NULL
-                              THEN TRUE ELSE FALSE END AS cancellable
-                  FROM settlements st JOIN users owner ON owner.id = ?
-                  WHERE (st.buyer_id = ? OR st.seller_id = ?) AND st.status = 'SETTLED'
-                    AND st.created_at > COALESCE(owner.account_reset_at, '1970-01-01')
-                ) x JOIN stocks s ON s.id = x.stock_id
-                ORDER BY x.created_at DESC, x.id DESC
-                LIMIT 5
-                """, (rs, row) -> new SettlementEntry(
-                rs.getLong("id"), rs.getString("side"), rs.getString("stock_code"),
-                rs.getInt("quantity"), rs.getLong("gross_amount"), rs.getLong("fee"),
-                rs.getLong("net_amount"), rs.getString("status"),
-                databaseInstant(rs.getTimestamp("settlement_at")).toString(),
-                databaseInstant(rs.getTimestamp("created_at")).toString(),
-                rs.getBoolean("cancellable")),
-                userId, userId, userId, userId, userId, userId);
-    }
+    public List<SettlementEntry> settlements(long userId) {return accountQueries.settlements(userId);}
 
     /**
      * Compatibility rollback for legacy pending fills. New fills are settled
@@ -590,35 +543,7 @@ public class MarketService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderHistory> orderHistory(String code, long userId) {
-        return jdbc.query("""
-                SELECT o.side, o.quantity, o.price, o.status, o.order_type, o.remaining_quantity, o.created_at,
-                       COALESCE(SUM(CASE WHEN o.side = 'BUY' THEN t.buyer_fee ELSE t.seller_fee END), 0) AS fee,
-                       CASE WHEN COUNT(t.id) = 0 THEN 'NONE'
-                            WHEN SUM(CASE WHEN st.status = 'CANCELLED' THEN 1 ELSE 0 END) > 0 THEN 'CANCELLED'
-                            WHEN SUM(CASE WHEN st.status = 'PENDING' THEN 1 ELSE 0 END) > 0 THEN 'PENDING'
-                            ELSE 'SETTLED' END AS settlement_status,
-                       MIN(CASE WHEN st.status = 'PENDING' THEN st.settlement_at ELSE NULL END) AS settlement_at
-                FROM orders o JOIN stocks s ON s.id = o.stock_id
-                LEFT JOIN trades t ON t.buy_order_id = o.id OR t.sell_order_id = o.id
-                LEFT JOIN settlements st ON st.trade_id = t.id
-                WHERE o.user_id = ? AND s.stock_code = ?
-                  AND o.created_at > COALESCE((SELECT account_reset_at FROM users WHERE id = ?), '1970-01-01')
-                GROUP BY o.id, o.side, o.quantity, o.price, o.status, o.order_type, o.remaining_quantity, o.created_at
-                ORDER BY o.created_at DESC, o.id DESC
-                LIMIT 20
-                """, (rs, row) -> new OrderHistory(
-                rs.getString("side"),
-                rs.getInt("quantity"),
-                rs.getLong("price"),
-                rs.getString("status"),
-                rs.getString("order_type"),
-                rs.getInt("remaining_quantity"),
-                databaseInstant(rs.getTimestamp("created_at")).toString(),
-                rs.getLong("fee"), rs.getString("settlement_status"),
-                rs.getTimestamp("settlement_at") == null ? null : databaseInstant(rs.getTimestamp("settlement_at")).toString()),
-                userId, code.toUpperCase(Locale.ROOT), userId);
-    }
+    public List<OrderHistory> orderHistory(String code, long userId) {return accountQueries.orderHistory(code, userId);}
 
     /** 모든 사용자의 익명 체결 내역. 개인별 주문 API와 분리해 공개한다. */
     @Transactional(readOnly = true)
@@ -719,7 +644,7 @@ public class MarketService {
         Map<Long,Portfolio> portfolios=new HashMap<>();
         for(var entry:accepted.entrySet()){
             int i=entry.getKey();var command=commands.get(i);var order=entry.getValue();String code=book.stocks.get(order.stock).code;
-            var execution=executionSummary(order.id,order.side);
+            var execution=accountQueries.executionSummary(order.id,order.side);
             TradingRestriction restriction=protection.restriction(code);
             String message=restriction!=null&&order.status.equals("OPEN")?restriction.label()+" 단일가 주문 접수":orderMessage(order.status);
             outcomes.set(i,new OrderBatch.Outcome(new OrderResult(message,code,order.side,order.quantity,order.price>0?order.price:book.stocks.get(order.stock).last,
@@ -1024,7 +949,7 @@ public class MarketService {
     private void advanceTradingProtections() {
         boolean dayChanged = protection.refreshDay();
         List<String> repaired = protection.repairPricesToDailyBands();
-        if (dayChanged || !repaired.isEmpty()) normalizeOpenOrderPrices();
+        if (dayChanged || !repaired.isEmpty()) priceNormalizer.normalize();
         protection.advanceMarketPhase();
         if (protection.marketAuctionDue()) {
             List<String> codes = jdbc.queryForList("SELECT stock_code FROM stocks ORDER BY id", String.class);
@@ -1125,74 +1050,6 @@ public class MarketService {
         MarketBookCache.invalidate(jdbc,null);
     }
 
-    /** 기존 호가도 새 호가 단위 규칙을 따르도록 보정한다. 예약 현금 차액은 함께 정산한다. */
-    private void normalizeOpenOrderPrices() {
-        List<OpenLimitOrder> orders = jdbc.query("""
-                SELECT o.id, o.user_id, s.stock_code, o.side, o.price, o.remaining_quantity,
-                       COALESCE(o.reserved_cash, 0), (u.password_hash = 'BOT') AS is_bot
-                FROM orders o
-                JOIN stocks s ON s.id = o.stock_id
-                JOIN users u ON u.id = o.user_id
-                WHERE o.status = 'OPEN' AND o.order_type = 'LIMIT' AND o.price IS NOT NULL
-                """, (rs, row) -> new OpenLimitOrder(rs.getLong(1), rs.getLong(2), rs.getString(3),
-                rs.getString(4), rs.getLong(5), rs.getInt(6), rs.getLong(7), rs.getBoolean(8)));
-        for (OpenLimitOrder order : orders) {
-            PriceBand allowedBand = order.bot() ? botPriceBand(order.stockCode()) : dailyPriceBand(order.stockCode());
-            if (!allowedBand.contains(order.price())) {
-                startupTransaction().executeWithoutResult(status -> cancelOutOfBandOrder(order));
-                continue;
-            }
-            long rounded = "BUY".equals(order.side()) ? floorToTick(order.price()) : ceilToTick(order.price());
-            long normalized = allowedBand.clamp(rounded);
-            Long required = null;
-            if ("BUY".equals(order.side())) {
-                try {
-                    long normalizedGross = Math.multiplyExact(normalized, order.remainingQuantity());
-                    required = normalizedGross + feeFor(normalizedGross);
-                } catch (ArithmeticException error) {
-                    // required stays null: the order is cancelled and refunded below.
-                }
-                if (required != null && normalized == order.price() && order.reservedCash() == required) continue;
-            } else if (normalized == order.price()) continue;
-            // A cash adjustment and its order update must commit together, or a restart
-            // would apply the same difference again. Unchanged orders skip the transaction.
-            Long reserved = required;
-            startupTransaction().executeWithoutResult(status -> applyNormalizedPrice(order, normalized, reserved));
-        }
-    }
-
-    private void cancelOutOfBandOrder(OpenLimitOrder order) {
-        int cancelled = jdbc.update("""
-                UPDATE orders
-                SET status = 'CANCELLED', remaining_quantity = 0, reserved_cash = 0, reserved_quantity = 0
-                WHERE id = ? AND status = 'OPEN'
-                """, order.id());
-        if (cancelled > 0 && order.reservedCash() > 0) {
-            jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", order.reservedCash(), order.userId());
-        }
-    }
-
-    /** {@code required} is the new buy reservation, or null when it overflowed. */
-    private void applyNormalizedPrice(OpenLimitOrder order, long normalized, Long required) {
-        if (!"BUY".equals(order.side())) {
-            jdbc.update("UPDATE orders SET price = ? WHERE id = ?", normalized, order.id());
-            return;
-        }
-        if (required == null) {
-            if (order.reservedCash() > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", order.reservedCash(), order.userId());
-            jdbc.update("UPDATE orders SET status = 'CANCELLED', remaining_quantity = 0, reserved_cash = 0, reserved_quantity = 0 WHERE id = ?", order.id());
-            return;
-        }
-        long difference = order.reservedCash() - required;
-        if (difference < 0 && jdbc.update("UPDATE users SET cash = cash - ? WHERE id = ? AND cash >= ?", -difference, order.userId(), -difference) == 0) {
-            if (order.reservedCash() > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", order.reservedCash(), order.userId());
-            jdbc.update("UPDATE orders SET status = 'CANCELLED', remaining_quantity = 0, reserved_cash = 0, reserved_quantity = 0 WHERE id = ?", order.id());
-            return;
-        }
-        if (difference > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", difference, order.userId());
-        jdbc.update("UPDATE orders SET price = ?, reserved_cash = ? WHERE id = ?", normalized, required, order.id());
-    }
-
     /** Finish any legacy pending deliveries left by an older T+1 database. */
     private void settleDuePayments() {
         List<PendingSettlement> due = jdbc.query("""
@@ -1279,23 +1136,6 @@ public class MarketService {
         return holdings.state(stockId, userId);
     }
 
-    private ExecutionSummary executionSummary(long orderId, String side) {
-        List<ExecutionSummary> rows = jdbc.query("""
-                SELECT COALESCE(SUM(CASE WHEN ? = 'BUY' THEN t.buyer_fee ELSE t.seller_fee END), 0) AS fee,
-                       CASE WHEN COUNT(t.id) = 0 THEN 'NONE'
-                            WHEN SUM(CASE WHEN st.status = 'CANCELLED' THEN 1 ELSE 0 END) > 0 THEN 'CANCELLED'
-                            WHEN SUM(CASE WHEN st.status = 'PENDING' THEN 1 ELSE 0 END) > 0 THEN 'PENDING'
-                            ELSE 'SETTLED' END AS settlement_status,
-                       MIN(CASE WHEN st.status = 'PENDING' THEN st.settlement_at ELSE NULL END) AS settlement_at
-                FROM trades t
-                LEFT JOIN settlements st ON st.trade_id = t.id
-                WHERE t.buy_order_id = ? OR t.sell_order_id = ?
-                """, (rs, row) -> new ExecutionSummary(rs.getLong("fee"), rs.getString("settlement_status"),
-                rs.getTimestamp("settlement_at") == null ? null : databaseInstant(rs.getTimestamp("settlement_at")).toString()),
-                side, orderId, orderId);
-        return rows.isEmpty() ? new ExecutionSummary(0, "NONE", null) : rows.get(0);
-    }
-
     static long feeFor(long grossAmount) {
         if (grossAmount <= 0) return 0;
         return Math.max(1L, Math.round(grossAmount * TRADING_FEE_RATE));
@@ -1304,8 +1144,6 @@ public class MarketService {
     private record OrderState(long id, long userId, long price, int quantity, int remainingQuantity, String status,
                               String orderType, long reservedCash, int reservedQuantity) { }
     private record OrderReservation(long id, long userId, long reservedCash) { }
-    private record OpenLimitOrder(long id, long userId, String stockCode, String side, long price,
-                                  int remainingQuantity, long reservedCash, boolean bot) { }
     record HoldingState(int quantity, int settledQuantity, long averagePrice, long realizedProfitLoss) { }
     private record PendingSettlement(long id, long buyerId, long sellerId, long stockId, int quantity,
                                      long grossAmount, long sellerFee) { }
@@ -1323,7 +1161,6 @@ public class MarketService {
                     && sellerAveragePriceBefore != null && sellerRealizedProfitLossBefore != null;
         }
     }
-    private record ExecutionSummary(long fee, String status, String settlementAt) { }
     Stock findStock(String code) {
         List<Stock> rows = jdbc.query("""
                 SELECT s.stock_code,g.name,g.genre,s.current_price,
@@ -1413,81 +1250,7 @@ public class MarketService {
     @org.springframework.context.event.EventListener
     public void newsChanged(NewsChangedEvent event) { newsFeed.clearObservedBias(); }
 
-    Portfolio portfolioUnsafe(long userId) {
-        long cash = jdbc.queryForObject("SELECT cash FROM users WHERE id = ?", Long.class, userId);
-        List<Position> positions = jdbc.query("""
-                SELECT s.stock_code, p.quantity, COALESCE(p.settled_quantity, p.quantity) AS settled_quantity,
-                       COALESCE((SELECT SUM(o.reserved_quantity) FROM orders o
-                                 WHERE o.user_id = p.user_id AND o.stock_id = p.stock_id
-                                   AND o.side = 'SELL' AND o.status = 'OPEN'), 0) AS reserved_quantity,
-                       p.average_price, COALESCE(p.realized_profit_loss, 0) AS realized_profit_loss,
-                       p.quantity * COALESCE(pm.mark_price,s.current_price) AS market_value,
-                       GREATEST(0, COALESCE(p.settled_quantity,p.quantity) - COALESCE((
-                           SELECT SUM(o.reserved_quantity) FROM orders o
-                           WHERE o.user_id = p.user_id AND o.stock_id = p.stock_id AND o.status = 'OPEN' AND o.side = 'SELL'
-                       ),0)) AS available_quantity,
-                       p.quantity * (COALESCE(pm.mark_price,s.current_price) - p.average_price) AS profit_loss
-                FROM portfolios p JOIN stocks s ON s.id = p.stock_id
-                LEFT JOIN market_price_metrics pm ON pm.stock_id = s.id
-                WHERE p.user_id = ? AND p.quantity > 0
-                ORDER BY p.id
-                """, (rs, row) -> new Position(rs.getString("stock_code"),
-                rs.getInt("quantity"), rs.getInt("settled_quantity"),
-                Math.max(0, rs.getInt("quantity") - rs.getInt("settled_quantity")),
-                Math.max(0, rs.getInt("settled_quantity") - rs.getInt("reserved_quantity")),
-                rs.getLong("average_price"), rs.getLong("market_value"), rs.getLong("profit_loss"),
-                rs.getLong("average_price") == 0 ? 0 :
-                        Math.round(rs.getLong("profit_loss") * 10000.0 /
-                                (rs.getInt("quantity") * rs.getLong("average_price"))) / 100.0,
-                rs.getLong("realized_profit_loss")), userId);
-        long reservedCash = jdbc.queryForObject("SELECT COALESCE(SUM(reserved_cash), 0) FROM orders WHERE user_id = ? AND status = 'OPEN'", Long.class, userId);
-        long unsettledCash = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(gross_amount - seller_fee), 0)
-                FROM settlements WHERE seller_id = ? AND status = 'PENDING'
-                """, Long.class, userId);
-        long unsettledAssetValue = positions.stream()
-                .filter(position -> position.unsettledQuantity() > 0)
-                .mapToLong(position -> (long) position.unsettledQuantity() * currentPrice(position.stockCode()))
-                .sum();
-        long totalFees = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(f.fee),0) FROM (
-                  SELECT id,buyer_fee fee FROM trades WHERE buyer_id=?
-                    AND created_at>COALESCE((SELECT account_reset_at FROM users WHERE id=?),'1970-01-01')
-                  UNION ALL
-                  SELECT id,seller_fee fee FROM trades WHERE seller_id=?
-                    AND created_at>COALESCE((SELECT account_reset_at FROM users WHERE id=?),'1970-01-01')
-                ) f WHERE NOT EXISTS (SELECT 1 FROM settlements st WHERE st.trade_id=f.id AND st.status='CANCELLED')
-                """, Long.class, userId, userId, userId, userId);
-        totalFees+=jdbc.queryForObject("SELECT COALESCE(SUM(fees),0) FROM bot_account_fees WHERE user_id=?",Long.class,userId);
-        long realizedProfitLoss = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(COALESCE(realized_profit_loss, 0)), 0)
-                FROM portfolios WHERE user_id = ?
-                """, Long.class, userId);
-        long attendanceRewardCash = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(reward_cash), 0)
-                FROM attendance_rewards
-                WHERE user_id = ?
-                """, Long.class, userId);
-        // Like attendance, mission payouts are not trading performance; clients subtract both from P&L.
-        long missionRewardCash = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(reward_cash), 0) FROM mission_rewards WHERE user_id = ?", Long.class, userId);
-        // 대출 잔액은 빌린 돈이라 화면에서 순자산과 손익을 계산할 때 뺀다.
-        long loanBalance = jdbc.queryForObject("SELECT loan_balance FROM users WHERE id = ?", Long.class, userId);
-        long assetValue = positions.stream().mapToLong(Position::marketValue).sum();
-        // ETF·선물·옵션 평가액도 계좌 총자산에 포함한다. 저장된 마지막 평가값을 쓴다.
-        long derivativeAssetValue = AccountValuation.derivatives(jdbc,userId);
-        long derivativeRealized = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(realized_pnl), 0) FROM derivative_positions WHERE user_id = ?
-                """, Long.class, userId);
-        return new Portfolio(cash, assetValue, cash + reservedCash + unsettledCash + assetValue + derivativeAssetValue,
-                positions, unsettledCash, unsettledAssetValue, totalFees, realizedProfitLoss, attendanceRewardCash,
-                missionRewardCash, loanBalance,adminRuntime==null?0:adminRuntime.externalCash(userId),
-                derivativeAssetValue, derivativeRealized);
-    }
-
-    private long currentPrice(String code) {
-        return findStock(code).price();
-    }
+    Portfolio portfolioUnsafe(long userId) {return accountQueries.portfolio(userId);}
 
     double changePercent(long current, long previous) {
         if (previous == 0) return 0;
