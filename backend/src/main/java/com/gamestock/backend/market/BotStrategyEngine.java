@@ -6,10 +6,6 @@ import static com.gamestock.backend.market.MarketEnvironment.clamp;
 import static com.gamestock.backend.market.PriceLimitPolicy.*;
 
 public final class BotStrategyEngine {
-    private static final double LARGE_CAP_DIP_TRIGGER = .01;
-    private static final double LARGE_CAP_DIP_RANGE = .03;
-    private static final double SPECULATIVE_DIP_TRIGGER = .04;
-    private static final double SPECULATIVE_DIP_RANGE = .20;
     /** Do not turn a small inventory error into an immediate buy/sell reversal. */
     static final double INVENTORY_DEADBAND_RATIO = .15;
 
@@ -20,44 +16,15 @@ public final class BotStrategyEngine {
     private final Map<String, Double> estimates=new HashMap<>();
     private final Random random;
     private final long seed;
-    private static final class Demand {double x;long at;Demand(double x,long at){this.x=x;this.at=at;}}
-    private final Map<String,Demand> demands=new HashMap<>();
-    private final Random demandRandom;
-    public BotStrategyEngine(long seed){this.seed=seed; random=new Random(seed);demandRandom=new Random(seed^0x5DEECE66DL);}
+    private final BotAllocationDemand allocation;
+    public BotStrategyEngine(long seed){this.seed=seed; random=new Random(seed);allocation=new BotAllocationDemand(seed);}
 
-    /** Mean-reverting unit noise remembered for memoryMillis; bounded to [-1,1]. */
-    private double demandShock(String key,long now,double memoryMillis,Random preference) {
-        Demand d=demands.computeIfAbsent(key,k->new Demand(preference.nextGaussian()*.6,now));
-        double dt=Math.max(0,now-d.at);d.at=now;
-        if(dt>0) {
-            double decay=Math.exp(-dt/memoryMillis);
-            d.x=d.x*decay+Math.sqrt(1-decay*decay)*.6*demandRandom.nextGaussian();
-        }
-        return clamp(d.x,-1,1);
-    }
     public static boolean hasInventoryDemand(BotProfile p) {
-        return p.strategy().family()==Family.NOISE || p.strategy().family()==Family.AGGRESSIVE_LIQUIDITY_TAKER;
+        return BotPositionRules.hasInventoryDemand(p);
     }
     /** Private cash-backed allocation demand. Inventory is acquired only through normal paid fills. */
     public double targetQuantity(BotProfile p,String symbol,long now,long equity,int symbols,double price) {
-        if(equity<=0) return 0;
-        Random preference=new Random(seed^((long)(p.username()+":"+symbol).hashCode()*0x9E3779B97F4A7C15L));
-        double weight=.75+preference.nextDouble()*.5;
-        String key=p.username()+":"+symbol;
-        // Allocation needs wander without a period. Fixed sine cycles made each trader buy and
-        // sell on the same cadence, which repeated the same price swing between the same levels.
-        if(hasInventoryDemand(p) && p.holdingTimePreference()<5000) {
-            // Fast flow participants have private short-lived allocation needs, not a common fair price.
-            // The target is only an intent: every share must first be bought from a real counterparty.
-            double memory=StockMarketProfile.isLargeCap(symbol) ? 8_000+preference.nextDouble()*22_000
-                    : 1_500+preference.nextDouble()*4_000;
-            double cycle=demandShock(key,now,memory,preference);
-            return Math.min(equity/Math.max(1,price)*.1/Math.max(1,symbols),Math.max(0,5+4*cycle)*weight);
-        }
-        double demand=1+.4*demandShock(key,now,30_000+preference.nextDouble()*60_000,preference);
-        // Even at maximum demand/weight, aggregate targets consume less than 75% of account equity.
-        double budget=equity*(.2+.25*p.riskTolerance())/Math.max(1,symbols);
-        return Math.min(budget/Math.max(1,price),p.positionLimit()*.35)*weight*demand;
+        return allocation.targetQuantity(p,symbol,now,equity,symbols,price);
     }
 
     public double threshold(BotProfile p,PriceMetricService.Metrics m) {
@@ -65,26 +32,11 @@ public final class BotStrategyEngine {
     }
     /** Each family researches a different horizon; a common stochastic value is only one input. */
     static double valuationObservation(BotProfile p,PriceMetricService.Metrics m,double fundamental,double consensus) {
-        return switch(p.strategy().family()) {
-            case VALUE -> .85*fundamental+.15*consensus;
-            case NEWS -> .6*fundamental+.4*consensus;
-            case MOMENTUM -> .7*fundamental+.2*m.lastPrice()+.1*consensus;
-            case CONTRARIAN -> .35*m.referenceVwap()+.65*fundamental;
-            case INTRADAY -> .75*fundamental+.2*m.microPrice()+.05*m.vwap();
-            case SWING -> .5*fundamental+.5*m.referenceVwap();
-            case NOISE, AGGRESSIVE_LIQUIDITY_TAKER -> .8*m.vwap()+.2*fundamental;
-        };
+        return BotStrategySignals.valuationObservation(p,m,fundamental,consensus);
     }
     /** Liquid short-horizon strategies price execution risk rather than repeatedly reset to value. */
     static double valuationObservation(BotProfile p,PriceMetricService.Metrics m,double fundamental,double consensus,String symbol) {
-        if(!StockMarketProfile.isLargeCap(symbol))return valuationObservation(p,m,fundamental,consensus);
-        return switch(p.strategy().family()) {
-            case MOMENTUM -> .1*fundamental+.2*m.executionVwap()+.7*consensus;
-            case INTRADAY -> .75*consensus+.2*m.microPrice()+.05*m.vwap();
-            case NOISE, AGGRESSIVE_LIQUIDITY_TAKER -> .8*consensus+.2*m.executionVwap();
-            case SWING -> .5*fundamental+.5*consensus;
-            default -> valuationObservation(p,m,fundamental,consensus);
-        };
+        return BotStrategySignals.valuationObservation(p,m,fundamental,consensus,symbol);
     }
     public double estimate(BotProfile p,String symbol,double noisyObservation) {
         String key=p.username()+":"+symbol;
@@ -99,48 +51,7 @@ public final class BotStrategyEngine {
     }
     public double score(BotProfile p, PriceMetricService.Metrics m, MarketEnvironment e,
                         Position position,double estimatedValue,double perceivedNews,double noise) {
-        double fast=m.return5s()*100, slow=m.return20s()*100, slope=m.emaSlope()*300;
-        // A quiet minute does not erase longer-lived executed-price information.
-        double reversionPrice=.4*m.vwap()+.6*m.referenceVwap();
-        double vwapGap=(m.lastPrice()/Math.max(1,reversionPrice)-1)*100;
-        double micro=(m.microPrice()/Math.max(1,m.midPrice())-1)*100;
-        double value=(estimatedValue/Math.max(1,m.markPrice())-1)/p.entryThreshold();
-        double signal=switch(p.strategy()) {
-            case FAST_MOMENTUM -> .8*fast+.2*slow;
-            case SLOW_MOMENTUM -> .5*slow+.2*slope+m.return60s()*20+m.return300s()*10;
-            case BREAKOUT, BREAKOUT_SCALPER -> m.lastPrice()>=m.recentHigh() && slow>.01?slow+.3:
-                    m.lastPrice()<=m.recentLow() && slow<-.01?slow-.3:0;
-            case TREND_FOLLOW -> .4*slow+.3*slope+m.return60s()*20+m.return300s()*10;
-            case PULLBACK -> .8*slow-.4*fast;
-            case VOLUME_MOMENTUM -> slow*(1+Math.max(0,m.volumeTrend()));
-            case ACCELERATION -> .4*fast+m.acceleration()*150;
-            case RSI_FADE -> (50-m.rsi())/45;
-            case ZSCORE -> -m.zscore()*.4;
-            case VWAP_FADE -> -vwapGap;
-            case EXHAUSTION -> -fast*Math.max(.1,-m.volumeTrend())-.2*m.zscore();
-            case LIQUIDITY_FADE -> -.6*m.imbalance()-.4*vwapGap;
-            case SPIKE_FADE -> -m.acceleration()*200-.3*fast;
-            case DEEP_VALUE -> Math.abs(value)<1.5?0:value*.6;
-            case AGGRESSIVE_VALUE -> value*1.3;
-            case CONSERVATIVE_VALUE -> value*p.confidence()*.7;
-            case CATALYST_VALUE -> value*.6+perceivedNews*p.newsSensitivity()*8;
-            case SLOW_VALUE -> value*.5;
-            case SCALPER -> micro*.6+m.imbalance()*.4;
-            case BOOK_IMBALANCE -> m.imbalance();
-            case MICRO_TREND -> micro*.5+fast*.5;
-            case VWAP_SCALPER -> -.5*vwapGap+.3*m.imbalance();
-            case SPREAD_TAKER -> micro*(m.spread()/Math.max(1,m.midPrice())<.003?1:.2);
-            case LIQUIDITY_SNIPER -> m.imbalance()*(m.bidDepth()+m.askDepth()<80?1.5:.3);
-            case NEWS_REACTOR -> perceivedNews*p.newsSensitivity()*25;
-            case NEWS_SKEPTIC -> perceivedNews*p.newsSensitivity()*12-.5*vwapGap;
-            case NOISE_FLOW -> noise*.25+e.directionBias()*.25;
-            case NOISE_RANDOM -> noise*.5;
-            case SWING_TREND -> m.return300s()*60+m.return60s()*40;
-            case LIQUIDITY_TAKER -> .6*m.imbalance()+.4*fast+e.directionBias()*.4;
-        };
-        if (p.strategy().family()==Family.MOMENTUM) signal *= 1+e.trendStrength()*.3;
-        if (p.strategy().family()==Family.CONTRARIAN) signal -= vwapGap*e.meanReversionStrength()*.2;
-        if(p.strategy().family()==Family.VALUE && Math.abs(estimatedValue/m.markPrice()-1)<p.exitThreshold()) signal*=.2;
+        double signal=BotStrategySignals.strategySignal(p,m,e,estimatedValue,perceivedNews,noise);
         double environmentWeight=switch(p.strategy().family()) {
             case NOISE, NEWS, AGGRESSIVE_LIQUIDITY_TAKER -> .25;
             case MOMENTUM, SWING -> .04;
@@ -155,13 +66,7 @@ public final class BotStrategyEngine {
             signal += (p.holdingTimePreference()<5000?1.5:.9)*clamp(targetGap/Math.max(1,position.targetQuantity()),-1,1);
         }
         // Holding the desired inventory is neutral; only excess inventory encourages selling.
-        double delta=position.quantity()-position.targetQuantity(),deadband=inventoryDeadband(position);
-        double effectiveExcess;
-        if(position.targetQuantity()<=0)effectiveExcess=delta;
-        else if(delta>0)effectiveExcess=Math.max(0,delta-deadband);
-        else if(Math.abs(delta)<=deadband)effectiveExcess=0;
-        else effectiveExcess=delta;
-        double excess=effectiveExcess/Math.max(1.0,p.positionLimit());
+        double excess=BotPositionRules.inventoryExcess(p,position);
         signal -= excess*p.inventoryAversion();
         if(position.quantity()>0 && position.averagePrice()>0) {
             double pnl=m.lastPrice()/position.averagePrice()-1;
@@ -210,9 +115,9 @@ public final class BotStrategyEngine {
             double move=m.markPrice()/dayReference-1;
             score-=Math.signum(move)*6*clamp((Math.abs(move)-.18)/.02,0,1);
         }
-        double dipStrength=dipStrength(m,symbol,dayReference);
+        double dipStrength=BotStrategySignals.dipStrength(m,symbol,dayReference);
         boolean capitulationFloor=dipStrength>0 && m.bidDepth()<=0;
-        boolean protectiveExit=protectiveExit(p,m,position) && !capitulationFloor;
+        boolean protectiveExit=BotStrategySignals.protectiveExit(p,m,position) && !capitulationFloor;
         boolean stopLossExit=protectiveExit && m.bestBid()/position.averagePrice()-1<=-p.stopLoss();
         if(dipStrength>0) {
             // A deep drawdown should attract some cash-backed demand instead of
@@ -294,29 +199,10 @@ public final class BotStrategyEngine {
                 draw<.9?m.bestAsk():m.bestAsk()+tick*distance;
         if(intradayMaker) {
             market=false;
-            double reference=intradayReference(p,m);
-            double edge=.00125+m.volatility()*Math.sqrt(4)*.5;
-            price=side.equals("BUY")?Math.min(m.bestAsk()-tick,reference/(1+edge)):
-                    Math.max(m.bestBid()+tick,Math.max(reference*(1+edge),passiveIntraday?position.averagePrice()*1.0025:0));
+            price=BotOrderPricing.intradayMakerPrice(p,m,side,tick,position,passiveIntraday);
         }
         if(flow && !riskExit && !inventoryExit) {
-            // Cash-flow demand is price sensitive. An urgent allocation change is not permission
-            // to chase an empty book arbitrarily far from recent paid transactions.
-            double edge=StockMarketProfile.isSpeculative(symbol)?.015+p.aggression()*.02:.004+p.aggression()*.006;
-            // A small allocation adjustment should not sweep 0.4–1% across an unchanged book.
-            // Its execution budget follows short-horizon paid prices and non-bounce volatility.
-            double executionRoom=Math.max(2*tick,Math.min(m.spread()*.5,3*tick));
-            edge=Math.min(edge,Math.max(executionRoom/Math.max(1,m.executionVwap()),m.volatility()*Math.sqrt(5)));
-            double reference=m.executionVwap();
-            // Research nudges a flow trader's execution budget without dictating its allocation side.
-            // Bound stale research locally so both acquisition and disposal remain possible.
-            double researchRoom=large?.005:.05;
-            double researched=clamp(estimatedValue,reference*(1-researchRoom),reference*(1+researchRoom));
-            // Research may support urgent execution, but cannot turn an allocation reduction
-            // into a bet on an unreachable future ask (or prevent replenishing a cash-backed need).
-            researched=side.equals("BUY")?Math.max(reference,researched):Math.min(reference,researched);
-            reference=.5*reference+.5*researched;
-            double reservation=reference*(1+clamp(score,-1,1)*edge);
+            double reservation=BotOrderPricing.flowReservation(p,m,side,score,estimatedValue,tick,symbol,large);
             if(market || random.nextDouble()<clamp(p.aggression()+confidence*.65,.3,.95))
                 price=side.equals("BUY")?m.bestAsk():m.bestBid();
             market=false;
@@ -348,96 +234,24 @@ public final class BotStrategyEngine {
         if(dayReference>0 && !flow && !market && !economicCross && !riskExit && !inventoryExit && !dipBuyer
                 && !side.equals("HOLD")
                 && (side.equals("BUY")?price<m.bestAsk():price>m.bestBid())) {
-            int span=p.strategy().family()==Family.INTRADAY?1:2;
-            int offset=Math.floorMod(Long.hashCode(seed^((long)(p.username()+":"+symbol+":"+side).hashCode()*0x9E3779B97F4A7C15L)),span*2+1)-span;
-            long dispersed=Math.round(price+offset*tick);
-            long bounded=quoteBand(symbol,dayReference,perceivedNews).clamp(dispersed);
-            price=side.equals("BUY")?floorToTick(bounded):ceilToTick(bounded);
-            // A passive price preference must not turn into an aggressive order or sweep
-            // extra levels. Orders already chosen to cross keep their original execution cap.
-            price=side.equals("BUY")?Math.min(price,previousTickPrice(Math.round(m.bestAsk()))):
-                    Math.max(price,nextTickPrice(Math.round(m.bestBid())));
+            price=BotOrderPricing.passiveLevel(p,m,side,price,tick,symbol,dayReference,perceivedNews,seed);
         }
         price=Math.max(tick,price);
-        double volatilityPenalty=1+m.volatility()*150+Math.max(0,e.volatilityMultiplier()-1)*.25;
-        double liquidity=clamp((m.bidDepth()+m.askDepth())/150.0,.2,1);
-        int quantity=(int)Math.floor(p.maxOrderSize()*confidence*p.riskTolerance()*marketScale
-                *Math.sqrt(e.volumeMultiplier())*liquidity/volatilityPenalty);
-        quantity=Math.min(p.maxOrderSize(),Math.max(p.minOrderSize(),quantity));
-        if(intradayMaker) quantity=Math.min(quantity,MAX_ORDER_SIZE);
-        if(flow && !riskExit && !inventoryExit) {
-            // A five-share minimum used to overshoot a one-share allocation need, causing a
-            // reversing sale on the next decision. Matching accepts single shares; size to need.
-            double gap=position.targetQuantity()-position.quantity();
-            double need="BUY".equals(side)?Math.max(0,gap):Math.max(0,-gap);
-            quantity=Math.min(quantity,(int)Math.floor(need));
-        }
-        if("BUY".equals(side)) quantity=Math.min(quantity,Math.min(p.positionLimit()-position.quantity(),
-                (int)Math.min(Integer.MAX_VALUE,position.cash()/Math.max(1,(market?m.bestAsk()*1.03:price)*1.001))));
-        else if("SELL".equals(side)) quantity=Math.min(quantity,position.quantity());
-        else quantity=0;
-        if(inventoryExit)quantity=Math.min(quantity,excessQuantity);
-        // Never invent cash to reach a lot. Small sell remainders remain eligible for liquidation.
-        if("BUY".equals(side) && quantity<(flow?1:MIN_ORDER_SIZE))quantity=0;
+        int quantity=BotPositionRules.orderQuantity(p,m,e,position,side,confidence,marketScale,market,price,
+                intradayMaker,flow,riskExit,inventoryExit,excessQuantity);
         return new Decision(side,score,confidence,Math.max(0,quantity),market,price,
                 p.decisionInterval()<1000?Math.max(1200,p.ttlMillis(random)):p.ttlMillis(random));
     }
 
     double executableEdge(BotProfile p,PriceMetricService.Metrics m,String side,double estimatedValue) {
-        if(!side.equals("BUY") && !side.equals("SELL")) return Double.NEGATIVE_INFINITY;
-        double target=switch(p.strategy().family()) {
-            case VALUE -> estimatedValue;
-            case CONTRARIAN -> .4*m.vwap()+.6*m.referenceVwap();
-            case SWING -> m.lastPrice()*(1+clamp(m.return300s()*.5+m.return60s()*.25,-.03,.03));
-            case INTRADAY -> intradayReference(p,m);
-            default -> 0;
-        };
-        if(target<=0 || (side.equals("BUY")?m.askDepth():m.bidDepth())==0) return Double.NEGATIVE_INFINITY;
-        double execution=side.equals("BUY")?m.bestAsk():m.bestBid();
-        double edge=side.equals("BUY")?target/Math.max(1,execution)-1:execution/Math.max(1,target)-1;
-        double required=2*.001+m.volatility()*Math.sqrt(Math.min(60,p.holdingTimePreference()/1000.0))
-                + (p.strategy().family()==Family.VALUE?Math.max(p.exitThreshold(),p.entryThreshold()*.5):.001);
-        return edge-required;
-    }
-
-    private double dipStrength(PriceMetricService.Metrics m,String symbol,long dayReference) {
-        if(dayReference<=0 || m.askDepth()<=0) return 0;
-        boolean large=StockMarketProfile.isLargeCap(symbol);
-        double trigger=large?LARGE_CAP_DIP_TRIGGER:SPECULATIVE_DIP_TRIGGER;
-        double range=large?LARGE_CAP_DIP_RANGE:SPECULATIVE_DIP_RANGE;
-        double drawdown=clamp((dayReference-m.markPrice())/Math.max(1.0,dayReference),0,1);
-        return clamp((drawdown-trigger)/Math.max(.001,range-trigger),0,1);
+        return BotStrategySignals.executableEdge(p,m,side,estimatedValue);
     }
 
     static double inventoryDeadband(Position position) {
-        return position.targetQuantity()>0
-                ? Math.max(1,Math.ceil(position.targetQuantity()*INVENTORY_DEADBAND_RATIO))
-                : 0;
+        return BotPositionRules.inventoryDeadband(position);
     }
 
     static double effectiveInventoryGap(Position position) {
-        double gap=position.targetQuantity()-position.quantity(),deadband=inventoryDeadband(position);
-        if(deadband<=0 || Math.abs(gap)<=deadband)return 0;
-        // Preserve the full cash-backed shortfall signal. The deadband is primarily
-        // for preventing an excess inventory from flipping straight into a sale;
-        // otherwise an empty flow bot could lose its initial buy pressure.
-        return gap>0?gap:gap+deadband;
-    }
-
-    private boolean protectiveExit(BotProfile p,PriceMetricService.Metrics m,Position position) {
-        if(position.quantity()<=0 || position.averagePrice()<=0) return false;
-        double returnFromAverage=m.bestBid()/position.averagePrice()-1;
-        return returnFromAverage<=-p.stopLoss()
-                || (returnFromAverage>=p.takeProfit() && returnFromAverage>2*.001);
-    }
-
-    private double intradayReference(BotProfile p,PriceMetricService.Metrics m) {
-        double reference=switch(p.strategy()) {
-            case VWAP_SCALPER -> .7*m.vwap()+.3*m.microPrice();
-            case BOOK_IMBALANCE -> m.microPrice()*(1+m.imbalance()*.0005);
-            case MICRO_TREND, BREAKOUT_SCALPER -> m.microPrice()*(1+clamp(m.return5s()*.5+m.return20s()*.2,-.005,.005));
-            default -> .5*m.vwap()+.5*m.microPrice();
-        };
-        return reference*(1+(p.buyBias()-p.sellBias())*.002);
+        return BotPositionRules.effectiveInventoryGap(position);
     }
 }

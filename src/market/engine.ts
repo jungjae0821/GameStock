@@ -1,16 +1,11 @@
-import {
-  dailyPriceBand,
-  LISTINGS,
-  LISTING_BY_CODE,
-  nextTickPrice,
-  previousTickPrice,
-  roundToTick,
-} from "./universe";
+import { LISTINGS, roundToTick } from "./universe";
 import { generateNews } from "./newsTemplates";
 import { won } from "./format";
 import { stockMarketProfile } from "./marketCap";
+import { mulberry32 } from "./engineRandom";
+import { advanceQuote, createQuote, refreshBook, SERIES_LIMIT, type Shock } from "./engineQuote";
+import { emptyPortfolio, persistState, restoreState } from "./engineStorage";
 import type {
-  BookLevel,
   Fill,
   MarketIndex,
   MarketSnapshot,
@@ -18,47 +13,16 @@ import type {
   OrderRequest,
   OrderResult,
   Portfolio,
-  Position,
   Quote,
-  TradePrint,
 } from "./types";
 
-export const TICK_MS = 2000;
-export const INITIAL_CASH = 1_000_000;
+export { INITIAL_CASH } from "./engineStorage";
 
-const STORAGE_KEY = "ssokdex.market.v1";
-const SERIES_LIMIT = 720;
+export const TICK_MS = 2000;
+
 const NEWS_LIMIT = 60;
-const PRINT_LIMIT = 14;
-const BOOK_DEPTH = 5;
 /** 지수 기준값. 세션 시작 시점이 1000이다. */
 const INDEX_BASE = 1000;
-const TICK_SIGMA = 0.005;
-const MEAN_REVERSION = 0.012;
-
-type Stored = {
-  cash: number;
-  positions: Record<string, Position>;
-  fills: Fill[];
-  realized: number;
-  watch: string[];
-};
-
-type Shock = { remaining: number; per: number; direction: 1 | -1 };
-
-function mulberry32(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function emptyPortfolio(): Portfolio {
-  return { cash: INITIAL_CASH, positions: {}, fills: [], realized: 0 };
-}
 
 export class MarketEngine {
   private readonly rng: () => number;
@@ -78,32 +42,9 @@ export class MarketEngine {
   constructor(seed = Date.now()) {
     this.rng = mulberry32(seed);
     for (const listing of LISTINGS) {
-      const profile = stockMarketProfile(listing.code);
-      const open = roundToTick(listing.prevClose * (1 + this.gauss() * 0.003));
-      const { limitUp, limitDown } = dailyPriceBand(listing.code, listing.prevClose);
-      const quote: Quote = {
-        code: listing.code,
-        activeUsers: profile.activeUsers,
-        marketCap: profile.marketCap,
-        movementWeight: profile.movementWeight,
-        price: open,
-        prevClose: listing.prevClose,
-        open,
-        high: open,
-        low: open,
-        volume: Math.round(listing.activity * profile.liquidityWeight * 12_000 * (0.6 + this.rng())),
-        trades: Math.round(listing.activity * profile.liquidityWeight * 900 * (0.6 + this.rng())),
-        series: [open],
-        limitUp,
-        limitDown,
-        buyVolume: Math.round(listing.activity * profile.liquidityWeight * 5_000 * (0.5 + this.rng() * 0.6)),
-        sellVolume: Math.round(listing.activity * profile.liquidityWeight * 5_000 * (0.5 + this.rng() * 0.6)),
-        prints: [],
-        asks: [],
-        bids: [],
-      };
+      const quote = createQuote(listing, this.rng);
       this.quotes.set(listing.code, quote);
-      this.refreshBook(quote, 0);
+      refreshBook(quote, 0, this.rng);
     }
     this.restore();
     this.seedNews();
@@ -153,15 +94,6 @@ export class MarketEngine {
     for (const listener of this.listeners) listener();
   }
 
-  private gauss(): number {
-    let u = 0;
-    let v = 0;
-    while (u === 0) u = this.rng();
-    while (v === 0) v = this.rng();
-    const value = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    return Math.max(-3.5, Math.min(3.5, value));
-  }
-
   // ---------------------------------------------------------------- 시세
 
   private tick(): void {
@@ -169,57 +101,8 @@ export class MarketEngine {
     for (const listing of LISTINGS) {
       const quote = this.quotes.get(listing.code);
       if (!quote) continue;
-      const profile = stockMarketProfile(listing.code);
-      const z = this.gauss();
       const shock = this.shocks.get(listing.code);
-      /* 모든 종목이 같은 틱에 움직이지 않는다: 활동성에 따라 이번 틱에 움직일 종목을 뽑는다. */
-      const moves = this.rng() < 0.5 + listing.activity * 0.09 || shock != null;
-      const impulse = shock ? shock.direction * shock.per : 0;
-      const reversion = Math.log(quote.prevClose / quote.price) * MEAN_REVERSION;
-      const drift = moves
-        ? (z * TICK_SIGMA * (1 + listing.activity * 0.2) + impulse + reversion) * profile.movementWeight
-        : 0;
-      /* 가격은 항상 호가 단위로만 움직인다. 틱 미만 변화는 한 단위로 밀어준다. */
-      const target = roundToTick(quote.price * Math.exp(drift));
-      quote.price = Math.min(quote.limitUp, Math.max(quote.limitDown,
-        target !== quote.price ? target
-        : moves && Math.abs(drift) > 0.0005 ? (drift > 0 ? nextTickPrice(quote.price) : previousTickPrice(quote.price))
-        : quote.price));
-      quote.high = Math.max(quote.high, quote.price);
-      quote.low = Math.min(quote.low, quote.price);
-      const step = Math.round(listing.activity * profile.liquidityWeight * 620
-        * (0.35 + Math.abs(z) * 1.4 + (shock ? 1.5 : 0)) * (0.7 + this.rng() * 0.6));
-      quote.volume += step;
-      quote.trades += Math.max(1, Math.round(step / (6 + this.rng() * 5)));
-      quote.series.push(quote.price);
-      if (quote.series.length > SERIES_LIMIT) quote.series.splice(0, quote.series.length - SERIES_LIMIT);
-
-      /* 체결 흐름: 이번 틱의 체결량을 매수·매도로 나누고 개별 체결로 쪼갠다. */
-      const pressure = Math.max(-0.42, Math.min(0.42, drift * 42));
-      const buyShare = 0.5 + pressure;
-      const buyStep = Math.round(step * buyShare);
-      quote.buyVolume += buyStep;
-      quote.sellVolume += step - buyStep;
-      const prints = 2 + Math.floor(this.rng() * 4);
-      for (let i = 0; i < prints; i += 1) {
-        const side: TradePrint["side"] = this.rng() < buyShare ? "buy" : "sell";
-        const at = now - (prints - i - 1) * 420;
-        const distance = Math.floor(this.rng() * 3);
-        let printPrice = quote.price;
-        for (let step = 0; step < distance; step += 1) {
-          printPrice = side === "buy" ? previousTickPrice(printPrice) : nextTickPrice(printPrice);
-        }
-        const print: TradePrint = {
-          at,
-          price: i === 0 ? quote.price : printPrice,
-          qty: Math.max(1, Math.round((step / prints) * (0.9 + this.rng() * 1.7))),
-          side,
-        };
-        print.price = Math.min(quote.limitUp, Math.max(quote.limitDown, print.price));
-        quote.prints.unshift(print);
-      }
-      if (quote.prints.length > PRINT_LIMIT) quote.prints.splice(PRINT_LIMIT);
-      this.refreshBook(quote, pressure);
+      advanceQuote(quote, listing, shock, now, this.rng);
 
       if (shock) {
         shock.remaining -= 1;
@@ -229,42 +112,6 @@ export class MarketEngine {
     this.advanceIndex();
     if (now >= this.nextNewsAt) this.publishNews(now);
     this.notify();
-  }
-
-  /**
-   * 호가창은 별도 주문 스트림이 없으므로 지금 틱의 체결량과 매수·매도 압력을
-   * 호가 단위로 분배해 만든 표시용 데이터다.
-   */
-  private refreshBook(quote: Quote, pressure: number): void {
-    const profile = stockMarketProfile(quote.code);
-    const base = Math.max(12, Math.round((quote.volume / 900) * profile.liquidityWeight * (0.4 + pressure * 0.5)));
-    const asks: BookLevel[] = [];
-    const bids: BookLevel[] = [];
-    let askPrice = quote.price;
-    let bidPrice = quote.price;
-    for (let i = 0; i < BOOK_DEPTH; i += 1) {
-      const near = BOOK_DEPTH - i;
-      const nextAsk = nextTickPrice(askPrice);
-      if (nextAsk <= askPrice || nextAsk > quote.limitUp) break;
-      askPrice = nextAsk;
-      asks.push({
-        price: askPrice,
-        qty: Math.max(1, Math.round((base * near * (1 + pressure * 0.9) * (0.7 + this.rng() * 0.6)) / BOOK_DEPTH)),
-      });
-    }
-
-    for (let i = 0; i < BOOK_DEPTH; i += 1) {
-      const near = BOOK_DEPTH - i;
-      const nextBid = previousTickPrice(bidPrice);
-      if (nextBid >= bidPrice || nextBid < quote.limitDown) break;
-      bidPrice = nextBid;
-      bids.push({
-        price: bidPrice,
-        qty: Math.max(1, Math.round((base * near * (1 - pressure * 0.9) * (0.7 + this.rng() * 0.6)) / BOOK_DEPTH)),
-      });
-    }
-    quote.asks = asks.reverse(); /* 위쪽에서 아래로 내려오며 가격이 낮아진다 */
-    quote.bids = bids;
   }
 
   /** 가상 시가총액으로 가중한 지수. 세션 시작이 1000이다. */
@@ -396,51 +243,15 @@ export class MarketEngine {
   // ---------------------------------------------------------------- 저장
 
   private persist(): void {
-    const stored: Stored = {
-      cash: this.portfolio.cash,
-      positions: this.portfolio.positions,
-      fills: this.portfolio.fills,
-      realized: this.portfolio.realized,
-      watch: [...this.watch],
-    };
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-    } catch {
-      /* 저장이 막힌 환경에서는 세션 동안만 유지한다. */
-    }
+    persistState(this.portfolio, this.watch);
   }
 
+  /** 저장된 값이 있으면 복원한다. 읽다 실패해도 그때까지 읽은 체결 번호·관심 종목은 반영한다. */
   private restore(): void {
-    let raw: string | null = null;
-    try {
-      raw = window.localStorage.getItem(STORAGE_KEY);
-    } catch {
-      return;
-    }
-    if (!raw) return;
-    try {
-      const stored = JSON.parse(raw) as Partial<Stored>;
-      const positions: Record<string, Position> = {};
-      for (const [code, position] of Object.entries(stored.positions ?? {})) {
-        if (!LISTING_BY_CODE[code] || !position || typeof position.qty !== "number" || position.qty < 1) continue;
-        positions[code] = { code, qty: Math.floor(position.qty), avgCost: Number(position.avgCost) || 0 };
-      }
-      const savedCash = typeof stored.cash === "number" && stored.cash >= 0 ? stored.cash : INITIAL_CASH;
-      const fills = Array.isArray(stored.fills) ? stored.fills.slice(0, 50) : [];
-      const realized = typeof stored.realized === "number" ? stored.realized : 0;
-      // 비로그인 상태에서는 미션 보상을 지급하지 않으므로 거래 이력이 없는
-      // 로컬 잔액은 항상 초기 자본으로 맞춘다. 거래 이력이 있는 상태는 보존한다.
-      const hasTradingHistory = Object.keys(positions).length > 0 || fills.length > 0 || realized !== 0;
-      this.portfolio = {
-        cash: hasTradingHistory ? savedCash : INITIAL_CASH,
-        positions,
-        fills,
-        realized,
-      };
-      this.fillId = this.portfolio.fills.reduce((max, fill) => Math.max(max, fill.id ?? 0), 0);
-      this.watch = new Set((stored.watch ?? []).filter((code) => Boolean(LISTING_BY_CODE[code])));
-    } catch {
-      this.portfolio = emptyPortfolio();
-    }
+    const restored = restoreState();
+    if (!restored) return;
+    this.portfolio = restored.portfolio;
+    if (restored.fillId !== undefined) this.fillId = restored.fillId;
+    if (restored.watch) this.watch = restored.watch;
   }
 }
