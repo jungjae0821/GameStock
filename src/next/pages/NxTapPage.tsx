@@ -1,57 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { GameIcon } from "../../components/GameIcon";
-import { Link } from "../../components/Link";
 import { ApiError, apiFetch } from "../../lib/api";
 import { openLoginPrompt, useAuthUser } from "../../lib/auth";
 import { won } from "../../market/format";
 import { useMarket, useMarketApi } from "../../market/MarketProvider";
-import { tableProbability, tapMultiplier, type TapTable } from "../../market/tapOdds";
 import { LISTING_BY_CODE } from "../../market/universe";
 import { TAP_PATH, navigate } from "../../router";
 import { useNxTheme } from "../uiMode";
-
-type BetStatus = "PENDING" | "OPEN" | "WON" | "LOST" | "VOID";
-type TapBet = {
-  id: number; code: string; slotStart: number; slotEnd: number; bandLow: number; bandHigh: number;
-  stake: number; multiplier: number; status: BetStatus; payout: number; settledAt?: string | null;
-};
-type TapState = {
-  code: string; ready: boolean; serverTime: number; price: number; sigma: number; band: number; previousBand: number;
-  tick: number; slotMs: number; minLeadMs: number; maxColumns: number; houseEdge: number; minMultiplier: number;
-  maxMultiplier: number; stakes: number[]; codes: string[]; path: [number, number][]; bets: TapBet[];
-  probabilities: TapTable; recentLow: number; recentHigh: number; recentMs: number; leadFromMs: number; leadStepMs: number;
-  today: { staked: number; paid: number; wins: number; losses: number };
-};
-type PlaceResult = { message: string; bet: TapBet };
-type Cell = { slot: number; low: number };
-type Geometry = { width: number; height: number; nowX: number; pxPerMs: number; rowH: number; center: number; now: number };
-type Burst = { key: string; payout: number; at: number };
+import { drawTapFrame, type TapBoardRefs } from "./tap/tapBoard";
+import { TapControls, TapFoot } from "./tap/TapPanels";
+import { LEAD_MARGIN_MS, cellKey, readPalette, shortWon, type Burst, type Cell, type Geometry, type Palette, type PlaceResult, type TapBet, type TapState } from "./tap/tapShared";
 
 export const TAP_CODES = ["GI", "SR", "OW", "ZZZ", "WH", "GOV", "BA", "UMA"] as const;
 const POLL_MS = 3_000;
-/** 서버의 최소 선행 시간보다 조금 더 여유를 둬 화면에서 열린 칸이 서버에서 거절되지 않게 한다. */
-const LEAD_MARGIN_MS = 350;
 const SAMPLE_KEEP_MS = 150_000;
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-const cellKey = (code: string, slot: number, low: number) => `${code}:${slot}:${low}`;
-const shortWon = (value: number) => (value >= 10_000 && value % 10_000 === 0 ? `${value / 10_000}만` : won(value));
 
-function readPalette(element: Element) {
-  const style = getComputedStyle(element);
-  const get = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
-  return {
-    stage: get("--nx-stage", "#12101c"), panel: get("--nx-panel", "#1a1726"), raised: get("--nx-raised", "#241f34"),
-    line: get("--nx-line", "#2e2942"), lane: get("--nx-lane", "#221d31"), ink: get("--ink", "#f1eef8"),
-    muted: get("--ink-muted", "#aaa4be"), faint: get("--ink-faint", "#6f6986"), brand: get("--brand", "#fd5886"),
-    brandInk: get("--brand-ink", "#12101c"), brandWash: get("--brand-wash", "#3a1d2c"),
-    up: get("--up", "#ff4d5e"), down: get("--down", "#4f7cff"),
-  };
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-}
 
 export function NxTapPage({ code: routeCode }: { code: string | null }) {
   const code = routeCode && (TAP_CODES as readonly string[]).includes(routeCode) ? routeCode : "UMA";
@@ -81,7 +44,7 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
   const keyCellRef = useRef<{ column: number; row: number } | null>(null);
   const geometryRef = useRef<Geometry | null>(null);
   const burstsRef = useRef<Burst[]>([]);
-  const paletteRef = useRef<ReturnType<typeof readPalette> | null>(null);
+  const paletteRef = useRef<Palette | null>(null);
   const centerRef = useRef<number | null>(null);
   const stakeRef = useRef(stake);
   stakeRef.current = stake;
@@ -173,39 +136,6 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
     if (canvasRef.current) paletteRef.current = readPalette(canvasRef.current);
   }, [theme]);
 
-  /* 칸 배당은 그리기 루프에서 0.25초마다(칸 높이가 바뀌면 즉시) 다시 계산한다. 매 프레임 계산하기엔 칸이 많다. */
-  const refreshOdds = () => {
-    const s = stateRef.current;
-    const geometry = geometryRef.current;
-    if (!s?.ready || !geometry) return;
-    oddsBandRef.current = s.band;
-    const now = serverNow();
-    const price = samplesRef.current.at(-1)?.[1] ?? s.price;
-    const odds = new Map<string, number>();
-    // 최근 15초 체결 범위. 서버도 같은 범위로 "방금 오간 가격"인지 가른다.
-    let recentLow = price, recentHigh = price;
-    const samples = samplesRef.current;
-    for (let i = samples.length - 1; i >= 0 && samples[i][0] >= now - s.recentMs; i--) {
-      recentLow = Math.min(recentLow, samples[i][1]);
-      recentHigh = Math.max(recentHigh, samples[i][1]);
-    }
-    const firstSlot = Math.floor(now / s.slotMs);
-    const rows = Math.ceil(geometry.height / geometry.rowH / 2) + 2;
-    const priceRow = Math.floor(price / s.band);
-    for (let slot = firstSlot; slot <= firstSlot + s.maxColumns; slot++) {
-      const lead = slot * s.slotMs - now;
-      if (lead < s.minLeadMs + LEAD_MARGIN_MS || lead > s.maxColumns * s.slotMs) continue;
-      for (let row = priceRow - rows; row <= priceRow + rows; row++) {
-        const low = row * s.band;
-        if (low <= 0) continue;
-        if (row === priceRow) { odds.set(`${slot}:${low}`, 0); continue; }
-        const p = tableProbability(s.probabilities, Math.abs(row - priceRow), lead, low >= recentLow && low <= recentHigh, s.leadFromMs, s.leadStepMs);
-        odds.set(`${slot}:${low}`, p === null ? 0 : tapMultiplier(p, s.houseEdge, s.minMultiplier, s.maxMultiplier));
-      }
-    }
-    oddsRef.current = odds;
-  };
-
   /* 격자·캔들·현재가를 매 프레임 그린다. React 상태는 거치지 않고 ref만 읽는다. */
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -213,6 +143,10 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     paletteRef.current = readPalette(canvas);
+    const refs: TapBoardRefs = {
+      state: stateRef, samples: samplesRef, center: centerRef, geometry: geometryRef, hover: hoverRef, keyCell: keyCellRef,
+      bets: betsRef, odds: oddsRef, oddsAt: oddsAtRef, oddsBand: oddsBandRef, bursts: burstsRef,
+    };
     let frame = 0;
     let last = performance.now();
     const draw = (time: number) => {
@@ -220,7 +154,6 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
       const dt = Math.min(0.1, (time - last) / 1000);
       last = time;
       const s = stateRef.current;
-      const colors = paletteRef.current!;
       const dpr = window.devicePixelRatio || 1;
       const width = canvas.clientWidth, height = canvas.clientHeight;
       if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
@@ -230,192 +163,7 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
       if (!s?.ready) return;
-
-      const narrow = width < 640;
-      const now = serverNow();
-      const samples = samplesRef.current;
-      const price = samples.at(-1)?.[1] ?? s.price;
-      const nowX = Math.round(width * (narrow ? 0.3 : 0.38));
-      const columns = narrow ? 4 : 6;
-      const colW = (width - nowX) / columns;
-      const pxPerMs = colW / s.slotMs;
-      const rowH = narrow ? 42 : 48;
-      const target = price + s.band / 2 - s.tick / 2;
-      centerRef.current = centerRef.current === null || Math.abs(centerRef.current - target) > s.band * 12
-        ? target : centerRef.current + (target - centerRef.current) * Math.min(1, dt * 2.5);
-      const center = centerRef.current;
-      const geometry: Geometry = { width, height, nowX, pxPerMs, rowH, center, now };
-      geometryRef.current = geometry;
-      if (time - oddsAtRef.current > 250 || oddsBandRef.current !== s.band) { oddsAtRef.current = time; refreshOdds(); }
-      const xAt = (t: number) => nowX + (t - now) * pxPerMs;
-      const yAt = (p: number) => height / 2 - ((p - center) / s.band) * rowH;
-
-      const topPrice = center + (height / 2 / rowH) * s.band;
-      const bottomPrice = center - (height / 2 / rowH) * s.band;
-      const firstRow = Math.floor(bottomPrice / s.band) - 1;
-      const lastRow = Math.ceil(topPrice / s.band) + 1;
-      const firstSlot = Math.floor((now - nowX / pxPerMs) / s.slotMs) - 1;
-      const lastSlot = Math.floor(now / s.slotMs) + s.maxColumns;
-      const gap = narrow ? 3 : 4;
-      const hover = hoverRef.current;
-      const keyCell = keyCellRef.current;
-      const keyTarget = keyCell ? { slot: Math.floor(now / s.slotMs) + keyCell.column, low: (Math.floor(price / s.band) + keyCell.row) * s.band } : null;
-
-      // 미래 구역 바탕과 행 가격
-      ctx.fillStyle = colors.lane;
-      ctx.globalAlpha = 0.35;
-      ctx.fillRect(nowX, 0, width - nowX, height);
-      ctx.globalAlpha = 1;
-      ctx.font = `500 ${narrow ? 10 : 11}px Pretendard Variable, Pretendard, system-ui, sans-serif`;
-      ctx.textBaseline = "middle";
-
-      // 빈 칸(현재선 오른쪽만)
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(nowX, 0, width - nowX, height);
-      ctx.clip();
-      for (let slot = Math.floor(now / s.slotMs); slot <= lastSlot; slot++) {
-        const x0 = xAt(slot * s.slotMs);
-        const lead = slot * s.slotMs - now;
-        for (let row = firstRow; row <= lastRow; row++) {
-          const low = row * s.band;
-          if (low <= 0 || betsRef.current.has(cellKey(code, slot, low))) continue;
-          const y0 = yAt(low + s.band);
-          const multiplier = oddsRef.current.get(`${slot}:${low}`);
-          const open = lead >= s.minLeadMs + LEAD_MARGIN_MS && multiplier !== undefined && multiplier > 0;
-          const hovered = open && ((hover && hover.slot === slot && hover.low === low) || (keyTarget && keyTarget.slot === slot && keyTarget.low === low));
-          roundRect(ctx, x0 + gap / 2, y0 + gap / 2, colW - gap, rowH - gap, 6);
-          ctx.fillStyle = hovered ? colors.line : colors.raised;
-          ctx.globalAlpha = open ? 1 : 0.45;
-          ctx.fill();
-          if (hovered) { ctx.strokeStyle = colors.brand; ctx.lineWidth = 1.5; ctx.stroke(); }
-          ctx.globalAlpha = 1;
-          if (open) {
-            ctx.fillStyle = hovered ? colors.ink : colors.muted;
-            ctx.textAlign = "center";
-            ctx.fillText(`${multiplier!.toFixed(1)}×`, x0 + colW / 2, y0 + rowH / 2);
-          }
-        }
-      }
-      ctx.restore();
-
-      // 1초 캔들
-      const candleMs = 1_000;
-      const candles = new Map<number, [number, number, number, number]>();
-      for (const [t, p] of samples) {
-        if (t < now - nowX / pxPerMs - candleMs) continue;
-        const bucket = Math.floor(t / candleMs);
-        const c = candles.get(bucket);
-        if (!c) candles.set(bucket, [p, p, p, p]);
-        else { c[1] = Math.max(c[1], p); c[2] = Math.min(c[2], p); c[3] = p; }
-      }
-      // 체결이 없던 초도 직전 종가로 이어 그린다.
-      let previousClose: number | null = null;
-      const startBucket = Math.floor((now - nowX / pxPerMs) / candleMs);
-      const candleW = Math.max(3, candleMs * pxPerMs * 0.62);
-      for (let bucket = startBucket; bucket <= Math.floor(now / candleMs); bucket++) {
-        let c = candles.get(bucket);
-        if (!c && previousClose !== null) c = [previousClose, previousClose, previousClose, previousClose];
-        if (!c) continue;
-        if (previousClose !== null) c[0] = previousClose;
-        const open: number = c[0], high: number = Math.max(c[1], c[0]), low: number = Math.min(c[2], c[0]), close: number = c[3];
-        previousClose = close;
-        const x = xAt(bucket * candleMs + candleMs / 2);
-        if (x > nowX) continue;
-        const color = close > open ? colors.up : close < open ? colors.down : colors.faint;
-        ctx.strokeStyle = color;
-        ctx.fillStyle = color;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(Math.round(x) + 0.5, yAt(high));
-        ctx.lineTo(Math.round(x) + 0.5, yAt(low));
-        ctx.stroke();
-        const top = yAt(Math.max(open, close)), bottom = yAt(Math.min(open, close));
-        ctx.fillRect(x - candleW / 2, top, candleW, Math.max(1.5, bottom - top));
-      }
-
-      // 내가 건 칸(결과가 난 칸은 과거 구역까지 흘러간다)
-      const nowMs = performance.now();
-      for (const bet of betsRef.current.values()) {
-        if (bet.code !== code) continue;
-        const slot = Math.floor(bet.slotStart / s.slotMs);
-        if (slot < firstSlot) continue;
-        const x0 = xAt(bet.slotStart), y0 = yAt(bet.bandHigh);
-        const h = ((bet.bandHigh - bet.bandLow) / s.band) * rowH;
-        const settled = bet.status === "LOST" || bet.status === "VOID";
-        const won_ = bet.status === "WON";
-        ctx.globalAlpha = settled ? 0.35 : 1;
-        roundRect(ctx, x0 + gap / 2, y0 + gap / 2, colW - gap, h - gap, 6);
-        ctx.fillStyle = won_ ? colors.brand : colors.ink;
-        ctx.fill();
-        if (bet.status === "PENDING") {
-          ctx.setLineDash([4, 3]);
-          ctx.strokeStyle = colors.brand;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-        ctx.fillStyle = won_ ? colors.brandInk : colors.stage;
-        ctx.textAlign = "center";
-        ctx.font = `700 ${narrow ? 11 : 12}px Pretendard Variable, Pretendard, system-ui, sans-serif`;
-        ctx.fillText(won_ ? `+${won(bet.payout)}` : `${bet.multiplier.toFixed(1)}×`, x0 + colW / 2, y0 + h / 2 - (narrow ? 6 : 7));
-        ctx.font = `500 ${narrow ? 10 : 11}px Pretendard Variable, Pretendard, system-ui, sans-serif`;
-        ctx.fillText(bet.status === "VOID" ? "환불" : shortWon(bet.stake), x0 + colW / 2, y0 + h / 2 + (narrow ? 7 : 8));
-        ctx.globalAlpha = 1;
-      }
-
-      // 당첨 순간: 칸 위로 받은 금액이 떠오른다
-      burstsRef.current = burstsRef.current.filter((burst) => nowMs - burst.at < 1_600);
-      for (const burst of burstsRef.current) {
-        const bet = betsRef.current.get(burst.key);
-        if (!bet || bet.code !== code) continue;
-        const progress = (nowMs - burst.at) / 1_600;
-        const rise = reducedMotion() ? 0 : progress * 28;
-        ctx.globalAlpha = 1 - progress * progress;
-        ctx.fillStyle = colors.brand;
-        ctx.textAlign = "center";
-        ctx.font = `800 ${narrow ? 16 : 20}px Pretendard Variable, Pretendard, system-ui, sans-serif`;
-        ctx.fillText(`+${won(burst.payout)}`, xAt(bet.slotStart) + colW / 2, yAt(bet.bandHigh) - 10 - rise);
-        ctx.globalAlpha = 1;
-      }
-
-      // 현재선과 현재가
-      const py = yAt(price);
-      ctx.strokeStyle = colors.faint;
-      ctx.setLineDash([2, 4]);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(nowX, py);
-      ctx.lineTo(width, py);
-      ctx.moveTo(nowX + 0.5, 0);
-      ctx.lineTo(nowX + 0.5, height);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = colors.ink;
-      ctx.beginPath();
-      ctx.arc(nowX, py, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-      const label = price.toLocaleString("ko-KR");
-      ctx.font = `700 ${narrow ? 11 : 12}px Pretendard Variable, Pretendard, system-ui, sans-serif`;
-      const labelW = ctx.measureText(label).width + 14;
-      roundRect(ctx, nowX - labelW - 8, py - 11, labelW, 22, 11);
-      ctx.fillStyle = colors.ink;
-      ctx.fill();
-      ctx.fillStyle = colors.stage;
-      ctx.textAlign = "center";
-      ctx.fillText(label, nowX - labelW / 2 - 8, py);
-
-      // 왼쪽 가격 눈금
-      ctx.font = `500 ${narrow ? 10 : 11}px Pretendard Variable, Pretendard, system-ui, sans-serif`;
-      ctx.fillStyle = colors.faint;
-      ctx.textAlign = "left";
-      const every = Math.max(1, Math.ceil(28 / rowH));
-      for (let row = firstRow; row <= lastRow; row++) {
-        if (row % every !== 0) continue;
-        const y = yAt(row * s.band);
-        if (y < 10 || y > height - 10 || Math.abs(y - py) < 14) continue;
-        ctx.fillText((row * s.band).toLocaleString("ko-KR"), 8, y);
-      }
+      drawTapFrame(ctx, refs, s, paletteRef.current!, code, width, height, serverNow(), time, dt);
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
@@ -488,11 +236,9 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
     }
   };
 
-  const today = state?.today;
   const open = bets.filter((bet) => bet.code === code && (bet.status === "OPEN" || bet.status === "PENDING"));
   const recent = bets.filter((bet) => bet.code === code && (bet.status === "WON" || bet.status === "LOST" || bet.status === "VOID"))
     .sort((a, b) => b.slotStart - a.slotStart).slice(0, 8);
-  const net = today ? today.paid - today.staked : 0;
   const change = quote ? (quote.price - quote.prevClose) / quote.prevClose : 0;
 
   return (
@@ -535,50 +281,10 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
         <p className="vh" aria-live="polite">{announcement}</p>
       </div>
 
-      <div className="nx-tap-controls">
-        <fieldset className="nx-tap-stakes">
-          <legend>한 칸에 걸 금액</legend>
-          {(state?.stakes ?? [10_000, 50_000, 100_000]).map((amount) => (
-            <button key={amount} type="button" className={`nx-tap-stake${amount === stake ? " is-active" : ""}`} aria-pressed={amount === stake} onClick={() => setStake(amount)}>
-              {shortWon(amount)}원
-            </button>
-          ))}
-        </fieldset>
-        <dl className="nx-tap-stats">
-          <div><dt>보유 현금</dt><dd className="nx-num">{user ? won(snapshot.portfolio.cash) : "—"}</dd></div>
-          <div><dt>오늘 탭 손익</dt><dd className={`nx-num${net > 0 ? " is-up" : net < 0 ? " is-down" : ""}`}>{user && today ? `${net > 0 ? "+" : ""}${won(net)}` : "—"}</dd></div>
-          <div><dt>오늘 적중</dt><dd className="nx-num">{user && today ? `${today.wins} / ${today.wins + today.losses}` : "—"}</dd></div>
-          <div><dt>결과 대기</dt><dd className="nx-num">{open.length}칸</dd></div>
-        </dl>
-      </div>
+      <TapControls stakes={state?.stakes ?? [10_000, 50_000, 100_000]} stake={stake} onStake={setStake} signedIn={Boolean(user)}
+        cash={snapshot.portfolio.cash} today={state?.today} openCount={open.length} />
 
-      <div className="nx-tap-foot">
-        <section className="nx-tap-rules" aria-labelledby="nx-tap-rules-title">
-          <h2 id="nx-tap-rules-title">이렇게 정해져요</h2>
-          <ul>
-            <li>칸 하나는 앞으로의 5초와 가격 한 호가예요. 배당은 최근 실제로 그만큼 떨어진 가격까지 닿은 비율로 정해요.</li>
-            <li>그 5초 안에 실제 체결가가 칸에 닿으면 바로 당첨이고, 끝까지 안 닿으면 건 금액을 잃어요.</li>
-            <li>칸이 열리기 1.5초 전까지만 걸 수 있어요. 지금 가격이 든 칸, 거의 확실하거나 거의 안 닿는 칸은 열리지 않아요.</li>
-            <li>건 금액과 받은 금액은 계좌 현금에 바로 반영돼 순자산과 랭킹에도 들어가요.</li>
-          </ul>
-          {!user && <button type="button" className="nx-btn is-primary" onClick={() => openLoginPrompt(TAP_PATH(code))}>로그인하고 걸기</button>}
-          {user && <Link className="nx-tap-link" to={`/market/${code}`}>{listing?.name ?? code} 주식 거래하기</Link>}
-        </section>
-        <section className="nx-tap-history" aria-labelledby="nx-tap-history-title">
-          <h2 id="nx-tap-history-title">최근 결과</h2>
-          {recent.length === 0 ? <p className="nx-tap-empty">아직 결과가 난 칸이 없어요. 격자에서 칸을 눌러 걸어 보세요.</p> : (
-            <ol>
-              {recent.map((bet) => (
-                <li key={bet.id} className={`is-${bet.status.toLowerCase()}`}>
-                  <span className="nx-num">{won(bet.bandLow)}~</span>
-                  <span className="nx-num">{bet.multiplier.toFixed(1)}× · {shortWon(bet.stake)}</span>
-                  <strong className="nx-num">{bet.status === "WON" ? `+${won(bet.payout)}` : bet.status === "VOID" ? "환불" : `-${won(bet.stake)}`}</strong>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-      </div>
+      <TapFoot code={code} name={listing?.name ?? code} signedIn={Boolean(user)} recent={recent} />
     </section>
   );
 }
