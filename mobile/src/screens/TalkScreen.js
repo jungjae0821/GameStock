@@ -10,7 +10,7 @@ import { price, signedPercent } from '../format';
 import { sessionRate } from '../market';
 import { deleteTalk, failure, likeTalk, loadTalk, serverTime, writeTalk } from '../research';
 import { FONT_FAMILY, RADIUS, RADIUS_XS, SPACE, TYPE, Txt, toneOf, useTheme } from '../theme';
-import { StockPicker } from './StockScreen';
+import { StockPicker } from './stock/StockPicker';
 
 const MAX_LENGTH = 300;
 const VIEWS = [{ key: 'board', label: '글' }, { key: 'chat', label: '실시간 채팅' }];
