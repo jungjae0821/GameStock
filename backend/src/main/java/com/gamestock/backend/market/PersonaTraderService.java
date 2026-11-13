@@ -20,8 +20,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 import static com.gamestock.backend.market.MarketModels.OrderRequest;
 import static com.gamestock.backend.market.PersonaDecisions.*;
@@ -30,7 +32,8 @@ import static com.gamestock.backend.market.PersonaDecisions.*;
  * {@link Persona} 운영 봇들을 1분마다 움직인다. 접속한 날에는 출석·칭호·일일 예측을 챙기고,
  * 접속 시간대 안에서만 일반 회원과 같은 {@link OrderService#submit} 경로로 시장가 주문을 낸다.
  *
- * <p>시즌·주간·자산 랭킹 중 하나라도 {@code guardRank}에 가까우면 새로 사지 않는다. 그래도
+ * <p>시즌·주간·자산 랭킹 중 하나라도 {@code guardRank}에 가까우면 새로 사지 않는다. 랭킹에 실제 회원이
+ * 적으면 그 경계도 실제 회원 수까지로 줄어든다. 그래도
  * 보상 순위에 들면 시즌 종료와 주간 칭호 지급이 이들을 건너뛴다.
  * 관리자가 봇이나 트레이더 봇, 시장을 멈추면 함께 멈춘다.
  */
@@ -199,15 +202,31 @@ public class PersonaTraderService {
 
     /** 진행 중인 시즌, 이번 주 수익률, 자산 랭킹 가운데 하나라도 경계선 근처면 true. */
     boolean nearReward(long id, String nickname) {
-        int limit = guardRank + GUARD_MARGIN;
+        var ranking = market.ranking();
+        int limit = guardLimit(guardRank, realMembers(ranking));
+        if (limit == 0) return false;
         var season = engagement.season(id);
         if (season != null && "ACTIVE".equals(season.status()) && season.me() != null && season.me().rank() <= limit) return true;
         var weekly = titles.weeklyRanking(id);
         if (weekly != null && weekly.me() != null && weekly.me().rank() <= limit) return true;
-        var ranking = market.ranking();
         for (int i = 0; i < Math.min(limit, ranking.size()); i++)
             if (nickname.equals(ranking.get(i).nickname())) return true;
         return false;
+    }
+
+    /**
+     * 매수를 멈추는 순위 경계. 원래는 {@code guardRank + GUARD_MARGIN}위까지지만, 랭킹에 실제 회원이 그보다
+     * 적으면 실제 회원 수까지로 줄인다. 회원이 적을 때 랭킹 전체가 경계 안에 들어가 운영 봇이 아무것도
+     * 못 사는 일을 막는다. 보상은 정산이 운영 봇을 건너뛰므로 실제 회원 몫을 가져가지 않는다.
+     */
+    static int guardLimit(int guardRank, int realMembers) {
+        return Math.max(0, Math.min(guardRank + GUARD_MARGIN, realMembers));
+    }
+
+    /** 자산 랭킹에서 운영 봇을 뺀 실제 회원 수. */
+    static int realMembers(List<MarketModels.RankingEntry> ranking) {
+        Set<String> personas = Persona.ALL.stream().map(Persona::nickname).collect(Collectors.toSet());
+        return (int) ranking.stream().filter(entry -> !personas.contains(entry.nickname())).count();
     }
 
     // ── 계좌와 시세 ──────────────────────────────────────────
