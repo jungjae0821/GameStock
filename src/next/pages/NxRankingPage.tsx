@@ -174,9 +174,9 @@ export function NxRankingPage() {
         <AnimatedNav as="div" fill activeKey={tab} className="nx-seg nx-ranking-tabs" role="tablist" aria-label="랭킹 종류">
           <button type="button" role="tab" id="nx-rank-total" aria-selected={tab === "total"} aria-controls="nx-rank-panel" className={tab === "total" ? "is-active" : undefined} onClick={() => select("total")}>트레이더</button>
           <button type="button" role="tab" id="nx-rank-wealth" aria-selected={tab === "wealth"} aria-controls="nx-rank-panel" className={tab === "wealth" ? "is-active" : undefined} onClick={() => select("wealth")}>부자</button>
-          <button type="button" role="tab" id="nx-rank-weekly" aria-selected={tab === "weekly"} aria-controls="nx-rank-panel" className={tab === "weekly" ? "is-active" : undefined} onClick={() => select("weekly")}>이번 주 수익률</button>
+          <button type="button" role="tab" id="nx-rank-weekly" aria-selected={tab === "weekly"} aria-controls="nx-rank-panel" className={tab === "weekly" ? "is-active" : undefined} onClick={() => select("weekly")}>이번 주</button>
           <button type="button" role="tab" id="nx-rank-season" aria-selected={tab === "season"} aria-controls="nx-rank-panel" className={tab === "season" ? "is-active" : undefined} onClick={() => select("season")}>시즌</button>
-          <button type="button" role="tab" id="nx-rank-fandom" aria-selected={tab === "fandom"} aria-controls="nx-rank-panel" className={tab === "fandom" ? "is-active" : undefined} onClick={() => select("fandom")}>팬덤 대항전</button>
+          <button type="button" role="tab" id="nx-rank-fandom" aria-selected={tab === "fandom"} aria-controls="nx-rank-panel" className={tab === "fandom" ? "is-active" : undefined} onClick={() => select("fandom")}>팬덤전</button>
         </AnimatedNav>
         <div id="nx-rank-panel" role="tabpanel" aria-labelledby={`nx-rank-${tab}`}>
           {tab === "total" ? <TotalBoard /> : tab === "wealth" ? <WealthBoard /> : tab === "weekly" ? <WeeklyBoard /> : tab === "season" ? <SeasonBoard /> : <FandomBoard />}

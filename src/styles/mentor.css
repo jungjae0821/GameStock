@@ -1,0 +1,74 @@
+/*
+ * 사수 슈엔의 대화창, 발령장, OJT 진행 카드. 새 색은 만들지 않는다.
+ * 갈굴 때(is-scold)는 거래 보호와 같은 주의색(--notice-*)을 쓴다. 손실한도·강등은 거래 보호 이야기다.
+ * 빨강·파랑은 오름·내림 몫이라 여기서는 쓰지 않는다.
+ */
+
+.mentor-dialog {
+  position: fixed; inset: 0; margin: auto; width: min(460px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+  padding: 0; overflow-y: auto; border: 0; border-radius: 20px; background: var(--paper); color: var(--ink);
+  box-shadow: var(--shadow-float, 0 18px 44px rgb(0 0 0 / 28%));
+}
+.mentor-dialog::backdrop { background: rgb(25 22 30 / 38%); backdrop-filter: blur(3px); }
+.mentor-dialog.is-scold { border-top: 6px solid var(--notice-ink); }
+.mentor-card { display: flex; flex-direction: column; gap: 18px; padding: 28px; font: 400 var(--step-1)/1.65 var(--font-ui); overflow-wrap: anywhere; }
+
+.mentor-speaker { display: flex; align-items: center; gap: 14px; }
+.mentor-avatar { flex: none; width: 48px; height: 48px; border-radius: 50%; background: var(--sunken); object-fit: contain; }
+.mentor-avatar.is-small { width: 32px; height: 32px; }
+.mentor-kicker { margin: 0; color: var(--ink-muted); font-size: 12px; font-weight: 600; }
+.mentor-dialog.is-scold .mentor-kicker { color: var(--notice-ink); }
+.mentor-speaker h2 { margin: 2px 0 0; color: var(--ink); font-size: var(--step-3); font-weight: 700; line-height: 1.35; }
+
+.mentor-line { margin: 0; padding: 16px 18px; border-radius: 14px; background: var(--sunken); color: var(--ink); white-space: pre-line; }
+.mentor-dialog.is-scold .mentor-line { background: var(--notice-bg); }
+
+.mentor-progress { display: flex; justify-content: center; gap: 6px; margin: 0; }
+.mentor-progress span { width: 6px; height: 6px; border-radius: 50%; background: var(--rule); }
+.mentor-progress span.is-current { background: var(--ink); }
+
+.mentor-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.mentor-button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px;
+  border: 0; border-radius: var(--radius-pill); font: inherit; font-weight: 700; cursor: pointer;
+}
+.mentor-button.is-quiet { background: var(--sunken); color: var(--ink); }
+.mentor-button.is-strong { background: var(--ink); color: var(--paper); }
+.mentor-button:hover { filter: brightness(1.1); }
+.mentor-button.is-quiet:hover { filter: brightness(0.96); }
+.mentor-button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--focus); }
+
+/* 발령장: 종이 한 장. 겹줄 테두리와 가운데 제목으로 공문 느낌만 낸다. */
+.mentor-certificate {
+  padding: 20px 22px; border: 3px double var(--ink); border-radius: 4px; background: var(--paper); color: var(--ink);
+  text-align: center;
+}
+.mentor-certificate-head { margin: 0 0 12px; font-size: var(--step-4); font-weight: 700; letter-spacing: 0.6em; padding-left: 0.6em; }
+.mentor-certificate dl { display: grid; gap: 6px; margin: 0 auto; max-width: 280px; text-align: left; }
+.mentor-certificate dl div { display: grid; grid-template-columns: 72px 1fr; gap: 12px; }
+.mentor-certificate dt { color: var(--ink-muted); }
+.mentor-certificate dd { margin: 0; font-weight: 600; }
+.mentor-certificate-body { margin: 14px 0 6px; font-weight: 600; }
+.mentor-certificate-foot { margin: 0; color: var(--ink-muted); font-size: 12px; }
+
+/* OJT 진행 카드: 화면 오른쪽 아래에 붙는다. 휴대폰에서는 아래 탭바 위로 올린다. */
+.mentor-ojt {
+  position: fixed; right: 16px; bottom: 16px; z-index: 40; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center; gap: 10px; width: min(420px, calc(100vw - 32px)); padding: 12px 12px 12px 14px;
+  border: 1px solid var(--rule); border-radius: 14px; background: var(--paper); color: var(--ink);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+.mentor-ojt-copy p { margin: 0; font-size: 13px; line-height: 1.5; }
+.mentor-ojt-copy .mentor-kicker { font-size: 11px; }
+.mentor-ojt-close { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-muted); cursor: pointer; }
+.mentor-ojt-close:hover { background: var(--sunken); color: var(--ink); }
+.mentor-ojt-close:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
+
+@media (max-width: 720px) {
+  html[data-app-shell="web"][data-nx] .mentor-ojt { bottom: calc(var(--nx-tabbar) + 12px); }
+  .mentor-card { padding: 22px; }
+}
+@media (max-width: 420px) {
+  .mentor-ojt { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .mentor-ojt .nx-btn { grid-column: 2 / 3; justify-self: start; }
+}

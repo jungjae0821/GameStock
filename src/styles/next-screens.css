@@ -125,6 +125,8 @@ html[data-nx][data-nx-theme="light"] .nx-article-stats div { background: var(--n
 
 /* 같은 표를 두 기준으로 바꿔 보는 자리라 밑줄 탭 대신 세그먼트를 쓴다. */
 .nx-ranking-tabs { margin-bottom: 16px; }
+/* 탭이 다섯 개라 좁은 화면에서 글자가 두 줄로 쪼개지지 않게 한다. */
+.nx-ranking-tabs button { white-space: nowrap; }
 .nx-rank-scroll { overflow-x: auto; }
 .nx-rank-table tbody th,
 .nx-rank-table tbody td { height: 72px; font-size: 14px; }
