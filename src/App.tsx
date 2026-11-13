@@ -80,6 +80,8 @@ export default function App() {
   const auth = useAuthUser();
   const profile = useProfile();
   const suspendedUntil = useSuspendedUntil(auth.user ? profile : null);
+  /* 앱 안 WebView로 열렸는지. main.tsx가 첫 렌더 전에 app-shell=1을 보고 정한다(이 모듈이 읽히는 때보다 늦다). */
+  const inAppShell = document.documentElement.dataset.appShell === "mobile";
   /* 종목 상세와 거래는 하나의 터미널로 합친다(해외 거래소처럼). */
   const terminal = route.name === "trade" || (route.name === "market" && route.ticker !== null);
   useNxRoot();
@@ -166,12 +168,14 @@ export default function App() {
       </main>
       <NxTabbar route={route} />
       <MissionRewardToast />
-      <MarketAlerts />
+      {/* 앱 안 WebView(app-shell)에서는 시장 알림과 슈엔의 첫 출근·발령·갈구기를 앱이 네이티브로 띄운다.
+          숨겨 둔 WebView에서 몰래 떠 버리거나 앱과 두 번 뜨지 않게 웹은 그리지 않는다. 데스크 첫 방문 안내(DeskIntro)는 그대로 둔다. */}
+      {!inAppShell && <MarketAlerts />}
       <OrderImpactToast />
       <TitleWatcher />
       <LoginModal />
       <SiteNoticeDialog />
-      <MentorHost />
+      {!inAppShell && <MentorHost />}
       <CircuitBreakerNotice />
     </div>
   );

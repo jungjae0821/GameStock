@@ -4,6 +4,7 @@ import { useAccount } from '../../account';
 import { request, useAuth } from '../../auth';
 import { Avatar, PROFILE_AVATARS, isProfileAvatar, isUploadedPhoto } from '../../components/Avatar';
 import { AccountFrame, Button, Card, CardHead, Empty, Field, Notice } from '../../components/Kit';
+import { FandomSettings, PublicProfileSettings } from '../../components/Engagement';
 import { RADIUS, SPACE, Txt, useTheme } from '../../theme';
 
 const kstFull = iso => {
@@ -14,7 +15,7 @@ const kstFull = iso => {
 };
 
 /** 프로필·계정 설정. 할 일은 내 정보 바꾸기다: 닉네임, 프로필 사진, 그리고 계좌 초기화. */
-export function ProfileScreen({ onBack }) {
+export function ProfileScreen({ market, onBack }) {
   const theme = useTheme();
   const { user, refreshProfile } = useAuth();
   const account = useAccount();
@@ -180,6 +181,9 @@ export function ProfileScreen({ onBack }) {
         <Txt variant="caption" tone="inkSoft">{avatarStatus}</Txt>
         <Button label="프로필 사진 저장" kind="primary" busy={saving === 'avatar'} disabled={saving != null || !avatar || avatarSaved} onPress={() => void saveAvatar()} />
       </Card>
+
+      <FandomSettings stocks={market?.stocks ?? []} />
+      <PublicProfileSettings />
 
       <Card>
         <CardHead title="계좌 초기화" />

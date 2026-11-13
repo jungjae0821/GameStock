@@ -6,6 +6,8 @@ import { api } from '../../market';
 import { signedPercent, signedWon, won } from '../../format';
 import { RADIUS_SM, SPACE, Txt, toneOf, useTheme } from '../../theme';
 import { Fact, OrderNotice, Stepper, TradeList, pnlTone, useDerivativeOrder } from './parts';
+import { UnlockNotice } from '../../components/Engagement';
+import { useDeskIntro } from '../../components/Mentor';
 
 // 만기 손익을 보여 줄 지수 위치. 지금 지수에서 ±3%까지 1%씩.
 const MOVES = [-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03];
@@ -20,8 +22,9 @@ const expiryText = epoch => {
  * 10분·1시간·일요일 18:00 만기 옵션. 웹 OptionsPanel처럼 만기 → 콜/풋 → 행사가 순으로 고르고,
  * 고른 계약(또는 보유 계약)의 만기 손익을 지수 위치별로 미리 본다.
  */
-export function OptionsView({ onLogin, contentStyle }) {
+export function OptionsView({ onLogin, onOpenCareer, contentStyle }) {
   const theme = useTheme();
+  useDeskIntro('OPTIONS');
   const { snapshot, account, error, signedIn, setAccount } = useDerivatives();
   const order = useDerivativeOrder({ signedIn, setAccount, onLogin });
   const now = useNow(1000);
@@ -69,6 +72,7 @@ export function OptionsView({ onLogin, contentStyle }) {
         <Txt variant="callout" tone={toneOf(snapshot.indexChangePercent)} numeric>{`오늘 ${signedPercent(snapshot.indexChangePercent / 100)}`}</Txt>
       </View>
       {error ? <OrderNotice notice={{ ok: false, text: '시세 갱신이 늦어져 이전 시세를 보여 주고 있어요.' }} /> : null}
+      <UnlockNotice feature="OPTIONS" onOpenCareer={onOpenCareer} />
 
       <Card>
         <CardHead title="만기" meta={cycle ? `${countdown(cycle.expiryEpoch, now)} 남음` : null} />

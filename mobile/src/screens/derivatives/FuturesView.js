@@ -8,6 +8,8 @@ import { api } from '../../market';
 import { signedPercent, signedWon, won } from '../../format';
 import { RADIUS_SM, SPACE, Txt, toneOf, useTheme } from '../../theme';
 import { Fact, OrderNotice, Stepper, TradeList, pnlTone, useDerivativeOrder } from './parts';
+import { UnlockNotice } from '../../components/Engagement';
+import { useDeskIntro } from '../../components/Mentor';
 
 const MAX_CONTRACTS = 100;
 const RANGES = [
@@ -20,8 +22,9 @@ const RATIOS = [{ label: '10%', ratio: 0.1 }, { label: '25%', ratio: 0.25 }, { l
 const signedIndex = value => `${value >= 0 ? '+' : '−'}${indexText(Math.abs(value))}`;
 
 /** 게임주 지수 선물(무기한). 웹 FuturesTerminal과 같은 순서: 시세·차트, 주문, 내 포지션, 상품 정보. */
-export function FuturesView({ onLogin, contentStyle }) {
+export function FuturesView({ onLogin, onOpenCareer, contentStyle }) {
   const theme = useTheme();
+  useDeskIntro('FUTURES');
   const { profile } = useAuth();
   const { snapshot, account, error, signedIn, setAccount } = useDerivatives();
   const order = useDerivativeOrder({ signedIn, setAccount, onLogin });
@@ -82,6 +85,7 @@ export function FuturesView({ onLogin, contentStyle }) {
         <Txt variant="callout" tone={toneOf(ratio)} numeric>{`오늘 ${signedPercent(ratio)} (${signedIndex(future.price - future.prevClose)})`}</Txt>
       </View>
       {error ? <OrderNotice notice={{ ok: false, text: '시세 갱신이 늦어져 이전 시세를 보여 주고 있어요.' }} /> : null}
+      <UnlockNotice feature="FUTURES" onOpenCareer={onOpenCareer} />
 
       <Card>
         <View style={styles.ranges} accessibilityRole="tablist" accessibilityLabel="봉 간격">

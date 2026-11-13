@@ -21,6 +21,9 @@ import { ProfileScreen } from './src/screens/account/ProfileScreen';
 import { AdminScreen } from './src/screens/account/AdminScreen';
 import { AttendanceScreen } from './src/screens/account/AttendanceScreen';
 import { AccountProvider } from './src/account';
+import { EngagementProvider } from './src/engagement';
+import { MentorHost } from './src/components/Mentor';
+import { useMarketAlerts } from './src/marketAlerts';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { AuthProvider, useAuth } from './src/auth';
 import { TabBar, TABS } from './src/components/TabBar';
@@ -39,6 +42,12 @@ const PARK_PATH = '/news';
 const stockFromPath = path => String(path || '').split('/').filter(Boolean)[1]?.toUpperCase() ?? null;
 /** /market/etf/ETFIDX 에서 ETF 코드를 꺼낸다. ETF 주소가 아니면 undefined. */
 const etfFromPath = path => { const parts = String(path || '').split('/').filter(Boolean); return parts[1] === 'etf' ? parts[2]?.toUpperCase() ?? null : undefined; };
+/** /derivatives/futures, /derivatives/options 웹 주소를 시장 탭의 상품 구분으로 바꾼다. 파생 주소가 아니면 null. */
+const productFromPath = path => {
+  const parts = String(path || '').split('/').filter(Boolean);
+  if (parts[0] !== 'derivatives') return null;
+  return parts[1] === 'options' ? 'options' : 'futures';
+};
 /** /news/123 에서 기사 id를 꺼낸다. */
 const newsFromPath = path => { const id = Number(String(path || '').split('/').filter(Boolean)[1]); return Number.isFinite(id) && id > 0 ? id : null; };
 // 설정 탭의 계정 화면. 모두 네이티브이고, 여기 없는 주소만 웹 화면으로 연다.
@@ -57,7 +66,7 @@ const accountScreenFor = path => ACCOUNT_SCREENS[String(path || '').split('?')[0
 function tabForPath(path) {
   const first = String(path || '/').split('/').filter(Boolean)[0];
   if (!first) return 'home';
-  if (first === 'market' || first === 'trade') return 'market';
+  if (first === 'market' || first === 'trade' || first === 'derivatives') return 'market';
   if (first === 'news') return 'news';
   if (first === 'ranking') return 'ranking';
   if (first === 'talk') return 'talk';
@@ -72,7 +81,9 @@ function Shell() {
   return (
     <AuthProvider onWebToken={signInWeb} onWebSignOut={signOutWeb}>
       <AccountProvider>
-        <ShellBody web={web} />
+        <EngagementProvider>
+          <ShellBody web={web} />
+        </EngagementProvider>
       </AccountProvider>
     </AuthProvider>
   );
@@ -88,6 +99,8 @@ function ShellBody({ web }) {
   const circuit = useCircuitNotice(market.status?.restriction);
   // 정지된 계정은 서버가 칭호 확인도 거절하므로 확인하지 않는다.
   useTitleWatcher(Boolean(user) && !suspendedUntil);
+  // 고래 체결과 큰 뉴스는 어느 화면에 있든 짧게 알린다.
+  useMarketAlerts(market);
   // 앱을 켜 둔 사이 정지되거나 풀렸을 수 있으니 앱으로 돌아올 때 프로필을 다시 읽는다.
   useEffect(() => {
     if (!user) return undefined;
@@ -99,8 +112,13 @@ function ShellBody({ web }) {
   const [stock, setStock] = useState(null);
   // 시장 탭에서 연 ETF 코드. 종목 상세와 같은 자리에 겹쳐 연다.
   const [etf, setEtf] = useState(null);
-  /** 웹 시장 주소(/market/BA, /market/etf/ETFIDX)를 시장 탭의 상세로 연다. */
+  // 시장 탭 위쪽 상품 구분(주식·선물·옵션). 승진 발령의 "데스크 가 보기"가 바로 선물·옵션을 열 수 있게 여기서 갖는다.
+  const [marketProduct, setMarketProduct] = useState('stocks');
+  /** 웹 시장 주소(/market/BA, /market/etf/ETFIDX, /derivatives/futures)를 시장 탭의 상세로 연다. */
   const showMarket = useCallback(path => {
+    const product = productFromPath(path);
+    if (product) { setMarketProduct(product); setStock(null); setEtf(null); setStockOrder(null); setTab('market'); return; }
+    if (stockFromPath(path) || etfFromPath(path)) setMarketProduct('stocks');
     const etfCode = etfFromPath(path);
     if (etfCode !== undefined) { setEtf(etfCode); setStock(null); } else { setEtf(null); setStock(stockFromPath(path)); }
     setStockOrder(null);
@@ -296,7 +314,17 @@ function ShellBody({ web }) {
           />
           {tab === 'home' ? <HomeScreen market={market} onOpen={open} /> : null}
           {/* 종목 상세를 여는 동안에도 목록을 아래에 그려 둔다. 아이폰에서 상세를 밀어 닫으면 목록이 드러나고 스크롤 위치도 남는다. */}
-          {tab === 'market' ? <MarketScreen market={market} onOpenStock={setStock} onOpenEtf={setEtf} onLogin={() => requestLogin(null)} /> : null}
+          {tab === 'market' ? (
+            <MarketScreen
+              market={market}
+              product={marketProduct}
+              onProduct={setMarketProduct}
+              onOpenStock={setStock}
+              onOpenEtf={setEtf}
+              onLogin={() => requestLogin(null)}
+              onOpenCareer={() => openMenuItem('/career')}
+            />
+          ) : null}
           {tab === 'market' && stock ? (
             <SwipeBack key={stock} onBack={() => setStock(null)}>
               <StockScreen code={stock} market={market} initialOrder={stockOrder} onBack={() => setStock(null)} onSwitch={setStock} onLogin={() => requestLogin(null)} onOpenTalk={openTalk} />
@@ -307,7 +335,7 @@ function ShellBody({ web }) {
               <EtfScreen code={etf} onBack={() => setEtf(null)} onOpenStock={setStock} onLogin={() => requestLogin(null)} />
             </SwipeBack>
           ) : null}
-          {tab === 'ranking' ? <RankingScreen /> : null}
+          {tab === 'ranking' ? <RankingScreen market={market} /> : null}
           {tab === 'talk' ? (
             <TalkScreen
               code={talkCode}
@@ -342,6 +370,8 @@ function ShellBody({ web }) {
       <LoginScreen visible={login.visible} onClose={closeLogin} />
       {showCircuit ? <CircuitBreakerModal restriction={circuit.restriction} onClose={circuit.close} onConfirm={circuit.confirm} /> : null}
       {showNotice ? <SiteNoticeModal notice={siteNotice.notice} onDismiss={siteNotice.dismiss} onGo={path => (tabForPath(path) === 'more' ? openMenuItem(path) : go(path))} /> : null}
+      {/* 슈엔의 첫 출근 안내·발령장·갈구기. 다른 창이 떠 있으면 닫힌 뒤에 뜬다. */}
+      <MentorHost blocked={login.visible || showCircuit || showNotice} onGo={path => (tabForPath(path) === 'more' ? openMenuItem(path) : go(path))} />
     </>
   );
 }

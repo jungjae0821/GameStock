@@ -9,6 +9,9 @@ import { newsWithIds, sessionRate, useIndexToday, usePriceHistory } from '../mar
 import { useDerivatives } from '../derivatives';
 import { useBillboard } from '../billboard';
 import { Chips } from '../components/Kit';
+import { HomeFandoms, HomeLiveFeed } from '../components/Engagement';
+import { OjtCard } from '../components/Mentor';
+import { preferRankingTab } from './RankingScreen';
 import { VISIBLE_NEWS_SOURCES, classifyNewsSource } from '../newsSource';
 import { RADIUS, RADIUS_XS, SPACE, Txt, toneOf, useTheme } from '../theme';
 
@@ -119,6 +122,7 @@ export function HomeScreen({ market, onOpen }) {
       ) : null}
 
       <Billboard />
+      <OjtCard onOpenCareer={() => onOpen('more', '/career')} />
 
       {/* 지수는 화면의 중심이라 카드에 넣지 않고 바탕 위에 둔다. 좌우 여백은 카드 안쪽 여백과 같아서
           그래프가 아래 종목 줄 추이선과 같은 세로줄에 선다. */}
@@ -228,6 +232,9 @@ export function HomeScreen({ market, onOpen }) {
           <Txt variant="callout" tone="inkSoft" style={styles.news}>아직 수집된 뉴스가 없어요. 새 기사가 들어오면 여기에 보여요.</Txt>
         </Card>
       ) : null}
+
+      <HomeFandoms onOpenRanking={() => { preferRankingTab('fandom'); onOpen('ranking'); }} onOpenSettings={() => onOpen('more', '/settings')} />
+      <HomeLiveFeed onOpenStock={code => onOpen('market', `/market/${code}`)} />
 
       <Txt variant="micro" tone="inkSoft" style={styles.footer}>모의 시장이에요. 실제 주식이나 현금을 거래하지 않아요.</Txt>
     </ScrollView>

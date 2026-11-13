@@ -4,12 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAccount } from '../../account';
 import { request } from '../../auth';
 import { AccountFrame, Button, Card, CardHead, Empty, Field, Notice, Row, kit } from '../../components/Kit';
+import { PredictionCard } from '../../components/Engagement';
 import { won } from '../../format';
 import { MISSION_REWARD, missionLabel } from '../../missions';
 import { RADIUS, SPACE, Txt, useTheme } from '../../theme';
 
 /** 충전하기. 모의 자금은 결제가 아니라 매일 바뀌는 투자 미션 보상으로만 들어온다. */
-export function ChargeScreen({ onBack, onGo, onNotify }) {
+export function ChargeScreen({ market, onBack, onGo, onNotify }) {
   const theme = useTheme();
   const account = useAccount();
   const [status, setStatus] = useState(null);
@@ -107,8 +108,9 @@ export function ChargeScreen({ onBack, onGo, onNotify }) {
         })}
       </Card>
 
+      <PredictionCard stocks={market?.stocks ?? []} />
       <PromoCode />
-      <Txt variant="micro" tone="inkSoft" style={styles.footer}>실제 돈은 오가지 않아요. 미션 보상은 운용계좌가 아니라 내 지갑으로 들어와요.</Txt>
+      <Txt variant="micro" tone="inkSoft" style={styles.footer}>실제 돈은 오가지 않아요. 미션·예측 보상은 운용계좌가 아니라 내 지갑으로 들어와요.</Txt>
     </AccountFrame>
   );
 }
