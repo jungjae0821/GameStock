@@ -25,10 +25,11 @@ export function usePromoCode() {
       const status = await redeemPromoCode(trimmed);
       const named = status.newlyAwarded.map((title) => title.name);
       const parts = [
-        status.rewardCash > 0 ? `현금 ${status.rewardCash.toLocaleString("ko-KR")}원` : "",
-        named.length > 0 ? `칭호 ${named.join(", ")}` : "",
+        status.rewardCash > 0 ? `내 지갑에 ${status.rewardCash.toLocaleString("ko-KR")}원이 들어왔어요.` : "",
+        named.length > 0 ? `칭호 ${named.join(", ")}을(를) 받았어요.` : "",
       ].filter(Boolean);
-      setMessage({ text: parts.length > 0 ? `${parts.join("과 ")}을(를) 받았어요.` : "프로모션 코드를 사용했어요.", ok: true });
+      setMessage({ text: parts.length > 0 ? parts.join(" ") : "프로모션 코드를 사용했어요.", ok: true });
+      if (status.rewardCash > 0) window.dispatchEvent(new Event("gamestock:career"));
       setCode("");
     } catch (failure) {
       setMessage({ text: failure instanceof Error ? failure.message : "프로모션 코드를 사용하지 못했습니다.", ok: false });

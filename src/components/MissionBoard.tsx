@@ -9,12 +9,12 @@ import { navigate } from "../router";
 
 const MISSION_IDS = [
   "market", "news", "watch", "ranking", "portfolio", "home", "settings",
-  "trade", "loan", "titles",
+  "trade", "career", "titles",
   "stock-gov", "stock-uma", "stock-ba", "stock-gi", "stock-sr",
   "stock-zzz", "stock-crk", "stock-vr", "stock-ow", "stock-pw",
 ] as const;
 const DAILY_MISSION_COUNT = 3;
-const MISSION_REWARD_CASH = 50_000;
+const MISSION_REWARD_CASH = 10_000;
 type MissionId = (typeof MISSION_IDS)[number];
 type MissionProgress = { userId: string; status: DailyMissionStatus; expiresAt: number };
 
@@ -22,12 +22,12 @@ const labels: Record<MissionId, { title: string; description: string; action: st
   market: { title: "시장 둘러보기", description: "시세표에서 오늘 움직이는 종목을 찾아보세요.", action: "시장 보기", href: "/market" },
   news: { title: "뉴스 읽기", description: "가격이 왜 움직였는지 뉴스에서 확인해보세요.", action: "뉴스 보기", href: "/news" },
   watch: { title: "관심종목 등록", description: "마음에 드는 종목 하나를 관심 목록에 담아보세요. 담으면 보상이 자동으로 지급됩니다.", action: "종목 고르기", href: "/market" },
-  ranking: { title: "투자 랭킹 확인", description: "다른 투자자와 내 자산 순위를 확인해보세요.", action: "랭킹 보기", href: "/ranking" },
+  ranking: { title: "투자 랭킹 확인", description: "트레이더 랭킹과 부자 랭킹에서 내 위치를 확인해보세요.", action: "랭킹 보기", href: "/ranking" },
   portfolio: { title: "내 계좌 확인", description: "보유 종목과 평가손익을 한눈에 확인해보세요.", action: "내 계좌 보기", href: "/mypage" },
   home: { title: "오늘의 시세 요약", description: "홈에서 인기 종목과 오늘의 소식을 확인해보세요.", action: "홈 보기", href: "/" },
   settings: { title: "내 투자 환경 확인", description: "프로필과 투자 환경을 확인해보세요.", action: "설정 보기", href: "/settings" },
   trade: { title: "주문 화면 살펴보기", description: "호가와 주문창을 보며 매매 방법을 익혀보세요.", action: "주문 보기", href: "/trade" },
-  loan: { title: "대출 한도 확인", description: "내 대출 한도와 상환 조건을 확인해보세요.", action: "대출 보기", href: "/loan" },
+  career: { title: "내 커리어 확인", description: "지금 직급과 다음 승진 조건을 확인해보세요.", action: "커리어 보기", href: "/career" },
   titles: { title: "칭호 둘러보기", description: "획득한 칭호와 다음 칭호 조건을 확인해보세요.", action: "칭호 보기", href: "/titles" },
   "stock-gov": stockMission("승리의 여신: 니케", "GOV"),
   "stock-uma": stockMission("우마무스메 프리티더비", "UMA"),

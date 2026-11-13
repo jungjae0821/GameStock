@@ -12,6 +12,19 @@ export type RankingEntry = {
   /** 사용자가 칭호 페이지에서 장착한 칭호. 없으면 null. */
   equippedTitle?: string | null;
   equippedTitleWeekly?: boolean;
+  /** 트레이더 랭킹의 직급. 커리어 이전을 기다리는 회원이면 null. */
+  gradeLabel?: string | null;
+};
+
+/** 부자 랭킹 한 줄. 운용계좌(회사 돈)가 아니라 내 지갑만 센다. */
+export type WealthEntry = {
+  rank: number;
+  nickname: string;
+  profileImageUrl?: string | null;
+  personalCash: number;
+  gradeLabel: string | null;
+  equippedTitle?: string | null;
+  equippedTitleWeekly?: boolean;
 };
 
 export type WeeklyRankingEntry = Omit<RankingEntry, "changePercent"> & { weeklyReturnPercent: number };
@@ -28,10 +41,11 @@ export type WeeklyRanking = {
   me: WeeklyRankingEntry | null;
 };
 
-export type RankingTab = "total" | "weekly" | "season" | "fandom";
+export type RankingTab = "total" | "wealth" | "weekly" | "season" | "fandom";
 
 export const RANKING_CACHE_KEY = "gamestock-ranking-cache";
 export const WEEKLY_RANKING_CACHE_KEY = "gamestock-weekly-ranking-cache";
+export const WEALTH_RANKING_CACHE_KEY = "gamestock-wealth-ranking-cache";
 export const RANKING_TAB_KEY = "gamestock-ranking-tab";
 
 function readCache<T>(key: string, valid: (value: unknown) => boolean): T | null {
@@ -48,13 +62,14 @@ function writeCache(key: string, value: unknown) {
 }
 
 export const readRankingCache = () => readCache<RankingEntry[]>(RANKING_CACHE_KEY, Array.isArray) ?? [];
+export const readWealthCache = () => readCache<WealthEntry[]>(WEALTH_RANKING_CACHE_KEY, Array.isArray);
 export const readWeeklyCache = () =>
   readCache<WeeklyRanking>(WEEKLY_RANKING_CACHE_KEY, (value) => Array.isArray((value as WeeklyRanking | null)?.entries));
 
 export function readTab(): RankingTab {
   try {
     const saved = window.localStorage.getItem(RANKING_TAB_KEY);
-    return saved === "weekly" || saved === "season" || saved === "fandom" ? saved : "total";
+    return saved === "wealth" || saved === "weekly" || saved === "season" || saved === "fandom" ? saved : "total";
   } catch { return "total"; }
 }
 

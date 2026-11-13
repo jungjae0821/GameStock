@@ -28,30 +28,24 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Fan-facing features: a favourite game per member, the fandom board, the season
- * ranking, opt-in public profiles, the live trade feed, the daily prediction and the
- * comeback fund.
+ * ranking, opt-in public profiles, the live trade feed and the daily prediction.
  *
- * <p>Every cash reward here is written to {@code admin_cash_adjustments} the same way
- * promotion codes are, so ranking and season returns leave it out.
+ * <p>The prediction reward goes to the personal wallet, never the trading account.
  */
 @Service
 public class EngagementService {
     private static final Logger log = LoggerFactory.getLogger(EngagementService.class);
     static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
-    static final long PREDICTION_REWARD = 20_000L;
+    static final long PREDICTION_REWARD = 10_000L;
     static final int PREDICTION_CUTOFF_HOUR = 22;
-    static final long RESCUE_AMOUNT = 500_000L;
-    static final long RESCUE_LIMIT = 100_000L;
-    static final Duration RESCUE_COOLDOWN = Duration.ofDays(7);
     static final Duration FANDOM_COOLDOWN = Duration.ofDays(7);
     static final long WHALE_AMOUNT = 30_000_000L;
     private static final String NET_ASSET = "(" + AccountValuation.GROSS_ASSET + " - u.loan_balance)";
 
     public record Me(String fandomCode, String fandomChangeAvailableAt, boolean publicProfile, Prediction prediction,
-                     Rescue rescue, FeatureUnlockService.Progress unlocks) { }
+                     FeatureUnlockService.Progress unlocks) { }
     public record Prediction(String day, String stockCode, long basePrice, Long closePrice, String result, long reward,
                              boolean open, String closesAt, Prediction previous) { }
-    public record Rescue(boolean available, long amount, long netAsset, long limit, String nextAt) { }
     public record Fandom(String stockCode, String name, int fans, int holders, Double weeklyReturnPercent, int rank) { }
     public record SeasonEntry(int rank, String nickname, String profileImageUrl, long openingAsset, long currentAsset,
                               double returnPercent, boolean publicProfile) { }
@@ -101,7 +95,7 @@ public class EngagementService {
             Instant next = changed.toInstant().plus(FANDOM_COOLDOWN);
             if (next.isAfter(clock.instant())) changeAt = next.toString();
         }
-        return new Me(fandom, changeAt, open, prediction(userId), rescue(userId), unlocks.progress(userId));
+        return new Me(fandom, changeAt, open, prediction(userId), unlocks.progress(userId));
     }
 
     public Me setFandom(long userId, FandomRequest request) {
@@ -381,48 +375,13 @@ public class EngagementService {
             transactions.executeWithoutResult(status -> {
                 int claimed = jdbc.update("UPDATE daily_predictions SET result=?, close_price=?, reward_cash=? WHERE user_id=? AND day=? AND result IS NULL",
                         hit ? "HIT" : "MISS", close, hit ? PREDICTION_REWARD : 0, user, Date.valueOf(day));
-                if (claimed == 1 && hit) pay(user, "prediction:" + user + ":" + day, PREDICTION_REWARD, "일일 예측 적중 " + day);
+                if (claimed == 1 && hit)
+                    PersonalWallet.credit(jdbc, user, "prediction:" + user + ":" + day, PersonalWallet.PREDICTION, PREDICTION_REWARD,
+                            "일일 예측 적중 " + day);
             });
         }
     }
 
-    // ── 재기 지원금 ──────────────────────────────────────────
-
-    private Rescue rescue(long userId) {
-        Long net = jdbc.queryForObject("SELECT " + NET_ASSET + " FROM users u WHERE u.id=?", Long.class, userId);
-        long netAsset = net == null ? 0 : net;
-        Instant next = lastRescue(userId).map(at -> at.plus(RESCUE_COOLDOWN)).orElse(null);
-        boolean cooled = next == null || !next.isAfter(clock.instant());
-        return new Rescue(netAsset < RESCUE_LIMIT && cooled, RESCUE_AMOUNT, netAsset, RESCUE_LIMIT,
-                cooled ? null : next.toString());
-    }
-
-    public Me claimRescue(long userId) {
-        transactions.executeWithoutResult(status -> {
-            jdbc.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE", Long.class, userId);
-            Rescue rescue = rescue(userId);
-            if (rescue.netAsset() >= RESCUE_LIMIT)
-                throw new IllegalArgumentException("순자산이 " + String.format(Locale.ROOT, "%,d", RESCUE_LIMIT) + "원 아래일 때만 받을 수 있어요.");
-            if (!rescue.available()) throw new IllegalArgumentException("재기 지원금은 일주일에 한 번 받을 수 있어요.");
-            long epochDay = clock.instant().atZone(ZONE).toLocalDate().toEpochDay();
-            pay(userId, "rescue:" + userId + ":" + epochDay, RESCUE_AMOUNT, "재기 지원금");
-        });
-        return me(userId);
-    }
-
-    private java.util.Optional<Instant> lastRescue(long userId) {
-        var rows = jdbc.queryForList("SELECT MAX(created_at) FROM admin_cash_adjustments WHERE user_id=? AND request_key LIKE 'rescue:%'", Timestamp.class, userId);
-        return rows.isEmpty() || rows.get(0) == null ? java.util.Optional.empty() : java.util.Optional.of(rows.get(0).toInstant());
-    }
-
-    // ── helpers ──────────────────────────────────────────────
-
-    /** Same path as promotion codes: cash plus an admin cash adjustment that returns leave out. */
-    private void pay(long userId, String key, long amount, String reason) {
-        int recorded = jdbc.update("INSERT IGNORE INTO admin_cash_adjustments (request_key, admin_id, user_id, amount, reason) VALUES (?, 0, ?, ?, ?)",
-                key, userId, amount, reason);
-        if (recorded == 1) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", amount, userId);
-    }
 
     private void ensureRow(long userId) {
         jdbc.update("INSERT IGNORE INTO user_engagement (user_id) VALUES (?)", userId);

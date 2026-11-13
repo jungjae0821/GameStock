@@ -10,6 +10,7 @@ import { NxOrderTicket } from "./trade/NxOrderTicket";
 import { OrderDock } from "./trade/OrderDock";
 import { PriceDrivers } from "./trade/PriceDrivers";
 import { MarketTabs } from "./MarketTabs";
+import { acknowledgeOjt, useCareer } from "../lib/career";
 import { Book } from "./trade/OrderBook";
 import { StockHead, StockNews, StockSelector, StockStats } from "./trade/StockPanels";
 
@@ -33,6 +34,9 @@ export function TradeTerminal({ ticker }: { ticker: string | null }) {
   ], [snapshot.news, fills, code]);
 
   useEffect(() => { setOrderOpen(false); }, [code]);
+  // 수습 OJT의 "종목 화면에서 호가·뉴스 보기"는 이 화면을 연 것으로 끝난다.
+  const careerGrade = useCareer()?.grade;
+  useEffect(() => { if (code && careerGrade === "TRAINEE") void acknowledgeOjt("MARKET").catch(() => undefined); }, [code, careerGrade]);
 
   useEffect(() => {
     if (!code) return undefined;

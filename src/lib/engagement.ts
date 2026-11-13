@@ -3,16 +3,19 @@ import { onAuthStateChanged } from "firebase/auth";
 import { apiFetch } from "./api";
 import { firebaseAuth } from "./firebase";
 
-/* 팬덤·시즌·공개 프로필·체결 피드·일일 예측·재기 지원금·기능 해금. 서버 /api/engagement/*와 맞춘다. */
+/* 팬덤·시즌·공개 프로필·체결 피드·일일 예측·기능 해금. 서버 /api/engagement/*와 맞춘다. */
 
 export type FeatureId = "FUTURES" | "OPTIONS" | "QUANT" | "TAP";
 export type UnlockStep = { label: string; current: number; target: number; done: boolean };
-export type FeatureProgress = { id: FeatureId; name: string; unlocked: boolean; steps: UnlockStep[]; hint: string };
+/** grade는 그 기능이 열리는 직급이다. */
+export type FeatureProgress = { id: FeatureId; name: string; unlocked: boolean; steps: UnlockStep[]; hint: string; grade: string; gradeLabel: string };
 export type UnlockProgress = {
   allUnlocked: boolean;
-  /** EARLY_MEMBER(기존 회원) · STAFF(관리자·시연) · ACCOUNT_AGE(가입 14일 지남) · null(활동으로 여는 중) */
+  /** EARLY_MEMBER(커리어 이전 전 기존 회원) · STAFF(관리자·시연) · null(직급으로 여는 중) */
   reason: string | null;
-  ageUnlockAt: string;
+  /** 지금 내 직급 */
+  grade: string;
+  gradeLabel: string;
   features: FeatureProgress[];
 };
 
@@ -29,14 +32,11 @@ export type Prediction = {
   previous: Prediction | null;
 };
 
-export type Rescue = { available: boolean; amount: number; netAsset: number; limit: number; nextAt: string | null };
-
 export type Engagement = {
   fandomCode: string | null;
   fandomChangeAvailableAt: string | null;
   publicProfile: boolean;
   prediction: Prediction;
-  rescue: Rescue;
   unlocks: UnlockProgress;
 };
 
@@ -99,10 +99,12 @@ function start(): void {
     if (!user) return;
     const current = session;
     void load(current);
-    // 거래로 해금 진행이 바뀌므로 1분마다, 그리고 화면에 돌아올 때 다시 읽는다.
+    // 승진으로 해금이 바뀌므로 1분마다, 그리고 화면에 돌아올 때 다시 읽는다.
     refreshTimer = window.setInterval(() => { if (document.visibilityState === "visible") void load(current); }, 60_000);
   });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.uid) void load(session); });
+  // 승진·강등 알림이 오면 열리는 데스크가 바뀌었을 수 있다.
+  window.addEventListener("gamestock:career", () => { if (state.uid) void load(session); });
 }
 
 export function useEngagement(): Engagement | null {
@@ -132,7 +134,6 @@ export const setPublicProfile = (publicProfile: boolean) =>
   apiFetch<Engagement>("/api/engagement/public", { method: "PUT", body: JSON.stringify({ publicProfile }) }).then(accept);
 export const submitPrediction = (stockCode: string) =>
   apiFetch<Engagement>("/api/engagement/prediction", { method: "POST", body: JSON.stringify({ stockCode }) }).then(accept);
-export const claimRescue = () => apiFetch<Engagement>("/api/engagement/rescue", { method: "POST" }).then(accept);
 
 export const fetchFandoms = (signal?: AbortSignal) => apiFetch<Fandom[]>("/api/engagement/fandoms", { auth: false, signal });
 export const fetchSeason = () => apiFetch<Season | undefined>("/api/engagement/season");

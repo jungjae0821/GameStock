@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from "react";
-import { claimRescue, submitPrediction, useEngagement, type Prediction } from "../../lib/engagement";
+import { submitPrediction, useEngagement, type Prediction } from "../../lib/engagement";
 import { LISTINGS, LISTING_BY_CODE } from "../../market/universe";
 import { won } from "../../market/format";
 import { GameIcon } from "../../components/GameIcon";
 import { ApiError } from "../../lib/api";
-import { LockGlyph, UnlockSteps } from "./UnlockNotice";
+import { LockGlyph } from "./UnlockNotice";
+import { withCopula } from "../../lib/korean";
 
 const errorText = (error: unknown) => (error instanceof ApiError || error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.");
+const PREDICTION_REWARD = 10_000;
 const kstHour = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("ko-KR", { hour: "numeric", timeZone: "Asia/Seoul" }) : "");
 
 function PredictionResult({ prediction }: { prediction: Prediction }) {
@@ -49,7 +51,7 @@ export function PredictionPanel() {
     <section className="nx-panel nx-predict" aria-labelledby="nx-predict-title">
       <header className="nx-panel-head is-stacked">
         <h2 id="nx-predict-title" className="nx-panel-title">오늘 오를 종목 고르기</h2>
-        <p className="nx-muted">고를 때 가격보다 오늘 마지막 가격이 높으면 <span className="nx-num">{won(20_000)}</span>을 받아요. {kstHour(prediction.closesAt)}까지 고를 수 있어요.</p>
+        <p className="nx-muted">고를 때 가격보다 오늘 마지막 가격이 높으면 내 지갑에 <span className="nx-num">{won(PREDICTION_REWARD)}</span>이 들어와요. {kstHour(prediction.closesAt)}까지 고를 수 있어요.</p>
       </header>
       {picked ? (
         <div className="nx-predict-picked">
@@ -76,64 +78,22 @@ export function PredictionPanel() {
   );
 }
 
-/** 순자산이 바닥난 사람이 다시 시작할 수 있게 일주일에 한 번 주는 자금. */
-export function RescuePanel() {
-  const engagement = useEngagement();
-  const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  if (!engagement) return null;
-  const rescue = engagement.rescue;
-  const below = rescue.netAsset < rescue.limit;
-  if (!below && !message) return null;
-
-  const claim = async () => {
-    setPending(true);
-    try {
-      await claimRescue();
-      setMessage({ ok: true, text: `${won(rescue.amount)}을 받았어요. 이번엔 천천히 가 봐요.` });
-    } catch (error) {
-      setMessage({ ok: false, text: errorText(error) });
-    } finally {
-      setPending(false);
-    }
-  };
-
-  return (
-    <section className="nx-panel nx-rescue" aria-labelledby="nx-rescue-title">
-      <div>
-        <h2 id="nx-rescue-title" className="nx-panel-title">재기 지원금</h2>
-        <p className="nx-muted">
-          순자산이 <span className="nx-num">{won(rescue.limit)}</span> 아래로 내려가면 일주일에 한 번 <span className="nx-num">{won(rescue.amount)}</span>을 받을 수 있어요. 랭킹 수익률에는 들어가지 않아요.
-        </p>
-        {message && <p className={`nx-msg ${message.ok ? "is-success" : "is-error"}`} role={message.ok ? "status" : "alert"}>{message.text}</p>}
-      </div>
-      {rescue.available ? (
-        <button type="button" className="nx-btn is-primary" onClick={() => void claim()} disabled={pending}>{pending ? "받는 중…" : "지원금 받기"}</button>
-      ) : rescue.nextAt ? (
-        <span className="nx-mission-state">{new Date(rescue.nextAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" })}부터 다시 받을 수 있어요</span>
-      ) : null}
-    </section>
-  );
-}
-
 const REASON_TEXT: Record<string, string> = {
-  EARLY_MEMBER: "기존 회원이라 모든 기능이 열려 있어요.",
+  EARLY_MEMBER: "프랍 데스크 이전 전이라 모든 기능이 열려 있어요.",
   STAFF: "운영 계정이라 모든 기능이 열려 있어요.",
-  ACCOUNT_AGE: "가입한 지 14일이 지나 모든 기능이 열렸어요.",
 };
 
-/** 선물 → 옵션 → 퀀트, 그리고 탭 베팅이 어떤 활동으로 열리는지 한눈에 보여 준다. */
+/** 탭 베팅 → 선물 → 옵션 → 퀀트가 어느 직급에서 열리는지 한눈에 보여 준다. */
 export function UnlockProgressPanel() {
   const engagement = useEngagement();
   if (!engagement) return null;
   const { unlocks } = engagement;
-  const ageDay = new Date(unlocks.ageUnlockAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" });
   return (
     <section className="nx-panel nx-unlocks" aria-labelledby="nx-unlocks-title">
       <header className="nx-panel-head is-stacked">
-        <h2 id="nx-unlocks-title" className="nx-panel-title">기능 해금</h2>
+        <h2 id="nx-unlocks-title" className="nx-panel-title">데스크 발령</h2>
         <p className="nx-muted">
-          {unlocks.reason ? REASON_TEXT[unlocks.reason] : `거래하면서 하나씩 열려요. 활동이 적어도 ${ageDay}에는 모두 열려요.`}
+          {unlocks.reason ? REASON_TEXT[unlocks.reason] : `승진할 때마다 데스크가 하나씩 열려요. 지금은 ${withCopula(unlocks.gradeLabel)}.`}
         </p>
       </header>
       {!unlocks.allUnlocked && (
@@ -145,7 +105,7 @@ export function UnlockProgressPanel() {
                 {feature.name}
                 {feature.unlocked && <span className="nx-unlock-badge">열림</span>}
               </span>
-              {!feature.unlocked && <UnlockSteps feature={feature} />}
+              {!feature.unlocked && <span className="nx-muted">{feature.gradeLabel}부터</span>}
             </li>
           ))}
         </ul>

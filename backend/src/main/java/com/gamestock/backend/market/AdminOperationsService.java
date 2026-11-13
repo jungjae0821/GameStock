@@ -209,7 +209,9 @@ public class AdminOperationsService {
         var before=human(db,user);long next=Math.addExact(((Number)before.get("cash")).longValue(),request.amount());
         if(next<0)throw new IllegalArgumentException("사용 가능한 현금보다 많이 차감할 수 없습니다.");
         db.update("INSERT INTO admin_cash_adjustments(request_key,admin_id,user_id,amount,reason) VALUES(?,?,?,?,?)",request.requestKey(),actor,user,request.amount(),request.reason());
-        db.update("UPDATE users SET cash=? WHERE id=?",next,user);changed();
+        db.update("UPDATE users SET cash=? WHERE id=?",next,user);
+        // Money the admin puts in or takes out is not trading: it must not become bonus, promotion gain or a daily loss.
+        CareerService.shiftForOutsideCash(db,user,request.amount());changed();
         support.audit(actor,"CASH_ADJUST",user,request.reason(),before,Map.of("cash",next,"amount",request.amount(),"requestKey",request.requestKey()));
         events.publishEvent(new UserMarketEvent(user,"PORTFOLIO_CHANGED",Map.of("cash",next)));
         return Map.of("userId",user,"amount",request.amount(),"cash",next,"applied",true);
@@ -233,12 +235,13 @@ public class AdminOperationsService {
         if(request.missionId()==null||!MarketService.MISSION_IDS.contains(request.missionId())||request.rewardedOn()==null||request.rewardedOn().isAfter(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")))||request.amount()<1||request.amount()>1_000_000)
             throw new IllegalArgumentException("미션 ID·보상일(오늘 또는 과거)·복구 금액(1~100만원)을 확인해 주세요.");
         lock(db);var before=human(db,user);
-        int inserted=db.update("INSERT IGNORE INTO mission_rewards(user_id,mission_id,rewarded_on,reward_cash) VALUES(?,?,?,?)",user,request.missionId(),java.sql.Date.valueOf(request.rewardedOn()),request.amount());
+        // Recovered mission rewards go where today's do: the personal wallet, not trading cash.
+        int inserted=db.update("INSERT IGNORE INTO mission_rewards(user_id,mission_id,rewarded_on,reward_cash,wallet_cash) VALUES(?,?,?,0,?)",user,request.missionId(),java.sql.Date.valueOf(request.rewardedOn()),request.amount());
         if(inserted==0)return Map.of("userId",user,"awarded",false,"rewardCash",0);
-        long next=Math.addExact(((Number)before.get("cash")).longValue(),request.amount());
-        db.update("UPDATE users SET cash=? WHERE id=?",next,user);
-        support.audit(actor,"MISSION_RECOVERY",user+":"+request.missionId()+":"+request.rewardedOn(),request.reason(),before,Map.of("cash",next,"rewardCash",request.amount()));
-        changed();events.publishEvent(new UserMarketEvent(user,"PORTFOLIO_CHANGED",Map.of("cash",next)));
+        PersonalWallet.credit(db,user,"mission:"+user+":"+request.missionId()+":"+request.rewardedOn(),PersonalWallet.MISSION,request.amount(),"미션 보상 복구");
+        long wallet=PersonalWallet.balance(db,user);
+        support.audit(actor,"MISSION_RECOVERY",user+":"+request.missionId()+":"+request.rewardedOn(),request.reason(),before,Map.of("walletCash",wallet,"rewardCash",request.amount()));
+        changed();events.publishEvent(new UserMarketEvent(user,"WALLET_CHANGED",Map.of("walletCash",wallet)));
         return Map.of("userId",user,"awarded",true,"rewardCash",request.amount());
     }
     @Transactional
@@ -250,7 +253,10 @@ public class AdminOperationsService {
         if(count("SELECT COUNT(*) FROM admin_audit WHERE action='HOLDING_RESTORE' AND target=?",key)>0)throw new IllegalArgumentException("이미 사용된 복구 키입니다.");
         if(count("SELECT COUNT(*) FROM orders WHERE user_id=? AND stock_id=? AND status='OPEN'",user,id)>0||count("SELECT COUNT(*) FROM settlements WHERE stock_id=? AND (buyer_id=? OR seller_id=?) AND status='PENDING'",id,user,user)>0)throw new IllegalArgumentException("미체결 주문과 미정산 거래를 먼저 처리해 주세요.");
         var before=db.queryForList("SELECT * FROM portfolios WHERE user_id=? AND stock_id=?",user,id);
+        long confirmedBefore=db.queryForObject("SELECT "+CareerService.CONFIRMED_ASSET+" FROM users u WHERE u.id=?",Long.class,user);
         db.update("INSERT INTO portfolios(user_id,stock_id,quantity,settled_quantity,average_price,realized_profit_loss) VALUES(?,?,?,?,?,0) ON DUPLICATE KEY UPDATE quantity=VALUES(quantity),settled_quantity=VALUES(settled_quantity),average_price=VALUES(average_price)",user,id,request.quantity(),request.quantity(),request.averagePrice());
+        // Restored shares are not trading gain, the same as admin cash.
+        CareerService.shiftForOutsideCash(db,user,db.queryForObject("SELECT "+CareerService.CONFIRMED_ASSET+" FROM users u WHERE u.id=?",Long.class,user)-confirmedBefore);
         support.audit(actor,"HOLDING_RESTORE",key,request.reason(),before,Map.of("userId",user,"stockCode",request.stockCode(),"quantity",request.quantity(),"averagePrice",request.averagePrice()));changed();
         return Map.of("userId",user,"stockCode",request.stockCode(),"quantity",request.quantity());
     }

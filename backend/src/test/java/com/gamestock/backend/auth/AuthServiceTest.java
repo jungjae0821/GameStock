@@ -83,9 +83,11 @@ class AuthServiceTest {
 
         var user = auth.grantAttendanceReward(USER);
 
-        assertEquals(100_000L, user.attendanceReward());
-        verify(jdbc).update(startsWith("INSERT IGNORE INTO attendance_rewards"), eq(7L), eq(java.time.LocalDate.parse("2026-10-03")), eq(1), eq(100_000L));
-        verify(jdbc).update("UPDATE users SET cash = cash + ? WHERE id = ?", 100_000L, 7L);
+        assertEquals(10_000L, user.attendanceReward());
+        verify(jdbc).update(startsWith("INSERT IGNORE INTO attendance_rewards"), eq(7L), eq(java.time.LocalDate.parse("2026-10-03")), eq(1), eq(10_000L));
+        // The reward goes to the personal wallet, never the trading account.
+        verify(jdbc).update(contains("INSERT IGNORE INTO personal_ledger"), eq("attendance:7:2026-10-03"), eq(7L), eq("ATTENDANCE"), eq(10_000L), anyString());
+        verify(jdbc, never()).update(eq("UPDATE users SET cash = cash + ? WHERE id = ?"), any(Object[].class));
     }
 
     @Test void concurrentDuplicateAttendanceDoesNotPayTwiceOrFail() {
@@ -97,7 +99,7 @@ class AuthServiceTest {
         var user = assertDoesNotThrow(() -> auth.grantAttendanceReward(USER));
 
         assertEquals(0L, user.attendanceReward());
-        verify(jdbc, never()).update(eq("UPDATE users SET cash = cash + ? WHERE id = ?"), any(Object[].class));
+        verify(jdbc, never()).update(contains("INSERT IGNORE INTO personal_ledger"), any(Object[].class));
     }
 
     @Test void attendanceKeepsYesterdaysStreakUntilTodayIsChecked() {
@@ -113,7 +115,7 @@ class AuthServiceTest {
         assertEquals("2026-10", attendance.month());
         assertFalse(attendance.checkedToday());
         assertEquals(6, attendance.streak());
-        assertEquals(500_000L, attendance.nextReward());
+        assertEquals(50_000L, attendance.nextReward());
         assertEquals(9, attendance.totalDays());
         verify(jdbc).query(contains("BETWEEN"), any(RowMapper.class), eq(7L),
                 eq(java.time.LocalDate.parse("2026-10-01")), eq(java.time.LocalDate.parse("2026-10-31")));
@@ -129,7 +131,7 @@ class AuthServiceTest {
         var attendance = auth.attendance(7L, "2026-09");
 
         assertEquals(0, attendance.streak());
-        assertEquals(100_000L, attendance.nextReward());
+        assertEquals(10_000L, attendance.nextReward());
         var error = assertThrows(ResponseStatusException.class, () -> auth.attendance(7L, "2026-9"));
         assertEquals(400, error.getStatusCode().value());
     }

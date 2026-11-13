@@ -66,6 +66,7 @@ class LoanServiceIntegrationTest {
         loans = new LoanService(db, market, orders, Mockito.mock(DerivativeService.class),
                 Mockito.mock(ApplicationEventPublisher.class), new DataSourceTransactionManager(source));
         loans.setClock(Clock.fixed(Instant.parse("2026-10-15T03:00:00Z"), ZoneOffset.UTC));
+        loans.allowBorrowing(true);
     }
 
     @AfterEach

@@ -61,8 +61,10 @@ final class TitleAchievements {
         if (stats != null) {
             grantIf(userId, owned, "newbie", true);
             grantIf(userId, owned, "ant", stats.maxQuantity >= 1);
+            // Asset titles measure the member's own money. The trading account is the firm's and
+            // grows with each promotion's top-up, so it would hand these out for a grade alone.
             for (int index = 0; index < ASSET_TITLE_IDS.length; index++)
-                grantIf(userId, owned, ASSET_TITLE_IDS[index], stats.totalAsset >= ASSET_THRESHOLDS[index]);
+                grantIf(userId, owned, ASSET_TITLE_IDS[index], stats.personalAsset >= ASSET_THRESHOLDS[index]);
             grantIf(userId, owned, "loss_30", stats.returnPercent() <= -30.0);
             grantIf(userId, owned, "loss_50", stats.returnPercent() <= -50.0);
             grantIf(userId, owned, "loss_99", stats.returnPercent() <= -99.0);
@@ -120,7 +122,8 @@ final class TitleAchievements {
             changed = grantIf(userId, owned, "collector_5", count >= 5)
                     | grantIf(userId, owned, "collector_10", count >= 10)
                     | grantIf(userId, owned, "collector_15", count >= 15);
-            boolean allOthers = TITLES.stream().filter(title -> !title.id().equals("collector_all"))
+            // Members who joined after the career migration can never hold "founder", so it is not required.
+            boolean allOthers = TITLES.stream().filter(title -> !title.id().equals("collector_all") && !title.id().equals("founder"))
                     .allMatch(title -> owned.contains(title.id()));
             changed |= grantIf(userId, owned, "collector_all", allOthers);
         }
@@ -147,7 +150,11 @@ final class TitleAchievements {
                        COALESCE((SELECT SUM(st.gross_amount - st.seller_fee) FROM settlements st WHERE st.seller_id = u.id AND st.status = 'PENDING'), 0) AS unsettled_cash,
                        COALESCE((SELECT SUM(ar.reward_cash) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0)
                          + COALESCE((SELECT SUM(mr.reward_cash) FROM mission_rewards mr WHERE mr.user_id = u.id), 0) AS reward_cash,
-                       COALESCE((SELECT MAX(ar.streak_day) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0) AS max_streak
+                       COALESCE((SELECT MAX(ar.streak_day) FROM attendance_rewards ar WHERE ar.user_id = u.id), 0) AS max_streak,
+                       COALESCE((SELECT c.personal_cash FROM career_state c WHERE c.user_id = u.id), 0) AS personal_cash,
+                       (SELECT c.grade_base FROM career_state c WHERE c.user_id = u.id
+                          AND (c.legacy = FALSE OR c.migrated_at IS NOT NULL)) AS grade_base,
+                       COALESCE((SELECT c.outside_cash FROM career_state c WHERE c.user_id = u.id), 0) AS outside_cash
                 FROM users u WHERE u.id = ?
                 """, (rs, row) -> {
             Stats stats = new Stats();
@@ -159,6 +166,9 @@ final class TitleAchievements {
             stats.unsettledCash = rs.getLong("unsettled_cash");
             stats.rewardCash = rs.getLong("reward_cash");
             stats.maxStreak = rs.getInt("max_streak");
+            stats.personalAsset = rs.getLong("personal_cash");
+            stats.gradeBase = rs.getLong("grade_base");
+            stats.outsideCash = rs.getLong("outside_cash");
             return stats;
         }, userId);
         if (rows.isEmpty()) return null;
@@ -219,10 +229,21 @@ final class TitleAchievements {
 
     private static final class Stats {
         long cash, loanBalance, reservedCash, unsettledCash, assetValue, totalAsset, rewardCash, maxPositionValue;
+        /** The personal wallet; homes join it once they exist. */
+        long personalAsset;
+        /** The current grade's base asset and the admin cash since; 0 base for members not yet on the career. */
+        long gradeBase, outsideCash;
         int maxQuantity, heldStocks, maxStreak;
         boolean nicknameChanged, investor;
 
-        double returnPercent() { return (totalAsset - STARTING_CASH - rewardCash) * 100.0 / STARTING_CASH; }
+        /**
+         * Loss titles measure the current desk against its own base. Against the 1,000,000 start, a
+         * large desk refilled by promotions would read a small dip as a wipe-out.
+         */
+        double returnPercent() {
+            if (gradeBase > 0) return (totalAsset - outsideCash - gradeBase) * 100.0 / gradeBase;
+            return (totalAsset - STARTING_CASH - rewardCash) * 100.0 / STARTING_CASH;
+        }
     }
 
     private record Population(Map<Long, Integer> positionFromBottom, int size, long loadedAt) {

@@ -49,7 +49,7 @@ function rewardSummary(cash: number, titleIds: string[], names: Map<string, stri
 
 /**
  * 프로모션 코드 관리. 코드마다 현금과 칭호 보상, 사용 인원, 기간을 정한다.
- * 한 계정은 코드 하나를 한 번만 쓸 수 있고, 현금 보상은 랭킹 수익률에서 빠진다.
+ * 한 계정은 코드 하나를 한 번만 쓸 수 있고, 현금 보상은 운용계좌가 아니라 개인 지갑으로 들어간다.
  */
 export function AdminPromos() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -183,7 +183,7 @@ export function AdminPromos() {
             <label htmlFor="promo-admin-cash">현금 보상 (원)</label>
             <input id="promo-admin-cash" inputMode="numeric" value={draft.rewardCash} placeholder="0" aria-describedby="promo-admin-cash-hint"
               onChange={(event) => set("rewardCash", digits(event.target.value).slice(0, 10))} />
-            <p className="account-hint" id="promo-admin-cash-hint">{cash > 0 ? `${won(cash)}을 줍니다. ` : "비우면 현금은 주지 않습니다. "}받은 현금은 랭킹 수익률에서 빠집니다.</p>
+            <p className="account-hint" id="promo-admin-cash-hint">{cash > 0 ? `${won(cash)}을 줍니다. ` : "비우면 현금은 주지 않습니다. "}받은 현금은 회원의 내 지갑으로 들어갑니다.</p>
             {cashError && <p className="admin-form-message" role="alert">{cashError}</p>}
 
             <fieldset className="promo-titles">

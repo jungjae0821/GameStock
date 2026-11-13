@@ -12,8 +12,10 @@ export type TapState = {
   maxMultiplier: number; stakes: number[]; codes: string[]; path: [number, number][]; bets: TapBet[];
   probabilities: TapTable; recentLow: number; recentHigh: number; recentMs: number; leadFromMs: number; leadStepMs: number;
   today: { staked: number; paid: number; wins: number; losses: number };
+  /** 탭 베팅은 운용계좌가 아니라 내 지갑 돈으로 한다. */
+  walletCash: number;
 };
-export type PlaceResult = { message: string; bet: TapBet };
+export type PlaceResult = { message: string; bet: TapBet; walletCash: number };
 export type Cell = { slot: number; low: number };
 export type Geometry = { width: number; height: number; nowX: number; pxPerMs: number; rowH: number; center: number; now: number };
 export type Burst = { key: string; payout: number; at: number };

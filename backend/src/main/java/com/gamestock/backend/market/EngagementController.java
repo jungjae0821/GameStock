@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/** 팬덤·시즌·공개 프로필·체결 피드·일일 예측·재기 지원금·기능 해금 API. */
+/** 팬덤·시즌·공개 프로필·체결 피드·일일 예측·기능 해금 API. */
 @RestController
 @RequestMapping("/api/engagement")
 public class EngagementController {
@@ -47,11 +47,6 @@ public class EngagementController {
     public EngagementService.Me predict(@RequestBody EngagementService.PredictionRequest request,
                                         @RequestHeader(value = "Authorization", required = false) String authorization) {
         return engagement.predict(auth.requireUser(authorization).id(), request);
-    }
-
-    @PostMapping("/rescue")
-    public EngagementService.Me rescue(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        return engagement.claimRescue(auth.requireUser(authorization).id());
     }
 
     @GetMapping("/fandoms")

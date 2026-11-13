@@ -25,12 +25,15 @@ export function totals(snapshot: MarketSnapshot): Totals {
   }
   const derivativeValue = snapshot.portfolio.derivativeAssetValue ?? 0;
   const total = snapshot.portfolio.cash + stockValue + derivativeValue;
-  // 출석·미션 보상과 빌린 돈은 투자 성과가 아니므로 손익에서 뺀다. 랭킹 수익률과 같은 기준이다.
+  // 출석·미션 보상, 승진 충전·관리자 지급, 빌린 돈은 투자 성과가 아니므로 손익에서 뺀다.
   const rewardCash = (snapshot.portfolio.attendanceRewardCash ?? 0) + (snapshot.portfolio.missionRewardCash ?? 0);
+  const outside = snapshot.portfolio.adminAdjustmentCash ?? 0;
   const loan = snapshot.portfolio.loanBalance ?? 0;
   const net = total - loan;
-  const pnl = net - INITIAL_CASH - rewardCash;
-  return { cash: snapshot.portfolio.cash, stockValue, derivativeValue, total, loan, net, pnl, pnlRate: pnl / INITIAL_CASH };
+  const pnl = net - INITIAL_CASH - rewardCash - outside;
+  // 수익률의 분모는 지금까지 맡은 돈(시작금 + 충전)이다. 시작금만 쓰면 큰 데스크의 작은 손익이 부풀려진다.
+  const invested = Math.max(1, INITIAL_CASH + outside);
+  return { cash: snapshot.portfolio.cash, stockValue, derivativeValue, total, loan, net, pnl, pnlRate: pnl / invested };
 }
 
 export interface Holding {

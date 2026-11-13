@@ -323,6 +323,7 @@ public class MarketService {
 
     @Transactional(readOnly = true)
     public List<RankingEntry> ranking() {return rankingMissions.ranking();}
+    public List<MarketModels.WealthEntry> wealthRanking() {return rankingMissions.wealthRanking();}
 
     @Transactional(readOnly = true)
     public Portfolio portfolio(long userId) {

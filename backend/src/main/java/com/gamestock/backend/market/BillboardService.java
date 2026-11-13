@@ -42,7 +42,7 @@ public class BillboardService {
     public record Purchase(String body, Integer hours) { }
     public record ReportRequest(String detail) { }
     public record Hide(String reason, boolean refund) { }
-    public record ActionResult(String message, Booking booking, MarketModels.Portfolio portfolio) { }
+    public record ActionResult(String message, Booking booking, MarketModels.Portfolio portfolio, long walletCash) { }
 
     private final JdbcTemplate db;
     private final MarketService market;
@@ -127,25 +127,24 @@ public class BillboardService {
         long price = PRICE_PER_HOUR * hours;
         long id = transaction.execute(state -> {
             Instant now = clock.instant();
-            long cash = db.queryForObject("SELECT cash FROM users WHERE id = ? FOR UPDATE", Long.class, userId);
             db.queryForObject("SELECT id FROM billboard_lock WHERE id = 1 FOR UPDATE", Integer.class);
             Integer open = db.queryForObject("SELECT COUNT(*) FROM billboard_messages WHERE user_id = ? AND status = 'BOOKED' AND ends_at > ?",
                     Integer.class, userId, Timestamp.from(now));
             if (open != null && open > 0) throw new IllegalArgumentException("올린 문구가 끝난 뒤에 새로 올릴 수 있어요.");
-            if (cash < price) throw new IllegalArgumentException("보유 현금이 부족해요. " + String.format("%,d", price) + "원이 필요해요.");
+            if (PersonalWallet.balance(db, userId) < price)
+                throw new IllegalArgumentException("내 지갑 잔액이 부족해요. " + String.format("%,d", price) + "원이 필요해요.");
             Integer live = db.queryForObject("SELECT COUNT(*) FROM billboard_messages WHERE status = 'BOOKED' AND ends_at > ?",
                     Integer.class, Timestamp.from(now));
             if (live != null && live >= MAX_LIVE) throw new IllegalArgumentException("전광판에 문구가 가득 찼어요. 앞 문구가 끝나면 다시 올릴 수 있어요.");
             db.update("INSERT INTO billboard_messages (user_id, nickname, body, hours, price, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     userId, nickname, body, hours, price, Timestamp.from(now), Timestamp.from(now.plus(Duration.ofHours(hours))));
             long created = db.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
-            if (db.update("UPDATE users SET cash = cash - ? WHERE id = ? AND cash >= ?", price, userId, price) != 1)
-                throw new IllegalArgumentException("보유 현금이 방금 바뀌었어요. 다시 시도해 주세요.");
-            ledger("billboard:" + created, 0L, userId, -price, "전광판 문구 #" + created);
+            PersonalWallet.debit(db, userId, "billboard:" + created, PersonalWallet.BILLBOARD, price, "전광판 문구 #" + created);
             return created;
         });
         Booking booking = mine(userId).stream().filter(item -> item.id() == id).findFirst().orElseThrow();
-        return new ActionResult("지금부터 " + hours + "시간 동안 홈에 문구가 보여요.", booking, market.portfolio(userId));
+        return new ActionResult("지금부터 " + hours + "시간 동안 홈에 문구가 보여요.", booking, market.portfolio(userId),
+                PersonalWallet.balance(db, userId));
     }
 
     /** 신고는 기존 사용자 신고함으로 보낸다. 대상은 문구를 올린 사람이다. */
@@ -173,26 +172,18 @@ public class BillboardService {
             var owner = db.queryForList("SELECT user_id FROM billboard_messages WHERE id = ?", Long.class, id);
             if (owner.isEmpty()) throw new IllegalArgumentException("문구를 찾을 수 없습니다.");
             user[0] = owner.get(0);
-            db.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", Long.class, user[0]);
             db.queryForObject("SELECT id FROM billboard_lock WHERE id = 1 FOR UPDATE", Integer.class);
             var before = db.queryForList("SELECT * FROM billboard_messages WHERE id = ? FOR UPDATE", id).get(0);
             if (!OPEN.contains((String) before.get("status"))) throw new IllegalArgumentException("이미 취소했거나 내린 문구입니다.");
             long amount = refund ? ((Number) before.get("price")).longValue() : 0L;
             db.update("UPDATE billboard_messages SET status = 'HIDDEN', hidden_reason = ?, hidden_by = ?, refunded = ? WHERE id = ?", reason, actor, amount, id);
-            if (amount > 0) {
-                db.update("UPDATE users SET cash = cash + ? WHERE id = ?", amount, user[0]);
-                ledger("billboard-refund:" + id, actor, user[0], amount, "전광판 문구 #" + id + " 내림 환불");
-            }
+            if (amount > 0)
+                PersonalWallet.credit(db, user[0], "billboard-refund:" + id, PersonalWallet.BILLBOARD, amount, "전광판 문구 #" + id + " 내림 환불");
             support.audit(actor, "BILLBOARD_HIDE", id, reason, before, Map.of("refunded", amount));
             return Map.<String, Object>of("id", id, "refunded", amount);
         });
-        if (refund) events.publishEvent(new UserMarketEvent(user[0], "PORTFOLIO_UPDATED", Map.of("portfolio", market.portfolio(user[0]))));
+        if (refund) events.publishEvent(new UserMarketEvent(user[0], "WALLET_CHANGED", Map.of("walletCash", PersonalWallet.balance(db, user[0]))));
         return result;
-    }
-
-    private void ledger(String key, long actor, long userId, long amount, String reason) {
-        db.update("INSERT INTO admin_cash_adjustments (request_key, admin_id, user_id, amount, reason) VALUES (?, ?, ?, ?, ?)",
-                key, actor, userId, amount, reason);
     }
 
     static String state(String status, Instant start, Instant end, Instant now) {

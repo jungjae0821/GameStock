@@ -10,9 +10,11 @@ import { RADIUS, RADIUS_SM, SPACE, Txt, useTheme, useThemeMode } from '../theme'
 // 관리자 화면은 관리자 계정에만 보인다. 서버도 모든 관리 요청에서 권한을 다시 확인한다.
 const ACCOUNT = { label: '내 계좌', detail: '보유 종목과 손익, 주문·체결 내역', icon: 'wallet-outline', path: '/mypage' };
 const ITEMS = [
+  // 내 커리어는 웹 화면(/career)을 앱 안에서 연다. 직급, 승진 조건, OJT, 내 지갑이 여기에 있다.
+  { label: '내 커리어', detail: '직급과 승진 조건, OJT, 내 지갑', icon: 'briefcase-outline', path: '/career' },
   { label: '출석체크', detail: '연속 출석 보상과 이번 달 출석 기록', icon: 'calendar-outline', path: '/attendance' },
-  { label: '충전하기', detail: '오늘의 투자 미션과 모의 자금 보상', icon: 'gift-outline', path: '/charge' },
-  { label: '대출', detail: '모의 대출과 상환, 한도와 이자', icon: 'cash-outline', path: '/loan' },
+  { label: '충전하기', detail: '오늘의 투자 미션과 내 지갑 보상', icon: 'gift-outline', path: '/charge' },
+  { label: '대출', detail: '예전에 빌린 모의 대출 갚기', icon: 'cash-outline', path: '/loan' },
   { label: '전광판', detail: '홈 맨 위에 한 줄 문구 띄우기', icon: 'megaphone-outline', path: '/billboard' },
   { label: '퀀트 전략', detail: '매매 조건을 짜서 백테스트하고 자동 주문 켜기', icon: 'git-branch-outline', path: '/quant' },
   { label: '칭호 설정', detail: '칭호 조건과 획득 현황, 장착', icon: 'ribbon-outline', path: '/titles' },
@@ -50,7 +52,7 @@ export function MenuScreen({ onOpen, onLogin }) {
           </View>
         ) : (
           <View style={[styles.card, styles.guest, { backgroundColor: theme.card }]}>
-            <Txt variant="callout">로그인하면 계좌, 미션, 대출, 칭호를 쓸 수 있어요.</Txt>
+            <Txt variant="callout">로그인하면 계좌, 커리어, 미션, 칭호를 쓸 수 있어요.</Txt>
             <Pressable accessibilityRole="button" onPress={onLogin} style={({ pressed }) => [styles.loginButton, { backgroundColor: theme.ink, opacity: pressed ? 0.85 : 1 }]}>
               <Txt variant="body" style={{ color: theme.ground }}>로그인</Txt>
             </Pressable>

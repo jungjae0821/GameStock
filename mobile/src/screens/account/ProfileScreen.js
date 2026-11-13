@@ -87,7 +87,7 @@ export function ProfileScreen({ onBack }) {
   };
 
   const resetAccount = () => {
-    Alert.alert('계좌를 초기화할까요?', '현금과 보유 주식, 거래 내역, 투자 미션이 시작 상태로 돌아가요. 되돌릴 수 없어요.', [
+    Alert.alert('계좌를 초기화할까요?', '현금과 보유 주식, 거래 내역, 투자 미션에 더해 직급(수습으로)과 내 지갑(0원)까지 시작 상태로 돌아가요. 되돌릴 수 없어요.', [
       { text: '취소', style: 'cancel' },
       {
         text: '초기화', style: 'destructive', onPress: async () => {
@@ -183,7 +183,7 @@ export function ProfileScreen({ onBack }) {
 
       <Card>
         <CardHead title="계좌 초기화" />
-        <Txt variant="callout" tone="inkSoft">시작 자금 100만원으로 돌아가요. 보유 주식, 거래 기록, 투자 미션도 함께 초기화돼요.</Txt>
+        <Txt variant="callout" tone="inkSoft">시작 자금 100만원으로 돌아가요. 보유 주식, 거래 기록, 투자 미션과 함께 직급은 수습으로, 내 지갑은 0원으로 초기화돼요.</Txt>
         {!profile.resetAvailable ? <Txt variant="caption" tone="inkSoft">지금은 계좌를 초기화할 수 없어요.</Txt> : null}
         <Button label="계좌 초기화" kind="danger" busy={saving === 'reset'} disabled={saving != null || !profile.resetAvailable} onPress={resetAccount} />
       </Card>

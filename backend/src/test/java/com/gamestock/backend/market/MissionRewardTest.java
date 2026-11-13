@@ -20,6 +20,7 @@ import static org.mockito.Mockito.*;
 class MissionRewardTest {
     private final Set<String> claims = new HashSet<>();
     private final AtomicLong cash = new AtomicLong(1_000_000L);
+    private final AtomicLong wallet = new AtomicLong();
     private final AtomicLong watchlistCount = new AtomicLong();
 
     private MarketService market() {
@@ -29,11 +30,12 @@ class MissionRewardTest {
             String sql = args.length > 0 && args[0] instanceof String ? (String) args[0] : "";
             if (method.equals("update")) {
                 if (sql.startsWith("INSERT IGNORE INTO mission_rewards")) {
-                    assertEquals(50_000L, args[4]);
+                    assertEquals(10_000L, args[4]);
                     assertTrue(sql.contains("rewarded_on"));
                     return claims.add(args[2] + "/" + args[3]) ? 1 : 0;
                 }
                 if (sql.startsWith("UPDATE users SET cash")) cash.addAndGet((Long) args[1]);
+                if (sql.contains("UPDATE career_state SET personal_cash = personal_cash + ?")) wallet.addAndGet((Long) args[1]);
                 return 1;
             }
             if (method.equals("queryForObject")) {
@@ -48,7 +50,7 @@ class MissionRewardTest {
                 mock(UserFeatureService.class), mock(TradingProtectionService.class));
     }
 
-    @Test void eachMissionPaysFiftyThousandOnlyOncePerDay() {
+    @Test void eachMissionPaysTenThousandToTheWalletOnlyOncePerDay() {
         watchlistCount.set(1);
         MarketService market = market();
         List<String> today = MarketService.dailyMissionIds(LocalDate.now(ZoneId.of("Asia/Seoul")));
@@ -56,14 +58,15 @@ class MissionRewardTest {
         for (String id : today) {
             var first = market.rewardMission(id, 7L);
             assertTrue(first.awarded());
-            assertEquals(50_000L, first.rewardCash());
+            assertEquals(10_000L, first.rewardCash());
             var second = market.rewardMission(id, 7L);
             assertFalse(second.awarded());
             assertEquals(0L, second.rewardCash());
         }
-        assertEquals(1_150_000L, cash.get());
+        assertEquals(30_000L, wallet.get());
+        assertEquals(1_000_000L, cash.get(), "mission rewards never touch the trading account");
         assertThrows(IllegalArgumentException.class, () -> market.rewardMission("unknown", 7L));
-        assertEquals(1_150_000L, cash.get());
+        assertEquals(30_000L, wallet.get());
     }
 
     @Test void twentyMissionsExistAndThreeAreDrawnPerKoreanDay() {
@@ -113,6 +116,7 @@ class MissionRewardTest {
         watchlistCount.set(1);
         var result = market.rewardMission("watch", 7L);
         assertTrue(result.awarded());
-        assertEquals(1_050_000L, cash.get());
+        assertEquals(10_000L, wallet.get());
+        assertEquals(1_000_000L, cash.get());
     }
 }

@@ -8,7 +8,7 @@ import { titleColor } from '../titles';
 import { RADIUS, RADIUS_SM, RADIUS_XS, SPACE, Txt, mixColor, toneOf, useTheme } from '../theme';
 
 const TABS = [
-  { key: 'total', label: '전체 자산', path: '/api/ranking' },
+  { key: 'total', label: '트레이더', path: '/api/ranking' },
   { key: 'weekly', label: '이번 주 수익률', path: '/api/titles/weekly-ranking' },
 ];
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -78,7 +78,8 @@ export function RankingScreen() {
   const me = weekly ? data?.me ?? null : null;
   const entries = weekly
     ? data?.entries ?? []
-    : [...(Array.isArray(data) ? data : [])].sort((a, b) => b.totalAsset - a.totalAsset).map((entry, index) => ({ ...entry, rank: index + 1 }));
+    // 서버가 직급 → 직급 수익률 순으로 매겨 보낸다. 운용 자산은 회사 돈이라 다시 정렬하지 않는다.
+    : (Array.isArray(data) ? data : []);
   const isMine = entry => (weekly ? Boolean(me) && entry.rank === me.rank : Boolean(profile?.nickname) && entry.nickname === profile.nickname);
   // 주간 표에 내 순위가 없으면 맨 아래에 따로 붙인다.
   const rows = me && !entries.some(entry => entry.rank === me.rank) ? [...entries, { gap: true, rank: -1 }, me] : entries;
@@ -125,7 +126,7 @@ export function RankingScreen() {
     <Txt variant="caption" tone="inkSoft" style={styles.note}>
       {weekly
         ? `${user && !me ? '이번 주에 한 번 이상 거래하면 순위에 들어가요. ' : ''}이번 주에 1회 이상 거래한 사용자만 집계하고, 출석·미션 보상과 대출금은 수익률에서 빼요.`
-        : '순자산(보유 주식 평가액과 현금에서 대출을 뺀 값) 기준 상위 100명이에요. 수익률에서 출석·미션 보상은 빼요.'}
+        : '높은 직급이 먼저이고, 같은 직급끼리는 직급을 시작할 때 자산 대비 수익률로 매긴 상위 100명이에요. 금액은 회사가 맡긴 운용 자산이에요.'}
     </Txt>
   ) : null;
 
@@ -153,7 +154,7 @@ export function RankingScreen() {
             <View
               style={[...shape, styles.row, mine && { backgroundColor: theme.brandWash }]}
               accessible
-              accessibilityLabel={`${MEDALS[item.rank] ? `${MEDALS[item.rank].label} ` : ''}${item.rank}위 ${title ? `${title} ` : ''}${item.nickname}${mine ? ', 나' : ''}. 순자산 ${won(item.totalAsset)}, ${weekly ? '이번 주' : ''} 수익률 ${percentText(percent)}`}
+              accessibilityLabel={`${MEDALS[item.rank] ? `${MEDALS[item.rank].label} ` : ''}${item.rank}위 ${title ? `${title} ` : ''}${item.nickname}${mine ? ', 나' : ''}. 운용 자산 ${won(item.totalAsset)}, ${weekly ? '이번 주' : ''} 수익률 ${percentText(percent)}`}
             >
               <Rank rank={item.rank} />
               <Avatar url={item.profileImageUrl} />

@@ -131,7 +131,8 @@ export function LoanScreen({ onBack }) {
     : borrowValue > loan.available ? `지금은 최대 ${won(loan.available)}까지 빌릴 수 있어요.` : '';
   const repayError = !repay ? '' : repayValue < 1 ? '갚을 금액을 입력해 주세요.'
     : repayValue > repayMax ? `지금은 최대 ${won(repayMax)}까지 갚을 수 있어요.` : '';
-  const blockedReason = !loan.borrowBlocked || loan.warning ? ''
+  const blockedReason = loan.borrowingOpen === false ? '신규 대출은 중단됐어요. 운용계좌는 회사 돈이라 직급에 따른 운용한도로만 굴려요. 이미 빌린 돈은 여기서 갚을 수 있어요.'
+    : !loan.borrowBlocked || loan.warning ? ''
     : loan.limit - loan.balance < loan.minAmount ? `남은 한도가 최소 대출 금액 ${won(loan.minAmount)}보다 적어 지금은 빌릴 수 없어요.`
     : '관리자 계정은 대출을 이용할 수 없어요.';
   const ratio = loan.collateralRatio;

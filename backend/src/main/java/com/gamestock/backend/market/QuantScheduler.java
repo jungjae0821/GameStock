@@ -20,6 +20,11 @@ public class QuantScheduler {
     private final OrderService orders;
     private final MarketService market;
     private final TransactionTemplate tx;
+    private CareerService career;
+
+    /** Optional so tests that build this class by hand keep working without the career's loss limits. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureCareer(CareerService career) { this.career = career; }
     record Candidate(long id,long user) {}
     record Attempt(long run,long project,long user,String code,String side,int quantity,long price) {}
     public QuantScheduler(JdbcTemplate db,QuantProjectService projects,ResearchChartService charts,OrderService orders,
@@ -67,6 +72,13 @@ public class QuantScheduler {
         Attempt attempt=tx.execute(status->claim(project,rule,bar));
         if(attempt==null)return;
         try {
+            // A loss lock stops automated buying the same way it stops a manual buy.
+            if(career!=null&&"BUY".equalsIgnoreCase(attempt.side())){
+                // A strategy left running after a demotion below the quant desk may still sell, never buy.
+                if(!career.reached(attempt.user(),CareerGrade.SENIOR_MANAGER))
+                    throw new IllegalArgumentException("퀀트 데스크 직급(차장)이 아니라 자동 매수를 멈췄어요.");
+                career.requireNewRisk(attempt.user(),attempt.code(),attempt.quantity(),attempt.price());
+            }
             // Admission uses the existing FIFO, balances, account bans and matching protections.
             orders.submit(attempt.user(),new OrderRequest(attempt.code(),attempt.side(),attempt.quantity(),"LIMIT",attempt.price()))
                 .whenComplete((result,error)-> {

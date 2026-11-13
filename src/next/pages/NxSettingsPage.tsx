@@ -126,7 +126,7 @@ export function NxSettingsPage() {
   };
 
   const resetAccount = async () => {
-    if (!window.confirm("현금과 보유 주식, 거래 내역, 투자 미션을 초기 상태로 되돌릴까요?")) return;
+    if (!window.confirm("현금과 보유 주식, 거래 내역, 투자 미션에 더해 직급(수습으로)과 내 지갑(0원)까지 초기 상태로 되돌릴까요? 되돌릴 수 없어요.")) return;
     setResetting(true);
     setMessage("");
     try {
@@ -280,7 +280,7 @@ export function NxSettingsPage() {
             <section className="nx-panel nx-danger-zone" aria-labelledby="nx-reset-title">
               <div>
                 <h2 id="nx-reset-title" className="nx-danger-title">계좌 초기화</h2>
-                <p className="nx-muted">시작 자금으로 돌아가요. 보유 주식, 거래 기록, 투자 미션도 함께 초기화돼요.</p>
+                <p className="nx-muted">시작 자금으로 돌아가요. 보유 주식, 거래 기록, 투자 미션과 함께 직급은 수습으로, 내 지갑은 0원으로 초기화돼요.</p>
               </div>
               <button type="button" className="nx-btn is-danger" onClick={() => void resetAccount()} disabled={loading || resetting || !profile || !profile.resetAvailable}>
                 {resetting ? "초기화 중…" : "계좌 초기화"}

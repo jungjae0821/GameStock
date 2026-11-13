@@ -163,12 +163,8 @@ public class TitleService {
             jdbc.update("INSERT INTO promo_redemptions (code, user_id, reward_cash, title_ids) VALUES (?, ?, ?, ?)",
                     key, userId, reward, String.join(",", titleIds));
             for (String titleId : titleIds) grantIf(userId, owned, titleId, true);
-            if (reward > 0) {
-                jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", reward, userId);
-                Object admin = promo.get("created_by");
-                jdbc.update("INSERT INTO admin_cash_adjustments (request_key, admin_id, user_id, amount, reason) VALUES (?, ?, ?, ?, ?)",
-                        "promo:" + key + ":" + userId, admin == null ? 0L : ((Number) admin).longValue(), userId, reward, "프로모션 코드 " + key);
-            }
+            if (reward > 0)
+                PersonalWallet.credit(jdbc, userId, "promo:" + key + ":" + userId, PersonalWallet.PROMO, reward, "프로모션 코드 " + key);
             return reward;
         });
         TitleStatus status = check(userId);

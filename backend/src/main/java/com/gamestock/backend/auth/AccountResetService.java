@@ -58,6 +58,8 @@ public class AccountResetService {
         jdbc.update("DELETE FROM loan_ledger WHERE user_id = ?", userId);
         // 결과를 기다리는 탭 베팅이 리셋 뒤 새 잔고에 당첨금을 얹지 않게 한다.
         jdbc.update("DELETE FROM tap_bets WHERE user_id = ?", userId);
+        // 인생 리셋은 직급·개인계좌까지 처음으로 돌린다. 수습, 지갑 0원에서 다시 시작한다.
+        com.gamestock.backend.market.CareerService.resetAccount(jdbc, userId);
         // 상세 화면의 개인 기능도 계정 리셋 범위에 포함한다.
         jdbc.update("DELETE FROM price_alerts WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM stock_comments WHERE user_id = ?", userId);
@@ -92,7 +94,8 @@ public class AccountResetService {
         MarketBookCache.invalidate(jdbc, null);
     }
 
-    private void cancelOpenOrders(long userId) {
+    /** Cancels the member's open orders and returns their reserved cash. Call under the market lock. */
+    public void cancelOpenOrders(long userId) {
         var openOrders = jdbc.query("""
                 SELECT id, COALESCE(reserved_cash, 0) AS reserved_cash
                 FROM orders WHERE user_id = ? AND status = 'OPEN' FOR UPDATE
@@ -109,7 +112,8 @@ public class AccountResetService {
                 """, userId);
     }
 
-    private void settleUserPendingPayments(long userId) {
+    /** Matures the member's pending T+1 settlements so counterparties get what they are owed. Call under the market lock. */
+    public void settleUserPendingPayments(long userId) {
         var pending = jdbc.query("""
                 SELECT id, buyer_id, seller_id, stock_id, quantity, gross_amount, seller_fee
                 FROM settlements

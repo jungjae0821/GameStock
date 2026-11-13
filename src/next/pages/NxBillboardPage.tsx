@@ -6,8 +6,8 @@ import {
 } from "../../lib/billboard";
 import { useProfile } from "../../lib/profile";
 import { won } from "../../market/format";
-import { useMarket, useMarketApi } from "../../market/MarketProvider";
 import { BillboardLine } from "../BillboardStrip";
+import { refreshCareer, useCareer } from "../../lib/career";
 import { AccountTabs } from "../AccountTabs";
 
 const STATE_LABEL: Record<BillboardState, string> = {
@@ -24,8 +24,6 @@ const squeeze = (text: string) => text.replace(/\s+/g, " ");
 export function NxBillboardPage() {
   const { board, failed } = useBillboard();
   const now = useMinuteClock();
-  const snapshot = useMarket();
-  const api = useMarketApi();
   const { user } = useAuthUser();
   const profile = useProfile();
   const bodyId = useId();
@@ -54,7 +52,10 @@ export function NxBillboardPage() {
     return () => controller.abort();
   }, [user?.uid, loadMine]);
 
-  const cash = snapshot.portfolio.cash;
+  // 전광판 값은 운용계좌가 아니라 내 지갑에서 낸다.
+  const career = useCareer();
+  // 아직 읽지 못했으면 막지 않는다. 잔액이 모자라면 서버가 거절한다.
+  const cash = career?.personalCash ?? null;
   const nickname = profile?.nickname || "내 닉네임";
   const text = squeeze(body).trim();
   const max = board?.maxLength ?? 40;
@@ -66,12 +67,13 @@ export function NxBillboardPage() {
   const bodyError = body === "" ? "" : length(text) < min ? `${min}자 이상 적어 주세요.` : length(text) > max ? `${max}자까지 적을 수 있어요.` : "";
   const blocked = open ? "올린 문구가 끝나면 새로 올릴 수 있어요."
     : board?.nextOpening ? `전광판에 문구가 가득 찼어요. ${slotTime(board.nextOpening, now)}에 자리가 나요.`
-    : cash < price ? `보유 현금이 ${won(price - cash)} 모자라요.` : "";
+    : cash !== null && cash < price ? `내 지갑 잔액이 ${won(price - cash)} 모자라요.` : "";
   const ready = Boolean(board) && text !== "" && !bodyError && !blocked && !pending;
 
   const finish = async (note: string) => {
     setMessage({ text: note, ok: true });
-    await Promise.all([refreshBillboard(), loadMine(), api.refreshPortfolio()]);
+    refreshCareer();
+    await Promise.all([refreshBillboard(), loadMine()]);
   };
 
   const submit = async (event: FormEvent) => {
@@ -96,7 +98,7 @@ export function NxBillboardPage() {
       <header className="nx-screen-head">
         <div>
           <h1 className="vh">전광판</h1>
-          <p className="nx-screen-sub">홈 맨 위, 게임주 지수 바로 위에 한 줄 문구를 띄워요. 모의 자금으로 사고, 실제 돈은 오가지 않아요.</p>
+          <p className="nx-screen-sub">홈 맨 위, 게임주 지수 바로 위에 한 줄 문구를 띄워요. 내 지갑 돈으로 사고, 실제 돈은 오가지 않아요.</p>
         </div>
       </header>
 
@@ -105,7 +107,7 @@ export function NxBillboardPage() {
       <section className="nx-panel nx-billboard-compose" aria-labelledby="nx-billboard-compose-title">
         <header className="nx-panel-head">
           <h2 id="nx-billboard-compose-title" className="nx-panel-title">문구 올리기</h2>
-          <span className="nx-muted nx-num">보유 현금 {won(cash)}</span>
+          <span className="nx-muted nx-num">내 지갑 {cash === null ? "확인 중" : won(cash)}</span>
         </header>
 
         <div className="nx-billboard-preview">
@@ -137,7 +139,7 @@ export function NxBillboardPage() {
           <dl className="nx-figures nx-billboard-figures">
             <div><dt>값</dt><dd className="nx-num">{won(price)}</dd></div>
             <div><dt>끝나는 시각</dt><dd className="nx-num">{slotTime(ends, now)}</dd></div>
-            <div><dt>낸 뒤 현금</dt><dd className="nx-num">{won(Math.max(0, cash - price))}</dd></div>
+            <div><dt>낸 뒤 지갑</dt><dd className="nx-num">{cash === null ? "—" : won(Math.max(0, cash - price))}</dd></div>
           </dl>
 
           {blocked && <p className="nx-note" role="status">{blocked}</p>}
@@ -150,7 +152,7 @@ export function NxBillboardPage() {
 
         <ul className="nx-loan-rules">
           <li>사는 즉시 홈에 보여요. 여러 문구가 떠 있으면 10초마다 번갈아 보여요.</li>
-          <li>문구에 쓴 돈은 수익률과 주간 랭킹 계산에서 빠져요. 순자산은 그만큼 줄어요.</li>
+          <li>문구 값은 내 지갑에서 나가요. 운용계좌와 수익률에는 영향이 없어요.</li>
           <li>신고가 들어온 문구는 운영자가 내릴 수 있어요.</li>
         </ul>
       </section>

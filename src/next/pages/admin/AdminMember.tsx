@@ -245,7 +245,7 @@ export function MissionRecovery({ userId, nickname, onDone }: { userId: number; 
         setAmount("");
         onDone();
       } else {
-        setMessage("그날 이미 받은 보상이라 지급하지 않았습니다. 잔액만 틀렸다면 현금 조정을 쓰세요.");
+        setMessage("그날 이미 받은 보상이라 지급하지 않았습니다. 미션 보상은 회원의 내 지갑으로 들어가며, 현금 조정은 운용계좌만 바꿉니다.");
       }
     } catch (failure) {
       setMessage(failure instanceof Error ? failure.message : "보상을 지급하지 못했습니다.");

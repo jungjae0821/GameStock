@@ -67,8 +67,14 @@ public final class MarketModels {
                     profitLossPercent, 0);
         }
     }
+    /**
+     * One trader ranking row. {@code grade} is null for a member still waiting for the career
+     * migration; {@code changePercent} is then the old return on the starting cash.
+     */
     public record RankingEntry(int rank, String nickname, String profileImageUrl, long totalAsset, long assetValue, long cash, double changePercent,
-                               String equippedTitle, boolean equippedTitleWeekly) { }
+                               String equippedTitle, boolean equippedTitleWeekly, String grade, String gradeLabel, long personalCash) { }
+    public record WealthEntry(int rank, String nickname, String profileImageUrl, long personalCash, String grade, String gradeLabel,
+                              String equippedTitle, boolean equippedTitleWeekly) { }
     /**
      * A news event plus enough context for the clients to explain the current
      * price move without pretending that a headline is a guaranteed cause.

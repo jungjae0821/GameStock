@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { ATTENDANCE_STEPS, fetchAttendance, type Attendance, type AttendanceDay } from "../../lib/attendance";
+import { ATTENDANCE_STEP, ATTENDANCE_STEPS, fetchAttendance, type Attendance, type AttendanceDay } from "../../lib/attendance";
 import { AccountTabs } from "../AccountTabs";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
-/** 100,000 → "10만원". 출석 보상은 모두 만원 단위다. */
+/** 10,000 → "1만원". 출석 보상은 모두 만원 단위다. */
 function manWon(value: number): string {
   return `${(value / 10_000).toLocaleString("ko-KR")}만원`;
 }
@@ -27,7 +27,7 @@ function monthLabel(month: string): string {
 function RewardLane({ streak }: { streak: number }) {
   const hit = Math.min(streak, 5);
   return (
-    <div className="nx-att-lane" role="img" aria-label={hit ? `보상 ${hit}단계: 하루 ${manWon(hit * 100_000)}` : "아직 이어 가는 출석이 없어요"}>
+    <div className="nx-att-lane" role="img" aria-label={hit ? `보상 ${hit}단계: 하루 ${manWon(hit * ATTENDANCE_STEP)}` : "아직 이어 가는 출석이 없어요"}>
       {ATTENDANCE_STEPS.map((step) => {
         const away = step.day - hit;
         const state = away === 0 ? "is-hit" : away < 0 ? "is-passed" : "is-coming";
@@ -109,7 +109,7 @@ export function NxAttendancePage() {
       <header className="nx-screen-head">
         <div>
           <h1 className="vh">출석체크</h1>
-          <p className="nx-screen-sub">하루에 한 번 접속하면 자동으로 출석돼요. 이어서 출석할수록 보상이 10만원씩 커지고, 하루를 건너뛰면 1일차부터 다시 시작해요.</p>
+          <p className="nx-screen-sub">하루에 한 번 접속하면 자동으로 출석돼요. 이어서 출석할수록 보상이 1만원씩 커지고, 하루를 건너뛰면 1일차부터 다시 시작해요. 보상은 내 지갑으로 들어와요.</p>
         </div>
       </header>
 
@@ -155,7 +155,7 @@ export function NxAttendancePage() {
               <div><dt>가장 길게 이은 연속</dt><dd className="nx-num">{data.longestStreak}일</dd></div>
               <div><dt>받은 출석 보상</dt><dd className="nx-num">{manWon(data.totalReward)}</dd></div>
             </dl>
-            <p className="nx-muted">출석 보상은 현금으로 들어오고, 랭킹 수익률을 계산할 때는 빠져요.</p>
+            <p className="nx-muted">출석 보상은 운용계좌가 아니라 내 지갑으로 들어와요.</p>
           </section>
         </>
       )}

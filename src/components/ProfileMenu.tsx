@@ -118,7 +118,7 @@ export function ProfileMenu({ route }: { route: Route }) {
 
   const nickname = profile?.nickname ?? auth.user.displayName ?? "내 계정";
   const avatar = profileImageSrc(profile?.profileImageUrl);
-  const current = route.name === "mypage" || route.name === "settings" || route.name === "titles" || route.name === "attendance" || route.name === "charge" || route.name === "loan" || route.name === "billboard" || route.name === "admin";
+  const current = route.name === "mypage" || route.name === "settings" || route.name === "titles" || route.name === "attendance" || route.name === "charge" || route.name === "career" || route.name === "loan" || route.name === "billboard" || route.name === "admin";
   const items = profile?.admin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
 
   const logout = async () => {

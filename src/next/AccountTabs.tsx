@@ -7,6 +7,7 @@ type Tab = { id: Route["name"]; label: string; to: string };
 /* 계정 메뉴의 한 항목이 여는 화면 묶음. 주소는 화면마다 그대로 두고 위에 탭만 단다. */
 export const ACCOUNT_GROUPS = {
   funds: { label: "자금", tabs: [
+    { id: "career", label: "내 커리어", to: "/career" },
     { id: "charge", label: "충전하기", to: "/charge" },
     { id: "attendance", label: "출석체크", to: "/attendance" },
     { id: "loan", label: "대출", to: "/loan" },
