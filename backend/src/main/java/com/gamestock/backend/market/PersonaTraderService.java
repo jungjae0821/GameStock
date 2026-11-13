@@ -27,7 +27,7 @@ import static com.gamestock.backend.market.MarketModels.OrderRequest;
 import static com.gamestock.backend.market.PersonaDecisions.*;
 
 /**
- * {@link Persona} 세 명을 1분마다 움직인다. 접속한 날에는 출석·칭호·일일 예측을 챙기고,
+ * {@link Persona} 운영 봇들을 1분마다 움직인다. 접속한 날에는 출석·칭호·일일 예측을 챙기고,
  * 접속 시간대 안에서만 일반 회원과 같은 {@link OrderService#submit} 경로로 시장가 주문을 낸다.
  *
  * <p>시즌·주간·자산 랭킹 중 하나라도 {@code guardRank}에 가까우면 새로 사지 않는다. 그래도
@@ -132,12 +132,13 @@ public class PersonaTraderService {
     // ── 하루 활동 ────────────────────────────────────────────
 
     void act(Persona persona, long id, ZonedDateTime now, Random random) {
+        // 출석과 일일 예측은 자정에 바뀌므로 달력 날짜로, 매매 빈도는 밤을 넘기는 봇의 하루로 센다.
         LocalDate day = now.toLocalDate();
         if (!day.equals(choresDone.get(id))) {
             chores(persona, id, now, random);
             choresDone.put(id, day);
         }
-        if (random.nextDouble() >= persona.actionChancePerMinute(day)) return;
+        if (random.nextDouble() >= persona.actionChancePerMinute(Persona.dayOf(now))) return;
         trade(persona, id, random);
     }
 

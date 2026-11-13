@@ -30,11 +30,19 @@ final class PersonaDecisions {
 
     static Optional<Order> decide(Persona persona, Account account, List<Quote> quotes, boolean buyBlocked, Random random) {
         List<Quote> listed = quotes.stream().filter(q -> q.price() > 0).toList();
-        return switch (persona.style()) {
+        Optional<Order> order = switch (persona.style()) {
             case LONG -> longTerm(persona, account, listed, buyBlocked, random);
             case SCALP -> scalper(account, listed, buyBlocked, random);
             case NEWBIE -> newbie(persona, account, listed, buyBlocked, random);
         };
+        return order.map(o -> scaled(o, persona.orderScale()));
+    }
+
+    /** 매수 수량에만 {@code orderScale}을 곱한다. 매도는 들고 있는 만큼 그대로 판다. */
+    private static Order scaled(Order order, double scale) {
+        if (!order.side().equals("BUY") || scale >= 1) return order;
+        int quantity = (int) Math.max(1, Math.round(order.quantity() * scale));
+        return new Order(order.code(), order.side(), quantity, order.reason());
     }
 
     // 장기투자형: 많이 빠진 종목을 나눠 담고 오래 들고 있다. 25% 넘게 오르면 절반만 판다.

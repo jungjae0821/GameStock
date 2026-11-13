@@ -3,6 +3,7 @@ package com.gamestock.backend.market;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
@@ -16,9 +17,16 @@ class PersonaTest {
         return Persona.ALL.stream().filter(p -> p.style() == style).findFirst().orElseThrow();
     }
 
+    private static Persona named(String username) {
+        return Persona.ALL.stream().filter(p -> p.username().equals(username)).findFirst().orElseThrow();
+    }
+
+    private static final List<String> NIGHT_OWLS = List.of("persona_nightclerk", "persona_allnighter");
+
     @Test void personasLookLikeMembersSignedUpThroughTheApp() {
-        assertEquals(3, Persona.ALL.size());
-        assertEquals(3, new HashSet<>(Persona.ALL.stream().map(Persona::nickname).toList()).size());
+        assertEquals(5, Persona.ALL.size());
+        assertEquals(5, new HashSet<>(Persona.ALL.stream().map(Persona::nickname).toList()).size());
+        assertEquals(5, new HashSet<>(Persona.ALL.stream().map(Persona::username).toList()).size());
         for (Persona p : Persona.ALL) {
             // 회원 닉네임 규칙(2~10자)을 벗어나면 랭킹에서 바로 티가 난다.
             assertTrue(p.nickname().length() >= 2 && p.nickname().length() <= 10, p.nickname());
@@ -37,9 +45,13 @@ class PersonaTest {
         for (Persona p : Persona.ALL) {
             for (int offset = 0; offset < 60; offset++) {
                 LocalDate day = LocalDate.of(2026, 11, 1).plusDays(offset);
-                for (Persona.Window window : p.windowsOn(day)) {
-                    assertTrue(window.from().isBefore(window.to()), p.username() + " " + day + " " + window);
-                    assertTrue(window.minutes() > 0);
+                LocalDateTime dayStart = day.atTime(Persona.DAY_START);
+                for (Persona.Session session : p.windowsOn(day)) {
+                    assertTrue(session.from().isBefore(session.to()), p.username() + " " + day + " " + session);
+                    assertTrue(session.minutes() > 0);
+                    // 봇의 하루(06:00~다음 날 06:00)를 벗어나지 않는다.
+                    assertFalse(session.from().isBefore(dayStart));
+                    assertFalse(session.to().isAfter(dayStart.plusDays(1)));
                 }
                 double chance = p.actionChancePerMinute(day);
                 assertTrue(chance > 0 && chance <= 1);
@@ -47,13 +59,14 @@ class PersonaTest {
         }
     }
 
-    @Test void personasSkipSomeDaysAndAreOfflineAtFourInTheMorning() {
+    @Test void personasSkipSomeDaysAndDayPeopleAreOfflineAtFourInTheMorning() {
         for (Persona p : Persona.ALL) {
             int active = 0;
             for (int offset = 0; offset < 120; offset++) {
                 LocalDate day = LocalDate.of(2026, 9, 1).plusDays(offset);
                 if (p.activeOn(day)) active++;
-                assertFalse(p.onlineAt(day.atTime(LocalTime.of(4, 0)).atZone(Persona.ZONE)));
+                if (!NIGHT_OWLS.contains(p.username()))
+                    assertFalse(p.onlineAt(day.atTime(LocalTime.of(4, 0)).atZone(Persona.ZONE)), p.username() + " " + day);
             }
             assertTrue(active > 30 && active < 120, p.username() + " active " + active);
         }
@@ -77,13 +90,56 @@ class PersonaTest {
     @Test void weekendsGetLongerOnlineTimeAndMoreTrades() {
         LocalDate friday = LocalDate.of(2026, 11, 20), saturday = friday.plusDays(1);
         for (Persona p : Persona.ALL) {
-            int weekday = p.windowsOn(friday).stream().mapToInt(Persona.Window::minutes).sum();
-            int weekend = p.windowsOn(saturday).stream().mapToInt(Persona.Window::minutes).sum();
+            assertTrue(p.weekendActions() > p.weekdayActions(), p.username());
+            // 새벽 봇은 쉬는 날에도 밤낮이 바뀐 채라 주말 낮 접속 기준을 따르지 않는다.
+            if (NIGHT_OWLS.contains(p.username())) continue;
+            int weekday = p.windowsOn(friday).stream().mapToInt(Persona.Session::minutes).sum();
+            int weekend = p.windowsOn(saturday).stream().mapToInt(Persona.Session::minutes).sum();
             assertTrue(weekend >= 480, p.username() + " 주말 접속 " + weekend + "분");
             assertTrue(weekend > weekday, p.username());
-            assertTrue(p.weekendActions() > p.weekdayActions(), p.username());
             assertTrue(p.weekendActive() >= 0.9, p.username());
         }
+    }
+
+    @Test void theEarlyMorningIsNotEmpty() {
+        for (LocalTime time : List.of(LocalTime.of(0, 30), LocalTime.of(1, 30), LocalTime.of(2, 30),
+                LocalTime.of(3, 30), LocalTime.of(4, 30), LocalTime.of(5, 15))) {
+            int days = 0;
+            for (int offset = 0; offset < 60; offset++) {
+                var at = LocalDate.of(2026, 11, 1).plusDays(offset).atTime(time).atZone(Persona.ZONE);
+                if (Persona.ALL.stream().anyMatch(p -> p.onlineAt(at))) days++;
+            }
+            assertTrue(days >= 30, time + " online days " + days);
+        }
+    }
+
+    @Test void aSessionAcrossMidnightBelongsToTheNightBefore() {
+        Persona clerk = named("persona_nightclerk");
+        // 토요일 밤 22:30~01:30 접속은 일요일 새벽까지 토요일(주말) 하루로 이어진다.
+        LocalDate saturday = LocalDate.of(2026, 11, 14);
+        assertEquals(saturday, Persona.dayOf(saturday.plusDays(1).atTime(1, 0).atZone(Persona.ZONE)));
+        assertEquals(saturday.plusDays(1), Persona.dayOf(saturday.plusDays(1).atTime(6, 0).atZone(Persona.ZONE)));
+        Persona.Session night = clerk.windowsOn(saturday).get(1);
+        assertEquals(saturday, night.from().toLocalDate());
+        assertEquals(saturday.plusDays(1), night.to().toLocalDate());
+        assertTrue(night.minutes() >= 180 - 1);
+        for (int offset = 0; offset < 30; offset++) {
+            LocalDate day = saturday.plusDays(offset);
+            boolean online = clerk.onlineAt(day.plusDays(1).atTime(0, 30).atZone(Persona.ZONE));
+            if (!clerk.activeOn(day)) assertFalse(online, day.toString());
+        }
+    }
+
+    @Test void nightOwlsBuySmallerButSellEverything() {
+        Persona clerk = named("persona_nightclerk");
+        Persona dayScalper = named("persona_kazusa");
+        List<Quote> rising = List.of(new Quote("UMA", 10_300, 10_300, 10_000, 10_000));
+        var cash = new Account(1_000_000, 1_000_000, List.of());
+        Order night = decide(clerk, cash, rising, false, new Random(3)).orElseThrow();
+        Order day = decide(dayScalper, cash, rising, false, new Random(3)).orElseThrow();
+        assertEquals(Math.round(day.quantity() * clerk.orderScale()), night.quantity());
+        var winner = new Account(500_000, 1_000_000, List.of(new Holding("BA", 20, 20_000, 20_900, 10)));
+        assertEquals(new Order("BA", "SELL", 20, "TAKE_PROFIT"), decide(clerk, winner, FLAT, false, new Random(1)).orElseThrow());
     }
 
     // ── 매매 판단 ──────────────────────────────────────────
