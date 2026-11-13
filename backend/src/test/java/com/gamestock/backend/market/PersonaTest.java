@@ -59,6 +59,33 @@ class PersonaTest {
         }
     }
 
+    @Test void activeDaysFollowEachRateInsteadOfStickingForWeeks() {
+        for (Persona p : Persona.ALL) {
+            int weekdays = 0, activeWeekdays = 0, weekends = 0, activeWeekends = 0;
+            for (int offset = 0; offset < 168; offset++) {
+                LocalDate day = LocalDate.of(2026, 11, 2).plusDays(offset);
+                boolean weekend = day.getDayOfWeek().getValue() >= 6;
+                boolean on = p.activeOn(day);
+                if (weekend) { weekends++; if (on) activeWeekends++; } else { weekdays++; if (on) activeWeekdays++; }
+            }
+            double weekdayRate = activeWeekdays / (double) weekdays, weekendRate = activeWeekends / (double) weekends;
+            assertEquals(p.weekdayActive(), weekdayRate, 0.15, p.username() + " 평일 접속률");
+            assertEquals(p.weekendActive(), weekendRate, 0.15, p.username() + " 주말 접속률");
+        }
+    }
+
+    @Test void weekendsGetLongerOnlineTimeAndMoreTrades() {
+        LocalDate friday = LocalDate.of(2026, 11, 20), saturday = friday.plusDays(1);
+        for (Persona p : Persona.ALL) {
+            int weekday = p.windowsOn(friday).stream().mapToInt(Persona.Window::minutes).sum();
+            int weekend = p.windowsOn(saturday).stream().mapToInt(Persona.Window::minutes).sum();
+            assertTrue(weekend >= 480, p.username() + " 주말 접속 " + weekend + "분");
+            assertTrue(weekend > weekday, p.username());
+            assertTrue(p.weekendActions() > p.weekdayActions(), p.username());
+            assertTrue(p.weekendActive() >= 0.9, p.username());
+        }
+    }
+
     // ── 매매 판단 ──────────────────────────────────────────
 
     private static final List<Quote> FLAT = List.of(
