@@ -31,6 +31,8 @@ class TitleServiceTest {
     private boolean lastWeekOpen;
     private final Map<Long, Long> adjustedAssets = new LinkedHashMap<>();
     private final List<Long> tradedLastWeek = new ArrayList<>();
+    /** Accounts with users.persona set (operating bots shown as members). */
+    private final List<Long> personaIds = new ArrayList<>();
     /** Closing snapshot of last week; null when none was taken. */
     private java.sql.Timestamp closingAt;
     private final Map<Long, Long> closingAssets = new LinkedHashMap<>();
@@ -103,6 +105,7 @@ class TitleServiceTest {
                     return row == null ? List.of() : List.of(row);
                 }
                 if (sql.contains("FROM user_titles")) return new ArrayList<>(titles.keySet());
+                if (sql.contains("persona IS NOT NULL")) return personaIds;
                 if (sql.contains("FROM trades")) return tradedLastWeek;
                 return List.of();
             }
@@ -242,6 +245,22 @@ class TitleServiceTest {
         service.awardWeeklyTitles();
         assertEquals(List.of("weekly_1", "weekly_2", "weekly_3"), weeklyWinners.get(2L));
         assertEquals(List.of("weekly_2", "weekly_3"), weeklyWinners.get(1L));
+    }
+
+    @Test void weeklyTitlesSkipOperatingPersonasAndMoveMembersUp() {
+        TitleService service = service();
+        adjustedAssets.put(1L, 2_000_000L);
+        adjustedAssets.put(2L, 1_500_000L);
+        adjustedAssets.put(3L, 1_200_000L);
+        adjustedAssets.put(5L, 1_100_000L);
+        tradedLastWeek.addAll(List.of(1L, 2L, 3L, 5L));
+        personaIds.add(1L);
+        lastWeekOpen = true;
+        service.awardWeeklyTitles();
+        assertNull(weeklyWinners.get(1L));
+        assertEquals(List.of("weekly_1", "weekly_2", "weekly_3"), weeklyWinners.get(2L));
+        assertEquals(List.of("weekly_2", "weekly_3"), weeklyWinners.get(3L));
+        assertEquals(List.of("weekly_3"), weeklyWinners.get(5L));
     }
 
     @Test void weeklyRankingRanksTradersByReturnAndAddsViewerRow() {

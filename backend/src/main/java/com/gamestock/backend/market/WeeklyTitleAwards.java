@@ -126,11 +126,17 @@ final class WeeklyTitleAwards {
         List<WeeklyReturn> returns = closing == null
                 ? weeklyReturns(weekStart, weekEnd.atStartOfDay(TITLE_ZONE).toInstant(), null)
                 : weeklyReturns(weekStart, closing.at, closing.assets);
-        for (int index = 0; index < Math.min(3, returns.size()); index++) {
-            long userId = returns.get(index).userId;
-            int rank = index + 1;
+        // Operating personas stay in the live ranking but never take a weekly title; the
+        // members below them move up for the award.
+        List<Long> personaRows = jdbc.queryForList("SELECT id FROM users WHERE persona IS NOT NULL", Long.class);
+        Set<Long> personas = personaRows == null ? Set.of() : new java.util.HashSet<>(personaRows);
+        int rank = 0;
+        for (WeeklyReturn entry : returns) {
+            if (rank >= 3) break;
+            if (personas.contains(entry.userId)) continue;
+            rank++;
             // "N위 이내" titles: 1st place also earns the 2nd and 3rd place titles.
-            for (int title = rank; title <= 3; title++) awardWeekly(userId, "weekly_" + title);
+            for (int title = rank; title <= 3; title++) awardWeekly(entry.userId, "weekly_" + title);
         }
         log.info("{} 주간 수익률 칭호 지급 완료 ({}명 참여)", weekStart, returns.size());
     }

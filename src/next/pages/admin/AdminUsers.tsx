@@ -15,6 +15,14 @@ type AdminUser = {
   nicknameChangedAt: string | null;
   tradeBannedUntil: string | null;
   tradeBanReason: string | null;
+  /** 운영 봇의 성격. 일반 회원은 null. */
+  persona: "LONG" | "SCALP" | "NEWBIE" | null;
+};
+
+const PERSONA_LABELS: Record<NonNullable<AdminUser["persona"]>, string> = {
+  LONG: "장기투자",
+  SCALP: "단타",
+  NEWBIE: "초보",
 };
 
 const BAN_PRESETS = [1, 3, 7, 30] as const;
@@ -93,6 +101,11 @@ export function AdminUsers() {
                   <td>
                     {user.nickname}
                     {user.role === "ADMIN" && <span className="admin-badge">관리자</span>}
+                    {user.persona && (
+                      <span className="admin-badge" title="유저에게는 일반 회원으로 보이는 운영 봇">
+                        봇 · {PERSONA_LABELS[user.persona] ?? user.persona}
+                      </span>
+                    )}
                   </td>
                   <td className="num">{formatTime(user.createdAt)}</td>
                   <td className="cell-num num admin-cash">{won(user.cash)}</td>
