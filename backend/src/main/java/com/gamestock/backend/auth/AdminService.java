@@ -37,7 +37,7 @@ public class AdminService {
     /** 이메일·닉네임·UID 일부로 검색한다. 검색어가 없으면 최근 가입 순으로 보여 준다. */
     public List<AdminUser> users(String query) {
         String q = query == null ? "" : query.trim();
-        String select = "SELECT id, google_uid, email, nickname, role, cash, created_at, nickname_changed_at, trade_banned_until, trade_ban_reason FROM users";
+        String select = "SELECT id, google_uid, email, nickname, role, persona, cash, created_at, nickname_changed_at, trade_banned_until, trade_ban_reason FROM users";
         if (q.isEmpty())
             return jdbc.query(select + " WHERE google_uid IS NOT NULL ORDER BY id DESC LIMIT " + PAGE_SIZE, this::mapUser);
         String like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
@@ -98,14 +98,14 @@ public class AdminService {
     }
 
     public AdminUser user(long userId) {
-        var rows = jdbc.query("SELECT id, google_uid, email, nickname, role, cash, created_at, nickname_changed_at, trade_banned_until, trade_ban_reason FROM users WHERE id = ?",
+        var rows = jdbc.query("SELECT id, google_uid, email, nickname, role, persona, cash, created_at, nickname_changed_at, trade_banned_until, trade_ban_reason FROM users WHERE id = ?",
                 this::mapUser, userId);
         if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "계정을 찾을 수 없습니다.");
         return rows.get(0);
     }
 
     private AdminUser lockUser(long userId) {
-        var rows = jdbc.query("SELECT id, google_uid, email, nickname, role, cash, created_at, nickname_changed_at, trade_banned_until, trade_ban_reason FROM users WHERE id = ? FOR UPDATE",
+        var rows = jdbc.query("SELECT id, google_uid, email, nickname, role, persona, cash, created_at, nickname_changed_at, trade_banned_until, trade_ban_reason FROM users WHERE id = ? FOR UPDATE",
                 this::mapUser, userId);
         if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "계정을 찾을 수 없습니다.");
         return rows.get(0);
@@ -126,11 +126,14 @@ public class AdminService {
                 created == null ? null : created.toInstant().toString(),
                 changed == null ? null : changed.toInstant().toString(),
                 banned ? until.toInstant().toString() : null,
-                banned ? rs.getString("trade_ban_reason") : null);
+                banned ? rs.getString("trade_ban_reason") : null,
+                rs.getString("persona"));
     }
 
+    /** {@code persona}는 운영 봇의 성격(LONG·SCALP·NEWBIE)이고 일반 회원은 null이다. */
     public record AdminUser(long id, String uid, String email, String nickname, String role, long cash,
-                            String createdAt, String nicknameChangedAt, String tradeBannedUntil, String tradeBanReason) { }
+                            String createdAt, String nicknameChangedAt, String tradeBannedUntil, String tradeBanReason,
+                            String persona) { }
     public record TradeBan(Integer days, String reason) { }
     public record NicknameChange(String nickname) { }
 }

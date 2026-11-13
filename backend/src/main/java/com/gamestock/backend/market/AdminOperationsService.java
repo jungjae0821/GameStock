@@ -29,8 +29,9 @@ public class AdminOperationsService {
 
     public Map<String,Object> dashboard(){
         Map<String,Object> result=new LinkedHashMap<>();
-        result.put("users",count("SELECT COUNT(*) FROM users u WHERE "+HUMAN));
-        result.put("suspendedUsers",count("SELECT COUNT(*) FROM users u WHERE "+HUMAN+" AND trade_banned_until>CURRENT_TIMESTAMP"));
+        // 운영 봇(persona)은 회원 수에 넣지 않는다.
+        result.put("users",count("SELECT COUNT(*) FROM users u WHERE "+HUMAN+" AND u.persona IS NULL"));
+        result.put("suspendedUsers",count("SELECT COUNT(*) FROM users u WHERE "+HUMAN+" AND u.persona IS NULL AND trade_banned_until>CURRENT_TIMESTAMP"));
         result.put("openOrders",count("SELECT COUNT(*) FROM orders WHERE status='OPEN'"));
         result.put("trades24h",db.queryForMap("SELECT COUNT(*) AS fills,COALESCE(SUM(quantity),0) AS volume,COALESCE(SUM(price*quantity),0) AS notional FROM trades WHERE created_at >= DATE_SUB(CURRENT_TIMESTAMP,INTERVAL 1 DAY)"));
         result.put("openReports",count("SELECT COUNT(*) FROM user_reports WHERE status='OPEN'"));
@@ -40,7 +41,7 @@ public class AdminOperationsService {
         return result;
     }
     public Map<String,Object> user(long user){
-        var rows=db.queryForList("SELECT id,nickname,email,google_uid,role,cash,loan_balance,loan_interest_on,created_at,trade_banned_until,trade_ban_reason,account_reset_at FROM users WHERE id=?",user);
+        var rows=db.queryForList("SELECT id,nickname,email,google_uid,role,persona,cash,loan_balance,loan_interest_on,created_at,trade_banned_until,trade_ban_reason,account_reset_at FROM users WHERE id=?",user);
         if(rows.isEmpty())throw new IllegalArgumentException("계정을 찾을 수 없습니다.");
         Map<String,Object> result=new LinkedHashMap<>(rows.get(0));
         result.put("portfolio",market.portfolio(user));

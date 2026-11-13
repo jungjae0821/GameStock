@@ -128,6 +128,8 @@ final class MarketSchema {
         // 관리자가 부계정 의심 계정에 거는 기간제 거래 제한.
         addUserColumnIfMissing("trade_banned_until", "TIMESTAMP NULL");
         addUserColumnIfMissing("trade_ban_reason", "VARCHAR(200) NULL");
+        // 사람처럼 활동하는 운영 봇의 성격(LONG·SCALP·NEWBIE). 일반 회원은 NULL이다.
+        addUserColumnIfMissing("persona", "VARCHAR(12) NULL");
         jdbc.execute("""
                 CREATE TABLE IF NOT EXISTS admin_actions (
                   id BIGINT AUTO_INCREMENT PRIMARY KEY, admin_id BIGINT NOT NULL, target_user_id BIGINT NOT NULL,

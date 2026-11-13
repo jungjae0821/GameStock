@@ -344,6 +344,11 @@ public class AuthService {
         return new LoginUser(user.id(), user.nickname(), user.email(), user.profileImageUrl(), reward, streak, user.requiresNickname(), user.role());
     }
 
+    /** 로그인하지 않는 운영 봇이 접속한 날, 회원 로그인과 같은 규칙으로 출석 보상을 받는다. 오늘 받은 금액을 돌려준다. */
+    public long grantAttendanceReward(long userId) {
+        return grantAttendanceReward(new LoginUser(userId, null, null, null, 0, 0, false)).attendanceReward();
+    }
+
     /** 오늘의 연속 일수와 한 달치 출석 기록. 달을 비우면 한국시간 이번 달을 돌려준다. */
     public Attendance attendance(long userId, String month) {
         LocalDate today = LocalDate.now(clock.withZone(ATTENDANCE_ZONE));

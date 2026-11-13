@@ -45,17 +45,22 @@ public class AdminSeasonService {
         // Rank by gain with outside cash adjustments removed. Ties use account ID.
         var entries=db.queryForList("""
             SELECT e.*,COALESCE((SELECT SUM(c.amount) FROM admin_cash_adjustments c
-              WHERE c.user_id=e.user_id AND c.created_at>=s.started_at),0) AS external_cash
-            FROM admin_season_entries e JOIN admin_seasons s ON s.id=e.season_id
+              WHERE c.user_id=e.user_id AND c.created_at>=s.started_at),0) AS external_cash,
+              (u.persona IS NOT NULL) AS persona
+            FROM admin_season_entries e JOIN admin_seasons s ON s.id=e.season_id JOIN users u ON u.id=e.user_id
             WHERE e.season_id=? AND e.closing_asset IS NOT NULL
             """,id);
         entries.sort(Comparator.<Map<String,Object>>comparingLong(e->((Number)e.get("closing_asset")).longValue()-((Number)e.get("opening_asset")).longValue()-((Number)e.get("external_cash")).longValue()).reversed().thenComparingLong(e->((Number)e.get("user_id")).longValue()));
-        int rank=0;for(var e:entries){rank++;long reward=rank<=request.rankRewards().size()?request.rankRewards().get(rank-1):0;
+        // Operating personas keep their displayed rank but never take a reward or a season title;
+        // those go to members by their rank among members only.
+        int rank=0,memberRank=0;for(var e:entries){rank++;boolean persona=truthy(e.get("persona"));if(!persona)memberRank++;
+            long reward=!persona&&memberRank<=request.rankRewards().size()?request.rankRewards().get(memberRank-1):0;
             db.update("UPDATE admin_season_entries SET rank_no=?,reward_cash=? WHERE season_id=? AND user_id=?",rank,reward,id,e.get("user_id"));
-            if(reward>0)PersonalWallet.credit(db,((Number)e.get("user_id")).longValue(),"season:"+id+":"+e.get("user_id"),PersonalWallet.SEASON,reward,"시즌 "+id+" "+rank+"위 보상");
+            if(persona)continue;
+            if(reward>0)PersonalWallet.credit(db,((Number)e.get("user_id")).longValue(),"season:"+id+":"+e.get("user_id"),PersonalWallet.SEASON,reward,"시즌 "+id+" "+memberRank+"위 보상");
             // Season titles stack like the weekly ones: 1st gets 1·2·3, 2nd gets 2·3, 3rd gets 3.
             long winner=((Number)e.get("user_id")).longValue();
-            for(int place=3;place>=rank&&place>=1;place--)awardSeasonTitle(winner,"season_"+place);
+            for(int place=3;place>=memberRank&&place>=1;place--)awardSeasonTitle(winner,"season_"+place);
         }
         db.update("UPDATE admin_seasons SET status='CLOSED',ended_at=CURRENT_TIMESTAMP(3) WHERE id=?",id);
         support.audit(actor,"SEASON_CLOSE",id,request.reason(),before,Map.of("participants",entries.size(),"rankRewards",request.rankRewards()));return ranking(id,100);
@@ -86,6 +91,7 @@ public class AdminSeasonService {
         db.update("UPDATE admin_seasons SET status='RESET' WHERE id=?",id);operations.changed();
         support.audit(actor,"SEASON_RESET",id,why,before,Map.of("users",users.size(),"status","RESET"));
     }
+    private static boolean truthy(Object value){return value instanceof Boolean b?b:value instanceof Number n&&n.intValue()!=0;}
     private void awardSeasonTitle(long userId,String titleId){
         db.update("""
             INSERT INTO user_titles (user_id, title_id, win_count, notified, acquired_at, updated_at)

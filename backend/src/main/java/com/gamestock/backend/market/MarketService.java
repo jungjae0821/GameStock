@@ -740,7 +740,7 @@ public class MarketService {
                 SELECT COUNT(DISTINCT u.id), COALESCE(SUM(t.quantity),0)
                 FROM trades t JOIN users u ON (u.id=t.buyer_id OR u.id=t.seller_id)
                 WHERE t.stock_id=? AND t.created_at>=DATE_SUB(CURRENT_TIMESTAMP,INTERVAL 5 MINUTE)
-                  AND u.password_hash NOT IN ('BOT','TRADER') AND u.username<>'demo'
+                  AND u.password_hash NOT IN ('BOT','TRADER','PERSONA') AND u.username<>'demo'
                   AND NOT EXISTS (SELECT 1 FROM settlements s WHERE s.trade_id=t.id AND s.status='CANCELLED')
                 """, (rs,n)->Math.min(1.5,.65+rs.getLong(1)*.04+Math.sqrt(rs.getLong(2))*.015),stockId(code));
         return StockMarketProfile.liquidityScale(code,humanScale);
