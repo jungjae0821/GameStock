@@ -61,6 +61,8 @@ export function Users() {
                   <View style={styles.inline}>
                     <Txt variant="callout" numberOfLines={1} style={styles.shrink}>{user.nickname}</Txt>
                     {user.role === 'ADMIN' ? <Badge text="관리자" /> : null}
+                    {/* 운영 봇. 다른 사용자에게는 일반 회원으로 보이고, 관리자에게만 표시한다. */}
+                    {user.persona ? <Badge text={`봇 · ${PERSONA_LABELS[user.persona] ?? user.persona}`} /> : null}
                     {user.tradeBannedUntil ? <Badge text="이용 정지" tone="ink" /> : null}
                   </View>
                   <Txt variant="caption" tone="inkSoft" numberOfLines={1} numeric>{`#${user.id} · ${user.email || '이메일 없음'}`}</Txt>
@@ -79,6 +81,9 @@ export function Users() {
     </>
   );
 }
+
+// 운영 봇의 성격(서버 users.persona). 일반 회원은 null이다. 웹 AdminUsers의 PERSONA_LABELS와 같다.
+const PERSONA_LABELS = { LONG: '장기투자', SCALP: '단타', NEWBIE: '초보' };
 
 function Badge({ text, tone = 'inkSoft' }) {
   const theme = useTheme();

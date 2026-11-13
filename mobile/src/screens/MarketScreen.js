@@ -40,10 +40,13 @@ const PRODUCTS = [
 const VIEWS = [{ key: 'list', label: '목록' }, { key: 'heatmap', label: '히트맵' }];
 
 /** 시장 탭. 주식(ETF 포함) 목록과 히트맵, 그리고 지수 선물·옵션을 위쪽 구분으로 바꿔 본다. */
-export function MarketScreen({ market, onOpenStock, onOpenEtf, onLogin }) {
+export function MarketScreen({ market, product: shownProduct, onProduct, onOpenStock, onOpenEtf, onLogin, onOpenCareer }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const [product, setProduct] = useState('stocks');
+  // 상품 구분은 앱 셸이 갖는다(승진 발령에서 선물·옵션으로 바로 보내려고). 넘겨받지 않으면 화면이 스스로 갖는다.
+  const [ownProduct, setOwnProduct] = useState('stocks');
+  const product = shownProduct ?? ownProduct;
+  const setProduct = onProduct ?? setOwnProduct;
   const body = { paddingHorizontal: SPACE.lg, paddingBottom: SPACE.xxl };
   return (
     <View style={[styles.fill, { backgroundColor: theme.ground }]}>
@@ -52,8 +55,8 @@ export function MarketScreen({ market, onOpenStock, onOpenEtf, onLogin }) {
         <Segment options={PRODUCTS} value={product} onChange={setProduct} label="거래 상품" />
       </View>
       {product === 'stocks' ? <StockList market={market} onOpenStock={onOpenStock} onOpenEtf={onOpenEtf} onLogin={onLogin} /> : null}
-      {product === 'futures' ? <FuturesView onLogin={onLogin} contentStyle={body} /> : null}
-      {product === 'options' ? <OptionsView onLogin={onLogin} contentStyle={body} /> : null}
+      {product === 'futures' ? <FuturesView onLogin={onLogin} onOpenCareer={onOpenCareer} contentStyle={body} /> : null}
+      {product === 'options' ? <OptionsView onLogin={onLogin} onOpenCareer={onOpenCareer} contentStyle={body} /> : null}
       <View pointerEvents="none" style={[styles.statusCover, { height: insets.top, backgroundColor: theme.ground }]} />
     </View>
   );

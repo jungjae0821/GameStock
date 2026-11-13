@@ -4,6 +4,7 @@ import { useAccount } from '../../account';
 import { request } from '../../auth';
 import { GameIcon } from '../../components/GameIcon';
 import { AccountFrame, Button, Card, CardHead, Empty, Figure, Notice, Row, SideTag, kit, kstShort } from '../../components/Kit';
+import { ShareResultButton } from '../../components/Engagement';
 import { price, signedPercent, signedWon, won } from '../../format';
 import { sessionRate } from '../../market';
 import { SPACE, Txt, toneOf, useTheme } from '../../theme';
@@ -154,6 +155,11 @@ export function MyAccountScreen({ market, onBack, onGo }) {
         <Txt variant="callout" tone={toneOf(money.pnl)} numeric>{`${signedWon(money.pnl)} (${signedPercent(money.pnlRate)})`}</Txt>
         <Txt variant="caption" tone="inkSoft">시작 자금과 승진 충전을 더한 금액 대비</Txt>
       </View>
+      {/* 위 숫자 묶음은 스크린리더가 한 번에 읽는 덩어리라, 누를 수 있는 공유 버튼은 그 밖에 둔다. */}
+      <View style={styles.share}>
+        <ShareResultButton pnl={money.pnl} pnlRate={money.pnlRate} stocks={market.stocks}
+          best={money.rows.length ? (([top]) => ({ name: top.name, pnlRate: top.rate }))([...money.rows].sort((a, b) => b.pnl - a.pnl)) : null} />
+      </View>
 
       <Card>
         <View style={styles.figures}>
@@ -276,6 +282,7 @@ function Watchlist({ quotes, account, onGo }) {
 }
 
 const styles = StyleSheet.create({
+  share: { paddingHorizontal: SPACE.lg + 2, marginTop: -SPACE.md, marginBottom: SPACE.lg },
   figures: { flexDirection: 'row', gap: SPACE.md },
   allocBar: { flexDirection: 'row', gap: 2, height: 12, borderRadius: 6, overflow: 'hidden' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: SPACE.lg, rowGap: 6 },
