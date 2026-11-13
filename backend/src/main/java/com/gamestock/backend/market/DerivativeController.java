@@ -23,6 +23,12 @@ public class DerivativeController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void configureUnlocks(FeatureUnlockService unlocks) { this.unlocks = unlocks; }
 
+    private CareerService career;
+
+    /** Optional for the same reason: hand-built tests run without the career's loss limits. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureCareer(CareerService career) { this.career = career; }
+
     public DerivativeController(DerivativeService derivatives, AuthService auth) {
         this.derivatives = derivatives;
         this.auth = auth;
@@ -62,6 +68,9 @@ public class DerivativeController {
         if ("ADMIN".equalsIgnoreCase(user.role()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 계정은 파생상품을 거래할 수 없습니다.");
         if (unlocks != null) unlocks.requireForDerivative(user.id(), request.kind());
+        // Selling an ETF here closes a holding, which a loss lock never blocks.
+        boolean etfSell = "ETF".equalsIgnoreCase(request.kind()) && "SELL".equalsIgnoreCase(request.side());
+        if (career != null && !etfSell) career.requireNewRisk(user.id());
         return derivatives.open(user.id(), request);
     }
 

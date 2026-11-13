@@ -54,7 +54,7 @@ public class AdminContentService {
 
     public List<Map<String,Object>> missions(){
         Map<String,Map<String,Object>> configured=new HashMap<>();for(var row:db.queryForList("SELECT * FROM admin_mission_config"))configured.put((String)row.get("mission_id"),row);
-        return MarketService.MISSION_IDS.stream().map(id->configured.getOrDefault(id,Map.of("mission_id",id,"enabled",true,"reward_cash",50000,"minimum_watchlist","watch".equals(id)?1:0))).toList();
+        return MarketService.MISSION_IDS.stream().map(id->configured.getOrDefault(id,Map.of("mission_id",id,"enabled",true,"reward_cash",10000,"minimum_watchlist","watch".equals(id)?1:0))).toList();
     }
     @Transactional
     public void mission(long actor,String id,Mission request){

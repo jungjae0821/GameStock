@@ -38,6 +38,12 @@ public class OpenApiTradingService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void configureUnlocks(com.gamestock.backend.market.FeatureUnlockService unlocks) { this.unlocks = unlocks; }
 
+    private com.gamestock.backend.market.CareerService career;
+
+    /** Optional for the same reason: hand-built tests run without the career's loss limits. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureCareer(com.gamestock.backend.market.CareerService career) { this.career = career; }
+
     public OpenApiTradingService(JdbcTemplate jdbc, ObjectMapper json, PersistenceWorker persistence,
                                  OpenApiKeyService keys, MarketService market, DerivativeService derivatives) {
         this.jdbc = jdbc; this.json = json; this.persistence = persistence; this.keys = keys;
@@ -49,6 +55,14 @@ public class OpenApiTradingService {
         // Opening futures or options needs the same unlock as the web; closing never does.
         boolean closingOption = request.product() == Product.OPTION && request.side() == Side.SELL;
         if (unlocks != null && !closingOption) unlocks.requireForDerivative(principal.userId(), request.product().name());
+        // Buying stock or an ETF, opening a future either way and buying an option add risk; sells and closes do not.
+        boolean addsRisk = request.product() == Product.FUTURE || request.side() == Side.BUY;
+        if (career != null && addsRisk) {
+            if (request.product() == Product.STOCK)
+                career.requireNewRisk(principal.userId(), request.symbol(), request.quantity(),
+                        request.effectiveOrderType() == OrderType.LIMIT ? request.price() : null);
+            else career.requireNewRisk(principal.userId());
+        }
         return execute(principal, requestId, "ORDER", request, () -> {
             if (request.product() == Product.STOCK)
                 return market.order(new MarketModels.OrderRequest(request.symbol(), request.side().name(),

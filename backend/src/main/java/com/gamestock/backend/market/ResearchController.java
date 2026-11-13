@@ -62,7 +62,10 @@ public class ResearchController {
     @PutMapping("/quant/projects/{id}")
     public QuantProjectService.Project update(@PathVariable long id,@RequestBody QuantProjectService.Save request,
         @RequestHeader(value="Authorization",required=false) String token) {
-        return projects.save(auth.requireUser(token).id(),id,request);
+        long userId=auth.requireUser(token).id();
+        // Editing a strategy is using quant; a member demoted below the quant desk cannot keep tuning one.
+        if(unlocks!=null)unlocks.require(userId,FeatureUnlockService.Feature.QUANT);
+        return projects.save(userId,id,request);
     }
     @PatchMapping("/quant/projects/{id}/state")
     public QuantProjectService.Project state(@PathVariable long id,@RequestBody State request,

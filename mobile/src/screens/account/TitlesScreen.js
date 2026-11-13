@@ -6,7 +6,7 @@ import { AccountFrame, Card, Chips, Empty, Notice, kit } from '../../components/
 import { titleColor } from '../../titles';
 import { RADIUS, SPACE, Txt, mixColor, useTheme } from '../../theme';
 
-const CATEGORY_ORDER = ['자산', '수익률', '보유', '거래', '활동', '수집', '주간', '특별'];
+const CATEGORY_ORDER = ['자산', '수익률', '보유', '거래', '팬덤', '예측', '활동', '수집', '주간', '시즌', '기념', '특별'];
 // 서버가 아직 특별 칭호를 내려주지 않아도 목록에는 늘 미획득으로 보이게 한다(웹 withSpecialTitles와 같다).
 const SPECIAL = [
   { id: 'special_syuangel', name: '슈엔젤' },

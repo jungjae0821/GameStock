@@ -65,7 +65,10 @@ class TitleServiceTest {
                     return 1;
                 }
                 if (sql.startsWith("UPDATE users SET cash = cash + ?")) {
-                    cashPaid.add((Long) args[1]);
+                    throw new AssertionError("promo rewards go to the personal wallet, not trading cash");
+                }
+                if (sql.contains("INSERT IGNORE INTO personal_ledger")) {
+                    cashPaid.add((Long) args[4]);
                     return 1;
                 }
                 if (sql.startsWith("INSERT IGNORE INTO user_titles"))
@@ -181,11 +184,12 @@ class TitleServiceTest {
         assertEquals(List.of("newbie"), List.copyOf(titles.keySet()));
         assertTrue(first.titles().stream().anyMatch(title -> title.id().equals("newbie") && title.owned()));
         assertEquals(1, first.ownedCount());
-        assertEquals(42, first.totalCount());
+        assertEquals(43, first.totalCount());
     }
 
     @Test void holdingsAssetsAndActivityGrantMatchingTitles() {
         user.put("cash", 3_000_000L);
+        user.put("personal_cash", 30_000_000L);
         user.put("nickname_changed", true);
         user.put("max_streak", 30);
         positions.add(new long[]{160, 30_000_000L});
@@ -198,6 +202,13 @@ class TitleServiceTest {
         assertFalse(titles.containsKey("attend_180"));
         assertFalse(titles.containsKey("trades_100"));
         assertFalse(titles.containsKey("collector_15"));
+    }
+
+    @Test void assetTitlesCountTheWalletNotTheFirmsTradingAccount() {
+        user.put("cash", 100_000_000L);
+        user.put("personal_cash", 29_999_999L);
+        service().check(7L);
+        assertFalse(titles.containsKey("asset_30m"), "a promoted desk's allocation is not the member's wealth");
     }
 
     @Test void weeklyTitlesCountWinsAsNGwanwang() {

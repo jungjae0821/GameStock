@@ -4,7 +4,7 @@ import { checkTitles, equipTitle, titleInkStyle, type TitleStatus, type UserTitl
 import { AnimatedNav } from "../AnimatedNav";
 import { AccountTabs } from "../AccountTabs";
 
-const CATEGORY_ORDER = ["자산", "수익률", "보유", "거래", "팬덤", "예측", "활동", "수집", "주간", "시즌", "특별"];
+const CATEGORY_ORDER = ["자산", "수익률", "보유", "거래", "팬덤", "예측", "활동", "수집", "주간", "시즌", "기념", "특별"];
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", timeZone: "Asia/Seoul" });
 
 function TitleCard({ title, pending, onToggle }: { title: UserTitle; pending: boolean; onToggle: (title: UserTitle) => void }) {

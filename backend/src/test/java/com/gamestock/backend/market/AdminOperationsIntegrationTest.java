@@ -73,9 +73,10 @@ class AdminOperationsIntegrationTest {
         assertThrows(IllegalArgumentException.class,()->promos.create(admin,new AdminPromoService.Promo("empty",0,List.of(),null,null,null,true,"","보상 없음")));
         assertThrows(IllegalArgumentException.class,()->promos.create(admin,new AdminPromoService.Promo("weekly",0,List.of("weekly_1"),null,null,null,true,"","주간 칭호")));
         var paid=titles.redeem(buyer,"LAUNCH-1");
-        assertEquals(200000,paid.rewardCash());assertEquals(1200000,cash(buyer));
+        // Promo cash goes to the personal wallet; the trading account and its outside-cash total stay as they were.
+        assertEquals(200000,paid.rewardCash());assertEquals(1000000,cash(buyer));assertEquals(200000L,PersonalWallet.balance(db,buyer));
         assertTrue(paid.titles().stream().anyMatch(title->title.id().equals("special_syuaga")&&title.owned()));
-        assertEquals(200000L,runtime.externalCash(buyer));
+        assertEquals(0L,runtime.externalCash(buyer));
         assertThrows(IllegalArgumentException.class,()->titles.redeem(buyer,"launch-1"));
         assertThrows(IllegalArgumentException.class,()->titles.redeem(seller,"launch-1"));
         tx(()->promos.update(admin,"launch-1",new AdminPromoService.Promo("ignored",200000,List.of("special_syuaga"),null,null,null,false,"","중지")));
@@ -440,9 +441,11 @@ class AdminOperationsIntegrationTest {
     }
     @Test void missionConfigurationChangesTheActualRewardAndDuplicateClaimsPayNothing(){
         String mission=MarketService.dailyMissionIds(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))).stream().filter(x->!x.equals("watch")).findFirst().orElseThrow();
+        long cashBefore=cash(buyer),walletBefore=PersonalWallet.balance(db,buyer);
         tx(()->{content.mission(admin,mission,new AdminContentService.Mission(true,1234,0,"보상 조정"));return null;});
         assertEquals(1234,tx(()->market.rewardMission(mission,buyer)).rewardCash());
-        assertEquals(0,tx(()->market.rewardMission(mission,buyer)).rewardCash());assertEquals(1001234,cash(buyer));
+        assertEquals(0,tx(()->market.rewardMission(mission,buyer)).rewardCash());
+        assertEquals(cashBefore,cash(buyer));assertEquals(walletBefore+1234,PersonalWallet.balance(db,buyer));
         tx(()->{content.mission(admin,mission,new AdminContentService.Mission(false,1234,0,"미션 중지"));return null;});
         assertThrows(IllegalArgumentException.class,()->tx(()->market.rewardMission(mission,seller)));
     }
@@ -515,10 +518,12 @@ class AdminOperationsIntegrationTest {
     @Test void recoveringAMissingMissionMarksItClaimedAndCannotPayItAgain(){
         var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"));
         String mission=MarketService.dailyMissionIds(today).stream().filter(x->!x.equals("watch")).findFirst().orElseThrow();
-        var request=new MissionRecovery(mission,today,50000,"누락 미션 복구");
+        // Yesterday: other tests in this shared schema may already have paid today's mission.
+        var request=new MissionRecovery(mission,today.minusDays(1),50000,"누락 미션 복구");
+        long cashBefore=cash(buyer),walletBefore=PersonalWallet.balance(db,buyer);
         assertEquals(true,tx(()->operations.recoverMission(admin,buyer,request)).get("awarded"));
         assertEquals(false,tx(()->operations.recoverMission(admin,buyer,request)).get("awarded"));
-        assertEquals(0,tx(()->market.rewardMission(mission,buyer)).rewardCash());assertEquals(1050000,cash(buyer));
+        assertEquals(cashBefore,cash(buyer));assertEquals(walletBefore+50000,PersonalWallet.balance(db,buyer));
         assertEquals(0,market.portfolio(buyer).adminAdjustmentCash());
     }
 }

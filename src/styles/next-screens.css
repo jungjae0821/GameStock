@@ -164,6 +164,8 @@ html[data-nx][data-nx-theme="light"] .nx-article-stats div { background: var(--n
 .has-title-ink[style*="--title-ink"] { color: color-mix(in srgb, var(--title-ink) 45%, #ffffff); }
 html[data-nx-theme="light"] .has-title-ink[style*="--title-ink"] { color: color-mix(in srgb, var(--title-ink) 85%, #1b1726); }
 .nx-player-name { overflow: hidden; color: var(--ink); text-overflow: ellipsis; white-space: nowrap; }
+.nx-player-grade { margin-right: 6px; padding: 0 6px; border: 1px solid var(--nx-line); border-radius: 4px; color: var(--ink-muted); font-size: 11px; font-weight: 600; vertical-align: 1px; }
+.nx-rank-grade { color: var(--ink-muted); font-size: 13px; }
 .nx-player-me { margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--brand); color: var(--brand-ink); font-size: 11px; vertical-align: 1px; }
 .nx-rank-gap td { height: 24px; }
 .nx-rank-gap span { display: block; border-top: 1px dashed var(--nx-line); }

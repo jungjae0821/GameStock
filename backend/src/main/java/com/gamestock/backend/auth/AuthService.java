@@ -26,6 +26,8 @@ public class AuthService {
     private static final long MOBILE_CODE_TTL_SECONDS = 120;
     /** Attendance resets at Korean midnight, the same boundary as daily missions. */
     private static final ZoneId ATTENDANCE_ZONE = ZoneId.of("Asia/Seoul");
+    /** Attendance pays this much per consecutive day, up to five days, into the personal wallet. */
+    static final long ATTENDANCE_STEP = 10_000L;
     private final JdbcTemplate jdbc;
     private final Clock clock;
     /**
@@ -329,12 +331,16 @@ public class AuthService {
         var last = jdbc.query("SELECT rewarded_on, streak_day FROM attendance_rewards WHERE user_id = ? ORDER BY rewarded_on DESC LIMIT 1",
                 (rs, row) -> Map.of("date", rs.getDate(1).toLocalDate(), "streak", rs.getInt(2)), user.id());
         int streak = !last.isEmpty() && ((LocalDate) last.get(0).get("date")).plusDays(1).equals(today) ? (int) last.get(0).get("streak") + 1 : 1;
-        long reward = Math.min(streak, 5) * 100_000L;
+        long reward = Math.min(streak, 5) * ATTENDANCE_STEP;
         // Parallel first requests of the day race here. The unique key admits one
         // row, and only the request that inserted it pays the reward.
-        int inserted = jdbc.update("INSERT IGNORE INTO attendance_rewards (user_id, rewarded_on, streak_day, reward_cash) VALUES (?, ?, ?, ?)", user.id(), today, streak, reward);
+        // reward_cash stays 0: the reward goes to the personal wallet, and reward_cash means trading cash that returns leave out.
+        int inserted = jdbc.update("INSERT IGNORE INTO attendance_rewards (user_id, rewarded_on, streak_day, reward_cash, wallet_cash) VALUES (?, ?, ?, 0, ?)", user.id(), today, streak, reward);
         if (inserted == 0) return new LoginUser(user.id(), user.nickname(), user.email(), user.profileImageUrl(), 0, streak, user.requiresNickname(), user.role());
-        jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", reward, user.id());
+        // Keyed by member and day: an admin season reset deletes the reward rows but not the wallet,
+        // so a row-based key would let the same day's attendance pay twice.
+        com.gamestock.backend.market.PersonalWallet.credit(jdbc, user.id(), "attendance:" + user.id() + ":" + today,
+                com.gamestock.backend.market.PersonalWallet.ATTENDANCE, reward, "출석 " + streak + "일째 보상");
         return new LoginUser(user.id(), user.nickname(), user.email(), user.profileImageUrl(), reward, streak, user.requiresNickname(), user.role());
     }
 
@@ -347,19 +353,19 @@ public class AuthService {
         } catch (java.time.format.DateTimeParseException error) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "달은 2026-10 형식으로 보내 주세요.");
         }
-        var days = jdbc.query("SELECT rewarded_on, streak_day, reward_cash FROM attendance_rewards WHERE user_id = ? AND rewarded_on BETWEEN ? AND ? ORDER BY rewarded_on",
+        var days = jdbc.query("SELECT rewarded_on, streak_day, reward_cash + wallet_cash FROM attendance_rewards WHERE user_id = ? AND rewarded_on BETWEEN ? AND ? ORDER BY rewarded_on",
                 (rs, row) -> new AttendanceDay(rs.getDate(1).toLocalDate().toString(), rs.getInt(2), rs.getLong(3)),
                 userId, shown.atDay(1), shown.atEndOfMonth());
-        var last = jdbc.query("SELECT rewarded_on, streak_day, reward_cash FROM attendance_rewards WHERE user_id = ? ORDER BY rewarded_on DESC LIMIT 1",
+        var last = jdbc.query("SELECT rewarded_on, streak_day, reward_cash + wallet_cash FROM attendance_rewards WHERE user_id = ? ORDER BY rewarded_on DESC LIMIT 1",
                 (rs, row) -> new AttendanceDay(rs.getDate(1).toLocalDate().toString(), rs.getInt(2), rs.getLong(3)), userId);
-        var totals = jdbc.queryForMap("SELECT COUNT(*) AS days, COALESCE(SUM(reward_cash), 0) AS reward, COALESCE(MAX(streak_day), 0) AS longest FROM attendance_rewards WHERE user_id = ?", userId);
+        var totals = jdbc.queryForMap("SELECT COUNT(*) AS days, COALESCE(SUM(reward_cash + wallet_cash), 0) AS reward, COALESCE(MAX(streak_day), 0) AS longest FROM attendance_rewards WHERE user_id = ?", userId);
         LocalDate lastDate = last.isEmpty() ? null : LocalDate.parse(last.get(0).date());
         boolean checkedToday = today.equals(lastDate);
         // 어제까지 이어 온 연속은 오늘 출석 전까지 살아 있다.
         int streak = lastDate != null && !lastDate.plusDays(1).isBefore(today) ? last.get(0).streakDay() : 0;
         long todayReward = checkedToday ? last.get(0).reward() : 0;
         // 오늘 받았으면 내일 보상, 아직이면 오늘 받을 보상이다. 둘 다 연속을 하루 더 이었을 때의 금액.
-        long nextReward = Math.min(streak + 1, 5) * 100_000L;
+        long nextReward = Math.min(streak + 1, 5) * ATTENDANCE_STEP;
         return new Attendance(today.toString(), checkedToday, streak, todayReward, nextReward,
                 ((Number) totals.get("longest")).intValue(), ((Number) totals.get("days")).intValue(),
                 ((Number) totals.get("reward")).longValue(), shown.toString(), days);

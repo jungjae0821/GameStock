@@ -6,10 +6,11 @@ import { AccountFrame, Card, CardHead, Empty, Figure, Notice, kit } from '../../
 import { RADIUS_SM, SPACE, Txt, useTheme } from '../../theme';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
-// 서버 AuthService.grantAttendanceReward와 같은 표. 5일차부터는 매일 50만원이다.
-const STEPS = [1, 2, 3, 4, 5].map(day => ({ day, reward: day * 100_000 }));
+// 서버 AuthService.grantAttendanceReward와 같은 표. 5일차부터는 매일 5만원이 내 지갑으로 들어온다.
+const STEP = 10_000;
+const STEPS = [1, 2, 3, 4, 5].map(day => ({ day, reward: day * STEP }));
 
-/** 100,000 → "10만원". 출석 보상은 모두 만원 단위다. */
+/** 10,000 → "1만원". 출석 보상은 모두 만원 단위다. */
 const manWon = value => `${(value / 10_000).toLocaleString('ko-KR')}만원`;
 const monthLabel = month => { const [year, index] = month.split('-').map(Number); return `${year}년 ${index}월`; };
 function shiftMonth(month, by) {
@@ -49,7 +50,7 @@ export function AttendanceScreen({ onBack }) {
   return (
     <AccountFrame title="출석체크" onBack={onBack} onRefresh={() => load()}>
       <Txt variant="callout" tone="inkSoft" style={styles.lead}>
-        하루에 한 번 앱을 열면 자동으로 출석돼요. 이어서 출석할수록 보상이 10만원씩 커지고, 하루를 건너뛰면 1일차부터 다시 시작해요.
+        하루에 한 번 앱을 열면 자동으로 출석돼요. 이어서 출석할수록 보상이 1만원씩 커지고, 하루를 건너뛰면 1일차부터 다시 시작해요. 보상은 내 지갑으로 들어와요.
       </Txt>
       <Card>
         <Txt variant="callout" tone="inkSoft">{data.checkedToday ? '오늘 출석했어요' : '오늘은 아직 출석 전이에요'}</Txt>
@@ -84,7 +85,7 @@ export function AttendanceScreen({ onBack }) {
           <Figure label="가장 긴 연속" value={`${data.longestStreak}일`} />
           <Figure label="받은 보상" value={manWon(data.totalReward)} />
         </View>
-        <Txt variant="caption" tone="inkSoft">출석 보상은 현금으로 들어오고, 랭킹 수익률을 계산할 때는 빠져요.</Txt>
+        <Txt variant="caption" tone="inkSoft">출석 보상은 운용계좌가 아니라 내 지갑으로 들어와요.</Txt>
       </Card>
     </AccountFrame>
   );
@@ -95,7 +96,7 @@ function Steps({ streak }) {
   const theme = useTheme();
   const hit = Math.min(streak, 5);
   return (
-    <View style={styles.steps} accessible accessibilityLabel={hit ? `보상 ${hit}단계: 하루 ${manWon(hit * 100_000)}` : '아직 이어 가는 출석이 없어요'}>
+    <View style={styles.steps} accessible accessibilityLabel={hit ? `보상 ${hit}단계: 하루 ${manWon(hit * STEP)}` : '아직 이어 가는 출석이 없어요'}>
       {STEPS.map(step => {
         const now = step.day === hit;
         const passed = step.day < hit;

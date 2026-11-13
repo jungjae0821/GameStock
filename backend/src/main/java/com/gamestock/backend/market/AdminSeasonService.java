@@ -52,7 +52,7 @@ public class AdminSeasonService {
         entries.sort(Comparator.<Map<String,Object>>comparingLong(e->((Number)e.get("closing_asset")).longValue()-((Number)e.get("opening_asset")).longValue()-((Number)e.get("external_cash")).longValue()).reversed().thenComparingLong(e->((Number)e.get("user_id")).longValue()));
         int rank=0;for(var e:entries){rank++;long reward=rank<=request.rankRewards().size()?request.rankRewards().get(rank-1):0;
             db.update("UPDATE admin_season_entries SET rank_no=?,reward_cash=? WHERE season_id=? AND user_id=?",rank,reward,id,e.get("user_id"));
-            if(reward>0)operations.cashLocked(actor,((Number)e.get("user_id")).longValue(),new AdminOperationsService.CashChange("season:"+id+":"+e.get("user_id"),reward,"시즌 "+id+" "+rank+"위 보상"));
+            if(reward>0)PersonalWallet.credit(db,((Number)e.get("user_id")).longValue(),"season:"+id+":"+e.get("user_id"),PersonalWallet.SEASON,reward,"시즌 "+id+" "+rank+"위 보상");
             // Season titles stack like the weekly ones: 1st gets 1·2·3, 2nd gets 2·3, 3rd gets 3.
             long winner=((Number)e.get("user_id")).longValue();
             for(int place=3;place>=rank&&place>=1;place--)awardSeasonTitle(winner,"season_"+place);
@@ -80,6 +80,8 @@ public class AdminSeasonService {
             db.update("DELETE FROM attendance_rewards WHERE user_id=?",user);db.update("DELETE FROM mission_rewards WHERE user_id=?",user);
             db.update("INSERT INTO admin_cash_epochs(user_id,last_adjustment_id) SELECT ?,COALESCE(MAX(id),0) FROM admin_cash_adjustments WHERE user_id=? ON DUPLICATE KEY UPDATE last_adjustment_id=VALUES(last_adjustment_id)",user,user);
             db.update("UPDATE users SET cash=1000000,loan_balance=0,loan_interest_on=NULL,account_reset_at=CURRENT_TIMESTAMP(3) WHERE id=?",user);
+            // The grade stays; its base and high-water mark restart from the reset cash so the reset is not read as a loss.
+            CareerService.rebase(db,user,1000000);
         }
         db.update("UPDATE admin_seasons SET status='RESET' WHERE id=?",id);operations.changed();
         support.audit(actor,"SEASON_RESET",id,why,before,Map.of("users",users.size(),"status","RESET"));

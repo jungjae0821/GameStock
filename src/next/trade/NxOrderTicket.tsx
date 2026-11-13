@@ -152,8 +152,6 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
   const quantityError = qty === "" ? "" : !valid ? "수량은 1~1,000주 사이의 정수로 입력해 주세요." : !affordable ? `주문 가능 수량은 최대 ${maxQty.toLocaleString()}주입니다.` : "";
   const priceError = orderType === "LIMIT" && !validLimitPrice ? "단가를 해당 가격대의 호가 단위에 맞춰 입력해 주세요." : "";
   const money = totals(snapshot);
-  const loanRoom = Math.max(0, Math.floor(money.net * 0.5) - money.loan);
-  const cashShort = side === "buy" && ((valid && !affordable) || result?.message === "매수 주문 가능 금액이 부족합니다.");
   const sideLabel = side === "buy" ? "매수" : "매도";
   const readyMessage = valid && affordable && !blocked && !priceError
     ? (orderType === "MARKET" ? `시장가로 ${parsed.toLocaleString()}주를 ${sideLabel}합니다.` : `${won(parsedLimitPrice)}에 ${parsed.toLocaleString()}주를 ${sideLabel}합니다.`)
@@ -236,12 +234,13 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
             {side === "sell" && heldQty > maxQty && <>{" "}<span className="nx-ticket-held">보유 {heldQty.toLocaleString()}주</span></>}
           </dd>
         </div>
-        {user && side === "buy" && (loanRoom >= 10_000 || money.loan > 0) && (
+        {/* 신규 대출은 중단됐다. 예전에 빌린 잔액이 있을 때만 갚기로 안내한다. */}
+        {user && side === "buy" && money.loan > 0 && (
           <div className="nx-ticket-loan">
-            <dt>{money.loan > 0 ? "대출 잔액 · 가능" : "대출 가능"}</dt>
+            <dt>대출 잔액</dt>
             <dd className="nx-num">
-              {money.loan > 0 && <>{won(money.loan)} · </>}{won(loanRoom)}
-              {cashShort && loanRoom >= 10_000 && <Link to="/loan" className="nx-ticket-loan-link">대출받기</Link>}
+              {won(money.loan)}
+              <Link to="/loan" className="nx-ticket-loan-link">갚기</Link>
             </dd>
           </div>
         )}

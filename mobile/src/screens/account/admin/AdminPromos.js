@@ -40,7 +40,7 @@ const rewardSummary = (cash, titleIds, names) => {
   return parts.length ? parts.join(' + ') : '보상 없음';
 };
 
-/** 프로모션 코드 관리. 한 계정은 코드 하나를 한 번만 쓸 수 있고, 현금 보상은 랭킹 수익률에서 빠진다. */
+/** 프로모션 코드 관리. 한 계정은 코드 하나를 한 번만 쓸 수 있고, 현금 보상은 운용계좌가 아니라 개인 지갑으로 들어간다. */
 export function Promos() {
   const theme = useTheme();
   const [data, setData] = useState(null);
@@ -151,7 +151,7 @@ export function Promos() {
         />
         <Field
           label="현금 보상" unit="원" numeric value={draft.rewardCash} onChangeText={value => set('rewardCash', onlyDigits(value).slice(0, 10))} placeholder="0"
-          hint={`${cash > 0 ? `${won(cash)}을 줘요. ` : '비우면 현금은 주지 않아요. '}받은 현금은 랭킹 수익률에서 빠져요.`} error={cashError}
+          hint={`${cash > 0 ? `${won(cash)}을 줘요. ` : '비우면 현금은 주지 않아요. '}받은 현금은 회원의 내 지갑으로 들어가요.`} error={cashError}
         />
         <Txt variant="callout">{`칭호 보상 · ${draft.titleIds.length ? `${draft.titleIds.length}개 선택` : '선택 안 함'}`}</Txt>
         {groups.map(group => (

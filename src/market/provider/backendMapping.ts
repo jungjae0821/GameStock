@@ -50,7 +50,7 @@ export type BackendEvent = {
   articleUrl?: string | null;
 };
 type BackendPosition = { stockCode: string; quantity: number; averagePrice: number; availableQuantity?: number };
-export type BackendPortfolio = { cash: number; positions: BackendPosition[]; realizedProfitLoss?: number; attendanceRewardCash?: number; missionRewardCash?: number; loanBalance?: number; derivativeAssetValue?: number; derivativeRealizedProfitLoss?: number };
+export type BackendPortfolio = { cash: number; positions: BackendPosition[]; realizedProfitLoss?: number; attendanceRewardCash?: number; missionRewardCash?: number; adminAdjustmentCash?: number; loanBalance?: number; derivativeAssetValue?: number; derivativeRealizedProfitLoss?: number };
 export type BackendSettlement = { id: number; stockCode: string; side: string; quantity: number; grossAmount: number; createdAt: string };
 export type BackendActiveOrder = { id: number; stockCode: string; status: string };
 export type BackendMissionReward = { rewardCash: number; awarded: boolean; portfolio: BackendPortfolio; missions: DailyMissionStatus };
@@ -68,7 +68,7 @@ export function toFills(settlements: BackendSettlement[]): Portfolio["fills"] {
 }
 
 export function toPortfolio(value?: BackendPortfolio): Portfolio {
-  if (!value) return { cash: INITIAL_CASH, positions: {}, fills: [], realized: 0, attendanceRewardCash: 0, missionRewardCash: 0, loanBalance: 0, derivativeAssetValue: 0, derivativeRealizedProfitLoss: 0 };
+  if (!value) return { cash: INITIAL_CASH, positions: {}, fills: [], realized: 0, attendanceRewardCash: 0, missionRewardCash: 0, adminAdjustmentCash: 0, loanBalance: 0, derivativeAssetValue: 0, derivativeRealizedProfitLoss: 0 };
   const positions: Record<string, Position> = {};
   for (const item of value.positions ?? []) {
     if (!LISTING_BY_CODE[item.stockCode] || item.quantity < 1) continue;
@@ -81,6 +81,7 @@ export function toPortfolio(value?: BackendPortfolio): Portfolio {
     realized: value.realizedProfitLoss ?? 0,
     attendanceRewardCash: value.attendanceRewardCash ?? 0,
     missionRewardCash: value.missionRewardCash ?? 0,
+    adminAdjustmentCash: value.adminAdjustmentCash ?? 0,
     loanBalance: value.loanBalance ?? 0,
     derivativeAssetValue: value.derivativeAssetValue ?? 0,
     derivativeRealizedProfitLoss: value.derivativeRealizedProfitLoss ?? 0,

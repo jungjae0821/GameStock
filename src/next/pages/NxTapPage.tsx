@@ -3,7 +3,7 @@ import { GameIcon } from "../../components/GameIcon";
 import { ApiError, apiFetch } from "../../lib/api";
 import { openLoginPrompt, useAuthUser } from "../../lib/auth";
 import { won } from "../../market/format";
-import { useMarket, useMarketApi } from "../../market/MarketProvider";
+import { useMarket } from "../../market/MarketProvider";
 import { LISTING_BY_CODE } from "../../market/universe";
 import { TAP_PATH, navigate } from "../../router";
 import { useNxTheme } from "../uiMode";
@@ -20,13 +20,13 @@ const SAMPLE_KEEP_MS = 150_000;
 export function NxTapPage({ code: routeCode }: { code: string | null }) {
   const code = routeCode && (TAP_CODES as readonly string[]).includes(routeCode) ? routeCode : "UMA";
   const snapshot = useMarket();
-  const api = useMarketApi();
   const { user } = useAuthUser();
   const theme = useNxTheme();
   const quote = snapshot.quotes[code];
   const listing = LISTING_BY_CODE[code];
 
   const [state, setState] = useState<TapState | null>(null);
+  const [wallet, setWallet] = useState<number | null>(null);
   const [loadError, setLoadError] = useState("");
   const [stake, setStake] = useState(10_000);
   const [bets, setBets] = useState<TapBet[]>([]);
@@ -86,6 +86,7 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
       const first = stateRef.current?.code !== next.code;
       stateRef.current = next;
       setState(next);
+      setWallet(next.walletCash);
       setLoadError("");
       if (first || samplesRef.current.length === 0) samplesRef.current = next.path.slice();
       mergeBets(next.bets, true);
@@ -120,8 +121,9 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
 
   useEffect(() => {
     const onTap = (event: Event) => {
-      const detail = (event as CustomEvent<{ bets?: TapBet[] }>).detail;
+      const detail = (event as CustomEvent<{ bets?: TapBet[]; walletCash?: number }>).detail;
       if (detail?.bets?.length) mergeBets(detail.bets, false);
+      if (typeof detail?.walletCash === "number") setWallet(detail.walletCash);
     };
     window.addEventListener("gamestock:tap", onTap);
     return () => window.removeEventListener("gamestock:tap", onTap);
@@ -207,7 +209,7 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
       // 서버 정산 알림이 응답보다 먼저 왔으면 그 결과를 지킨다.
       if (!current || current.status === "PENDING") betsRef.current.set(key, result.bet);
       setBets([...betsRef.current.values()]);
-      void api.refreshPortfolio();
+      setWallet(result.walletCash);
     } catch (error) {
       betsRef.current.delete(key);
       setBets([...betsRef.current.values()]);
@@ -284,8 +286,8 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
         <p className="vh" aria-live="polite">{announcement}</p>
       </div>
 
-      <TapControls stakes={state?.stakes ?? [10_000, 50_000, 100_000]} stake={stake} onStake={setStake} signedIn={Boolean(user)}
-        cash={snapshot.portfolio.cash} today={state?.today} openCount={open.length} />
+      <TapControls stakes={state?.stakes ?? [5_000, 10_000, 50_000]} stake={stake} onStake={setStake} signedIn={Boolean(user)}
+        wallet={wallet} today={state?.today} openCount={open.length} />
 
       <TapFoot code={code} name={listing?.name ?? code} signedIn={Boolean(user)} recent={recent} />
     </section>

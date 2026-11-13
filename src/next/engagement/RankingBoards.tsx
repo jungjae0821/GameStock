@@ -105,7 +105,7 @@ export function SeasonBoard() {
       )}
       <p className="nx-rank-note">
         {active ? "시즌이 끝나는 순간의 순위로 1~3위에게 시즌 칭호를 줘요. " : "지난 시즌 최종 순위예요. "}
-        자산은 그대로 두고, 시즌 시작 때 자산과 비교해 수익률을 매겨요. 관리자 지급·예측 보상·재기 지원금은 빼고 계산해요.
+        자산은 그대로 두고, 시즌 시작 때 자산과 비교해 수익률을 매겨요. 관리자 지급과 승진 때 회사가 채워 준 운용한도는 빼고 계산해요.
       </p>
     </>
   );
@@ -189,7 +189,7 @@ function ProfileDialog({ nickname, onClose }: { nickname: string; onClose: () =>
             <h2 id="nx-public-profile-title">{nickname}</h2>
             {profile && (
               <p className="nx-muted">
-                순자산 <span className="nx-num">{won(profile.totalAsset)}</span>
+                운용 자산 <span className="nx-num">{won(profile.totalAsset)}</span>
                 {profile.fandomCode && <> · {LISTING_BY_CODE[profile.fandomCode]?.name ?? profile.fandomCode} 팬</>}
               </p>
             )}

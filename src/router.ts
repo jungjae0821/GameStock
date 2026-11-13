@@ -15,6 +15,7 @@ export type Route =
   | { name: "mypage" }
   | { name: "settings" }
   | { name: "charge" }
+  | { name: "career" }
   | { name: "loan" }
   | { name: "billboard" }
   | { name: "titles" }
@@ -25,7 +26,7 @@ export type Route =
   | { name: "notFound" };
 
 /** 로그인해야 열리는 화면. 로그아웃 상태에서는 본문이 로그인 안내로 바뀐다. */
-export const PRIVATE_ROUTES = new Set<Route["name"]>(["mypage", "settings", "titles", "attendance", "charge", "loan", "billboard", "admin", "quant"]);
+export const PRIVATE_ROUTES = new Set<Route["name"]>(["mypage", "settings", "titles", "attendance", "charge", "career", "loan", "billboard", "admin", "quant"]);
 
 export type DerivativesTab = "futures" | "options";
 const DERIVATIVE_TABS: readonly DerivativesTab[] = ["futures", "options"];
@@ -65,6 +66,7 @@ function parse(pathname: string): Route {
   if (parts[0] === "mypage") return { name: "mypage" };
   if (parts[0] === "settings") return { name: "settings" };
   if (parts[0] === "charge") return { name: "charge" };
+  if (parts[0] === "career") return { name: "career" };
   if (parts[0] === "loan") return { name: "loan" };
   if (parts[0] === "billboard") return parts.length === 1 ? { name: "billboard" } : { name: "notFound" };
   if (parts[0] === "titles") return { name: "titles" };

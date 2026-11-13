@@ -36,7 +36,7 @@
 .nx-unlock-meter > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--ink); }
 .nx-unlock-count { color: var(--ink-muted); text-align: right; }
 
-/* ───────── 충전 화면: 해금 현황·예측·재기 지원금 ───────── */
+/* ───────── 충전 화면: 해금 현황·예측 ───────── */
 
 .nx-unlock-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
 .nx-unlock-list li { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: start; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--nx-line); }
@@ -54,8 +54,32 @@
 .nx-predict-last.is-hit { color: var(--ink); }
 .nx-predict .nx-inline-form select.nx-input { max-width: 320px; }
 
-.nx-rescue { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
-.nx-rescue p { margin: 6px 0 0; }
+/* ───────── 내 커리어 화면 ───────── */
+
+.nx-wallet-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.nx-wallet-list li { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--nx-line); font-size: 13px; }
+.nx-wallet-list li:last-child { border-bottom: 0; }
+.nx-wallet-kind { color: var(--ink-muted); font-size: 12px; }
+.nx-wallet-memo { min-width: 0; overflow: hidden; color: var(--ink); text-overflow: ellipsis; white-space: nowrap; }
+
+.nx-career-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px 20px; margin: 0; }
+.nx-career-stats div { min-width: 0; }
+.nx-career-stats dt { color: var(--ink-muted); font-size: 12px; }
+.nx-career-stats dd { margin: 4px 0 0; color: var(--ink); font-size: 16px; font-weight: 600; }
+.nx-career-next { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--nx-line); }
+.nx-career-next h3 { margin: 0; color: var(--ink); font-size: 14px; font-weight: 600; }
+.nx-career-next > p { margin: 12px 0 0; font-size: 12px; line-height: 1.6; }
+.nx-career-steps { max-width: none; }
+.nx-career-steps li { grid-template-columns: minmax(150px, 220px) minmax(60px, 1fr) 72px auto; min-height: 36px; }
+.nx-career-steps li > .nx-btn { justify-self: start; }
+.nx-career-brief { grid-column: 1 / -1; display: grid; gap: 8px; padding: 14px 16px; border-radius: var(--nx-radius); background: var(--nx-raised); }
+.nx-career-brief p { margin: 0; color: var(--ink); font-size: 13px; line-height: 1.6; }
+.nx-career-brief .nx-btn { justify-self: start; }
+@media (max-width: 560px) {
+  .nx-career-steps li { grid-template-columns: minmax(0, 1fr) 64px; }
+  .nx-career-steps li .nx-unlock-meter { grid-column: 1 / -1; grid-row: 2; }
+  .nx-career-steps li > .nx-btn { grid-column: 1 / -1; }
+}
 
 /* ───────── 설정: 주력 게임·포트폴리오 공개 ───────── */
 
@@ -188,8 +212,8 @@ p.nx-alert-body { padding-right: 18px; cursor: default; }
 /* 제목 아래 설명이 붙는 머리. 기본 머리는 제목과 링크를 한 줄에 둔다. */
 .nx-panel-head.is-stacked { display: grid; justify-content: start; gap: 6px; }
 .nx-panel-head.is-stacked p { margin: 0; font-size: 13px; line-height: 1.6; }
-.nx-rescue .nx-panel-title, .nx-public-setting .nx-panel-title { margin: 0; }
-.nx-rescue p.nx-muted, .nx-public-setting p.nx-muted { font-size: 13px; line-height: 1.6; }
+.nx-public-setting .nx-panel-title { margin: 0; }
+.nx-public-setting p.nx-muted { font-size: 13px; line-height: 1.6; }
 
 /* ───────── 화면 정리 ───────── */
 

@@ -77,7 +77,7 @@ export const ORDER_EXAMPLES = [
 export const ERROR_ROWS = [
   ["400", "INVALID_REQUEST", "필수값·수량·상품 조합·만기·주문 가능 잔액 등 검증 실패"],
   ["401", "UNAUTHORIZED", "인증 누락, 잘못된 키, 만료·폐기된 키"],
-  ["403", "FORBIDDEN", "조회 전용 키의 거래, 계정 정지, 관리자 거래"],
+  ["403", "FORBIDDEN", "조회 전용 키의 거래, 계정 정지, 관리자 거래, 직급이 안 되는 데스크, 손실한도·재교육 중 매수·신규 진입"],
   ["404", "NOT_FOUND", "종목·본인 주문·포지션·완료 요청 없음"],
   ["409", "CONFLICT", "요청 키 충돌 또는 활성 API 키 개수 초과"],
   ["429", "RATE_LIMITED", "호출 한도 초과; Retry-After 초 뒤 재시도"],

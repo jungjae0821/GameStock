@@ -3,7 +3,7 @@ import { missionLabel, MISSION_REWARD, useDailyMissions } from "../../components
 import { usePromoCode } from "../../components/PromoCodePanel";
 import { won } from "../../market/format";
 import { AccountTabs } from "../AccountTabs";
-import { PredictionPanel, RescuePanel, UnlockProgressPanel } from "../engagement/EngagementPanels";
+import { PredictionPanel } from "../engagement/EngagementPanels";
 
 function Missions() {
   const { user, ready, error, pending, completed, count, visibleMissionIds, complete } = useDailyMissions();
@@ -77,7 +77,7 @@ function PromoCode() {
   );
 }
 
-/** 모의 자금은 결제가 아니라 매일 바뀌는 투자 미션 보상으로만 충전된다. */
+/** 미션·예측 보상은 결제가 아니라 활동 보상이고, 운용계좌가 아니라 내 지갑으로 들어간다. */
 export function NxChargePage() {
   return (
     <div className="nx-screen nx-charge">
@@ -85,13 +85,11 @@ export function NxChargePage() {
       <header className="nx-screen-head">
         <div>
           <h1 className="vh">충전하기</h1>
-          <p className="nx-screen-sub">오늘의 투자 미션을 끝내면 모의 자금이 충전돼요. 실제 돈은 오가지 않아요.</p>
+          <p className="nx-screen-sub">오늘의 투자 미션을 끝내면 보상이 내 지갑에 들어와요. 실제 돈은 오가지 않아요.</p>
         </div>
       </header>
-      <RescuePanel />
       <Missions />
       <PredictionPanel />
-      <UnlockProgressPanel />
       <PromoCode />
     </div>
   );

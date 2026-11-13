@@ -28,6 +28,8 @@ export interface LoanStatus {
   collateralRatio: number | null;
   warning: boolean;
   borrowBlocked: boolean;
+  /** false면 신규 대출이 중단된 상태다(프랍 데스크 커리어). 갚기는 그대로 된다. */
+  borrowingOpen?: boolean;
   limitRatio: number;
   dailyInterestRate: number;
   warningRatio: number;
@@ -177,6 +179,8 @@ export interface Portfolio {
   attendanceRewardCash?: number;
   /** 미션 보상으로 지급된 현금. 투자 수익률에서는 제외한다. */
   missionRewardCash?: number;
+  /** 승진 충전과 관리자 지급처럼 거래 밖에서 운용계좌에 들어온 돈. 손익에서 뺀다. */
+  adminAdjustmentCash?: number;
   /** 갚지 않은 모의 대출 잔액(쌓인 이자 포함). 순자산과 손익에서 뺀다. */
   loanBalance?: number;
   /** ETF·선물·옵션 포지션의 평가액. 현금과 별도로 총자산에 더한다. */

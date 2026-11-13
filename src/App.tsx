@@ -18,6 +18,7 @@ import { MarketBoard } from "./next/MarketBoard";
 import { HeatmapBoard } from "./next/HeatmapBoard";
 import { NxAdminPage } from "./next/pages/NxAdminPage";
 import { NxChargePage } from "./next/pages/NxChargePage";
+import { NxCareerPage } from "./next/pages/NxCareerPage";
 import { NxLoanPage } from "./next/pages/NxLoanPage";
 import { NxBillboardPage } from "./next/pages/NxBillboardPage";
 import { NxLoginPage } from "./next/pages/NxLoginPage";
@@ -61,6 +62,7 @@ function titleFor(route: Route): string {
   if (route.name === "attendance") return "출석체크 · 슈엔증권";
   if (route.name === "quant") return "퀀트 전략 · 슈엔증권";
   if (route.name === "charge") return "충전하기 · 슈엔증권";
+  if (route.name === "career") return "내 커리어 · 슈엔증권";
   if (route.name === "loan") return "대출 · 슈엔증권";
   if (route.name === "billboard") return "전광판 · 슈엔증권";
   if (route.name === "admin") return "관리자 · 슈엔증권";
@@ -154,6 +156,7 @@ export default function App() {
         {route.name === "attendance" && auth.user && <NxAttendancePage />}
         {route.name === "quant" && auth.user && <NxQuantPage id={route.id} />}
         {route.name === "charge" && auth.user && <NxChargePage />}
+        {route.name === "career" && auth.user && <NxCareerPage />}
         {route.name === "loan" && auth.user && <NxLoanPage />}
         {route.name === "billboard" && auth.user && <NxBillboardPage />}
         {route.name === "admin" && auth.user && <NxAdminPage />}

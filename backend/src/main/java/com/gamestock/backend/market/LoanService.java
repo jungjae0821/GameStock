@@ -55,7 +55,7 @@ public class LoanService {
     public record LoanStatus(long balance, long limit, long available, long grossAsset, long netAsset, long cash,
                              Double collateralRatio, boolean warning, boolean borrowBlocked,
                              double limitRatio, double dailyInterestRate, double warningRatio, double liquidationRatio,
-                             long minAmount, List<LoanEntry> history) { }
+                             long minAmount, List<LoanEntry> history, boolean borrowingOpen) { }
     public record LoanRequest(@com.fasterxml.jackson.databind.annotation.JsonDeserialize(using=com.gamestock.backend.config.StrictLongDeserializer.class) Long amount) { }
     public record LoanActionResult(String message, LoanStatus loan, MarketModels.Portfolio portfolio) { }
 
@@ -83,13 +83,22 @@ public class LoanService {
 
     void setClock(Clock clock) { this.clock = clock; }
 
+    /**
+     * New loans stopped with the prop desk career: the trading account is the firm's money.
+     * Existing balances can still be repaid and keep accruing interest. Tests reopen it to
+     * keep the old lending path covered.
+     */
+    private boolean borrowing = false;
+
+    void allowBorrowing(boolean open) { this.borrowing = open; }
+
     public LoanStatus status(long userId) {
         Account account = account(userId, false);
         long net = account.grossAsset() - account.balance();
         long limit = Math.max(0, (long) Math.floor(net * LIMIT_RATIO));
         Double ratio = account.balance() > 0 ? (double) account.grossAsset() / account.balance() : null;
         boolean warning = ratio != null && ratio < WARNING_RATIO;
-        long available = warning || !account.human() ? 0 : Math.max(0, limit - account.balance());
+        long available = warning || !account.human() || !borrowing ? 0 : Math.max(0, limit - account.balance());
         List<LoanEntry> history = jdbc.query("""
                 SELECT id, kind, amount, balance_after, created_at FROM loan_ledger
                 WHERE user_id = ? ORDER BY id DESC LIMIT 30
@@ -97,10 +106,11 @@ public class LoanService {
                 rs.getLong("balance_after"), rs.getTimestamp("created_at").toInstant().toString()), userId);
         return new LoanStatus(account.balance(), limit, available, account.grossAsset(), net, account.cash(),
                 ratio, warning, available < MIN_AMOUNT, LIMIT_RATIO, DAILY_INTEREST_RATE, WARNING_RATIO,
-                LIQUIDATION_RATIO, MIN_AMOUNT, history);
+                LIQUIDATION_RATIO, MIN_AMOUNT, history, borrowing);
     }
 
     public LoanActionResult borrow(long userId, Long requested) {
+        if (!borrowing) throw new IllegalArgumentException("신규 대출은 중단됐어요. 운용계좌는 회사 돈이라 직급에 따른 운용한도로만 굴려요. 이미 빌린 돈은 갚을 수 있어요.");
         long amount = validAmount(requested);
         throttle(userId);
         transaction.executeWithoutResult(state -> {

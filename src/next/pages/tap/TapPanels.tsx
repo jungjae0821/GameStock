@@ -5,8 +5,8 @@ import { TAP_PATH } from "../../../router";
 import { shortWon, type TapBet, type TapState } from "./tapShared";
 
 /** 한 칸 금액 고르기와 오늘 탭 성적. */
-export function TapControls({ stakes, stake, onStake, signedIn, cash, today, openCount }: {
-  stakes: number[]; stake: number; onStake: (amount: number) => void; signedIn: boolean; cash: number;
+export function TapControls({ stakes, stake, onStake, signedIn, wallet, today, openCount }: {
+  stakes: number[]; stake: number; onStake: (amount: number) => void; signedIn: boolean; wallet: number | null;
   today: TapState["today"] | undefined; openCount: number;
 }) {
   const net = today ? today.paid - today.staked : 0;
@@ -21,7 +21,7 @@ export function TapControls({ stakes, stake, onStake, signedIn, cash, today, ope
         ))}
       </fieldset>
       <dl className="nx-tap-stats">
-        <div><dt>보유 현금</dt><dd className="nx-num">{signedIn ? won(cash) : "—"}</dd></div>
+        <div><dt>내 지갑</dt><dd className="nx-num">{signedIn && wallet !== null ? won(wallet) : "—"}</dd></div>
         <div><dt>오늘 탭 손익</dt><dd className={`nx-num${net > 0 ? " is-up" : net < 0 ? " is-down" : ""}`}>{signedIn && today ? `${net > 0 ? "+" : ""}${won(net)}` : "—"}</dd></div>
         <div><dt>오늘 적중</dt><dd className="nx-num">{signedIn && today ? `${today.wins} / ${today.wins + today.losses}` : "—"}</dd></div>
         <div><dt>결과 대기</dt><dd className="nx-num">{openCount}칸</dd></div>
@@ -40,7 +40,7 @@ export function TapFoot({ code, name, signedIn, recent }: { code: string; name: 
           <li>칸 하나는 앞으로의 5초와 가격 한 호가예요. 배당은 최근 실제로 그만큼 떨어진 가격까지 닿은 비율로 정해요.</li>
           <li>그 5초 안에 실제 체결가가 칸에 닿으면 바로 당첨이고, 끝까지 안 닿으면 건 금액을 잃어요.</li>
           <li>칸이 열리기 1.5초 전까지만 걸 수 있어요. 지금 가격이 든 칸, 거의 확실하거나 거의 안 닿는 칸은 열리지 않아요.</li>
-          <li>건 금액과 받은 금액은 계좌 현금에 바로 반영돼 순자산과 랭킹에도 들어가요.</li>
+          <li>탭 베팅은 운용계좌가 아니라 내 지갑 돈으로 해요. 건 금액과 받은 금액은 내 지갑에 바로 반영돼요.</li>
         </ul>
         {!signedIn && <button type="button" className="nx-btn is-primary" onClick={() => openLoginPrompt(TAP_PATH(code))}>로그인하고 걸기</button>}
         {signedIn && <Link className="nx-tap-link" to={`/market/${code}`}>{name} 주식 거래하기</Link>}

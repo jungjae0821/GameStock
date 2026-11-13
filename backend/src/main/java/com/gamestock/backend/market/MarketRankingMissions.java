@@ -23,10 +23,11 @@ import static com.gamestock.backend.market.MarketModels.*;
  */
 final class MarketRankingMissions {
     private static final long STARTING_CASH = 1_000_000L;
-    private static final long MISSION_REWARD_CASH = 50_000L;
+    private static final long MISSION_REWARD_CASH = 10_000L;
     static final List<String> MISSION_IDS = List.of(
             "market", "news", "watch", "ranking", "portfolio", "home", "settings",
-            "trade", "loan", "titles",
+            // "career" replaced "loan" when new loans stopped; the daily draw keeps the same size.
+            "trade", "career", "titles",
             "stock-gov", "stock-uma", "stock-ba", "stock-gi", "stock-sr",
             "stock-zzz", "stock-crk", "stock-vr", "stock-ow", "stock-pw");
     static final int DAILY_MISSION_COUNT = 3;
@@ -40,6 +41,17 @@ final class MarketRankingMissions {
         this.jdbc = jdbc;
     }
 
+    /** Grade order for the trader ranking; members not yet migrated rank with trainees. */
+    private static final String GRADE_LEVEL = "FIELD(COALESCE(c.grade, 'TRAINEE'), 'TRAINEE', 'STAFF', 'ASSOCIATE', 'MANAGER', 'SENIOR_MANAGER', 'GENERAL_MANAGER', 'EXECUTIVE')";
+    private static final String HUMAN_RANKED = """
+            u.password_hash NOT IN ('BOT', 'TRADER') AND u.username <> 'demo' AND COALESCE(u.role, 'USER') <> 'ADMIN'
+            """;
+
+    /**
+     * The trader ranking: higher grade first, then the return on the grade's base asset.
+     * The trading account is the firm's money and grows with every promotion, so ranking by
+     * its size would only restate the grade.
+     */
     public List<RankingEntry> ranking() {
         Map<Long,Long> externalCash=market.adminRuntime()==null?Map.of():market.adminRuntime().externalCash();
         List<RankingEntry> entries = jdbc.query("""
@@ -51,16 +63,22 @@ final class MarketRankingMissions {
                        COALESCE(SUM(CASE WHEN p.quantity > 0 THEN p.quantity * COALESCE(pm.mark_price,s.current_price) ELSE 0 END), 0) AS asset_value,
                        """ + AccountValuation.DERIVATIVE_ASSET + """
                        AS derivative_value,
+                       """ + GRADE_LEVEL + """
+                        AS grade_level, c.grade, c.grade_base, COALESCE(c.outside_cash, 0) AS outside_cash, COALESCE(c.legacy, FALSE) AND c.migrated_at IS NULL AS waiting,
+                       COALESCE(c.personal_cash, 0) AS personal_cash,
                        (SELECT ut.title_id FROM user_titles ut WHERE ut.user_id = u.id AND ut.equipped = TRUE LIMIT 1) AS equipped_title,
                        (SELECT ut.win_count FROM user_titles ut WHERE ut.user_id = u.id AND ut.equipped = TRUE LIMIT 1) AS equipped_count
                 FROM users u
+                LEFT JOIN career_state c ON c.user_id = u.id
                 LEFT JOIN portfolios p ON p.user_id = u.id
                 LEFT JOIN stocks s ON s.id = p.stock_id
                 LEFT JOIN market_price_metrics pm ON pm.stock_id = s.id
-                WHERE u.password_hash NOT IN ('BOT', 'TRADER') AND u.username <> 'demo'
-                  AND COALESCE(u.role, 'USER') <> 'ADMIN'
-                GROUP BY u.id, u.nickname, u.profile_image_url, u.cash, u.loan_balance
-                ORDER BY (u.cash + reserved_cash + unsettled_cash + asset_value + derivative_value - u.loan_balance) DESC, u.id ASC
+                WHERE\s""" + HUMAN_RANKED + """
+                GROUP BY u.id, u.nickname, u.profile_image_url, u.cash, u.loan_balance, c.grade, c.grade_base, c.outside_cash, c.legacy, c.migrated_at, c.personal_cash
+                ORDER BY grade_level DESC,
+                  (u.cash + reserved_cash + unsettled_cash + asset_value + derivative_value - u.loan_balance - COALESCE(c.outside_cash, 0) - COALESCE(c.grade_base, 1000000))
+                    / GREATEST(COALESCE(c.grade_base, 1000000), 1) DESC,
+                  u.id ASC
                 LIMIT 100
                 """, (rs, row) -> {
             long assetValue = rs.getLong("asset_value");
@@ -72,21 +90,52 @@ final class MarketRankingMissions {
             long derivativeValue = rs.getLong("derivative_value");
             // 빌린 돈으로 순위가 오르지 않도록 랭킹 자산은 대출 잔액을 뺀 순자산이다.
             long totalAsset = cash + reservedCash + unsettledCash + assetValue + derivativeValue - rs.getLong("loan_balance");
-            // 출석·미션 보상은 투자 성과가 아니므로 수익률에서 제외한다.
-            double changePercent = (totalAsset - STARTING_CASH - attendanceRewardCash - missionRewardCash - externalCash.getOrDefault(rs.getLong("id"),0L)) * 100.0 / STARTING_CASH;
+            CareerGrade grade = CareerGrade.parse(rs.getString("grade"));
+            long base = rs.getLong("grade_base");
+            long outside = rs.getLong("outside_cash");
+            boolean waiting = rs.getBoolean("waiting") || rs.getString("grade") == null;
+            // 커리어 회원은 지금 직급의 기준자산 대비 수익률. 이전을 기다리는 회원은 예전처럼
+            // 시작금 대비이고, 출석·미션 보상과 외부 입금은 투자 성과가 아니라서 뺀다.
+            double changePercent = !waiting && base > 0 ? (totalAsset - outside - base) * 100.0 / base
+                    : (totalAsset - STARTING_CASH - attendanceRewardCash - missionRewardCash - externalCash.getOrDefault(rs.getLong("id"),0L)) * 100.0 / STARTING_CASH;
             // Rows saved before image validation may hold arbitrary URLs; never expose them to other viewers.
             String image = com.gamestock.backend.auth.ProfileImages.sanitize(rs.getString("profile_image_url"));
             TitleService.TitleDefinition title = TitleService.definition(rs.getString("equipped_title"));
             return new RankingEntry(0, rs.getString("nickname"), image.isEmpty() ? null : image, totalAsset, assetValue, cash, changePercent,
-                    title == null ? null : TitleService.displayName(title, rs.getInt("equipped_count")), title != null && title.weekly());
+                    title == null ? null : TitleService.displayName(title, rs.getInt("equipped_count")), title != null && title.weekly(),
+                    waiting ? null : grade.name(), waiting ? null : grade.label, rs.getLong("personal_cash"));
         });
         List<RankingEntry> ranked = new ArrayList<>(entries.size());
         for (int index = 0; index < entries.size(); index++) {
             RankingEntry entry = entries.get(index);
             ranked.add(new RankingEntry(index + 1, entry.nickname(), entry.profileImageUrl(), entry.totalAsset(), entry.assetValue(), entry.cash(), entry.changePercent(),
-                    entry.equippedTitle(), entry.equippedTitleWeekly()));
+                    entry.equippedTitle(), entry.equippedTitleWeekly(), entry.grade(), entry.gradeLabel(), entry.personalCash()));
         }
         return ranked;
+    }
+
+    /** The wealth ranking: the member's own money, which only bonuses and rewards fill. */
+    public List<WealthEntry> wealthRanking() {
+        List<WealthEntry> entries = jdbc.query("""
+                SELECT u.nickname, u.profile_image_url, c.grade, COALESCE(c.legacy, FALSE) AND c.migrated_at IS NULL AS waiting,
+                       c.personal_cash,
+                       (SELECT ut.title_id FROM user_titles ut WHERE ut.user_id = u.id AND ut.equipped = TRUE LIMIT 1) AS equipped_title,
+                       (SELECT ut.win_count FROM user_titles ut WHERE ut.user_id = u.id AND ut.equipped = TRUE LIMIT 1) AS equipped_count
+                FROM users u JOIN career_state c ON c.user_id = u.id
+                WHERE\s""" + HUMAN_RANKED + """
+                  AND c.personal_cash > 0
+                ORDER BY c.personal_cash DESC, u.id ASC
+                LIMIT 100
+                """, (rs, row) -> {
+            String image = com.gamestock.backend.auth.ProfileImages.sanitize(rs.getString("profile_image_url"));
+            TitleService.TitleDefinition title = TitleService.definition(rs.getString("equipped_title"));
+            boolean waiting = rs.getBoolean("waiting");
+            CareerGrade grade = CareerGrade.parse(rs.getString("grade"));
+            return new WealthEntry(row + 1, rs.getString("nickname"), image.isEmpty() ? null : image, rs.getLong("personal_cash"),
+                    waiting ? null : grade.name(), waiting ? null : grade.label,
+                    title == null ? null : TitleService.displayName(title, rs.getInt("equipped_count")), title != null && title.weekly());
+        });
+        return entries;
     }
 
     public DailyMissionStatus dailyMissions(long userId) {
@@ -130,9 +179,14 @@ final class MarketRankingMissions {
             if (watched == null || watched < minimumWatchlist)
                 throw new IllegalArgumentException("관심종목을 "+minimumWatchlist+"개 이상 등록하면 보상을 받을 수 있습니다.");
         }
-        int inserted = jdbc.update("INSERT IGNORE INTO mission_rewards (user_id, mission_id, rewarded_on, reward_cash) VALUES (?, ?, ?, ?)",
+        // reward_cash stays 0: the reward goes to the personal wallet, and reward_cash means trading cash that returns leave out.
+        int inserted = jdbc.update("INSERT IGNORE INTO mission_rewards (user_id, mission_id, rewarded_on, reward_cash, wallet_cash) VALUES (?, ?, ?, 0, ?)",
                 userId, missionId, java.sql.Date.valueOf(day), reward);
-        if (inserted > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", reward, userId);
+        // Keyed by member, mission and day: an admin season reset deletes the reward rows but not the
+        // wallet, so a row-based key would let the same day's mission pay twice.
+        if (inserted > 0)
+            PersonalWallet.credit(jdbc, userId, "mission:" + userId + ":" + missionId + ":" + day, PersonalWallet.MISSION, reward,
+                    "오늘의 미션 보상");
         Portfolio portfolio = market.portfolioUnsafe(userId);
         return new MissionRewardResult(inserted > 0 ? reward : 0, inserted > 0, portfolio,
                 dailyMissionsAt(userId, market.clock().instant()));

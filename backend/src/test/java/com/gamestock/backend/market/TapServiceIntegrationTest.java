@@ -47,13 +47,25 @@ class TapServiceIntegrationTest {
         config.setPassword(root.getPassword());
         source = new HikariDataSource(config);
         db = new JdbcTemplate(source);
-        db.execute("CREATE TABLE users (id BIGINT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50), password_hash VARCHAR(100), cash BIGINT NOT NULL)");
+        db.execute("""
+                CREATE TABLE users (id BIGINT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50), password_hash VARCHAR(100), cash BIGINT NOT NULL,
+                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)
+                """);
         db.execute("CREATE TABLE stocks (id BIGINT AUTO_INCREMENT PRIMARY KEY, stock_code VARCHAR(10), current_price BIGINT)");
+        db.execute("""
+                CREATE TABLE trades (id BIGINT AUTO_INCREMENT PRIMARY KEY, stock_id BIGINT, buyer_id BIGINT, seller_id BIGINT,
+                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)
+                """);
+        db.execute("CREATE TABLE attendance_rewards (id BIGINT AUTO_INCREMENT PRIMARY KEY, reward_cash BIGINT)");
+        db.execute("CREATE TABLE mission_rewards (id BIGINT AUTO_INCREMENT PRIMARY KEY, reward_cash BIGINT)");
         TapService.ensureTables(db);
+        CareerSchema.ensureTables(db);
         db.update("INSERT INTO users (username, password_hash, cash) VALUES ('alice', 'GOOGLE', 1000000), ('lp', 'BOT', 1000000)");
         db.update("INSERT INTO stocks (stock_code, current_price) VALUES ('UMA', 12150), ('GI', 218500)");
         human = db.queryForObject("SELECT id FROM users WHERE username='alice'", Long.class);
         bot = db.queryForObject("SELECT id FROM users WHERE username='lp'", Long.class);
+        // Tap betting is paid from the personal wallet, not the trading account.
+        PersonalWallet.credit(db, human, "seed", PersonalWallet.MISSION, 1_000_000, "테스트 지갑");
         MarketService market = Mockito.mock(MarketService.class);
         Mockito.when(market.ownerAvailable()).thenReturn(true);
         Mockito.when(market.portfolio(Mockito.anyLong())).thenReturn(new MarketModels.Portfolio(0, 0, 0, java.util.List.of()));
@@ -76,7 +88,7 @@ class TapServiceIntegrationTest {
         }
     }
 
-    private long cash(long user) { return db.queryForObject("SELECT cash FROM users WHERE id=?", Long.class, user); }
+    private long cash(long user) { return PersonalWallet.balance(db, user); }
     private long nextSlot() { return (now.get() / SLOT + 1) * SLOT; }
 
     @Test
@@ -97,7 +109,25 @@ class TapServiceIntegrationTest {
         long payout = ((Number) bet.get("payout")).longValue();
         assertEquals(Math.round(10_000 * multiplier), payout);
         assertEquals(990_000 + payout, cash(human));
+        assertEquals(1_000_000L, db.queryForObject("SELECT cash FROM users WHERE id=?", Long.class, human), "the trading account is untouched");
         Mockito.verify(events).publishEvent(Mockito.any(UserMarketEvent.class));
+    }
+
+    @Test
+    void aWinTheBettorCouldHavePushedIsRefundedNotPaid() {
+        long slot = nextSlot();
+        var result = tap.place(human, new TapService.PlaceRequest("UMA", slot, 12_200L, 12_210L, 10_000L, null));
+        // The bettor buys UMA with the trading account while the bet is live.
+        db.update("INSERT INTO trades (stock_id, buyer_id, seller_id, created_at) SELECT id, ?, ?, ? FROM stocks WHERE stock_code = 'UMA'",
+                human, bot, java.sql.Timestamp.from(Instant.ofEpochMilli(slot + 500)));
+
+        now.set(slot + 1_000);
+        tap.tick();
+        tap.tape().observe("UMA", 12_200, now.get());
+        tap.tick();
+
+        assertEquals("VOID", db.queryForObject("SELECT status FROM tap_bets WHERE id=?", String.class, result.bet().id()));
+        assertEquals(1_000_000, cash(human), "the stake comes back, the multiplier does not");
     }
 
     @Test
@@ -141,7 +171,7 @@ class TapServiceIntegrationTest {
         assertThrows(IllegalArgumentException.class, () -> tap.place(human, new TapService.PlaceRequest("UMA", later, 12_220L, 12_230L, 30_000L, null)));
         assertThrows(IllegalArgumentException.class, () -> tap.place(bot, new TapService.PlaceRequest("UMA", later, 12_220L, 12_230L, 10_000L, null)));
         assertThrows(IllegalArgumentException.class, () -> tap.place(human, new TapService.PlaceRequest("CRK", later, 2_900L, 2_905L, 10_000L, null)));
-        db.update("UPDATE users SET cash = 5000 WHERE id=?", human);
+        db.update("UPDATE career_state SET personal_cash = 5000 WHERE user_id=?", human);
         assertThrows(IllegalArgumentException.class, () -> tap.place(human, new TapService.PlaceRequest("UMA", later, 12_220L, 12_230L, 10_000L, null)));
     }
 

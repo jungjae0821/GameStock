@@ -44,7 +44,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TapService {
     private static final Logger log = LoggerFactory.getLogger(TapService.class);
     static final Set<String> CODES = Set.of("GI", "SR", "OW", "ZZZ", "WH", "GOV", "BA", "UMA");
-    static final List<Long> STAKES = List.of(10_000L, 50_000L, 100_000L);
+    /** Sized for the personal wallet, which fills by about 90,000 won a day before bonuses. */
+    static final List<Long> STAKES = List.of(5_000L, 10_000L, 50_000L);
     static final long SLOT_MS = TapPriceTape.SLOT_MS;
     /** 칸이 열리기 최소 이만큼 전에 걸어야 한다. 화면 시세 지연으로 미래를 엿보지 못하게 한다. */
     static final long MIN_LEAD_MS = 1_500;
@@ -67,11 +68,11 @@ public class TapService {
     public record TapState(String code, boolean ready, long serverTime, long price, double sigma, long band, long previousBand,
                            long tick, long slotMs, long minLeadMs, int maxColumns, double houseEdge, double minMultiplier,
                            double maxMultiplier, List<Long> stakes, List<String> codes, List<long[]> path, double[][][] probabilities, long recentLow, long recentHigh, long recentMs, long leadFromMs, long leadStepMs,
-                           List<TapBet> bets, TapStats today) { }
-    public record PlaceResult(String message, TapBet bet, MarketModels.Portfolio portfolio) { }
+                           List<TapBet> bets, TapStats today, long walletCash) { }
+    public record PlaceResult(String message, TapBet bet, MarketModels.Portfolio portfolio, long walletCash) { }
 
     private record OpenBet(long id, long userId, String code, long slotStart, long slotEnd, long bandLow, long bandHigh,
-                           long stake, int multiplierMilli) { }
+                           long stake, int multiplierMilli, boolean wallet, Instant placedAt) { }
 
     private final JdbcTemplate jdbc;
     private final MarketService market;
@@ -158,22 +159,23 @@ public class TapService {
                 """, (rs, row) -> new TapStats(rs.getLong(1), rs.getLong(2), rs.getInt(3), rs.getInt(4)),
                 userId, Timestamp.from(LocalDate.now(clock.withZone(ZONE)).atStartOfDay(ZONE).toInstant())).get(0);
         List<String> codes = List.of("GI", "SR", "OW", "ZZZ", "WH", "GOV", "BA", "UMA");
+        long wallet = userId == null ? 0 : PersonalWallet.balance(jdbc, userId);
         if (snapshot == null)
             return new TapState(symbol, false, now, 0, 0, 0, 0, 0, SLOT_MS, MIN_LEAD_MS, MAX_COLUMNS, TapOdds.HOUSE_EDGE,
                     TapOdds.MIN_MULTIPLIER, TapOdds.MAX_MULTIPLIER, STAKES, codes, List.of(), new double[0][0][0], 0, 0, TapCalibration.RECENT_MS,
-                    TapCalibration.LEAD_FROM, TapCalibration.LEAD_STEP, bets, today);
+                    TapCalibration.LEAD_FROM, TapCalibration.LEAD_STEP, bets, today, wallet);
         return new TapState(symbol, true, now, snapshot.price(), snapshot.sigmaPerSqrtSecond(), snapshot.band(), snapshot.previousBand(),
                 snapshot.tick(), SLOT_MS, MIN_LEAD_MS, MAX_COLUMNS, TapOdds.HOUSE_EDGE, TapOdds.MIN_MULTIPLIER,
                 TapOdds.MAX_MULTIPLIER, STAKES, codes, snapshot.path(), snapshot.probabilities(),
                 snapshot.recentLow(), snapshot.recentHigh(), TapCalibration.RECENT_MS,
-                TapCalibration.LEAD_FROM, TapCalibration.LEAD_STEP, bets, today);
+                TapCalibration.LEAD_FROM, TapCalibration.LEAD_STEP, bets, today, wallet);
     }
 
     public PlaceResult place(long userId, PlaceRequest request) {
         if (request == null) throw new IllegalArgumentException("걸 칸을 골라 주세요.");
         String code = validCode(request.code());
         long stake = request.stake() == null ? 0 : request.stake();
-        if (!STAKES.contains(stake)) throw new IllegalArgumentException("건 금액은 1만·5만·10만원 중에서 골라 주세요.");
+        if (!STAKES.contains(stake)) throw new IllegalArgumentException("건 금액은 5천·1만·5만원 중에서 골라 주세요.");
         if (request.slotStart() == null || request.bandLow() == null || request.bandHigh() == null)
             throw new IllegalArgumentException("걸 칸을 골라 주세요.");
         long slotStart = request.slotStart(), low = request.bandLow(), high = request.bandHigh();
@@ -204,38 +206,65 @@ public class TapService {
         int milli = (int) Math.round(Math.floor(multiplier * 10 + 1e-9) * 100);
         throttle(userId, now);
         long id = transaction.execute(state -> {
-            Map<String, Object> account = jdbc.queryForMap("SELECT cash, (" + BOT_FILTER + ") AS human FROM users WHERE id = ? FOR UPDATE", userId);
+            Map<String, Object> account = jdbc.queryForMap("SELECT (" + BOT_FILTER + ") AS human FROM users WHERE id = ?", userId);
             if (!Boolean.TRUE.equals(toBoolean(account.get("human")))) throw new IllegalArgumentException("탭 베팅은 회원 계정에서만 할 수 있어요.");
+            // The wallet row lock serialises this member's bets, which the open-bet count below relies on.
+            PersonalWallet.ensureRow(jdbc, userId);
+            jdbc.queryForObject("SELECT user_id FROM career_state WHERE user_id = ? FOR UPDATE", Long.class, userId);
             int open = jdbc.queryForObject("SELECT COUNT(*) FROM tap_bets WHERE user_id = ? AND status = 'OPEN'", Integer.class, userId);
             if (open >= MAX_OPEN_BETS) throw new IllegalArgumentException("결과를 기다리는 칸이 너무 많아요. 몇 칸이 끝난 뒤 다시 걸어 주세요.");
-            if (jdbc.update("UPDATE users SET cash = cash - ? WHERE id = ? AND cash >= ?", stake, userId, stake) == 0)
-                throw new IllegalArgumentException("현금이 부족해요.");
             try {
                 jdbc.update("""
-                        INSERT INTO tap_bets (user_id, stock_code, slot_start, slot_end, band_low, band_high, stake, multiplier_milli)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO tap_bets (user_id, stock_code, slot_start, slot_end, band_low, band_high, stake, multiplier_milli, wallet)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)
                         """, userId, code, slotStart, slotStart + SLOT_MS, low, high, stake, milli);
             } catch (DuplicateKeyException duplicate) {
                 throw new IllegalArgumentException("이미 건 칸이에요.");
             }
-            return jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            long created = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            // Tap betting is the member's own money, never the firm's trading account.
+            PersonalWallet.debit(jdbc, userId, "tap:" + created, PersonalWallet.TAP, stake, "탭 베팅 " + code + " #" + created);
+            return created;
         });
         TapBet bet = jdbc.queryForObject("SELECT * FROM tap_bets WHERE id = ?", (rs, row) -> bet(rs), id);
-        return new PlaceResult(String.format("%s × %.1f 걸었어요.", won(stake), milli / 1000.0), bet, market.portfolio(userId));
+        return new PlaceResult(String.format("%s × %.1f 걸었어요.", won(stake), milli / 1000.0), bet, market.portfolio(userId),
+                PersonalWallet.balance(jdbc, userId));
+    }
+
+    /**
+     * Whether the bettor had a fill in the bet's stock between placing it (or the cell's start,
+     * whichever is earlier) and the cell's end.
+     * Their own buy or sell could have moved the price into the cell, and since the trading
+     * account is the firm's money, paying that win would move firm money into the wallet.
+     * Trade times are stored to the second, so the window starts a second early.
+     */
+    private boolean tradedDuring(OpenBet bet) {
+        Instant start = Instant.ofEpochMilli(Math.min(bet.placedAt().toEpochMilli(), bet.slotStart()));
+        Timestamp from = Timestamp.from(start.minusSeconds(1));
+        Timestamp to = Timestamp.from(Instant.ofEpochMilli(bet.slotEnd()));
+        String sql = """
+                SELECT COUNT(*) FROM trades t JOIN stocks s ON s.id = t.stock_id
+                WHERE s.stock_code = ? AND t.%s = ? AND t.created_at >= ? AND t.created_at <= ?
+                """;
+        Long bought = jdbc.queryForObject(sql.formatted("buyer_id"), Long.class, bet.code(), bet.userId(), from, to);
+        Long sold = jdbc.queryForObject(sql.formatted("seller_id"), Long.class, bet.code(), bet.userId(), from, to);
+        return (bought != null && bought > 0) || (sold != null && sold > 0);
     }
 
     /** 닿은 칸은 바로 당첨, 끝난 칸은 낙첨, 지켜보지 못한 칸은 환불한다. */
     void settle(long now) {
         List<OpenBet> open = jdbc.query("""
-                SELECT id, user_id, stock_code, slot_start, slot_end, band_low, band_high, stake, multiplier_milli
+                SELECT id, user_id, stock_code, slot_start, slot_end, band_low, band_high, stake, multiplier_milli, wallet, created_at
                 FROM tap_bets WHERE status = 'OPEN' AND slot_start <= ? ORDER BY slot_start, id LIMIT 500
                 """, (rs, row) -> new OpenBet(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getLong(4), rs.getLong(5),
-                rs.getLong(6), rs.getLong(7), rs.getLong(8), rs.getInt(9)), now);
+                rs.getLong(6), rs.getLong(7), rs.getLong(8), rs.getInt(9), rs.getBoolean(10), rs.getTimestamp(11).toInstant()), now);
         if (open.isEmpty()) return;
         Map<Long, List<TapBet>> settledByUser = new LinkedHashMap<>();
         for (OpenBet bet : open) {
-            String outcome = outcome(bet, now);
-            if (outcome == null) continue;
+            String judged = outcome(bet, now);
+            if (judged == null) continue;
+            // A cell the bettor could have pushed the price into with the trading account does not pay.
+            String outcome = "WON".equals(judged) && bet.wallet() && tradedDuring(bet) ? "VOID" : judged;
             long payout = switch (outcome) {
                 case "WON" -> Math.floorDiv(bet.stake() * bet.multiplierMilli(), 1000);
                 case "VOID" -> bet.stake();
@@ -244,7 +273,11 @@ public class TapService {
             Boolean applied = transaction.execute(state -> {
                 if (jdbc.update("UPDATE tap_bets SET status = ?, payout = ?, settled_at = CURRENT_TIMESTAMP(3) WHERE id = ? AND status = 'OPEN'",
                         outcome, payout, bet.id()) == 0) return false;
-                if (payout > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", payout, bet.userId());
+                // Bets placed before the wallet existed were paid from trading cash and settle back there.
+                if (payout > 0 && bet.wallet())
+                    PersonalWallet.credit(jdbc, bet.userId(), "tap-payout:" + bet.id(), PersonalWallet.TAP, payout,
+                            ("VOID".equals(outcome) ? "탭 베팅 환불 #" : "탭 베팅 당첨 #") + bet.id());
+                else if (payout > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", payout, bet.userId());
                 return true;
             });
             if (Boolean.TRUE.equals(applied)) {
@@ -255,7 +288,8 @@ public class TapService {
         }
         settledByUser.forEach((userId, bets) -> {
             try {
-                events.publishEvent(new UserMarketEvent(userId, "TAP_SETTLED", Map.of("portfolio", market.portfolio(userId), "bets", bets)));
+                events.publishEvent(new UserMarketEvent(userId, "TAP_SETTLED", Map.of("portfolio", market.portfolio(userId), "bets", bets,
+                        "walletCash", PersonalWallet.balance(jdbc, userId))));
             } catch (RuntimeException error) {
                 log.debug("탭 베팅 결과 알림을 보내지 못했습니다: {}", error.getMessage());
             }

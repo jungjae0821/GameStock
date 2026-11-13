@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccount, heldQuantity } from '../account';
-import { useAuth } from '../auth';
+import { request, useAuth } from '../auth';
 import { GameIcon } from '../components/GameIcon';
 import { PickerSheet } from '../components/StudyChart';
 import { price, signedPercent } from '../format';
@@ -27,6 +27,10 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, onOpenTal
   const stock = market.stocks.find(item => item.code === code);
   const chart = useStockChart(code);
   const [drivers, setDrivers] = useState(null);
+  // 수습 OJT의 "종목 화면에서 호가·뉴스 보기"는 웹 종목 화면처럼 이 화면을 연 것으로 끝난다. 이미 했으면 서버가 무시한다.
+  useEffect(() => {
+    if (user && code) request('/api/career/ojt/MARKET', { method: 'POST' }).catch(() => {});
+  }, [user, code]);
   const [news, setNews] = useState(null);
   // 근거·뉴스를 한 번도 못 받았을 때만 실패로 보인다. 받은 값이 있으면 다음 갱신까지 그 값을 둔다.
   const [driversFailed, setDriversFailed] = useState(false);

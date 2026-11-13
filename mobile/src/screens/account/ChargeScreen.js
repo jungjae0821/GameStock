@@ -108,7 +108,7 @@ export function ChargeScreen({ onBack, onGo, onNotify }) {
       </Card>
 
       <PromoCode />
-      <Txt variant="micro" tone="inkSoft" style={styles.footer}>실제 돈은 오가지 않아요. 미션 보상은 수익률과 랭킹에서 빼고 계산해요.</Txt>
+      <Txt variant="micro" tone="inkSoft" style={styles.footer}>실제 돈은 오가지 않아요. 미션 보상은 운용계좌가 아니라 내 지갑으로 들어와요.</Txt>
     </AccountFrame>
   );
 }
@@ -127,8 +127,8 @@ function PromoCode() {
       const status = await request('/api/titles/promo', { method: 'POST', body: { code: trimmed } });
       const named = (status?.newlyAwarded ?? []).map(title => title.name);
       const cash = Number(status?.rewardCash) || 0;
-      const parts = [cash > 0 ? `현금 ${cash.toLocaleString('ko-KR')}원` : '', named.length ? `칭호 ${named.join(', ')}` : ''].filter(Boolean);
-      setMessage({ text: parts.length ? `받았어요: ${parts.join(', ')}` : '프로모션 코드를 사용했어요.', ok: true });
+      const parts = [cash > 0 ? `내 지갑에 ${cash.toLocaleString('ko-KR')}원이 들어왔어요.` : '', named.length ? `칭호 ${named.join(', ')}을(를) 받았어요.` : ''].filter(Boolean);
+      setMessage({ text: parts.length ? parts.join(' ') : '프로모션 코드를 사용했어요.', ok: true });
       setCode('');
     } catch (failure) {
       setMessage({ text: failure.message, ok: false });

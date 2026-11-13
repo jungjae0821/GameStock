@@ -49,6 +49,9 @@ export function useMarketFeed(sync: MarketSync, setServerAvailable: (available: 
             bids: data.orderbook ? topLevels(data.orderbook.bids) : old.bids, asks: data.orderbook ? topLevels(data.orderbook.asks) : old.asks,
           } } };
         });
+      } else if (["WALLET_CHANGED", "CAREER_BONUS", "CAREER_CHANGED"].includes(message.type)) {
+        // 개인 지갑과 직급은 계좌 스냅샷 밖에 있다. 커리어 화면이 서버에서 다시 읽게 알린다.
+        window.dispatchEvent(new CustomEvent("gamestock:career", { detail: { type: message.type, payload: message.payload } }));
       } else if (["AUTHENTICATED", "ACCOUNT_UPDATED", "PORTFOLIO_UPDATED", "ORDER_CANCELLED", "ORDER_EXPIRED", "LOAN_LIQUIDATED", "TAP_SETTLED"].includes(message.type)) {
         // 탭 베팅 결과는 화면(NxTapPage)에도 넘긴다. 계좌 현금은 아래에서 같이 갱신한다.
         if (message.type === "TAP_SETTLED") window.dispatchEvent(new CustomEvent("gamestock:tap", { detail: message.payload }));

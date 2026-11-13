@@ -27,9 +27,11 @@ function summarize(portfolio, quotes) {
   const total = cash + stockValue;
   const loan = Number(portfolio?.loanBalance) || 0;
   const reward = (Number(portfolio?.attendanceRewardCash) || 0) + (Number(portfolio?.missionRewardCash) || 0);
+  // 승진 충전·관리자 지급은 거래 밖에서 들어온 돈이라 손익에서 빼고, 수익률은 맡은 돈 전체에 대해 잰다.
+  const outside = Number(portfolio?.adminAdjustmentCash) || 0;
   const net = total - loan;
-  const pnl = net - INITIAL_CASH - reward;
-  return { rows, cash, stockValue, total, loan, net, pnl, pnlRate: pnl / INITIAL_CASH, realized: Number(portfolio?.realizedProfitLoss) || 0 };
+  const pnl = net - INITIAL_CASH - reward - outside;
+  return { rows, cash, stockValue, total, loan, net, pnl, pnlRate: pnl / Math.max(1, INITIAL_CASH + outside), realized: Number(portfolio?.realizedProfitLoss) || 0 };
 }
 
 /**
@@ -150,7 +152,7 @@ export function MyAccountScreen({ market, onBack, onGo }) {
         <Txt variant="caption" tone="inkSoft">{money.loan > 0 ? '순자산' : '총 자산'}</Txt>
         <Txt variant="price" numeric numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{won(money.net)}</Txt>
         <Txt variant="callout" tone={toneOf(money.pnl)} numeric>{`${signedWon(money.pnl)} (${signedPercent(money.pnlRate)})`}</Txt>
-        <Txt variant="caption" tone="inkSoft">시작 자금 100만원 대비, 미션·출석 보상 제외</Txt>
+        <Txt variant="caption" tone="inkSoft">시작 자금과 승진 충전을 더한 금액 대비</Txt>
       </View>
 
       <Card>

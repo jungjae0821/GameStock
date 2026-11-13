@@ -22,6 +22,12 @@ public class MarketController {
     private final BotTradingScheduler scheduler;
     private final PublicMarketCache publicCache;
 
+    private CareerService career;
+
+    /** Optional so tests that build this class by hand keep working without the career's loss limits. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureCareer(CareerService career) { this.career = career; }
+
     public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures,OrderService orders,MarketMetrics metrics,BotTradingScheduler scheduler,PublicMarketCache publicCache) { this.market = market; this.auth = auth; this.userFeatures = userFeatures;this.orders=orders;this.metrics=metrics;this.scheduler=scheduler;this.publicCache=publicCache; }
 
     @GetMapping("/health") public Map<String, Object> health() {
@@ -33,6 +39,7 @@ public class MarketController {
     @GetMapping("/market-events") public java.util.List<MarketEvent> events() { return publicCache.marketEvents(); }
     @GetMapping("/market-status") public MarketStatus marketStatus() { return publicCache.marketStatus(); }
     @GetMapping("/ranking") public java.util.List<RankingEntry> ranking() { return market.ranking(); }
+    @GetMapping("/ranking/wealth") public java.util.List<MarketModels.WealthEntry> wealthRanking() { return market.wealthRanking(); }
     @GetMapping("/stocks/{stockCode}/news")
     public java.util.List<MarketEvent> stockNews(@PathVariable String stockCode) {
         return market.stockNews(stockCode);
@@ -113,6 +120,10 @@ public class MarketController {
         // 관리자는 시장 밖의 계정이다. 관리자 주문이 다른 플레이어의 시세와 수익률을 움직이지 않게 막는다.
         if ("ADMIN".equalsIgnoreCase(user.role()))
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 계정은 주문할 수 없습니다.");
+        // Buying adds risk and waits out a loss lock; selling never does.
+        if (career != null && request != null && "BUY".equalsIgnoreCase(request.side()))
+            career.requireNewRisk(user.id(), request.stockCode(), request.quantity(),
+                    "LIMIT".equalsIgnoreCase(request.orderType()) ? request.price() : null);
         return orders.submit(user.id(), request);
     }
 
