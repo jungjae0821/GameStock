@@ -41,7 +41,7 @@ function sceneForEvent(event: CareerEvent, nick: string): Scene | null {
 }
 
 /**
- * 사수 슈엔. 수습의 첫 출근 안내, 승진 발령장, 강등·재교육·손실한도 호출을 한 번씩 띄우고,
+ * 사수를 자처한 슈엔 사장. 수습의 첫 출근 안내, 승진 발령장, 강등·재교육·손실한도 호출을 한 번씩 띄우고,
  * OJT 중에는 화면 구석에 다음 할 일을 붙여 둔다. 무엇을 이미 보여 줬는지는 이 브라우저에 사용자별로 남긴다.
  */
 export function MentorHost() {
@@ -96,12 +96,12 @@ export function MentorHost() {
 
   return (
     <>
-      {scene && <MentorDialog {...scene} dismissLabel={scene.tone === "scold" ? "죄송합니다" : "알겠어요"} onClose={() => setScene(null)} />}
+      {scene && <MentorDialog {...scene} dismissLabel={scene.tone === "scold" ? "죄송합니다, 사장님" : "네, 사장님"} onClose={() => setScene(null)} />}
       {ojtCard && (
         <aside className="mentor-ojt" aria-label="OJT 진행">
           <img className="mentor-avatar is-small" src="/brand/shuen-mark.png" alt="" width="32" height="32" />
           <div className="mentor-ojt-copy">
-            <p className="mentor-kicker">OJT {doneCount}/{career?.promotion.length} · 사수 슈엔</p>
+            <p className="mentor-kicker">OJT {doneCount}/{career?.promotion.length} · 슈엔 사장</p>
             <p>{OJT_HINT[ojtCard.id] ?? ojtCard.label}</p>
           </div>
           <Link className="nx-btn is-small" to="/career">이어서</Link>
