@@ -20,10 +20,10 @@ type Props = {
   onClose: () => void;
 };
 
-const KICKER: Record<MentorTone, string> = { info: "사수 슈엔", praise: "사수 슈엔 · 발령", scold: "사수 슈엔 · 호출" };
+const KICKER: Record<MentorTone, string> = { info: "슈엔 사장", praise: "슈엔 사장 · 발령", scold: "슈엔 사장 · 호출" };
 
-/** 사수 슈엔이 한 장씩 말하는 대화창. 마지막 장에서 닫거나 다음 화면으로 보낸다. */
-export function MentorDialog({ tone, title, pages, certificate, primary, dismissLabel = "알겠어요", onClose }: Props) {
+/** 사수를 자처한 슈엔 사장이 한 장씩 말하는 대화창. 마지막 장에서 닫거나 다음 화면으로 보낸다. */
+export function MentorDialog({ tone, title, pages, certificate, primary, dismissLabel = "네, 사장님", onClose }: Props) {
   const dialog = useModalDialog();
   const [page, setPage] = useState(0);
   const last = page >= pages.length - 1;
@@ -45,7 +45,7 @@ export function MentorDialog({ tone, title, pages, certificate, primary, dismiss
               <div><dt>운용한도</dt><dd className="nx-num">{won(certificate.allocation)}</dd></div>
             </dl>
             <p className="mentor-certificate-body">위 사람을 {certificate.gradeLabel}(으)로 발령함.</p>
-            <p className="mentor-certificate-foot">{certificate.date} · 슈엔증권 프랍 데스크</p>
+            <p className="mentor-certificate-foot">{certificate.date} · 슈엔증권 대표이사 슈엔</p>
           </div>
         )}
         <div className="mentor-speaker">
