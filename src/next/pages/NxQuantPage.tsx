@@ -18,6 +18,7 @@ import { RuleEditor } from "../quant/RuleEditor";
 import { SCRIPT_MAX_LENGTH } from "../quant/ScriptEditor";
 import { StrategySettings } from "../quant/StrategySettings";
 import { UnlockNotice } from "../engagement/UnlockNotice";
+import { DeskIntro } from "../mentor/DeskIntro";
 
 const COMPILE_DELAY_MS = 400;
 
@@ -251,6 +252,7 @@ export function NxQuantPage({ id }: { id: number | null }) {
       </header>
 
       <UnlockNotice feature="QUANT" />
+      <DeskIntro desk="QUANT" />
 
       <div className="qx-layout">
         <ProjectList formId={formId} id={id} projects={projects} listError={listError} capabilities={capabilities}

@@ -11,6 +11,7 @@ import { drawTapFrame, type TapBoardRefs } from "./tap/tapBoard";
 import { TapControls, TapFoot } from "./tap/TapPanels";
 import { LEAD_MARGIN_MS, cellKey, readPalette, shortWon, type Burst, type Cell, type Geometry, type Palette, type PlaceResult, type TapBet, type TapState } from "./tap/tapShared";
 import { UnlockNotice } from "../engagement/UnlockNotice";
+import { DeskIntro } from "../mentor/DeskIntro";
 
 export const TAP_CODES = ["GI", "SR", "OW", "ZZZ", "WH", "GOV", "BA", "UMA"] as const;
 const POLL_MS = 3_000;
@@ -261,6 +262,7 @@ export function NxTapPage({ code: routeCode }: { code: string | null }) {
       </header>
 
       <UnlockNotice feature="TAP" />
+      <DeskIntro desk="TAP" />
 
       <nav className="nx-tap-codes" aria-label="종목 고르기">
         {TAP_CODES.map((item) => (

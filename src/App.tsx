@@ -5,6 +5,7 @@ import { TitleWatcher } from "./components/TitleWatcher";
 import { LoginModal } from "./components/LoginModal";
 import { CircuitBreakerNotice } from "./components/CircuitBreakerNotice";
 import { SiteNoticeDialog } from "./components/SiteNoticeDialog";
+import { MentorHost } from "./next/mentor/MentorHost";
 import { SuspensionNotice, useSuspendedUntil } from "./components/SuspensionNotice";
 import { useProfile } from "./lib/profile";
 import { openLoginPrompt, useAuthUser } from "./lib/auth";
@@ -170,6 +171,7 @@ export default function App() {
       <TitleWatcher />
       <LoginModal />
       <SiteNoticeDialog />
+      <MentorHost />
       <CircuitBreakerNotice />
     </div>
   );
