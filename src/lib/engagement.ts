@@ -103,8 +103,8 @@ function start(): void {
     refreshTimer = window.setInterval(() => { if (document.visibilityState === "visible") void load(current); }, 60_000);
   });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.uid) void load(session); });
-  // 승진·강등 알림이 오면 열리는 데스크가 바뀌었을 수 있다.
-  window.addEventListener("gamestock:career", () => { if (state.uid) void load(session); });
+  // 직급이 바뀌어 열리는 데스크가 달라지면 커리어 저장소(lib/career)가 refreshEngagement를 부른다.
+  // 지갑만 바뀌는 알림(보상·탭 정산)마다 해금 정보를 다시 읽지 않는다.
 }
 
 export function useEngagement(): Engagement | null {

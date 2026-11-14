@@ -2,6 +2,7 @@ package com.gamestock.backend.market;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -11,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.gamestock.backend.market.MarketModels.*;
 
@@ -52,7 +55,38 @@ final class MarketRankingMissions {
      * The trading account is the firm's money and grows with every promotion, so ranking by
      * its size would only restate the grade.
      */
-    public List<RankingEntry> ranking() {
+    /**
+     * Both rankings scan every member, and every open ranking screen asks every few seconds.
+     * A short shared cache makes that one scan per window however many people are watching.
+     */
+    static final long RANKING_CACHE_MS = 3_000L;
+    private record Cached<T>(long at, T value) { }
+    private final AtomicReference<Cached<List<RankingEntry>>> rankingCache = new AtomicReference<>();
+    private final AtomicReference<Cached<List<WealthEntry>>> wealthCache = new AtomicReference<>();
+
+    public List<RankingEntry> ranking() { return cached(rankingCache, this::loadRanking); }
+
+    private List<WealthEntry> loadWealthRanking() { return cached(wealthCache, this::loadWealthRanking); }
+
+    private <T> T cached(AtomicReference<Cached<T>> cache, Supplier<T> loader) {
+        Cached<T> hit = cache.get();
+        if (hit != null && now() - hit.at() < RANKING_CACHE_MS) return hit.value();
+        // One caller rebuilds an expired entry; the others waiting on it reuse the fresh one.
+        synchronized (cache) {
+            hit = cache.get();
+            if (hit != null && now() - hit.at() < RANKING_CACHE_MS) return hit.value();
+            T value = loader.get();
+            cache.set(new Cached<>(now(), value));
+            return value;
+        }
+    }
+
+    private long now() {
+        Clock clock = market.clock();
+        return (clock == null ? Clock.systemUTC() : clock).millis();
+    }
+
+    private List<RankingEntry> loadRanking() {
         Map<Long,Long> externalCash=market.adminRuntime()==null?Map.of():market.adminRuntime().externalCash();
         List<RankingEntry> entries = jdbc.query("""
                 SELECT u.id, u.nickname, u.profile_image_url, u.cash, u.loan_balance,

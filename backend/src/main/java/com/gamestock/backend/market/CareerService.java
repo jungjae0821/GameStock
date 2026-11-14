@@ -102,15 +102,24 @@ public class CareerService {
 
     // ── 읽기 ────────────────────────────────────────────────
 
-    /** The member's career. Reviewing first means a met promotion shows up as soon as they look. */
+    /**
+     * The member's career. One locked pass reviews (so a met promotion shows up as soon as they
+     * look) and keeps the assets and promotion steps it computed for the answer, instead of
+     * computing them all again afterwards.
+     */
     public Career career(long userId) {
-        review(userId);
-        State state = load(userId, false);
-        long mark = markAsset(userId);
-        long confirmed = confirmedAsset(userId);
+        List<UserMarketEvent> notices = new ArrayList<>();
+        View view = transactions.execute(status -> {
+            State state = load(userId, true);
+            if (state.active()) return reviewLocked(state, clock.instant(), notices, true);
+            return new View(state, markAsset(userId), confirmedAsset(userId), List.of());
+        });
+        notices.forEach(this::publish);
+        State state = view.state();
+        long mark = view.mark();
+        long confirmed = view.confirmed();
         CareerGrade grade = state.grade();
         CareerGrade next = grade.next();
-        List<Step> steps = state.active() && next != null ? promotionSteps(state, confirmed) : List.of();
         double returnPercent = state.gradeBase() <= 0 ? 0 : (state.traded(confirmed) - state.gradeBase()) * 100.0 / state.gradeBase();
         long demotionAsset = grade.demotionLoss > 0 ? (long) Math.floor(state.gradeBase() * (1 - grade.demotionLoss)) + state.outsideCash() : 0;
         long dayLimit = grade.atLeast(CareerGrade.STAFF) ? (long) Math.floor(state.gradeBase() * DAY_LOSS_LIMIT) : 0;
@@ -121,7 +130,7 @@ public class CareerService {
                 state.gradeSince().toString(), state.gradeBase(), mark, confirmed, state.highWaterMark(), returnPercent,
                 demotionAsset, state.dayOpenAsset() == null ? mark : state.dayOpenAsset(), dayLimit,
                 locked ? state.lockedUntil().toString() : null, locked ? state.lockReason() : null,
-                state.personalCash(), steps, events(userId));
+                state.personalCash(), view.steps(), events(userId));
     }
 
     public Wallet wallet(long userId) {
@@ -140,19 +149,24 @@ public class CareerService {
 
     // ── OJT ─────────────────────────────────────────────────
 
-    /** Records an OJT step the server cannot see for itself (opening a stock, reading the risk briefing). */
+    /**
+     * Records an OJT step the server cannot see for itself (opening a stock, reading the risk
+     * briefing). Returns null when nothing changed: not a trainee, or the step was already done.
+     * The mobile app reports a stock view on every open, so that case must stay cheap.
+     */
     public Career acknowledge(long userId, String step) {
         String id = step == null ? "" : step.trim().toUpperCase(Locale.ROOT);
         if (!CLIENT_STEPS.contains(id)) throw new IllegalArgumentException("알 수 없는 OJT 단계예요.");
-        transactions.executeWithoutResult(status -> {
+        Boolean changed = transactions.execute(status -> {
             State state = load(userId, true);
-            if (state.ojtSteps().contains(id)) return;
+            if (!state.active() || state.grade() != CareerGrade.TRAINEE || state.ojtSteps().contains(id)) return false;
             Set<String> steps = new LinkedHashSet<>(state.ojtSteps());
             steps.add(id);
             jdbc.update("UPDATE career_state SET ojt_steps = ?, updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?",
                     String.join(",", steps), userId);
+            return true;
         });
-        return career(userId);
+        return Boolean.TRUE.equals(changed) ? career(userId) : null;
     }
 
     // ── 주문 전 확인 ────────────────────────────────────────
@@ -162,7 +176,15 @@ public class CareerService {
      * crossed, then refuses while a retraining or daily-loss lock is on. Selling and
      * closing never come here.
      */
-    public void requireNewRisk(long userId) {
+    public void requireNewRisk(long userId) { requireNewRisk(userId, null, 0, null); }
+
+    /**
+     * A buy or new entry. The loss checks first; for a stock buy ({@code stockCode} set) also the
+     * concentration limit: from staff up, the stock's holding plus open buys plus this order may
+     * not pass 30% of the grade's base, so a promotion cannot be won by putting the whole desk on
+     * one coin flip. Both run on the one row read under the lock.
+     */
+    public void requireNewRisk(long userId, String stockCode, long quantity, Long limitPrice) {
         Block block = transactions.execute(status -> {
             State state = load(userId, true);
             if (!state.active()) return null;
@@ -187,25 +209,18 @@ public class CareerService {
                     return new Block("오늘 손실이 일일 손실한도(" + won(limit) + ")를 넘었어요. 내일 0시까지 새로 사거나 진입할 수 없어요. 파는 건 할 수 있어요.");
                 }
             }
-            return null;
+            return stockCode == null || !grade.atLeast(CareerGrade.STAFF) ? null : concentrationBlock(state, stockCode, quantity, limitPrice);
         });
         if (block != null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, block.message());
     }
 
-    /**
-     * A stock buy: the loss checks above, then the concentration limit. From staff up, the
-     * stock's holding plus open buys plus this order may not pass 30% of the grade's base,
-     * so a promotion cannot be won by putting the whole desk on one coin flip.
-     */
-    public void requireNewRisk(long userId, String stockCode, long quantity, Long limitPrice) {
-        requireNewRisk(userId);
-        State state = load(userId, false);
-        if (!state.active() || !state.grade().atLeast(CareerGrade.STAFF) || stockCode == null) return;
+    private Block concentrationBlock(State state, String stockCode, long quantity, Long limitPrice) {
+        long userId = state.userId();
         var stock = jdbc.queryForList("""
                 SELECT s.id, COALESCE(pm.mark_price, s.current_price) AS mark FROM stocks s
                 LEFT JOIN market_price_metrics pm ON pm.stock_id = s.id WHERE s.stock_code = ?
                 """, stockCode.trim().toUpperCase(Locale.ROOT));
-        if (stock.isEmpty()) return;
+        if (stock.isEmpty()) return null;
         long stockId = number(stock.get(0).get("id"));
         long mark = number(stock.get(0).get("mark"));
         long held = count("SELECT COALESCE(SUM(quantity), 0) FROM portfolios WHERE user_id = ? AND stock_id = ?", userId, stockId) * mark;
@@ -214,9 +229,9 @@ public class CareerService {
         long price = limitPrice != null && limitPrice > 0 ? limitPrice : mark;
         long cap = (long) Math.floor((state.gradeBase() + state.outsideCash()) * CONCENTRATION_LIMIT);
         long after = held + pending + quantity * price;
-        if (after > cap)
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "한 종목에는 기준자산의 " + Math.round(CONCENTRATION_LIMIT * 100) + "%(" + won(cap)
-                    + ")까지만 담을 수 있어요. 이 주문까지 " + won(after) + "이 돼요. 수량을 줄여 주세요.");
+        if (after <= cap) return null;
+        return new Block("한 종목에는 기준자산의 " + Math.round(CONCENTRATION_LIMIT * 100) + "%(" + won(cap)
+                + ")까지만 담을 수 있어요. 이 주문까지 " + won(after) + "이 돼요. 수량을 줄여 주세요.");
     }
 
     // ── 승진·강등 ───────────────────────────────────────────
@@ -227,27 +242,52 @@ public class CareerService {
         transactions.executeWithoutResult(status -> {
             State state = load(userId, true);
             if (!state.active()) return;
-            reviewLocked(state, clock.instant(), notices);
+            reviewLocked(state, clock.instant(), notices, false);
         });
         notices.forEach(this::publish);
     }
 
-    private State reviewLocked(State state, Instant now, List<UserMarketEvent> notices) {
-        long mark = markAsset(state.userId());
+    /** What one locked review saw: the state after any grade change, the two valuations and, if asked for, the steps. */
+    private record View(State state, long mark, long confirmed, List<Step> steps) { }
+
+    /**
+     * Demotes past the loss line, then promotes when every step is met. With {@code withSteps}
+     * the promotion steps come back for display; without, they are only counted when a
+     * promotion is possible at all, which skips the fill counts for most reviews.
+     */
+    private View reviewLocked(State state, Instant now, List<UserMarketEvent> notices, boolean withSteps) {
+        long userId = state.userId();
+        long mark = markAsset(userId);
         CareerGrade before = state.grade();
         Instant since = state.gradeSince();
         state = demoteIfBreached(state, mark, now);
         boolean demoted = !state.gradeSince().equals(since);
-        if (demoted) notices.add(notice(state.userId(), before, state.grade()));
-        CareerGrade next = state.grade().next();
-        if (next != null && !demoted) {
-            long confirmed = confirmedAsset(state.userId());
-            if (promotionSteps(state, confirmed).stream().allMatch(Step::done)) {
-                state = promote(state, mark, now);
-                notices.add(notice(state.userId(), before, state.grade()));
-            }
+        if (demoted) {
+            notices.add(notice(userId, before, state.grade()));
+            mark = markAsset(userId);
         }
-        return state;
+        boolean hasNext = state.grade().next() != null;
+        boolean check = hasNext && !demoted && mayPromote(state);
+        if (!withSteps && !check) return new View(state, mark, 0, List.of());
+        long confirmed = confirmedAsset(userId);
+        List<Step> steps = hasNext && (withSteps || check) ? promotionSteps(state, confirmed) : List.of();
+        if (check && !steps.isEmpty() && steps.stream().allMatch(Step::done)) {
+            state = promote(state, mark, now);
+            notices.add(notice(userId, before, state.grade()));
+            mark = markAsset(userId);
+            confirmed = confirmedAsset(userId);
+            steps = withSteps && state.grade().next() != null ? promotionSteps(state, confirmed) : List.of();
+        }
+        return new View(state, mark, confirmed, steps);
+    }
+
+    /**
+     * Whether a promotion could happen now. Past the OJT the return has to have been held for
+     * {@code promotionHold} settlements, so until the streak is long enough no other step matters.
+     */
+    private static boolean mayPromote(State state) {
+        CareerGrade grade = state.grade();
+        return grade == CareerGrade.TRAINEE || grade.promotionReturn <= 0 || state.returnStreak() >= grade.promotionHold;
     }
 
     private State promote(State state, long mark, Instant now) {
@@ -412,7 +452,7 @@ public class CareerService {
                       day_open_on = ?, day_open_asset = CASE WHEN ? THEN day_open_asset ELSE ? END,
                       last_settled_on = ?, updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?
                     """, confirmed, Date.valueOf(today), opened, mark, Date.valueOf(today), userId);
-            reviewLocked(load(userId, true), clock.instant(), notices);
+            reviewLocked(load(userId, true), clock.instant(), notices, false);
         });
         notices.forEach(this::publish);
     }

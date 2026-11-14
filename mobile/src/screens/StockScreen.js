@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccount, heldQuantity } from '../account';
 import { request, useAuth } from '../auth';
 import { GameIcon } from '../components/GameIcon';
+import { useCareer } from '../engagement';
 import { PickerSheet } from '../components/StudyChart';
 import { price, signedPercent } from '../format';
 import { api, sessionRate } from '../market';
@@ -27,10 +28,14 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, onOpenTal
   const stock = market.stocks.find(item => item.code === code);
   const chart = useStockChart(code);
   const [drivers, setDrivers] = useState(null);
-  // 수습 OJT의 "종목 화면에서 호가·뉴스 보기"는 웹 종목 화면처럼 이 화면을 연 것으로 끝난다. 이미 했으면 서버가 무시한다.
+  // 수습 OJT의 "종목 화면에서 호가·뉴스 보기"는 웹 종목 화면처럼 이 화면을 연 것으로 끝난다.
+  // 수습이 아니거나 이미 끝낸 단계면 보내지 않는다(종목을 열 때마다 서버를 부르지 않게).
+  const career = useCareer();
+  const marketPending = Boolean(career && !career.legacy && career.grade === 'TRAINEE'
+    && career.promotion?.some(step => step.id === 'MARKET' && !step.done));
   useEffect(() => {
-    if (user && code) request('/api/career/ojt/MARKET', { method: 'POST' }).catch(() => {});
-  }, [user, code]);
+    if (user && code && marketPending) request('/api/career/ojt/MARKET', { method: 'POST' }).catch(() => {});
+  }, [user, code, marketPending]);
   const [news, setNews] = useState(null);
   // 근거·뉴스를 한 번도 못 받았을 때만 실패로 보인다. 받은 값이 있으면 다음 갱신까지 그 값을 둔다.
   const [driversFailed, setDriversFailed] = useState(false);

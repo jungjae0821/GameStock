@@ -15,6 +15,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.Date;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.UUID;
@@ -366,6 +367,71 @@ class CareerServiceIntegrationTest {
         var wealth = rankings.wealthRanking();
         assertEquals(java.util.List.of("carol", "alice"), wealth.stream().map(MarketModels.WealthEntry::nickname).toList());
         assertEquals(500_000L, wealth.get(0).personalCash());
+    }
+
+    @Test
+    void careerAndReviewStayCheapOnTheHotPaths() {
+        staff(alice, 3_000_000);
+        fills(alice, 5, 30);
+        var counter = new java.util.concurrent.atomic.AtomicInteger();
+        javax.sql.DataSource counted = counting(source, counter);
+        var countedCareer = new CareerService(new JdbcTemplate(counted), new DataSourceTransactionManager(counted),
+                Mockito.mock(ApplicationEventPublisher.class));
+
+        counter.set(0);
+        countedCareer.review(alice);
+        assertTrue(counter.get() <= 3, "a review with no promotion possible reads only the row and the mark: " + counter.get());
+
+        counter.set(0);
+        var view = countedCareer.career(alice);
+        assertTrue(counter.get() <= 9, "the view reuses the review's numbers: " + counter.get());
+        assertFalse(view.promotion().isEmpty());
+
+        counter.set(0);
+        assertNull(countedCareer.acknowledge(alice, "MARKET"), "not a trainee: nothing to record");
+        assertTrue(counter.get() <= 2, "a no-op OJT report stays cheap: " + counter.get());
+    }
+
+    @Test
+    void rankingsAreCachedForAFewSeconds() {
+        var millis = new java.util.concurrent.atomic.AtomicLong(1_000_000L);
+        Clock clock = new Clock() {
+            @Override public java.time.ZoneId getZone() { return java.time.ZoneOffset.UTC; }
+            @Override public Clock withZone(java.time.ZoneId zone) { return this; }
+            @Override public java.time.Instant instant() { return java.time.Instant.ofEpochMilli(millis.get()); }
+        };
+        MarketService market = Mockito.mock(MarketService.class);
+        Mockito.when(market.clock()).thenReturn(clock);
+        var rankings = new MarketRankingMissions(market, db);
+        PersonalWallet.ensureRow(db, alice);
+        assertEquals(1, rankings.ranking().size());
+
+        long bob = user("bob", "GOOGLE", 1_000_000);
+        PersonalWallet.ensureRow(db, bob);
+        millis.addAndGet(MarketRankingMissions.RANKING_CACHE_MS - 1);
+        assertEquals(1, rankings.ranking().size(), "within the window the same scan is reused");
+        millis.addAndGet(2);
+        assertEquals(2, rankings.ranking().size(), "after it the ranking is read again");
+    }
+
+    /** A DataSource that counts every statement prepared or created on its connections. */
+    private static javax.sql.DataSource counting(javax.sql.DataSource target, java.util.concurrent.atomic.AtomicInteger counter) {
+        return new org.springframework.jdbc.datasource.DelegatingDataSource(target) {
+            @Override public java.sql.Connection getConnection() throws java.sql.SQLException {
+                java.sql.Connection real = super.getConnection();
+                return (java.sql.Connection) java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
+                        new Class<?>[]{java.sql.Connection.class}, (proxy, method, args) -> {
+                            String name = method.getName();
+                            if (name.equals("prepareStatement") || name.equals("createStatement") || name.equals("prepareCall"))
+                                counter.incrementAndGet();
+                            try {
+                                return method.invoke(real, args);
+                            } catch (java.lang.reflect.InvocationTargetException error) {
+                                throw error.getCause();
+                            }
+                        });
+            }
+        };
     }
 
     // ── 도움 ────────────────────────────────────────────────
