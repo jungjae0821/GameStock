@@ -35,10 +35,12 @@ public class CareerController {
         return career.career(auth.requireUser(authorization).id());
     }
 
+    /** 204 when nothing changed (not a trainee, or the step was already done); the app reports stock views on every open. */
     @PostMapping("/api/career/ojt/{step}")
-    public CareerService.Career ojt(@PathVariable String step,
-                                    @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return career.acknowledge(auth.requireUser(authorization).id(), step);
+    public ResponseEntity<CareerService.Career> ojt(@PathVariable String step,
+                                                    @RequestHeader(value = "Authorization", required = false) String authorization) {
+        CareerService.Career updated = career.acknowledge(auth.requireUser(authorization).id(), step);
+        return updated == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(updated);
     }
 
     @GetMapping("/api/career/wallet")
