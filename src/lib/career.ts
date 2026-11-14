@@ -64,7 +64,30 @@ function accept(data: Career): void {
   if (before && before.grade !== data.grade) refreshEngagement();
 }
 
-async function load(current: number): Promise<void> {
+let inFlight: Promise<void> | null = null;
+let again = false;
+
+/**
+ * 한 번에 한 요청만 보낸다. 여러 화면이 동시에 열려도 같은 요청을 함께 기다린다.
+ * fresh는 무언가 바뀐 뒤(보상·승진 알림, 직접 새로 고침)라는 뜻이라, 진행 중인 요청이
+ * 그 전에 출발했을 수 있으니 끝나면 한 번 더 읽는다.
+ */
+function load(current: number, fresh = false): Promise<void> {
+  if (inFlight) {
+    if (fresh) again = true;
+    return inFlight;
+  }
+  inFlight = fetchCareer(current).finally(() => {
+    inFlight = null;
+    if (again && current === session) {
+      again = false;
+      void load(current);
+    }
+  });
+  return inFlight;
+}
+
+async function fetchCareer(current: number): Promise<void> {
   // 늦게 끝난 요청이 더 새 응답(OJT 확인 결과 등)을 덮지 않게 순번을 맞춘다.
   const seq = ++requestSeq;
   try {
@@ -90,7 +113,7 @@ function start(): void {
     refreshTimer = window.setInterval(() => { if (document.visibilityState === "visible") void load(current); }, 60_000);
   });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.uid) void load(session); });
-  window.addEventListener("gamestock:career", () => { if (state.uid) void load(session); });
+  window.addEventListener("gamestock:career", () => { if (state.uid) void load(session, true); });
 }
 
 function subscribe(listener: () => void): () => void {
@@ -111,7 +134,7 @@ export function useCareerFailed(): boolean {
 }
 
 export function refreshCareer(): void {
-  if (state.uid) void load(session);
+  if (state.uid) void load(session, true);
 }
 
 /** 서버가 스스로 볼 수 없는 OJT 단계(종목 화면 보기, 리스크 교육 확인)를 알린다. 이미 했으면 요청하지 않는다. */
@@ -120,7 +143,10 @@ export async function acknowledgeOjt(step: "MARKET" | "RISK"): Promise<void> {
   if (!state.uid || !data || data.legacy || data.grade !== "TRAINEE") return;
   if (data.promotion.some((item) => item.id === step && item.done)) return;
   requestSeq += 1;
-  accept(await apiFetch<Career>(`/api/career/ojt/${step}`, { method: "POST" }));
+  // 서버는 바뀐 게 없으면(이미 끝낸 단계 등) 204로 답한다. 그때는 다시 읽어 맞춘다.
+  const next = await apiFetch<Career | undefined>(`/api/career/ojt/${step}`, { method: "POST" });
+  if (next) accept(next);
+  else refreshCareer();
 }
 
 export type WalletEntry = { id: number; kind: string; amount: number; balanceAfter: number; memo: string; at: string };
