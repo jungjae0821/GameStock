@@ -116,6 +116,8 @@ export class MockBackend {
         }],
       };
       case "GET /api/portfolio": return { status: 200, body: { cash: 1_000_000, positions: [], realizedProfitLoss: 0 } };
+      // 공지 API가 실패하면 앱이 내장 대체 공지 창을 띄워 화면을 가린다. 빈 목록으로 답한다.
+      case "GET /api/content":
       case "GET /api/settlements":
       case "GET /api/watchlist":
       case "GET /api/orders": return { status: 200, body: [] };

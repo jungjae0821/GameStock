@@ -4,12 +4,15 @@ import { MockBackend, signIn } from "./mockBackend";
 /* 발표 시연에서 끊기면 안 되는 흐름: 시세 보기 → 로그인 → 주문 → 결과 안내. 백엔드는 e2e/mockBackend.ts가 대신한다. */
 
 test.describe("비로그인", () => {
-  test("시장 목록과 종목 화면이 열린다", async ({ page }) => {
+  test("시장 목록과 종목 화면이 열린다", async ({ page, isMobile }) => {
     await MockBackend.install(page);
     await page.goto("/market");
     await expect(page.getByText("원신").first()).toBeVisible();
 
     await page.goto("/market/GI");
+    await expect(page.getByRole("combobox", { name: "종목 선택" })).toHaveValue("GI");
+    // 휴대폰 폭에서는 주문 입력이 처음부터 펼쳐져 있지 않다.
+    if (isMobile) return;
     await expect(page.getByRole("form", { name: "주문 입력" })).toBeVisible();
     await expect(page.getByText("로그인 후 주문할 수 있습니다.")).toBeVisible();
   });
