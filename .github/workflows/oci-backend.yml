@@ -55,6 +55,18 @@ jobs:
           '-Dloan.test.jdbc=jdbc:mysql://127.0.0.1:13367/?allowPublicKeyRetrieval=true&useSSL=false&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true'
           -Dloan.test.user=root -Dloan.test.password= -Dmarket.activity=true verify
 
+      - name: Start the built app and pass the readiness check
+        # 테스트는 앱 전체를 조립하지 않는다. 운영과 같은 JAR를 실제로 띄워 배포 준비 검사를 미리 통과시킨다.
+        env:
+          DB_URL: 'jdbc:mysql://127.0.0.1:13367/gamestock_startup?allowPublicKeyRetrieval=true&useSSL=false&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true'
+          DB_USERNAME: root
+          DB_PASSWORD: ''
+        run: |
+          set -euo pipefail
+          sed -e 's/CREATE DATABASE IF NOT EXISTS gamestock /CREATE DATABASE IF NOT EXISTS gamestock_startup /' -e 's/^USE gamestock;/USE gamestock_startup;/' database/schema.sql > /tmp/startup-schema.sql
+          mysql --protocol=TCP -h 127.0.0.1 -P 13367 -u root < /tmp/startup-schema.sql
+          python3 -B backend/ops/startup-check.py backend/target/gamestock-backend-0.1.0.jar
+
       - name: Configure restricted deployment SSH key
         env:
           DEPLOY_KEY: ${{ secrets.OCI_DEPLOY_SSH_KEY }}
