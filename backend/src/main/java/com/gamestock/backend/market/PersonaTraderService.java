@@ -146,8 +146,17 @@ public class PersonaTraderService {
             chores(persona, id, now, random);
             choresDone.put(id, day);
         }
+        reviewIfTrainee(id);
         if (random.nextDouble() >= persona.actionChancePerMinute(Persona.dayOf(now))) return;
         trade(persona, id, random);
+    }
+
+    /**
+     * 승진은 회원이 커리어 화면을 열 때와 하루 한 번 자정 정산 때만 판정된다. 봇은 화면을 열지 않으니
+     * OJT를 다 채우고도 자정까지 수습으로 남는다. 수습인 동안은 접속한 매 분 직접 판정을 부른다.
+     */
+    void reviewIfTrainee(long id) {
+        if (career.grade(id) == CareerGrade.TRAINEE) career.review(id);
     }
 
     /** 그날 처음 접속했을 때: 출석, 수습 OJT 확인, 칭호 확인과 가끔 바꿔 달기, 마감 전이면 일일 예측. */
