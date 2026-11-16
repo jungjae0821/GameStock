@@ -1,7 +1,9 @@
 import { firebaseAuth } from "./firebase";
+import endpoints from "../../endpoints.json";
 
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
-const productionApiBase = "https://gamestock-api.161-33-33-45.sslip.io";
+// 운영 주소는 저장소 루트 endpoints.json 한 곳에서만 정한다.
+const productionApiBase = endpoints.api;
 const localApiBase = "http://localhost:8081";
 
 // A full market simulation can briefly hold a quote request while bots trade.

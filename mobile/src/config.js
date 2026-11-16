@@ -1,6 +1,8 @@
 // 앱은 웹과 동일한 OCI 백엔드를 기본으로 사용한다.
 // 로컬 Spring Boot를 테스트할 때만 EXPO_PUBLIC_API_BASE_URL에
 // PC의 LAN 주소를 지정해 덮어쓴다.
+// Metro는 앱 폴더 밖 파일을 읽지 않아 주소를 직접 적는다. 저장소 루트 endpoints.json과 같아야 하며
+// tests/endpoints.test.ts가 이를 검사한다.
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL || "https://gamestock-api.161-33-33-45.sslip.io";
 export const MARKET_SOCKET_URL =

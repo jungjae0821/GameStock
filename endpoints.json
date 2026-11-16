@@ -1,0 +1,4 @@
+{
+  "$comment": "운영 API 주소의 유일한 기준. 웹(src/lib/api.ts)과 배포 워크플로는 이 파일을 직접 읽는다. 직접 읽을 수 없는 곳(firebase.json CSP, backend/ops/monitor-targets.json, mobile/src/config.js, 문서)은 tests/endpoints.test.ts가 이 값과 같은지 검사한다. 주소를 바꾸면 테스트가 고칠 곳을 알려 준다.",
+  "api": "https://gamestock-api.161-33-33-45.sslip.io"
+}

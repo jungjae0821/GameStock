@@ -2,6 +2,8 @@
 
 운영 화면은 `https://gamestock-20994.web.app`, API는 `https://gamestock-api.161-33-33-45.sslip.io`를 사용한다. Firebase 인증은 유지한다. 모바일 WebView도 같은 화면을 사용하며 네이티브 인증 API 기본 주소는 `mobile/src/config.js`에 있다. 이미 설치한 앱에 이전 네이티브 주소가 포함돼 있다면 다시 빌드해야 한다.
 
+API 주소는 저장소 루트 `endpoints.json` 한 곳에서 정한다. 웹과 배포 워크플로는 이 파일을 읽는다. 주소를 바꾸면 `npm test`(`tests/endpoints.test.ts`)가 함께 고쳐야 할 곳을 알려 준다. Firebase CSP(`firebase.json`), 외부 감시 대상(`backend/ops/monitor-targets.json`), 앱 기본값(`mobile/src/config.js`), 문서가 여기에 해당한다. 백엔드의 CORS·WebSocket 허용 출처는 웹 주소 기준이라 따로 확인한다.
+
 ## 서버
 
 - Oracle Linux 9 ARM64, Java 17, Nginx, systemd.
