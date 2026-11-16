@@ -1,5 +1,6 @@
 package com.gamestock.backend.market;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,8 @@ public class OrderRateLimiter {
     private final LongSupplier nanoTime;
     private final Map<String, Bucket> buckets = new HashMap<>();
 
+    /** 생성자가 둘이라 Spring이 고를 수 있게 명시한다. 빠지면 기동 중 "No default constructor found"로 서버가 뜨지 않는다. */
+    @Autowired
     public OrderRateLimiter(@Value("${market.order-limit.submit-burst:20}") int submitBurst,
                             @Value("${market.order-limit.submit-per-second:2}") double submitPerSecond,
                             @Value("${market.order-limit.cancel-burst:60}") int cancelBurst,
