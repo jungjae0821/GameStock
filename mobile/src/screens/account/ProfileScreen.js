@@ -14,10 +14,10 @@ const kstFull = iso => {
   return `${at.getUTCMonth() + 1}월 ${at.getUTCDate()}일 ${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`;
 };
 
-/** 프로필·계정 설정. 할 일은 내 정보 바꾸기다: 닉네임, 프로필 사진, 그리고 계좌 초기화. */
+/** 프로필·계정 설정. 할 일은 내 정보 바꾸기다: 닉네임, 프로필 사진, 계좌 초기화, 회원 탈퇴. */
 export function ProfileScreen({ market, onBack }) {
   const theme = useTheme();
-  const { user, refreshProfile } = useAuth();
+  const { user, refreshProfile, finishAccountDeletion } = useAuth();
   const account = useAccount();
   const [profile, setProfile] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -26,6 +26,8 @@ export function ProfileScreen({ market, onBack }) {
   const [saving, setSaving] = useState(null);
   const [message, setMessage] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [leaveConfirm, setLeaveConfirm] = useState('');
+  const [leaveError, setLeaveError] = useState('');
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
 
@@ -100,6 +102,30 @@ export function ProfileScreen({ market, onBack }) {
             setMessage({ text: '계좌를 시작 자금 100만원으로 초기화했어요.', ok: true });
           } catch (failure) {
             setMessage({ text: failure.message, ok: false });
+          } finally {
+            if (alive.current) setSaving(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  // 앱스토어 심사 기준: 앱 안에서 계정을 지울 수 있어야 한다. 웹 설정 화면과 같은 서버 절차를 쓴다.
+  const leaveService = () => {
+    if (!profile || leaveConfirm.trim() !== profile.nickname) return;
+    Alert.alert('정말 탈퇴할까요?', '계정과 거래·정산 기록, 보유 종목, 작성한 글, 프로필 사진이 모두 지워지고 되돌릴 수 없어요.', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '탈퇴', style: 'destructive', onPress: async () => {
+          setSaving('leave');
+          setLeaveError('');
+          try {
+            const result = await request('/api/account', { method: 'DELETE', body: { confirm: leaveConfirm.trim() } });
+            await finishAccountDeletion(Boolean(result?.loginAccountDeleted));
+            Alert.alert('탈퇴가 끝났어요', '그동안 이용해 주셔서 고마워요.');
+            onBack?.();
+          } catch (failure) {
+            if (alive.current) setLeaveError(failure.message || '탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.');
           } finally {
             if (alive.current) setSaving(null);
           }
@@ -190,6 +216,22 @@ export function ProfileScreen({ market, onBack }) {
         <Txt variant="callout" tone="inkSoft">시작 자금 100만원으로 돌아가요. 보유 주식, 거래 기록, 투자 미션과 함께 직급은 수습으로, 내 지갑은 0원으로 초기화돼요.</Txt>
         {!profile.resetAvailable ? <Txt variant="caption" tone="inkSoft">지금은 계좌를 초기화할 수 없어요.</Txt> : null}
         <Button label="계좌 초기화" kind="danger" busy={saving === 'reset'} disabled={saving != null || !profile.resetAvailable} onPress={resetAccount} />
+      </Card>
+
+      <Card>
+        <CardHead title="회원 탈퇴" />
+        <Txt variant="callout" tone="inkSoft">계정과 거래·정산 기록, 보유 종목, 작성한 글, 프로필 사진이 모두 지워지고 되돌릴 수 없어요. 내가 참여한 체결은 상대방의 거래 내역에서도 사라져요.</Txt>
+        <Field
+          value={leaveConfirm}
+          onChangeText={text => { setLeaveConfirm(text); setLeaveError(''); }}
+          autoCorrect={false}
+          autoCapitalize="none"
+          editable={saving == null}
+          accessibilityLabel="확인용 닉네임"
+          hint={`확인을 위해 지금 닉네임 ${profile.nickname}을 입력해 주세요.`}
+          error={leaveError || undefined}
+        />
+        <Button label="탈퇴하기" kind="danger" busy={saving === 'leave'} disabled={saving != null || leaveConfirm.trim() !== profile.nickname} onPress={leaveService} />
       </Card>
     </AccountFrame>
   );
