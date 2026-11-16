@@ -35,6 +35,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Lint
+        # 오류만 실패로 본다. 경고는 기존 코드 정리 대상이라 로그에만 남긴다.
+        run: npm run lint
+
       - name: Test
         run: npm test
 
