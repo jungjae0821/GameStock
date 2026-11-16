@@ -21,3 +21,7 @@ logs/
 # Local run logs and stale compiled output
 *.log
 /build/
+
+# Playwright E2E 결과물
+/test-results/
+/playwright-report/

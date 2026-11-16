@@ -1,4 +1,5 @@
 import { AuthBridge } from "./components/AuthBridge";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { MissionRewardToast } from "./components/MissionRewardToast";
 import { TitleWatcher } from "./components/TitleWatcher";
@@ -120,6 +121,7 @@ export default function App() {
       <AuthBridge />
       <NxTopbar route={route} />
       <main id="content" className={`content nx-content${terminal ? "" : " nx-page"}`} ref={main} tabIndex={-1}>
+        <ErrorBoundary area="screen" resetKey={JSON.stringify(route)}>
         {suspendedUntil ? <SuspensionNotice until={suspendedUntil} reason={profile?.tradeBanReason} /> : <>
         {route.name === "home" && <HomeBoard />}
         {terminal && <TradeTerminal ticker={route.name === "trade" || route.name === "market" ? route.ticker : null} />}
@@ -165,18 +167,22 @@ export default function App() {
         {route.name === "admin" && auth.user && <NxAdminPage />}
         {route.name === "login" && <NxLoginPage method={route.method} />}
         </>}
+        </ErrorBoundary>
       </main>
       <NxTabbar route={route} />
-      <MissionRewardToast />
-      {/* 앱 안 WebView(app-shell)에서는 시장 알림과 슈엔의 첫 출근·발령·갈구기를 앱이 네이티브로 띄운다.
-          숨겨 둔 WebView에서 몰래 떠 버리거나 앱과 두 번 뜨지 않게 웹은 그리지 않는다. 데스크 첫 방문 안내(DeskIntro)는 그대로 둔다. */}
-      {!inAppShell && <MarketAlerts />}
-      <OrderImpactToast />
-      <TitleWatcher />
-      <LoginModal />
-      <SiteNoticeDialog />
-      {!inAppShell && <MentorHost />}
-      <CircuitBreakerNotice />
+      {/* 알림·토스트·대화상자가 고장 나도 본문까지 지워지지 않게, 이 영역은 조용히 빠진다. */}
+      <ErrorBoundary area="overlays" fallback={null} resetKey={JSON.stringify(route)}>
+        <MissionRewardToast />
+        {/* 앱 안 WebView(app-shell)에서는 시장 알림과 슈엔의 첫 출근·발령·갈구기를 앱이 네이티브로 띄운다.
+            숨겨 둔 WebView에서 몰래 떠 버리거나 앱과 두 번 뜨지 않게 웹은 그리지 않는다. 데스크 첫 방문 안내(DeskIntro)는 그대로 둔다. */}
+        {!inAppShell && <MarketAlerts />}
+        <OrderImpactToast />
+        <TitleWatcher />
+        <LoginModal />
+        <SiteNoticeDialog />
+        {!inAppShell && <MentorHost />}
+        <CircuitBreakerNotice />
+      </ErrorBoundary>
     </div>
   );
 }

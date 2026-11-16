@@ -31,6 +31,7 @@ import { WebPane } from './src/WebPane';
 import { newsWithIds, useMarket } from './src/market';
 import { FONTS, ThemeProvider, useTheme, useThemeMode } from './src/theme';
 import { Toast } from './src/components/Kit';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { CircuitBreakerModal, SiteNoticeModal, SuspensionScreen } from './src/components/Announcements';
 import { useCircuitNotice, useSiteNotice, useSuspendedUntil } from './src/notices';
 import { onAnnounce, useTitleWatcher } from './src/rewards';
@@ -312,57 +313,60 @@ function ShellBody({ web }) {
             onLoginRequest={() => requestLogin(null)}
             onReady={onWebReady}
           />
-          {tab === 'home' ? <HomeScreen market={market} onOpen={open} /> : null}
-          {/* 종목 상세를 여는 동안에도 목록을 아래에 그려 둔다. 아이폰에서 상세를 밀어 닫으면 목록이 드러나고 스크롤 위치도 남는다. */}
-          {tab === 'market' ? (
-            <MarketScreen
-              market={market}
-              product={marketProduct}
-              onProduct={setMarketProduct}
-              onOpenStock={setStock}
-              onOpenEtf={setEtf}
-              onLogin={() => requestLogin(null)}
-              onOpenCareer={() => openMenuItem('/career')}
-            />
-          ) : null}
-          {tab === 'market' && stock ? (
-            <SwipeBack key={stock} onBack={() => setStock(null)}>
-              <StockScreen code={stock} market={market} initialOrder={stockOrder} onBack={() => setStock(null)} onSwitch={setStock} onLogin={() => requestLogin(null)} onOpenTalk={openTalk} />
-            </SwipeBack>
-          ) : null}
-          {tab === 'market' && etf && !stock ? (
-            <SwipeBack key={`etf:${etf}`} onBack={() => setEtf(null)}>
-              <EtfScreen code={etf} onBack={() => setEtf(null)} onOpenStock={setStock} onLogin={() => requestLogin(null)} />
-            </SwipeBack>
-          ) : null}
-          {tab === 'ranking' ? <RankingScreen market={market} /> : null}
-          {tab === 'talk' ? (
-            <TalkScreen
-              code={talkCode}
-              market={market}
-              onSwitch={setTalkCode}
-              onOpenStock={code => { setEtf(null); setStock(code); setStockOrder(null); setTab('market'); }}
-              onLogin={() => requestLogin(null)}
-            />
-          ) : null}
-          {tab === 'news' ? <NewsScreen market={market} onOpenNews={setNewsId} /> : null}
-          {tab === 'news' && newsId ? (
-            <SwipeBack key={newsId} onBack={() => setNewsId(null)}>
-              <NewsDetailScreen
-                item={newsItem}
+          {/* 네이티브 화면 하나가 고장 나도 탭바와 웹 화면은 살려 둔다. 다른 탭이나 종목으로 옮기면 다시 그린다. */}
+          <ErrorBoundary area="screen" resetKey={[tab, stock, etf, newsId, talkCode, menuRoot].join('|')}>
+            {tab === 'home' ? <HomeScreen market={market} onOpen={open} /> : null}
+            {/* 종목 상세를 여는 동안에도 목록을 아래에 그려 둔다. 아이폰에서 상세를 밀어 닫으면 목록이 드러나고 스크롤 위치도 남는다. */}
+            {tab === 'market' ? (
+              <MarketScreen
                 market={market}
-                onBack={() => setNewsId(null)}
-                onOpenStock={(code, order) => { setStock(code); setStockOrder(order ?? null); setTab('market'); }}
+                product={marketProduct}
+                onProduct={setMarketProduct}
+                onOpenStock={setStock}
+                onOpenEtf={setEtf}
+                onLogin={() => requestLogin(null)}
+                onOpenCareer={() => openMenuItem('/career')}
+              />
+            ) : null}
+            {tab === 'market' && stock ? (
+              <SwipeBack key={stock} onBack={() => setStock(null)}>
+                <StockScreen code={stock} market={market} initialOrder={stockOrder} onBack={() => setStock(null)} onSwitch={setStock} onLogin={() => requestLogin(null)} onOpenTalk={openTalk} />
+              </SwipeBack>
+            ) : null}
+            {tab === 'market' && etf && !stock ? (
+              <SwipeBack key={`etf:${etf}`} onBack={() => setEtf(null)}>
+                <EtfScreen code={etf} onBack={() => setEtf(null)} onOpenStock={setStock} onLogin={() => requestLogin(null)} />
+              </SwipeBack>
+            ) : null}
+            {tab === 'ranking' ? <RankingScreen market={market} /> : null}
+            {tab === 'talk' ? (
+              <TalkScreen
+                code={talkCode}
+                market={market}
+                onSwitch={setTalkCode}
+                onOpenStock={code => { setEtf(null); setStock(code); setStockOrder(null); setTab('market'); }}
                 onLogin={() => requestLogin(null)}
               />
-            </SwipeBack>
-          ) : null}
-          {showingMenu ? <MenuScreen onOpen={openMenuItem} onLogin={() => requestLogin(null)} /> : null}
-          {AccountScreen ? (
-            <SwipeBack key={menuRoot} onBack={() => setMenuRoot(null)}>
-              <AccountScreen market={market} onBack={() => setMenuRoot(null)} onGo={go} onNotify={notify} />
-            </SwipeBack>
-          ) : null}
+            ) : null}
+            {tab === 'news' ? <NewsScreen market={market} onOpenNews={setNewsId} /> : null}
+            {tab === 'news' && newsId ? (
+              <SwipeBack key={newsId} onBack={() => setNewsId(null)}>
+                <NewsDetailScreen
+                  item={newsItem}
+                  market={market}
+                  onBack={() => setNewsId(null)}
+                  onOpenStock={(code, order) => { setStock(code); setStockOrder(order ?? null); setTab('market'); }}
+                  onLogin={() => requestLogin(null)}
+                />
+              </SwipeBack>
+            ) : null}
+            {showingMenu ? <MenuScreen onOpen={openMenuItem} onLogin={() => requestLogin(null)} /> : null}
+            {AccountScreen ? (
+              <SwipeBack key={menuRoot} onBack={() => setMenuRoot(null)}>
+                <AccountScreen market={market} onBack={() => setMenuRoot(null)} onGo={go} onNotify={notify} />
+              </SwipeBack>
+            ) : null}
+          </ErrorBoundary>
           <Toast key={toast?.at} text={toast?.text} icon={toast?.icon} />
         </View>
         <TabBar active={tab} onSelect={selectTab} />
@@ -381,7 +385,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <Boot fontsLoaded={fontsLoaded} />
+        <ErrorBoundary area="app" title="슈엔증권을 여는 중에 문제가 생겼어요">
+          <Boot fontsLoaded={fontsLoaded} />
+        </ErrorBoundary>
       </ThemeProvider>
     </SafeAreaProvider>
   );

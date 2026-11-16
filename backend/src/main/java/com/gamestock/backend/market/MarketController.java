@@ -28,6 +28,12 @@ public class MarketController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void configureCareer(CareerService career) { this.career = career; }
 
+    private OrderRateLimiter orderLimits;
+
+    /** Optional for the same reason; hand-built controllers in tests run without per-account limits. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureOrderLimits(OrderRateLimiter orderLimits) { this.orderLimits = orderLimits; }
+
     public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures,OrderService orders,MarketMetrics metrics,BotTradingScheduler scheduler,PublicMarketCache publicCache) { this.market = market; this.auth = auth; this.userFeatures = userFeatures;this.orders=orders;this.metrics=metrics;this.scheduler=scheduler;this.publicCache=publicCache; }
 
     @GetMapping("/health") public Map<String, Object> health() {
@@ -120,6 +126,7 @@ public class MarketController {
         // 관리자는 시장 밖의 계정이다. 관리자 주문이 다른 플레이어의 시세와 수익률을 움직이지 않게 막는다.
         if ("ADMIN".equalsIgnoreCase(user.role()))
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 계정은 주문할 수 없습니다.");
+        if (orderLimits != null) orderLimits.submit(user.id());
         // Buying adds risk and waits out a loss lock; selling never does.
         if (career != null && request != null && "BUY".equalsIgnoreCase(request.side()))
             career.requireNewRisk(user.id(), request.stockCode(), request.quantity(),
@@ -130,7 +137,9 @@ public class MarketController {
     @DeleteMapping("/orders/{orderId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public java.util.concurrent.CompletableFuture<Void> cancelOrder(@PathVariable long orderId, @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return orders.cancel(auth.requireUser(authorization).id(),orderId);
+        long userId = auth.requireUser(authorization).id();
+        if (orderLimits != null) orderLimits.cancel(userId);
+        return orders.cancel(userId,orderId);
     }
 
     @GetMapping("/market-metrics")
@@ -195,5 +204,12 @@ public class MarketController {
     @ExceptionHandler({IllegalArgumentException.class})
     ResponseEntity<Map<String, String>> invalidOrder(IllegalArgumentException error) {
         return ResponseEntity.badRequest().body(Map.of("message", error.getMessage()));
+    }
+
+    @ExceptionHandler(OrderRateLimiter.Limited.class)
+    ResponseEntity<Map<String, String>> tooManyOrders(OrderRateLimiter.Limited error) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(error.retryAfterSeconds()))
+                .body(Map.of("message", error.getMessage()));
     }
 }
