@@ -44,8 +44,9 @@ test.describe("로그인 후 주문", () => {
     await ticket.getByRole("spinbutton", { name: "수량" }).fill("2");
     await ticket.locator("button[type=submit]").click();
 
-    await expect(ticket.getByRole("status").last()).toContainText("주문이 접수됐어요");
-    expect(backend.orders).toEqual([expect.objectContaining({ stockCode: "GI", side: "BUY", quantity: 2, orderType: "MARKET" })]);
+    await expect(ticket.getByRole("status").last()).toContainText("2주 매수 주문이 접수됐어요");
+    // 웹은 방향을 소문자로 보내고, 서버는 대소문자를 가리지 않는다(OrderService.validate).
+    expect(backend.orders).toEqual([expect.objectContaining({ stockCode: "GI", side: "buy", quantity: 2, orderType: "MARKET" })]);
   });
 
   test("주문이 너무 잦아 서버가 429로 막으면 그 이유를 보여 준다", async ({ page }) => {

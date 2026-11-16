@@ -139,7 +139,7 @@ export class MockBackend {
       case "POST /api/orders": {
         const order = JSON.parse(body ?? "{}") as OrderBody;
         this.orders.push(order);
-        return this.orderReplies.shift() ?? { status: 201, body: { message: `${order.quantity}주 ${order.side === "BUY" ? "매수" : "매도"} 주문이 접수됐어요.`, price: stock(order.stockCode).price } };
+        return this.orderReplies.shift() ?? { status: 201, body: { message: `${order.quantity}주 ${order.side.toUpperCase() === "BUY" ? "매수" : "매도"} 주문이 접수됐어요.`, price: stock(order.stockCode).price } };
       }
     }
     this.unhandled.push(key);
