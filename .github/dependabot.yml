@@ -1,11 +1,19 @@
 # 의존성 보안 패치를 자동으로 PR로 받는다. PR이 쏟아지지 않게 주 1회, 생태계별로 마이너·패치를 한 PR로 묶는다.
-# 메이저 업데이트는 따로 열려 검토할 수 있게 둔다.
+# 메이저 업데이트는 따로 열려 검토할 수 있게 둔다. 다른 패키지와 함께 올려야 하거나 검증할 CI가 없는 것은 아래 ignore로 뺀다.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly, day: monday, time: "09:00", timezone: Asia/Seoul }
     open-pull-requests-limit: 5
+    # 메이저 업데이트는 함께 올려야 하는 묶음이라 자동 PR로 받지 않는다(#83). 필요할 때 따로 올린다.
+    ignore:
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript-eslint"
+        update-types: ["version-update:semver-major"]
     groups:
       web-minor-patch:
         update-types: [minor, patch]
@@ -20,6 +28,9 @@ updates:
       - dependency-name: "react-native*"
       - dependency-name: "react"
       - dependency-name: "@react-native*"
+      # 앱은 CI가 없어 메이저 업데이트를 검증할 수 없다(#78).
+      - dependency-name: "firebase"
+        update-types: ["version-update:semver-major"]
     groups:
       mobile-minor-patch:
         update-types: [minor, patch]
@@ -28,6 +39,10 @@ updates:
     directory: /backend
     schedule: { interval: weekly, day: monday, time: "09:00", timezone: Asia/Seoul }
     open-pull-requests-limit: 3
+    # Spring Boot 4는 Jackson 3 이전이 필요한 큰 작업이다(#77). 메이저는 따로 계획해 올린다.
+    ignore:
+      - dependency-name: "org.springframework.boot:*"
+        update-types: ["version-update:semver-major"]
     groups:
       backend-minor-patch:
         update-types: [minor, patch]
