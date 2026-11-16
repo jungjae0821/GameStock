@@ -335,6 +335,9 @@ button.nx-title:hover:not(:disabled) { background: var(--nx-tint); }
 .nx-danger-zone { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
 .nx-danger-title { margin: 0 0 6px; font-size: 16px; font-weight: 500; }
 .nx-danger-zone p { margin: 0; }
+.nx-leave { align-items: flex-end; }
+.nx-leave-form { display: grid; gap: 8px; flex: 1 1 280px; max-width: 420px; }
+.nx-leave-form .nx-input { flex: 1; min-width: 0; }
 
 /* ───────── 로그인 ───────── */
 

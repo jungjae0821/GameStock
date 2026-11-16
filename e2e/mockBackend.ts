@@ -63,6 +63,8 @@ function idToken() {
 export class MockBackend {
   readonly unhandled: string[] = [];
   readonly orders: OrderBody[] = [];
+  /** 회원 탈퇴 요청으로 받은 확인값들. */
+  readonly deletions: string[] = [];
   /** 다음 주문들에 돌려줄 응답. 비어 있으면 정상 접수로 답한다. */
   readonly orderReplies: Reply[] = [];
   /** "GET /api/..." 형태의 키로 특정 응답을 덮어쓴다. 서버가 예상과 다른 모양을 보낸 상황을 흉내 낼 때 쓴다. */
@@ -129,6 +131,12 @@ export class MockBackend {
         },
       };
       // 로그인 직후 거래 계정을 만들거나 불러온다(AuthService.LoginUser).
+      case "DELETE /api/account": {
+        const confirm = (JSON.parse(body ?? "{}") as { confirm?: string }).confirm ?? "";
+        this.deletions.push(confirm);
+        if (confirm !== TEST_USER.nickname) return { status: 409, body: { message: "확인용 닉네임이 일치하지 않습니다." } };
+        return { status: 200, body: { loginAccountDeleted: true } };
+      }
       case "POST /api/auth/login": return {
         status: 200,
         body: {
