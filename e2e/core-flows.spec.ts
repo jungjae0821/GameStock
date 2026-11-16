@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { MockBackend, signIn } from "./mockBackend";
+import { MockBackend, signIn, TEST_USER } from "./mockBackend";
 
 /* 발표 시연에서 끊기면 안 되는 흐름: 시세 보기 → 로그인 → 주문 → 결과 안내. 백엔드는 e2e/mockBackend.ts가 대신한다. */
 
@@ -86,5 +86,32 @@ test.describe("오류 경계", () => {
     await page.locator('a[href="/market"]:visible').first().click();
     await expect(page.getByTestId("screen-error")).toHaveCount(0);
     await expect(page.getByText("원신").first()).toBeVisible();
+  });
+});
+
+test.describe("회원 탈퇴", () => {
+  test.skip(({ isMobile }) => isMobile, "설정 화면 탈퇴는 데스크톱에서 확인한다");
+
+  test("닉네임을 정확히 입력해야 탈퇴 버튼이 열리고, 탈퇴하면 로그아웃된 채 홈으로 간다", async ({ page }) => {
+    const backend = await MockBackend.install(page);
+    await signIn(page, "/settings");
+    await expect(page).toHaveURL(/\/settings/);
+
+    const leave = page.getByRole("region", { name: "회원 탈퇴" });
+    const confirm = leave.getByLabel(/지금 닉네임/);
+    const submit = leave.getByRole("button", { name: "탈퇴하기" });
+    await expect(submit).toBeDisabled();
+    await confirm.fill("다른닉네임");
+    await expect(submit).toBeDisabled();
+
+    await confirm.fill(TEST_USER.nickname);
+    await expect(submit).toBeEnabled();
+    page.once("dialog", (dialog) => void dialog.accept());
+    await submit.click();
+
+    await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
+    expect(backend.deletions).toEqual([TEST_USER.nickname]);
+    await page.goto("/settings");
+    await expect(page.getByRole("heading", { name: "로그인이 필요한 화면이에요" })).toBeVisible();
   });
 });

@@ -6,7 +6,7 @@ import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from 'firebase/app';
 import {
-  createUserWithEmailAndPassword, getAuth, getReactNativePersistence, GoogleAuthProvider, initializeAuth, onIdTokenChanged,
+  createUserWithEmailAndPassword, deleteUser, getAuth, getReactNativePersistence, GoogleAuthProvider, initializeAuth, onIdTokenChanged,
   sendPasswordResetEmail, signInWithCredential, signInWithCustomToken, signInWithEmailAndPassword, signOut as firebaseSignOut, validatePassword,
 } from 'firebase/auth';
 import { API_BASE_URL, FIREBASE_CONFIG, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID, WEB_APP_URL } from './config';
@@ -196,6 +196,15 @@ export function AuthProvider({ children, onWebToken, onWebSignOut }) {
     return () => subscription.remove();
   }, [finishWebGoogle]);
 
+  /** 회원 탈퇴 뒤 정리. 서버가 로그인 계정을 지우지 못했으면 여기서 지우고, 기기와 웹 화면을 모두 로그아웃한다. */
+  const finishAccountDeletion = useCallback(async loginAccountDeleted => {
+    const current = firebaseAuth.currentUser;
+    if (!loginAccountDeleted && current) await deleteUser(current).catch(() => {});
+    await firebaseSignOut(firebaseAuth).catch(() => {});
+    if (nativeGoogle) await GoogleSignin.signOut().catch(() => {});
+    onWebSignOut?.();
+  }, [onWebSignOut]);
+
   const signOut = useCallback(async () => {
     await firebaseSignOut(firebaseAuth);
     // 다음 로그인 때 계정 선택 창이 다시 뜨도록 기기의 Google 세션도 정리한다.
@@ -204,7 +213,7 @@ export function AuthProvider({ children, onWebToken, onWebSignOut }) {
   }, [onWebSignOut]);
 
   const value = useMemo(() => ({
-    user, ready, profile, googleError, googleInApp: nativeGoogle, signInEmail, register, resetPassword, startGoogle, signOut, syncWeb, refreshProfile: loadProfile,
-  }), [user, ready, profile, googleError, signInEmail, register, resetPassword, startGoogle, signOut, syncWeb, loadProfile]);
+    user, ready, profile, googleError, googleInApp: nativeGoogle, signInEmail, register, resetPassword, startGoogle, signOut, finishAccountDeletion, syncWeb, refreshProfile: loadProfile,
+  }), [user, ready, profile, googleError, signInEmail, register, resetPassword, startGoogle, signOut, finishAccountDeletion, syncWeb, loadProfile]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

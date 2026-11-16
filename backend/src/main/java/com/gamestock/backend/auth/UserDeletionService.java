@@ -2,6 +2,9 @@ package com.gamestock.backend.auth;
 
 import com.gamestock.backend.market.AdminSupport;
 import com.gamestock.backend.market.OrderService;
+import com.google.firebase.auth.FirebaseAuth;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -16,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 관리자의 회원 완전 삭제. 회원을 가리키는 행을 외래 키를 따라 모두 지운 뒤 users 행을 지운다.
+ * 회원 완전 삭제. 관리자가 지우는 경우와 회원 본인의 탈퇴가 같은 절차를 쓴다. 회원을 가리키는 행을 외래 키를 따라 모두 지운 뒤 users 행을 지운다.
  * 체결·정산은 상대 회원의 기록이기도 해서 상대의 거래 내역에서도 함께 사라진다.
  * 감사 기록(admin_actions, admin_audit)은 외래 키가 없어 그대로 남는다.
  *
@@ -25,6 +28,7 @@ import java.util.Map;
  */
 @Service
 public class UserDeletionService {
+    private static final Logger log = LoggerFactory.getLogger(UserDeletionService.class);
     private static final int CHUNK = 500;
     private static final int MAX_DEPTH = 32;
     /** 외래 키 없이 user_id만 들고 있는 개인 데이터 표. */
@@ -54,8 +58,44 @@ public class UserDeletionService {
         AdminService.AdminUser target = admin.user(userId);
         if (adminId == userId) throw new IllegalArgumentException("자기 계정은 삭제할 수 없습니다.");
         if ("ADMIN".equalsIgnoreCase(target.role())) throw new IllegalArgumentException("관리자 계정은 삭제할 수 없습니다.");
+        requireNickname(target, confirmation);
+        remove(target, adminId, "USER_DELETE", "회원 완전 삭제", true);
+    }
+
+    /**
+     * 회원 본인의 탈퇴. 관리자 삭제와 같은 절차로 지운 뒤 Firebase 로그인 계정도 지운다.
+     * 실수로 누르지 않도록 지금 닉네임을 확인값으로 받는다.
+     * @return Firebase 로그인 계정까지 지웠는지. false면 브라우저가 직접 지우도록 한다.
+     */
+    public boolean deleteSelf(long userId, String confirmation) {
+        AdminService.AdminUser target = admin.user(userId);
+        if ("ADMIN".equalsIgnoreCase(target.role()))
+            throw new IllegalArgumentException("관리자 계정은 탈퇴할 수 없습니다. 다른 관리자에게 권한 해제를 요청해 주세요.");
+        requireNickname(target, confirmation);
+        // 탈퇴한 회원의 이메일이 감사 기록에 남지 않게 닉네임만 적는다.
+        remove(target, userId, "SELF_DELETE", "회원 탈퇴", false);
+        return deleteFirebaseUser(target.uid());
+    }
+
+    private static void requireNickname(AdminService.AdminUser target, String confirmation) {
         if (confirmation == null || !confirmation.trim().equals(target.nickname()))
             throw new IllegalArgumentException("확인용 닉네임이 일치하지 않습니다.");
+    }
+
+    /** DB가 이미 지워졌으므로 여기서 실패해도 탈퇴는 끝난 것으로 본다. 다시 로그인하면 빈 새 계정이 만들어질 뿐이다. */
+    boolean deleteFirebaseUser(String uid) {
+        if (uid == null || uid.isBlank()) return true;
+        try {
+            FirebaseAuth.getInstance().deleteUser(uid);
+            return true;
+        } catch (Exception error) {
+            log.warn("Firebase 로그인 계정을 지우지 못했습니다 ({})", error.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    private void remove(AdminService.AdminUser target, long actorId, String action, String reason, boolean keepContact) {
+        long userId = target.id();
         if (pendingSettlements(userId) > 0)
             throw new IllegalArgumentException("정산 대기 중인 체결이 있어 지금은 삭제할 수 없습니다. 정산이 끝난 뒤 다시 시도해 주세요.");
 
@@ -79,8 +119,11 @@ public class UserDeletionService {
                 if (tableExists(table)) removed += jdbc.update("DELETE FROM `" + table + "` WHERE user_id = ?", userId);
             removed += purge("users", "id", List.of(userId), 0);
             jdbc.update("INSERT INTO admin_actions (admin_id, target_user_id, action, detail) VALUES (?, ?, ?, ?)",
-                    adminId, userId, "USER_DELETE", truncate(target.nickname() + " · " + (target.email() == null ? "이메일 없음" : target.email()), 300));
-            audit.audit(adminId, "USER_DELETE", userId, "회원 완전 삭제", target, Map.of("deleted", true, "rows", removed));
+                    actorId, userId, action, truncate(keepContact
+                            ? target.nickname() + " · " + (target.email() == null ? "이메일 없음" : target.email())
+                            : target.nickname(), 300));
+            audit.audit(actorId, action, userId, reason, keepContact ? target : Map.of("nickname", target.nickname()),
+                    Map.of("deleted", true, "rows", removed));
         });
     }
 

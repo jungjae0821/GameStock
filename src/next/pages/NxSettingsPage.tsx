@@ -1,7 +1,8 @@
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { deleteUser, onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../lib/api";
 import { openLoginPrompt } from "../../lib/auth";
+import { navigate } from "../../router";
 import { firebaseAuth } from "../../lib/firebase";
 import { setProfile as shareProfile, type Profile } from "../../lib/profile";
 import { FandomSettings, PublicProfileSettings } from "../engagement/FandomSettings";
@@ -40,6 +41,9 @@ export function NxSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [leaveConfirm, setLeaveConfirm] = useState("");
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState("");
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(Date.now());
   const [draft, setDraft] = useState<PhotoDraft | null>(null);
@@ -136,6 +140,27 @@ export function NxSettingsPage() {
       setMessage(error instanceof Error ? error.message : "계좌 초기화에 실패했습니다.");
     } finally {
       setResetting(false);
+    }
+  };
+
+  /* 탈퇴는 관리자 회원 삭제와 같은 절차로 서버에서 지운다. 서버가 로그인 계정까지 지우지 못했으면 여기서 지운다. */
+  const leaveService = async () => {
+    if (!profile || leaveConfirm.trim() !== profile.nickname) return;
+    setLeaving(true);
+    setLeaveError("");
+    try {
+      const result = await apiFetch<{ loginAccountDeleted: boolean }>("/api/account", {
+        method: "DELETE",
+        body: JSON.stringify({ confirm: leaveConfirm.trim() }),
+      });
+      const current = firebaseAuth.currentUser;
+      if (!result.loginAccountDeleted && current) await deleteUser(current).catch(() => undefined);
+      await signOut(firebaseAuth).catch(() => undefined);
+      window.alert("탈퇴가 끝났어요. 그동안 이용해 주셔서 고마워요.");
+      navigate("/", { replace: true });
+    } catch (error) {
+      setLeaveError(error instanceof Error ? error.message : "탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setLeaving(false);
     }
   };
 
@@ -285,6 +310,25 @@ export function NxSettingsPage() {
               <button type="button" className="nx-btn is-danger" onClick={() => void resetAccount()} disabled={loading || resetting || !profile || !profile.resetAvailable}>
                 {resetting ? "초기화 중…" : "계좌 초기화"}
               </button>
+            </section>
+
+            <section className="nx-panel nx-danger-zone nx-leave" aria-labelledby="nx-leave-title">
+              <div>
+                <h2 id="nx-leave-title" className="nx-danger-title">회원 탈퇴</h2>
+                <p className="nx-muted">계정과 거래·정산 기록, 보유 종목, 작성한 글, 프로필 사진이 모두 지워지고 되돌릴 수 없어요. 내가 참여한 체결은 상대방의 거래 내역에서도 사라져요.</p>
+              </div>
+              <form className="nx-leave-form" onSubmit={(event) => { event.preventDefault(); void leaveService(); }}>
+                <label htmlFor="nx-leave-confirm" className="nx-field-hint">확인을 위해 지금 닉네임 <strong>{profile?.nickname ?? ""}</strong>을 입력해 주세요</label>
+                <div className="nx-inline-form">
+                  <input id="nx-leave-confirm" className="nx-input" autoComplete="off" value={leaveConfirm} disabled={leaving || !profile}
+                    aria-invalid={Boolean(leaveError)} aria-describedby={leaveError ? "nx-leave-error" : undefined}
+                    onChange={(event) => { setLeaveConfirm(event.target.value); setLeaveError(""); }} />
+                  <button type="submit" className="nx-btn is-danger" disabled={leaving || !profile || leaveConfirm.trim() !== profile.nickname}>
+                    {leaving ? "탈퇴 처리 중…" : "탈퇴하기"}
+                  </button>
+                </div>
+                {leaveError && <p id="nx-leave-error" className="nx-field-hint is-error" role="alert">{leaveError}</p>}
+              </form>
             </section>
           </div>
         </div>
