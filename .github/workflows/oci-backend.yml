@@ -96,7 +96,8 @@ jobs:
             -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             -i ~/.ssh/oci_deploy "gamestock-deploy@$DEPLOY_HOST" \
             "deploy $GITHUB_SHA $digest" < "$artifact"
-          python3 backend/ops/verify-oci.py https://gamestock-api.161-33-33-45.sslip.io
+          api_base=$(python3 -c 'import json; print(json.load(open("endpoints.json"))["api"])')
+          python3 backend/ops/verify-oci.py "$api_base"
           {
             echo '### OCI production deployment'
             echo "Commit: \`$GITHUB_SHA\`"
