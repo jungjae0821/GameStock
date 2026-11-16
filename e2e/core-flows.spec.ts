@@ -56,6 +56,7 @@ test.describe("로그인 후 주문", () => {
       body: { message: "주문 요청이 너무 잦습니다. 3초 후에 다시 시도해 주세요." },
     });
     await signIn(page, "/market/GI");
+    await expect(page).toHaveURL(/\/market\/GI/);
 
     const ticket = page.getByRole("form", { name: "주문 입력" });
     await ticket.getByRole("button", { name: "시장가" }).click();

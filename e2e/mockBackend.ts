@@ -128,6 +128,14 @@ export class MockBackend {
           nicknameChangeAvailable: true, nicknameChangeAvailableAt: null, admin: false, tradeBannedUntil: null, tradeBanReason: null,
         },
       };
+      // 로그인 직후 거래 계정을 만들거나 불러온다(AuthService.LoginUser).
+      case "POST /api/auth/login": return {
+        status: 200,
+        body: {
+          id: 1, nickname: TEST_USER.nickname, email: TEST_USER.email, profileImageUrl: null,
+          attendanceReward: 0, attendanceStreak: 1, requiresNickname: false, role: "USER",
+        },
+      };
       case "POST /api/orders": {
         const order = JSON.parse(body ?? "{}") as OrderBody;
         this.orders.push(order);
