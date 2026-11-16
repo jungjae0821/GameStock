@@ -207,4 +207,13 @@ class PersonaTest {
         assertEquals("BA", PersonaTraderService.predictionPick(persona(Persona.Style.SCALP), quotes));
         assertEquals("GOV", PersonaTraderService.predictionPick(persona(Persona.Style.NEWBIE), quotes));
     }
+
+    @Test void limitBuysUseTheCurrentPriceRoundedUpToALegalTick() {
+        List<Quote> quotes = List.of(new Quote("UMA", 10_003, 10_003, 10_000, 10_000), new Quote("GOV", 5_000, 5_000, 5_000, 5_000),
+                new Quote("DEAD", 0, 0, 0, 0));
+        assertEquals(10_010L, PersonaTraderService.limitPrice(quotes, "UMA"));
+        assertEquals(5_000L, PersonaTraderService.limitPrice(quotes, "GOV"));
+        assertNull(PersonaTraderService.limitPrice(quotes, "DEAD"));
+        assertNull(PersonaTraderService.limitPrice(quotes, "NONE"));
+    }
 }
