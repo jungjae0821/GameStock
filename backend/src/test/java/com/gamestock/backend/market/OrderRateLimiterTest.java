@@ -57,6 +57,8 @@ class OrderRateLimiterTest {
             mvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body));
         mvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isTooManyRequests())
+                // Accept 헤더 없는 클라이언트도 JSON을 받아야 한다. XML 변환 라이브러리가 끼어들면 여기서 잡힌다.
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(header().string("Retry-After", "1"))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("주문 요청이 너무 잦습니다")));
         verify(orders, times(3)).submit(eq(7L), any());
