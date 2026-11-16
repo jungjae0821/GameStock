@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./styles/index.css";
 import App from "./App";
+import { AppErrorFallback, ErrorBoundary } from "./components/ErrorBoundary";
 import { MarketProvider } from "./market/MarketProvider";
 
 // The supplied UI uses a light paper palette, including native form controls.
@@ -22,8 +23,10 @@ if (!container) throw new Error("#root 컨테이너를 찾을 수 없습니다."
 
 createRoot(container).render(
   <StrictMode>
-    <MarketProvider>
-      <App />
-    </MarketProvider>
+    <ErrorBoundary area="app" fallback={<AppErrorFallback />}>
+      <MarketProvider>
+        <App />
+      </MarketProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

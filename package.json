@@ -14,8 +14,9 @@
     "export": "node scripts/export-zip.mjs",
     "preview": "vite preview",
     "start": "node server/index.js",
-    "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"tests/**/*.test.*\""
+    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
+    "test": "node --import tsx --test \"tests/**/*.test.*\"",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "firebase": "^12.19.0",
@@ -24,6 +25,8 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.0.0",
