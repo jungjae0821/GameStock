@@ -1,6 +1,8 @@
 package com.gamestock.backend.market;
 
+import com.gamestock.backend.auth.AuthService;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,6 +13,7 @@ import java.util.Random;
 
 import static com.gamestock.backend.market.PersonaDecisions.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class PersonaTest {
     private static Persona persona(Persona.Style style) {
@@ -215,5 +218,20 @@ class PersonaTest {
         assertEquals(5_000L, PersonaTraderService.limitPrice(quotes, "GOV"));
         assertNull(PersonaTraderService.limitPrice(quotes, "DEAD"));
         assertNull(PersonaTraderService.limitPrice(quotes, "NONE"));
+    }
+
+    @Test void aTraineeBotIsReviewedForPromotionWithoutOpeningTheCareerScreen() {
+        // 봇은 OJT 확인을 먼저 남기고 매매는 나중에 채우므로, 마지막 체결 뒤에 판정을 부르는 쪽이 따로 있어야 한다.
+        CareerService career = mock(CareerService.class);
+        var bots = new PersonaTraderService(mock(JdbcTemplate.class), mock(MarketService.class), mock(OrderService.class),
+                mock(EngagementService.class), mock(TitleService.class), mock(AuthService.class), career, true, 10);
+
+        when(career.grade(1L)).thenReturn(CareerGrade.TRAINEE);
+        bots.reviewIfTrainee(1L);
+        verify(career).review(1L);
+
+        when(career.grade(2L)).thenReturn(CareerGrade.STAFF);
+        bots.reviewIfTrainee(2L);
+        verify(career, never()).review(2L);
     }
 }
