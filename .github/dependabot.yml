@@ -1,0 +1,40 @@
+# 의존성 보안 패치를 자동으로 PR로 받는다. PR이 쏟아지지 않게 주 1회, 생태계별로 마이너·패치를 한 PR로 묶는다.
+# 메이저 업데이트는 따로 열려 검토할 수 있게 둔다.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "09:00", timezone: Asia/Seoul }
+    open-pull-requests-limit: 5
+    groups:
+      web-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /mobile
+    schedule: { interval: weekly, day: monday, time: "09:00", timezone: Asia/Seoul }
+    open-pull-requests-limit: 3
+    # Expo SDK와 React Native는 SDK 버전에 묶여 있어 `npx expo install --fix`로 함께 올린다.
+    ignore:
+      - dependency-name: "expo*"
+      - dependency-name: "react-native*"
+      - dependency-name: "react"
+      - dependency-name: "@react-native*"
+    groups:
+      mobile-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: maven
+    directory: /backend
+    schedule: { interval: weekly, day: monday, time: "09:00", timezone: Asia/Seoul }
+    open-pull-requests-limit: 3
+    groups:
+      backend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly, timezone: Asia/Seoul }
+    groups:
+      actions:
+        patterns: ["*"]
