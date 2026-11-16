@@ -30,7 +30,8 @@ import static com.gamestock.backend.market.PersonaDecisions.*;
 
 /**
  * {@link Persona} 운영 봇들을 1분마다 움직인다. 접속한 날에는 출석·칭호·일일 예측을 챙기고,
- * 접속 시간대 안에서만 일반 회원과 같은 {@link OrderService#submit} 경로로 시장가 주문을 낸다.
+ * 접속 시간대 안에서만 일반 회원과 같은 {@link OrderService#submit} 경로로 주문을 낸다. 매수 일부는
+ * 지금 가격의 지정가로 내서 수습 OJT의 지정가 매수 단계도 사람처럼 채운다.
  *
  * <p>시즌·주간·자산 랭킹 중 하나라도 {@code guardRank}에 가까우면 새로 사지 않는다. 랭킹에 실제 회원이
  * 적으면 그 경계도 실제 회원 수까지로 줄어든다. 그래도
@@ -42,6 +43,8 @@ public class PersonaTraderService {
     private static final Logger log = LoggerFactory.getLogger(PersonaTraderService.class);
     /** 경계선보다 이만큼 아래 순위부터 미리 매수를 멈춘다. */
     static final int GUARD_MARGIN = 3;
+    /** 매수 가운데 지정가로 내는 비율. */
+    static final double LIMIT_BUY_CHANCE = 0.3;
     private static final Duration QUOTE_CACHE = Duration.ofSeconds(30);
 
     private final JdbcTemplate jdbc;
@@ -50,6 +53,7 @@ public class PersonaTraderService {
     private final EngagementService engagement;
     private final TitleService titles;
     private final AuthService auth;
+    private final CareerService career;
     private final boolean enabled;
     private final int guardRank;
     private final Map<String, Long> ids = new ConcurrentHashMap<>();
@@ -59,7 +63,7 @@ public class PersonaTraderService {
     private volatile List<Quote> quotes = List.of();
 
     public PersonaTraderService(JdbcTemplate jdbc, MarketService market, OrderService orders, EngagementService engagement,
-                                TitleService titles, AuthService auth,
+                                TitleService titles, AuthService auth, CareerService career,
                                 @Value("${gamestock.persona.enabled:true}") boolean enabled,
                                 @Value("${gamestock.persona.guard-rank:10}") int guardRank) {
         this.jdbc = jdbc;
@@ -68,6 +72,7 @@ public class PersonaTraderService {
         this.engagement = engagement;
         this.titles = titles;
         this.auth = auth;
+        this.career = career;
         this.enabled = enabled;
         this.guardRank = guardRank;
     }
@@ -145,9 +150,11 @@ public class PersonaTraderService {
         trade(persona, id, random);
     }
 
-    /** 그날 처음 접속했을 때: 출석, 칭호 확인과 가끔 바꿔 달기, 마감 전이면 일일 예측. */
+    /** 그날 처음 접속했을 때: 출석, 수습 OJT 확인, 칭호 확인과 가끔 바꿔 달기, 마감 전이면 일일 예측. */
     private void chores(Persona persona, long id, ZonedDateTime now, Random random) {
         auth.grantAttendanceReward(id);
+        // 서버가 직접 볼 수 없는 OJT 단계(종목 화면 보기, 손실한도 교육)는 앱이 알려 주는데, 봇은 앱이 없으니 직접 남긴다.
+        for (String step : CareerService.CLIENT_STEPS) career.acknowledge(id, step);
         var status = titles.check(id);
         var owned = status.titles().stream().filter(TitleService.UserTitle::owned).toList();
         boolean wearing = owned.stream().anyMatch(TitleService.UserTitle::equipped);
@@ -189,13 +196,23 @@ public class PersonaTraderService {
             return;
         }
         Order chosen = order.get();
-        orders.submit(id, new OrderRequest(chosen.code(), chosen.side(), chosen.quantity(), "MARKET", null))
+        Long limit = chosen.side().equals("BUY") && random.nextDouble() < LIMIT_BUY_CHANCE ? limitPrice(quotes(), chosen.code()) : null;
+        orders.submit(id, new OrderRequest(chosen.code(), chosen.side(), chosen.quantity(), limit == null ? "MARKET" : "LIMIT", limit))
                 .whenComplete((result, error) -> {
                     if (error != null) log.debug("운영 봇 {} 주문 거절({} {} {}): {}", persona.username(), chosen.side(),
                             chosen.code(), chosen.quantity(), error.getMessage());
-                    else log.debug("운영 봇 {} 주문 {} {} {} ({})", persona.username(), chosen.side(), chosen.code(),
-                            chosen.quantity(), chosen.reason());
+                    else log.debug("운영 봇 {} 주문 {} {} {} {} ({})", persona.username(), chosen.side(), chosen.code(),
+                            chosen.quantity(), limit == null ? "시장가" : "지정가 " + limit, chosen.reason());
                 });
+    }
+
+    /**
+     * 지정가 매수 가격. 지금 가격을 호가 단위로 올려 잡아 대개 바로 체결되게 한다. 남으면 다음 차례에 취소된다.
+     * 가격을 모르면 null을 돌려주고, 그때는 시장가로 낸다.
+     */
+    static Long limitPrice(List<Quote> quotes, String code) {
+        return quotes.stream().filter(q -> q.code().equals(code) && q.price() > 0).findFirst()
+                .map(q -> PriceLimitPolicy.ceilToTick(q.price())).orElse(null);
     }
 
     // ── 보상 순위 경계 ───────────────────────────────────────
