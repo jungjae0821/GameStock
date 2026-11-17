@@ -25,18 +25,43 @@ try { firebaseAuth = initializeAuth(firebaseApp, { persistence: getReactNativePe
 catch { firebaseAuth = getAuth(firebaseApp); }
 
 const MOBILE_AUTH_STATE_KEY = 'gamestock-mobile-auth-state';
+const MOBILE_AUTH_VERIFIER_KEY = 'gamestock-mobile-auth-verifier';
+
+/**
+ * PKCE(RFC 7636 S256). 로그인 코드는 딥링크로 돌아오므로 같은 스킴을 등록한 다른 앱이 가로챌 수 있다.
+ * 검증값은 이 기기에만 두고 웹·서버에는 그 해시(challenge)만 보낸다. 서버는 검증값을 낸 쪽에만 토큰을 준다.
+ */
+async function pkcePair() {
+  // UUID 두 개의 16진수 64자. PKCE 검증값 허용 문자와 길이(43~128자)에 맞는다.
+  const verifier = `${Crypto.randomUUID()}${Crypto.randomUUID()}`.replace(/-/g, '');
+  const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, { encoding: Crypto.CryptoEncoding.BASE64 });
+  return { verifier, challenge: digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') };
+}
 
 export class ApiError extends Error {
   constructor(message, status) { super(message); this.status = status; }
 }
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
 /** 서버 요청. 로그인 상태면 Firebase ID 토큰을 붙인다. 서버의 오류 문구가 있으면 그대로 돌려준다. */
-export async function request(path, { method = 'GET', body, auth = true } = {}) {
+export async function request(path, { method = 'GET', body, auth = true, headers: extraHeaders } = {}) {
   const user = firebaseAuth.currentUser;
-  const headers = { Accept: 'application/json' };
+  const headers = { Accept: 'application/json', ...extraHeaders };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (auth && user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
-  const response = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  // 응답이 오지 않는 요청을 끝없이 기다리지 않는다. 웹 apiFetch와 같은 15초.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('서버 응답이 지연되고 있어요. 주문 내역을 확인한 뒤 다시 시도해 주세요.');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
   const text = await response.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
@@ -79,6 +104,7 @@ export function AuthProvider({ children, onWebToken, onWebSignOut }) {
   const [profile, setProfile] = useState(null);
   const [googleError, setGoogleError] = useState('');
   const pendingState = useRef(null);
+  const pendingVerifier = useRef(null);
   const handledCodes = useRef(new Set());
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'gamestock', path: 'auth/callback' });
   const webTokenRef = useRef(onWebToken);
@@ -99,8 +125,9 @@ export function AuthProvider({ children, onWebToken, onWebSignOut }) {
     if (!firebaseAuth.currentUser) return;
     let token = customToken;
     if (!token) {
-      const { code } = await request('/api/auth/mobile/issue', { method: 'POST' });
-      ({ customToken: token } = await request('/api/auth/mobile/exchange', { method: 'POST', body: { code }, auth: false }));
+      const pkce = await pkcePair();
+      const { code } = await request('/api/auth/mobile/issue', { method: 'POST', body: { codeChallenge: pkce.challenge } });
+      ({ customToken: token } = await request('/api/auth/mobile/exchange', { method: 'POST', body: { code, codeVerifier: pkce.verifier }, auth: false }));
     }
     if (token) webTokenRef.current?.(token);
   }, []);
@@ -143,14 +170,17 @@ export function AuthProvider({ children, onWebToken, onWebSignOut }) {
     const code = callback.searchParams.get('code');
     if (!['gamestock:', 'exp:'].includes(callback.protocol) || !code || handledCodes.current.has(code)) return;
     const expected = pendingState.current || await AsyncStorage.getItem(MOBILE_AUTH_STATE_KEY);
+    const verifier = pendingVerifier.current || await AsyncStorage.getItem(MOBILE_AUTH_VERIFIER_KEY);
     if (!expected || handledCodes.current.has(code)) return;
     // Android는 인증 세션 결과와 딥링크 이벤트가 같은 주소로 두 번 올 수 있다.
     handledCodes.current.add(code);
     pendingState.current = null;
-    await AsyncStorage.removeItem(MOBILE_AUTH_STATE_KEY).catch(() => {});
+    pendingVerifier.current = null;
+    await AsyncStorage.multiRemove([MOBILE_AUTH_STATE_KEY, MOBILE_AUTH_VERIFIER_KEY]).catch(() => {});
     try {
       if (callback.searchParams.get('state') !== expected) throw new Error('인증 상태가 일치하지 않아요. 다시 로그인해 주세요.');
-      const { customToken } = await request('/api/auth/mobile/exchange', { method: 'POST', body: { code }, auth: false });
+      if (!verifier) throw new Error('로그인 정보를 찾지 못했어요. 다시 로그인해 주세요.');
+      const { customToken } = await request('/api/auth/mobile/exchange', { method: 'POST', body: { code, codeVerifier: verifier }, auth: false });
       await signInWithCustomToken(firebaseAuth, customToken);
       await connect(customToken);
     } catch (error) {
@@ -176,13 +206,17 @@ export function AuthProvider({ children, onWebToken, onWebSignOut }) {
       return true;
     }
     const state = Crypto.randomUUID();
+    const pkce = await pkcePair();
     pendingState.current = state;
-    await AsyncStorage.setItem(MOBILE_AUTH_STATE_KEY, state);
+    pendingVerifier.current = pkce.verifier;
+    // 인증 중에 앱이 다시 시작돼도 딥링크로 돌아온 코드를 마무리할 수 있게 기기에 남긴다.
+    await AsyncStorage.multiSet([[MOBILE_AUTH_STATE_KEY, state], [MOBILE_AUTH_VERIFIER_KEY, pkce.verifier]]);
     const url = new URL('/login/google', WEB_APP_URL);
     url.searchParams.set('next', '/');
     url.searchParams.set('mobileAuth', '1');
     url.searchParams.set('returnUri', redirectUri);
     url.searchParams.set('state', state);
+    url.searchParams.set('codeChallenge', pkce.challenge);
     const result = await WebBrowser.openAuthSessionAsync(url.toString(), redirectUri);
     if (result.type !== 'success') return false;
     await finishWebGoogle(result.url);

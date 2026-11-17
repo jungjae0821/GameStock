@@ -5,6 +5,7 @@ import { Link } from "../components/Link";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
 import { authErrorMessage, loginPath, safeReturnPath, useAuthUser } from "../lib/auth";
+import { mobileReturnTarget } from "../lib/mobileReturn";
 import { MARKET_PATH, navigate, type LoginMethod } from "../router";
 
 const TITLES: Record<LoginMethod, string> = {
@@ -56,9 +57,12 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
   const completionStarted = useRef(false);
   const params = new URLSearchParams(window.location.search);
   const next = nextProp ?? safeReturnPath(params.get("next"));
-  const returnUri = params.get("mobileAuth") === "1" ? params.get("returnUri") : null;
-  const mobileReturnUri = returnUri && /^(gamestock|exp):\/\//.test(returnUri) ? returnUri : null;
-  const mobileAuthState = params.get("state");
+  const mobileReturn = mobileReturnTarget(params, import.meta.env.DEV);
+  const mobileReturnUri = mobileReturn?.uri ?? null;
+  const mobileAuthState = mobileReturn?.state ?? null;
+  const mobileCodeChallenge = mobileReturn?.codeChallenge ?? null;
+  // 앱이 열었지만 돌려보낼 주소를 믿을 수 없는 요청. 웹 로그인으로 바꿔 진행하지 않고 멈춘다.
+  const mobileRequestRejected = params.get("mobileAuth") === "1" && !mobileReturn;
 
   const finishSession = useCallback(async () => {
     setBusy(true);
@@ -66,8 +70,11 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
     try {
       // Create/load the same trading account for either Firebase provider before returning.
       await apiFetch("/api/auth/login", { method: "POST" });
-      if (mobileReturnUri && mobileAuthState) {
-        const result = await apiFetch<{ code: string }>("/api/auth/mobile/issue", { method: "POST" });
+      if (mobileReturnUri && mobileAuthState && mobileCodeChallenge) {
+        const result = await apiFetch<{ code: string }>("/api/auth/mobile/issue", {
+          method: "POST",
+          body: JSON.stringify({ codeChallenge: mobileCodeChallenge }),
+        });
         const callback = new URL(mobileReturnUri);
         callback.searchParams.set("code", result.code);
         callback.searchParams.set("state", mobileAuthState);
@@ -85,14 +92,14 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
       setBusy(false);
       setNativeWaiting(false);
     }
-  }, [next, mobileReturnUri, mobileAuthState, onDone]);
+  }, [next, mobileReturnUri, mobileAuthState, mobileCodeChallenge, onDone]);
 
   useEffect(() => {
     // Visiting a browser-to-app URL alone must never issue a login exchange code.
-    if (!ready || !user || mobileReturnUri || completionStarted.current) return;
+    if (!ready || !user || mobileReturnUri || mobileRequestRejected || completionStarted.current) return;
     completionStarted.current = true;
     void finishSession();
-  }, [ready, user, mobileReturnUri, finishSession]);
+  }, [ready, user, mobileReturnUri, mobileRequestRejected, finishSession]);
 
   useEffect(() => {
     setPassword("");
@@ -249,6 +256,7 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
           {nativeWaiting && <button type="button" className="login-back" onClick={() => { setBusy(false); setNativeWaiting(false); }}>다시 시도하기</button>}
         </>
       )}
+      {mobileRequestRejected && <p className="login-message is-error" role="alert">앱 로그인 요청을 확인하지 못했어요. 앱을 최신 버전으로 업데이트한 뒤 다시 로그인해 주세요.</p>}
       {error && <p className="login-message is-error" role="alert">{error}</p>}
       {notice && <p className="login-message" role="status">{notice}</p>}
     </div>

@@ -172,6 +172,8 @@ public class BillboardService {
             var owner = db.queryForList("SELECT user_id FROM billboard_messages WHERE id = ?", Long.class, id);
             if (owner.isEmpty()) throw new IllegalArgumentException("문구를 찾을 수 없습니다.");
             user[0] = owner.get(0);
+            // 내린 문구 값을 돌려주는 것도 지급이다. 위임 관리자가 자기 문구를 공짜로 만들지 못하게 한다.
+            if (refund) AdminSupport.otherAccount(actor, user[0]);
             db.queryForObject("SELECT id FROM billboard_lock WHERE id = 1 FOR UPDATE", Integer.class);
             var before = db.queryForList("SELECT * FROM billboard_messages WHERE id = ? FOR UPDATE", id).get(0);
             if (!OPEN.contains((String) before.get("status"))) throw new IllegalArgumentException("이미 취소했거나 내린 문구입니다.");

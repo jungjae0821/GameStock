@@ -198,7 +198,7 @@ public class AdminOperationsService {
 
     @Transactional
     public Map<String,Object> cash(long actor,long user,CashChange request){
-        validateCash(request);lock(db);return cashLocked(actor,user,request);
+        AdminSupport.otherAccount(actor,user);validateCash(request);lock(db);return cashLocked(actor,user,request);
     }
     private void validateCash(CashChange request){requestKey(request.requestKey());reason(request.reason());if(request.amount()==0||request.amount() < -1_000_000_000L||request.amount()>1_000_000_000L)throw new IllegalArgumentException("조정액은 0을 제외한 ±10억원 이내입니다.");}
     Map<String,Object> cashLocked(long actor,long user,CashChange request){
@@ -224,7 +224,8 @@ public class AdminOperationsService {
         String batchKey="bulk:"+text(request.requestKey(),48,"일괄 지급 키");
         var old=db.queryForList("SELECT * FROM admin_audit WHERE action='CASH_BULK' AND target=? ORDER BY id DESC LIMIT 1",batchKey);
         if(!old.isEmpty())throw new IllegalArgumentException("이미 완료된 일괄 지급 키입니다. 감사 기록을 확인해 주세요.");
-        var users=db.queryForList("SELECT u.id FROM users u WHERE "+HUMAN+" ORDER BY u.id",Long.class);
+        // 지급하는 위임 관리자 본인은 받지 않는다. 자기 계좌에 돈을 넣는 길이 되지 않게 한다.
+        var users=db.queryForList("SELECT u.id FROM users u WHERE "+HUMAN+" AND u.id<>? ORDER BY u.id",Long.class,actor);
         if(users.size()>10000)throw new IllegalArgumentException("일괄 지급은 최대 10000명입니다. 대상을 나눠 지급해 주세요.");
         for(long user:users)cashLocked(actor,user,new CashChange(batchKey+":"+user,request.amount(),request.reason()));
         support.audit(actor,"CASH_BULK",batchKey,request.reason(),Map.of(),Map.of("count",users.size(),"amountPerUser",request.amount()));
@@ -232,7 +233,7 @@ public class AdminOperationsService {
     }
     @Transactional
     public Map<String,Object> recoverMission(long actor,long user,MissionRecovery request){
-        reason(request.reason());
+        AdminSupport.otherAccount(actor,user);reason(request.reason());
         if(request.missionId()==null||!MarketService.MISSION_IDS.contains(request.missionId())||request.rewardedOn()==null||request.rewardedOn().isAfter(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")))||request.amount()<1||request.amount()>1_000_000)
             throw new IllegalArgumentException("미션 ID·보상일(오늘 또는 과거)·복구 금액(1~100만원)을 확인해 주세요.");
         lock(db);var before=human(db,user);
@@ -247,7 +248,7 @@ public class AdminOperationsService {
     }
     @Transactional
     public Map<String,Object> holding(long actor,long user,HoldingChange request){
-        String key=requestKey(request.requestKey());reason(request.reason());
+        AdminSupport.otherAccount(actor,user);String key=requestKey(request.requestKey());reason(request.reason());
         if(request.quantity()<0||request.quantity()>1_000_000||request.averagePrice()<0||request.averagePrice()>1_000_000_000||request.quantity()>0&&request.averagePrice()==0)throw new IllegalArgumentException("복구 수량·평균 단가를 확인해 주세요.");
         lock(db);human(db,user);var stock=stock(request.stockCode());long id=((Number)stock.get("id")).longValue();
         // This endpoint restores an absolute holding, without rewriting a counterparty's ledger.

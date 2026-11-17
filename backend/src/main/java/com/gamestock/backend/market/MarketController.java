@@ -34,6 +34,12 @@ public class MarketController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void configureOrderLimits(OrderRateLimiter orderLimits) { this.orderLimits = orderLimits; }
 
+    private OrderRequestLedger orderRequests;
+
+    /** Optional for the same reason: without it every order runs once per HTTP request, as before. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureOrderRequests(OrderRequestLedger orderRequests) { this.orderRequests = orderRequests; }
+
     public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures,OrderService orders,MarketMetrics metrics,BotTradingScheduler scheduler,PublicMarketCache publicCache) { this.market = market; this.auth = auth; this.userFeatures = userFeatures;this.orders=orders;this.metrics=metrics;this.scheduler=scheduler;this.publicCache=publicCache; }
 
     @GetMapping("/health") public Map<String, Object> health() {
@@ -121,7 +127,8 @@ public class MarketController {
 
     @PostMapping("/orders")
     @ResponseStatus(HttpStatus.CREATED)
-    public java.util.concurrent.CompletableFuture<OrderResult> order(@RequestBody OrderRequest request, @RequestHeader(value = "Authorization", required = false) String authorization) {
+    public java.util.concurrent.CompletableFuture<Object> order(@RequestBody OrderRequest request, @RequestHeader(value = "Authorization", required = false) String authorization,
+                                                                @RequestHeader(value = "Idempotency-Key", required = false) String requestId) {
         AuthService.LoginUser user = auth.requireUser(authorization);
         // 관리자는 시장 밖의 계정이다. 관리자 주문이 다른 플레이어의 시세와 수익률을 움직이지 않게 막는다.
         if ("ADMIN".equalsIgnoreCase(user.role()))
@@ -131,7 +138,9 @@ public class MarketController {
         if (career != null && request != null && "BUY".equalsIgnoreCase(request.side()))
             career.requireNewRisk(user.id(), request.stockCode(), request.quantity(),
                     "LIMIT".equalsIgnoreCase(request.orderType()) ? request.price() : null);
-        return orders.submit(user.id(), request);
+        // 응답이 늦어 화면이 같은 주문을 다시 보내도 한 번만 체결되게, 같은 키는 저장한 결과를 돌려준다.
+        if (orderRequests != null) return orderRequests.submit(user.id(), requestId, request, () -> orders.submit(user.id(), request));
+        return orders.submit(user.id(), request).thenApply(result -> result);
     }
 
     @DeleteMapping("/orders/{orderId}")

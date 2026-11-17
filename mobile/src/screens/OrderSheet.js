@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { heldQuantity, useAccount } from '../account';
-import { request } from '../auth';
+import { ApiError, request } from '../auth';
+import { createOrderKeys } from '../orderKeys';
 import { price, won } from '../format';
 import { MAX_ORDER_QUANTITY, affordableQuantity, nextTickPrice, orderFee, previousTickPrice, roundToTick } from '../trading';
 import { NUMBER_FONT, RADIUS, RADIUS_SM, SPACE, TYPE, Txt, useTheme } from '../theme';
@@ -28,6 +29,9 @@ export function OrderSheet({ visible, stock, orderbook, initialSide, initialLimi
   const [limitPrice, setLimitPrice] = useState('');
   const [qty, setQty] = useState('');
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
+  const orderKeys = useRef(null);
+  if (!orderKeys.current) orderKeys.current = createOrderKeys();
   const [result, setResult] = useState(null);
 
   const restriction = stock?.restriction;
@@ -81,20 +85,28 @@ export function OrderSheet({ visible, stock, orderbook, initialSide, initialLimi
   const applyRatio = ratio => setQty(String(Math.max(0, Math.floor(maxQty * ratio))));
 
   const submit = async () => {
-    if (!ready) return;
+    // busy state는 다음 렌더에야 반영되므로, 같은 렌더 안의 두 번째 탭은 ref로 막는다.
+    if (!ready || submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setResult(null);
+    const order = { code: stock.code, side: side.toUpperCase(), qty: parsedQty, orderType: type, price: type === 'LIMIT' ? parsedLimit : undefined };
     try {
       const response = await request('/api/orders', {
         method: 'POST',
+        headers: { 'Idempotency-Key': orderKeys.current.keyFor(order) },
         body: { stockCode: stock.code, side: side.toUpperCase(), quantity: parsedQty, orderType: type, ...(type === 'LIMIT' ? { price: parsedLimit } : {}) },
       });
+      orderKeys.current.settle();
       setResult({ ok: true, message: response?.message || `${parsedQty.toLocaleString('ko-KR')}주 ${sideLabel} 주문을 접수했어요.` });
       setQty('');
       void account.reload();
     } catch (error) {
+      // 서버가 응답했다면 결과가 확정됐다. 시간 초과·연결 끊김이면 체결됐을 수도 있어 같은 키를 남긴다.
+      if (error instanceof ApiError) orderKeys.current.settle();
       setResult({ ok: false, message: error.message });
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
