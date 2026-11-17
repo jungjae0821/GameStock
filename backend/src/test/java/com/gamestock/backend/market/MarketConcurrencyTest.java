@@ -168,12 +168,12 @@ class MarketConcurrencyTest {
             var expired=issuer.issueMobileCode("Bearer valid",challenge);
             db.update("UPDATE mobile_login_codes SET expires_at=DATE_SUB(CURRENT_TIMESTAMP,INTERVAL 1 SECOND)");
             assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(expired.code(),null,verifier))));
-            // 가로챈 코드만으로는(검증값이 없거나 다르면) 토큰을 받을 수 없고, 한 번 틀리면 코드가 사라진다.
+            // 가로챈 코드만으로는(검증값이 없거나 다르면) 토큰을 받을 수 없다. 그래도 원래 앱의 로그인은 막히지 않는다.
             var intercepted=issuer.issueMobileCode("Bearer valid",challenge);
             assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(intercepted.code(),null,null))));
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(intercepted.code(),null,"b".repeat(43)))));
+            assertEquals("test-custom-token",tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(intercepted.code(),null,verifier))).customToken());
             assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(intercepted.code(),null,verifier))));
-            var guessed=issuer.issueMobileCode("Bearer valid",challenge);
-            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(guessed.code(),null,"b".repeat(43)))));
             // 검증값 없이 만든 코드는 발급하지 않는다.
             assertThrows(org.springframework.web.server.ResponseStatusException.class,()->issuer.issueMobileCode("Bearer valid",null));
         }

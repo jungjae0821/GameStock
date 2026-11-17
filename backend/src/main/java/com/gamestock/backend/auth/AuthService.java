@@ -158,10 +158,11 @@ public class AuthService {
                 .stream().findFirst().orElse(null);
         if (pending == null || !pending.expiresAt().isAfter(clock.instant()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "만료되었거나 이미 사용한 로그인 코드입니다.");
-        // 검증값이 틀려도 코드는 지운다. 가로챈 코드로 검증값을 여러 번 맞혀 볼 수 없게 한다.
-        jdbc.update("DELETE FROM mobile_login_codes WHERE code_hash = ?", hash);
+        // 검증값이 틀리면 코드를 지우지 않는다. 코드를 가로챈 쪽이 틀린 값을 내서 원래 앱의 로그인을 막지 못하게 한다.
+        // 검증값은 256비트라 코드 유효 시간(2분) 안에 맞혀 볼 수 없다.
         if (pending.codeChallenge() == null || !pkceChallenge(request.codeVerifier()).equals(pending.codeChallenge()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인을 시작한 앱에서만 코드를 쓸 수 있습니다. 다시 로그인해 주세요.");
+        jdbc.update("DELETE FROM mobile_login_codes WHERE code_hash = ?", hash);
         return new MobileToken(pending.customToken());
     }
 
