@@ -42,10 +42,18 @@ public class MarketController {
 
     public MarketController(MarketService market, AuthService auth, UserFeatureService userFeatures,OrderService orders,MarketMetrics metrics,BotTradingScheduler scheduler,PublicMarketCache publicCache) { this.market = market; this.auth = auth; this.userFeatures = userFeatures;this.orders=orders;this.metrics=metrics;this.scheduler=scheduler;this.publicCache=publicCache; }
 
+    private LedgerInvariantService ledger;
+
+    /** Optional so tests that build this class by hand keep working; without it the ledger is reported healthy. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureLedger(LedgerInvariantService ledger) { this.ledger = ledger; }
+
     @GetMapping("/health") public Map<String, Object> health() {
+        // ledgerHealthy: 마지막 장부 점검에 위반이 없었는가. 외부 감시가 false를 받으면 알린다. 건수는 로그에만 남긴다.
         return Map.of("status","ok","matchingEnabled",market.matchingEnabled(),
                 "batchBotsEnabled",market.batchBotsEnabled(),"inlineLiquidity",market.inlineLiquidity(),
-                "batchShards",market.batchShardCount(),"botScheduler",scheduler.runtimeStatus());
+                "batchShards",market.batchShardCount(),"botScheduler",scheduler.runtimeStatus(),
+                "ledgerHealthy",ledger == null || ledger.healthy());
     }
     @GetMapping("/stocks") public java.util.List<Stock> stocks() { return publicCache.stocks(); }
     @GetMapping("/market-events") public java.util.List<MarketEvent> events() { return publicCache.marketEvents(); }

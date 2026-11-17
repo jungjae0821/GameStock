@@ -8,7 +8,7 @@ import tseslint from "typescript-eslint";
  * 실제 버그로 이어지는 규칙(훅 호출 순서 등)만 오류로 막는다. CI는 오류가 있을 때만 실패한다.
  */
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "mobile", "backend", "playwright-report", "test-results", ".claude", "anti-slop", "examples", "scripts"] },
+  { ignores: ["dist", "node_modules", "mobile", "backend", "playwright-report", "test-results", ".claude", "examples", "scripts"] },
   {
     files: ["**/*.{ts,tsx,js,mjs}"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

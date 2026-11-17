@@ -19,7 +19,8 @@
         "status": "ok",
         "matchingEnabled": true,
         "batchBotsEnabled": true,
-        "botScheduler.started": true
+        "botScheduler.started": true,
+        "ledgerHealthy": true
       }
     },
     {

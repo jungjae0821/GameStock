@@ -6,7 +6,6 @@ on:
     paths-ignore:
       - 'backend/**'
       - 'docs/**'
-      - 'anti-slop/**'
       - '**/*.md'
   workflow_dispatch:
 

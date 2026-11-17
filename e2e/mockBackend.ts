@@ -63,6 +63,8 @@ function idToken() {
 export class MockBackend {
   readonly unhandled: string[] = [];
   readonly orders: OrderBody[] = [];
+  /** 주문마다 받은 Idempotency-Key. 같은 주문을 다시 보낼 때만 같은 값이어야 한다. */
+  readonly orderKeys: Array<string | undefined> = [];
   /** 회원 탈퇴 요청으로 받은 확인값들. */
   readonly deletions: string[] = [];
   /** 다음 주문들에 돌려줄 응답. 비어 있으면 정상 접수로 답한다. */
@@ -79,7 +81,7 @@ export class MockBackend {
 
   private async handle(route: Route) {
     const url = new URL(route.request().url());
-    if (url.origin === API_ORIGIN) return this.reply(route, this.api(route.request().method(), url, route.request().postData()));
+    if (url.origin === API_ORIGIN) return this.reply(route, this.api(route.request().method(), url, route.request().postData(), route.request().headers()));
     if (url.origin === AUTH_ORIGIN) return this.reply(route, this.auth(url));
     if (url.hostname === "127.0.0.1" || url.hostname === "localhost") return route.continue();
     // 외부 글꼴·이미지·분석 요청은 끊어 테스트가 네트워크 상태에 흔들리지 않게 한다.
@@ -95,7 +97,7 @@ export class MockBackend {
     });
   }
 
-  private api(method: string, url: URL, body: string | null): Reply {
+  private api(method: string, url: URL, body: string | null, headers: Record<string, string> = {}): Reply {
     if (method === "OPTIONS") return { status: 204 };
     const path = url.pathname;
     const key = `${method} ${path}`;
@@ -147,6 +149,7 @@ export class MockBackend {
       case "POST /api/orders": {
         const order = JSON.parse(body ?? "{}") as OrderBody;
         this.orders.push(order);
+        this.orderKeys.push(headers["idempotency-key"]);
         return this.orderReplies.shift() ?? { status: 201, body: { message: `${order.quantity}주 ${order.side.toUpperCase() === "BUY" ? "매수" : "매도"} 주문이 접수됐어요.`, price: stock(order.stockCode).price } };
       }
     }

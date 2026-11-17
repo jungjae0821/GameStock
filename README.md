@@ -73,12 +73,12 @@
 
 | 구분          | 기술                                                             | 용도                                         |
 | ------------- | ---------------------------------------------------------------- | -------------------------------------------- |
-| 웹 프론트엔드 | React 19, TypeScript 5.8, Vite 7                                 | 단일 페이지 앱, 자체 history 라우터          |
-| 웹 인증       | Firebase Web SDK 12                                              | Google·이메일 로그인, ID 토큰 발급           |
+| 웹 프론트엔드 | React 19, TypeScript 5.8, Vite 8                                 | 단일 페이지 앱, 자체 history 라우터          |
+| 웹 인증       | Firebase Web SDK 13                                              | Google·이메일 로그인, ID 토큰 발급           |
 | 웹 스타일     | CSS(디자인 토큰), Pretendard·경기천년제목                        | 다크 기본·라이트 전환, 숫자는 고정폭         |
-| 모바일        | Expo 57, React Native 0.86, react-native-svg, Expo Auth Session  | 네이티브 탭 앱, 딥링크 로그인                |
+| 모바일        | Expo 58, React Native 0.88, react-native-svg, Expo Auth Session  | 네이티브 탭 앱, 딥링크 로그인                |
 | 백엔드        | Java 17, Spring Boot 3.5 (Web, WebSocket, JDBC, Validation)      | REST API, 실시간 스트림, 매칭 엔진, 스케줄러 |
-| 서버 인증     | Firebase Admin SDK 9.7                                           | ID 토큰 검증, 관리자 판별                    |
+| 서버 인증     | Firebase Admin SDK 9.12                                          | ID 토큰 검증, 관리자 판별                    |
 | 데이터베이스  | MySQL (운영: OCI MySQL HeatWave Always Free)                     | 계좌·주문·체결·정산·뉴스·랭킹                |
 | 웹 호스팅     | Firebase Hosting                                                 | 정적 웹 배포                                 |
 | 서버 호스팅   | Oracle Cloud Infrastructure (Oracle Linux 9 ARM, Nginx, systemd) | 백엔드·HTTPS·WSS                             |
@@ -504,7 +504,12 @@ mobile/                    Expo 앱
 database/schema.sql        MySQL 초기 스키마
 public/                    브랜드·게임 아이콘·캐릭터 이미지
 docs/                      설계·검증·운영 문서
-.github/workflows/         Firebase Hosting·OCI 자동 배포
+  audits/anti-slop/        화면 품질 점검 기록
+scripts/                   로컬 실행·시뮬레이션·앱 소스 검사(check-mobile-syntax.mjs)
+e2e/                       Playwright 화면 흐름 테스트(백엔드 응답 모킹)
+tests/                     웹 단위 테스트·웹/앱 계산 동일성 테스트
+endpoints.json             운영 API 주소의 단일 기준
+.github/workflows/         프론트·백엔드 검사, Firebase Hosting·OCI 자동 배포
 ```
 
 ---
