@@ -66,7 +66,8 @@ final class MarketRankingMissions {
 
     public List<RankingEntry> ranking() { return cached(rankingCache, this::loadRanking); }
 
-    private List<WealthEntry> loadWealthRanking() { return cached(wealthCache, this::loadWealthRanking); }
+    /** 인증 없이 열린 화면이 몇 초마다 부르므로 트레이더 랭킹과 같은 짧은 캐시를 쓴다. */
+    public List<WealthEntry> wealthRanking() { return cached(wealthCache, this::loadWealthRanking); }
 
     private <T> T cached(AtomicReference<Cached<T>> cache, Supplier<T> loader) {
         Cached<T> hit = cache.get();
@@ -149,7 +150,7 @@ final class MarketRankingMissions {
     }
 
     /** The wealth ranking: the member's own money, which only bonuses and rewards fill. */
-    public List<WealthEntry> wealthRanking() {
+    private List<WealthEntry> loadWealthRanking() {
         List<WealthEntry> entries = jdbc.query("""
                 SELECT u.nickname, u.profile_image_url, c.grade, COALESCE(c.legacy, FALSE) AND c.migrated_at IS NULL AS waiting,
                        c.personal_cash,

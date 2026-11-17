@@ -74,8 +74,23 @@ public class HanRiverTemperatureService {
 
     @Scheduled(fixedDelayString = "${gamestock.hangang.refresh-ms:1800000}",
             initialDelayString = "${gamestock.hangang.initial-delay-ms:60000}")
-    public synchronized void refreshScheduled() {
+    public void refreshScheduled() {
+        runNetworkJob("hangang", this::refreshIfEnabled);
+    }
+
+    private synchronized void refreshIfEnabled() {
         if (enabled) refresh();
+    }
+
+    private com.gamestock.backend.config.NetworkJobs networkJobs;
+
+    /** 손으로 만든 테스트에는 없다. 그때는 예전처럼 호출한 스레드에서 바로 실행한다. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureNetworkJobs(com.gamestock.backend.config.NetworkJobs networkJobs) { this.networkJobs = networkJobs; }
+
+    private void runNetworkJob(String name, Runnable job) {
+        if (networkJobs == null) job.run();
+        else networkJobs.submit(name, job);
     }
 
     private void refresh() {

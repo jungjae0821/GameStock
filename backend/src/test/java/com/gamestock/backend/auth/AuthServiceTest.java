@@ -165,6 +165,22 @@ class AuthServiceTest {
         }
     }
 
+    @Test void tokenCheckRunsBeforeAnyDatabaseConnectionIsTaken() throws Exception {
+        // Firebase 확인(네트워크)이 실패하거나 느린 동안 DB 연결을 쥐지 않는다.
+        javax.sql.DataSource source = mock(javax.sql.DataSource.class);
+        AuthService auth = new AuthService(new JdbcTemplate(source), Clock.fixed(NOW, ZoneOffset.UTC));
+        com.google.firebase.auth.FirebaseAuth firebase = mock(com.google.firebase.auth.FirebaseAuth.class);
+        when(firebase.verifyIdToken("bad", true)).thenThrow(new IllegalArgumentException("bad token"));
+
+        try (var statics = mockStatic(com.google.firebase.auth.FirebaseAuth.class)) {
+            statics.when(com.google.firebase.auth.FirebaseAuth::getInstance).thenReturn(firebase);
+            assertThrows(ResponseStatusException.class, () -> auth.requireUser("Bearer bad"));
+            assertThrows(ResponseStatusException.class, () -> auth.requireAdmin("Bearer bad"));
+            assertThrows(ResponseStatusException.class, () -> auth.login("Bearer bad"));
+        }
+        verify(source, never()).getConnection();
+    }
+
     @Test void pkceChallengeMatchesTheRfc7636Example() {
         assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", AuthService.pkceChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"));
         assertEquals("", AuthService.pkceChallenge("short"));

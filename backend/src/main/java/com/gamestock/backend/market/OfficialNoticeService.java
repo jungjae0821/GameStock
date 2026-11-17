@@ -85,7 +85,18 @@ public class OfficialNoticeService {
     @Scheduled(fixedDelayString = "${gamestock.news.official.refresh-ms:3600000}",
             initialDelayString = "${gamestock.news.official.refresh-ms:3600000}")
     public void fetchScheduled() {
-        fetch();
+        runNetworkJob("official-notices", this::fetch);
+    }
+
+    private com.gamestock.backend.config.NetworkJobs networkJobs;
+
+    /** 손으로 만든 테스트에는 없다. 그때는 예전처럼 호출한 스레드에서 바로 실행한다. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureNetworkJobs(com.gamestock.backend.config.NetworkJobs networkJobs) { this.networkJobs = networkJobs; }
+
+    private void runNetworkJob(String name, Runnable job) {
+        if (networkJobs == null) job.run();
+        else networkJobs.submit(name, job);
     }
 
     private void fetch() {
