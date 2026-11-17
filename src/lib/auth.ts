@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { firebaseAuth } from "./firebase";
-import { navigate, type LoginMethod } from "../router";
+import { isReturnablePath, navigate, type LoginMethod } from "../router";
 
 export function useAuthUser() {
   const [state, setState] = useState<{ user: User | null; ready: boolean }>({ user: firebaseAuth.currentUser, ready: false });
@@ -14,7 +14,7 @@ export function safeReturnPath(value: string | null): string {
   if (!value || !value.startsWith("/")) return "/";
   try {
     const url = new URL(value, window.location.origin);
-    if (url.origin !== window.location.origin || !/^\/(?:market(?:\/(?:etf(?:\/[A-Za-z0-9_-]+)?|[A-Za-z0-9_-]+))?\/?|derivatives(?:\/(?:etf|futures|options))?\/?|news\/?|ranking\/?|mypage\/?|settings\/?|api-docs\/?|admin\/?|titles\/?|charge\/?|loan\/?|)$/.test(url.pathname)) return "/";
+    if (url.origin !== window.location.origin || !isReturnablePath(url.pathname)) return "/";
     return url.pathname;
   } catch {
     return "/";
@@ -25,7 +25,8 @@ export function loginPath(method: LoginMethod = "choose", next?: string): string
   const current = new URLSearchParams(window.location.search);
   const params = new URLSearchParams();
   params.set("next", safeReturnPath(next ?? current.get("next") ?? window.location.pathname));
-  for (const key of ["mobileAuth", "returnUri", "state"]) {
+  // 앱 로그인 흐름(mobileReturn.ts)에 필요한 값. 로그인 방법을 바꿔도 함께 넘겨야 앱으로 돌아갈 수 있다.
+  for (const key of ["mobileAuth", "returnUri", "state", "codeChallenge"]) {
     const value = current.get(key);
     if (value) params.set(key, value);
   }

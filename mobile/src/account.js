@@ -68,5 +68,7 @@ export function AccountProvider({ children }) {
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
 
-/** 보유 수량(매도 가능 수량). */
+/** 보유 수량. */
 export const heldQuantity = (portfolio, code) => portfolio?.positions?.find(position => position.stockCode === code)?.quantity ?? 0;
+/** 계좌에서 그 종목의 보유 정보. 매도 가능 수량은 trading.js sellableQuantity로 계산한다. */
+export const positionOf = (portfolio, code) => portfolio?.positions?.find(position => position.stockCode === code) ?? null;

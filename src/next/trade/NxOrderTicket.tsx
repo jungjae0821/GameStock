@@ -4,7 +4,7 @@ import { requireSignIn, useAuthUser } from "../../lib/auth";
 import { useProfile } from "../../lib/profile";
 import { won } from "../../market/format";
 import { useMarket, useMarketApi } from "../../market/MarketProvider";
-import { affordableQuantity } from "../../market/orderSizing";
+import { affordableQuantity, outsidePriceBand } from "../../market/orderSizing";
 import { totals } from "../../market/selectors";
 import type { OrderResult } from "../../market/types";
 import { nextTickPrice, previousTickPrice, roundToTick, tickSize } from "../../market/universe";
@@ -150,7 +150,10 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
   const heldQty = snapshot.portfolio.positions[code]?.qty ?? 0;
   const affordable = parsed <= maxQty;
   const quantityError = qty === "" ? "" : !valid ? "수량은 1~1,000주 사이의 정수로 입력해 주세요." : !affordable ? `주문 가능 수량은 최대 ${maxQty.toLocaleString()}주입니다.` : "";
-  const priceError = orderType === "LIMIT" && !validLimitPrice ? "단가를 해당 가격대의 호가 단위에 맞춰 입력해 주세요." : "";
+  // 서버는 오늘의 가격 제한폭 밖 지정가를 거절한다. 앱과 같은 규칙으로 화면에서 먼저 알린다.
+  const outsideBand = orderType === "LIMIT" && validLimitPrice && outsidePriceBand(parsedLimitPrice, quote.limitDown, quote.limitUp);
+  const bandMessage = `오늘 주문할 수 있는 가격은 ${won(quote.limitDown)}~${won(quote.limitUp)}입니다.`;
+  const priceError = orderType === "LIMIT" && !validLimitPrice ? "단가를 해당 가격대의 호가 단위에 맞춰 입력해 주세요." : outsideBand ? bandMessage : "";
   const money = totals(snapshot);
   const sideLabel = side === "buy" ? "매수" : "매도";
   const readyMessage = valid && affordable && !blocked && !priceError
@@ -165,6 +168,7 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
       : blocked ? "현재 해당 주문 유형의 거래가 제한되어 있습니다."
       : !valid ? "주문할 수량을 1~1,000주 사이의 정수로 입력해 주세요."
       : orderType === "LIMIT" && !validLimitPrice ? "올바른 호가 단가를 입력해 주세요."
+      : outsideBand ? bandMessage
       : orderSide === "buy" && parsed > affordableQuantity(snapshot.portfolio.cash, executionPrice) ? "수수료를 포함한 매수 주문 가능 금액이 부족합니다."
       : orderSide === "sell" && parsed > api.orderable(code, "sell") ? "매도 가능한 보유 수량이 부족합니다."
       : null);

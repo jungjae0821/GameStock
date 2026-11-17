@@ -12,7 +12,7 @@ import * as webIndicators from "../src/lib/indicators";
 import * as webFormat from "../src/market/format";
 import { classifyNewsSource as webClassify } from "../src/market/newsSource";
 import { LISTING_BY_CODE, nextTickPrice, previousTickPrice, roundToTick, tickSize } from "../src/market/universe";
-import { affordableQuantity, orderFee } from "../src/market/orderSizing";
+import { affordableQuantity, orderFee, outsidePriceBand, sellableQuantity } from "../src/market/orderSizing";
 import * as webOption from "../src/market/optionMath";
 import type { DerivativeSnapshot } from "../src/market/derivatives";
 
@@ -214,6 +214,19 @@ test("호가 단위·수수료·최대 수량이 웹과 같다", () => {
     assert.equal(appTrading.affordableQuantity(cash, price), affordableQuantity(cash, price), `affordableQuantity(${cash}, ${price})`);
   }
   assert.equal(appTrading.affordableQuantity(1_000_000, 100, 5), affordableQuantity(1_000_000, 100, 5));
+});
+
+test("가격 제한폭과 매도 가능 수량을 웹과 같게 판단한다", () => {
+  const bands: Array<[number, number | undefined, number | undefined]> = [
+    [10_000, 7_000, 13_000], [13_000, 7_000, 13_000], [13_010, 7_000, 13_000], [6_990, 7_000, 13_000], [7_000, 7_000, 13_000],
+    [99_999, undefined, undefined], [1, 0, 0], [20_000, undefined, 13_000], [5_000, 7_000, undefined],
+  ];
+  for (const [price, down, up] of bands) assert.equal(appTrading.outsidePriceBand(price, down, up), outsidePriceBand(price, down, up), `outsidePriceBand(${price}, ${down}, ${up})`);
+  const positions = [null, undefined, {}, { quantity: 30 }, { quantity: 30, availableQuantity: 12 }, { quantity: 30, availableQuantity: 0 },
+    { quantity: 5_000 }, { quantity: 30, availableQuantity: -3 }, { quantity: 2.7 }, { quantity: Number.NaN }];
+  for (const position of positions) assert.equal(appTrading.sellableQuantity(position), sellableQuantity(position), `sellableQuantity(${JSON.stringify(position)})`);
+  // 대기 중인 매도 주문·미정산분이 있으면 보유 수량이 아니라 남은 수량까지만 판다.
+  assert.equal(sellableQuantity({ quantity: 30, availableQuantity: 12 }), 12);
 });
 
 /* ───────── 옵션 ───────── */

@@ -16,6 +16,7 @@
     "start": "node server/index.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
     "lint": "eslint .",
+    "check:mobile": "node scripts/check-mobile-syntax.mjs",
     "test": "node --import tsx --test \"tests/**/*.test.*\"",
     "test:e2e": "playwright test"
   },
@@ -32,6 +33,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "esbuild": "^0.28.2",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0",

@@ -38,6 +38,16 @@ export type LoginMethod = "choose" | "google" | "email" | "register" | "reset";
 
 const listeners = new Set<() => void>();
 
+/**
+ * 로그인 뒤 돌아갈 수 있는 이 앱의 화면 주소인가. 화면 목록을 따로 적어 두면 새 화면을 빠뜨리기 쉬워
+ * 라우터가 실제로 여는 화면인지로 판단한다. 로그인 화면과 없는 주소는 돌아갈 곳이 아니다.
+ */
+export function isReturnablePath(pathname: string): boolean {
+  if (!pathname.startsWith("/") || pathname.startsWith("//")) return false;
+  const route = parse(pathname);
+  return route.name !== "notFound" && route.name !== "login";
+}
+
 function parse(pathname: string): Route {
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] === "login") {
