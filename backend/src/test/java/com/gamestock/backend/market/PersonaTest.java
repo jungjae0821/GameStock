@@ -10,6 +10,7 @@ import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import static com.gamestock.backend.market.PersonaDecisions.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -220,18 +221,58 @@ class PersonaTest {
         assertNull(PersonaTraderService.limitPrice(quotes, "NONE"));
     }
 
-    @Test void aTraineeBotIsReviewedForPromotionWithoutOpeningTheCareerScreen() {
-        // 봇은 OJT 확인을 먼저 남기고 매매는 나중에 채우므로, 마지막 체결 뒤에 판정을 부르는 쪽이 따로 있어야 한다.
+    private static CareerService.Career career(CareerGrade grade, String... left) {
+        List<CareerService.Step> steps = java.util.Arrays.stream(left)
+                .map(id -> new CareerService.Step(id, id, "CHECK", 0, 1, false)).toList();
+        return new CareerService.Career(false, false, grade.name(), grade.label, grade.ordinal(), grade.allocation, 0, null, null,
+                "2026-11-17T00:00:00Z", grade.allocation, 0, 0, 0, 0, 0, 0, 0, null, null, 0, steps, List.of());
+    }
+
+    @Test void aTraineeBotFillsTheOjtStepsTheAppWouldReportAndPromotedBotsAreLeftAlone() {
         CareerService career = mock(CareerService.class);
-        var bots = new PersonaTraderService(mock(JdbcTemplate.class), mock(MarketService.class), mock(OrderService.class),
+        MarketService market = mock(MarketService.class);
+        OrderService orders = mock(OrderService.class);
+        when(market.clock()).thenReturn(java.time.Clock.fixed(java.time.Instant.parse("2026-11-17T03:00:00Z"), java.time.ZoneOffset.UTC));
+        var bots = new PersonaTraderService(mock(JdbcTemplate.class), market, orders,
                 mock(EngagementService.class), mock(TitleService.class), mock(AuthService.class), career, true, 10);
+        Persona bot = persona(Persona.Style.SCALP);
 
-        when(career.grade(1L)).thenReturn(CareerGrade.TRAINEE);
-        bots.reviewIfTrainee(1L);
-        verify(career).review(1L);
+        when(career.career(1L)).thenReturn(career(CareerGrade.TRAINEE, "MARKET", "RISK"));
+        assertFalse(bots.finishOjt(bot, 1L));
+        verify(career).acknowledge(1L, "MARKET");
+        verify(career).acknowledge(1L, "RISK");
 
-        when(career.grade(2L)).thenReturn(CareerGrade.STAFF);
-        bots.reviewIfTrainee(2L);
-        verify(career, never()).review(2L);
+        // 커리어 조회가 승진 판정을 겸한다. 이미 사원이면 아무것도 하지 않는다.
+        when(career.career(2L)).thenReturn(career(CareerGrade.STAFF));
+        assertFalse(bots.finishOjt(bot, 2L));
+        verify(career, never()).acknowledge(eq(2L), anyString());
+        verifyNoInteractions(orders);
+    }
+
+    @Test void theOjtLimitBuyIsOneAffordableShareOfTheFandomStockThenTheSellIsOneHeldShare() {
+        List<Quote> quotes = List.of(new Quote("GOV", 47_700, 47_700, 47_700, 47_700), new Quote("TR", 789, 789, 789, 789),
+                new Quote("DEAD", 0, 0, 0, 0));
+        Account rich = new Account(1_000_000, 1_000_000, List.of());
+        assertEquals(new Order("GOV", "BUY", 1, "OJT 지정가 매수"), PersonaTraderService.ojtOrder(Set.of("LIMIT_BUY", "SELL"), "GOV", rich, quotes));
+        // 주력 종목을 살 현금이 없으면 살 수 있는 가장 싼 종목으로 채운다.
+        Account poor = new Account(10_000, 10_000, List.of());
+        assertEquals("TR", PersonaTraderService.ojtOrder(Set.of("LIMIT_BUY"), "GOV", poor, quotes).code());
+        assertNull(PersonaTraderService.ojtOrder(Set.of("LIMIT_BUY"), "GOV", new Account(100, 100, List.of()), quotes));
+
+        Account holding = new Account(0, 500_000, List.of(new Holding("GOV", 9, 48_448, 47_700, 60)));
+        assertEquals(new Order("GOV", "SELL", 1, "OJT 매도"), PersonaTraderService.ojtOrder(Set.of("SELL"), "GOV", holding, quotes));
+        assertNull(PersonaTraderService.ojtOrder(Set.of("SELL"), "GOV", rich, quotes));
+        assertNull(PersonaTraderService.ojtOrder(Set.of("FANDOM"), "GOV", holding, quotes));
+    }
+
+    @Test void theOjtLimitPriceReachesAskQuotesAFewTicksUpButStaysUnderTheUpperLimit() {
+        // 운영 호가처럼 매도 1호가가 지금 가격보다 두 틱 위여도(12,380 → 12,400) 닿는다.
+        List<Quote> quotes = List.of(new Quote("UMA", 12_380, 12_380, 12_000, 12_380),
+                new Quote("TOP", 12_990, 12_990, 10_000, 12_990));
+        long uma = PersonaTraderService.ojtLimitPrice(quotes, "UMA");
+        assertEquals(12_630L, uma);
+        assertEquals(0, uma % PriceLimitPolicy.tickSize(uma));
+        // 상한가 13,000 가까이면 상한가를 넘기지 않는다.
+        assertEquals(13_000L, PersonaTraderService.ojtLimitPrice(quotes, "TOP"));
     }
 }

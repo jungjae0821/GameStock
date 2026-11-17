@@ -45,6 +45,10 @@ public class PersonaTraderService {
     static final int GUARD_MARGIN = 3;
     /** 매수 가운데 지정가로 내는 비율. */
     static final double LIMIT_BUY_CHANCE = 0.3;
+    /** OJT 지정가 매수를 지금 가격보다 얼마나 올려 낼지. 호가 몇 틱 차이는 넉넉히 넘는다. */
+    static final double OJT_LIMIT_PREMIUM = 0.02;
+    /** OJT 매수 1주에 수수료를 더해도 현금이 모자라지 않게 둘 여유. */
+    static final double OJT_CASH_MARGIN = 1.01;
     private static final Duration QUOTE_CACHE = Duration.ofSeconds(30);
 
     private final JdbcTemplate jdbc;
@@ -146,17 +150,59 @@ public class PersonaTraderService {
             chores(persona, id, now, random);
             choresDone.put(id, day);
         }
-        reviewIfTrainee(id);
+        if (career.grade(id) == CareerGrade.TRAINEE && finishOjt(persona, id)) return;
         if (random.nextDouble() >= persona.actionChancePerMinute(Persona.dayOf(now))) return;
         trade(persona, id, random);
     }
 
     /**
-     * 승진은 회원이 커리어 화면을 열 때와 하루 한 번 자정 정산 때만 판정된다. 봇은 화면을 열지 않으니
-     * OJT를 다 채우고도 자정까지 수습으로 남는다. 수습인 동안은 접속한 매 분 직접 판정을 부른다.
+     * 수습 봇의 OJT를 매 분 마저 채운다. 커리어 조회가 승진 판정을 겸하므로, 단계를 다 채운 봇은 다음 분에 사원이 된다.
+     *
+     * <p>평소 매매에만 맡기면 OJT가 끝나지 않는다. 실제 회원이 적으면 봇이 매수 보호 경계 안에 들어 매수가 막히고,
+     * 지금 가격 지정가는 매도호가가 한두 틱 위면 체결되지 않고 다음 분에 취소된다. 그래서 남은 지정가 매수는
+     * 매도호가에 닿는 가격으로 1주만 내고, 경계는 보지 않는다. 1주는 자산 순위를 거의 바꾸지 않는다.
+     * 주문을 냈으면 true.
      */
-    void reviewIfTrainee(long id) {
-        if (career.grade(id) == CareerGrade.TRAINEE) career.review(id);
+    boolean finishOjt(Persona persona, long id) {
+        CareerService.Career now = career.career(id);
+        if (!CareerGrade.TRAINEE.name().equals(now.grade())) return false;
+        Set<String> left = now.promotion().stream().filter(step -> !step.done()).map(CareerService.Step::id).collect(Collectors.toSet());
+        for (String step : CareerService.CLIENT_STEPS) if (left.contains(step)) career.acknowledge(id, step);
+        Integer open = jdbc.queryForObject("SELECT COUNT(*) FROM orders WHERE user_id=? AND status='OPEN'", Integer.class, id);
+        if (open != null && open > 0) {
+            // 체결되지 않은 OJT 주문이 남았으면 거두고 다음 분에 다시 낸다.
+            orders.cancelAll(id);
+            return true;
+        }
+        List<Quote> prices = quotes();
+        Order order = ojtOrder(left, persona.fandomCode(), account(id), prices);
+        if (order == null) return false;
+        submit(persona, id, order, order.side().equals("BUY") ? ojtLimitPrice(prices, order.code()) : null);
+        return true;
+    }
+
+    /** 남은 OJT 매매 단계를 채울 주문. 지정가 매수가 먼저이고, 그다음 들고 있는 종목 1주 매도. 할 게 없으면 null. */
+    static Order ojtOrder(Set<String> left, String fandomCode, Account account, List<Quote> quotes) {
+        if (left.contains("LIMIT_BUY")) {
+            Comparator<Quote> fandomFirst = Comparator.comparing((Quote q) -> !q.code().equals(fandomCode)).thenComparingLong(Quote::price);
+            return quotes.stream().filter(q -> q.price() > 0 && ojtLimitPrice(quotes, q.code()) * OJT_CASH_MARGIN <= account.cash())
+                    .min(fandomFirst).map(q -> new Order(q.code(), "BUY", 1, "OJT 지정가 매수")).orElse(null);
+        }
+        if (left.contains("SELL"))
+            return account.holdings().stream().filter(h -> h.quantity() > 0).findFirst()
+                    .map(h -> new Order(h.code(), "SELL", 1, "OJT 매도")).orElse(null);
+        return null;
+    }
+
+    /**
+     * OJT 지정가 매수 가격. 지금 가격보다 {@link #OJT_LIMIT_PREMIUM}만큼 올려 매도호가에 닿게 하되, 전날 종가 기준
+     * 상한가는 넘지 않는다. 체결은 매도호가로 되므로 실제로 더 비싸게 사지는 않는다.
+     */
+    static long ojtLimitPrice(List<Quote> quotes, String code) {
+        Quote quote = quotes.stream().filter(q -> q.code().equals(code)).findFirst().orElseThrow();
+        long wanted = PriceLimitPolicy.ceilToTick(quote.price() * (1 + OJT_LIMIT_PREMIUM));
+        long reference = quote.prevClose() > 0 ? quote.prevClose() : quote.price();
+        return Math.max(PriceLimitPolicy.ceilToTick(quote.price()), Math.min(wanted, PriceLimitPolicy.dailyBand(reference).upperPrice()));
     }
 
     /** 그날 처음 접속했을 때: 출석, 수습 OJT 확인, 칭호 확인과 가끔 바꿔 달기, 마감 전이면 일일 예측. */
@@ -206,6 +252,10 @@ public class PersonaTraderService {
         }
         Order chosen = order.get();
         Long limit = chosen.side().equals("BUY") && random.nextDouble() < LIMIT_BUY_CHANCE ? limitPrice(quotes(), chosen.code()) : null;
+        submit(persona, id, chosen, limit);
+    }
+
+    private void submit(Persona persona, long id, Order chosen, Long limit) {
         orders.submit(id, new OrderRequest(chosen.code(), chosen.side(), chosen.quantity(), limit == null ? "MARKET" : "LIMIT", limit))
                 .whenComplete((result, error) -> {
                     if (error != null) log.debug("운영 봇 {} 주문 거절({} {} {}): {}", persona.username(), chosen.side(),
