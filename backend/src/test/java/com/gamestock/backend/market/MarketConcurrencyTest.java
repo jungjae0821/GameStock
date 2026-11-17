@@ -153,20 +153,29 @@ class MarketConcurrencyTest {
         org.mockito.Mockito.when(firebase.createCustomToken("test-user")).thenReturn("test-custom-token");
         try(var mocked=org.mockito.Mockito.mockStatic(com.google.firebase.auth.FirebaseAuth.class)) {
             mocked.when(com.google.firebase.auth.FirebaseAuth::getInstance).thenReturn(firebase);
-            var issued=issuer.issueMobileCode("Bearer valid");
+            String verifier="a".repeat(43),challenge=com.gamestock.backend.auth.AuthService.pkceChallenge(verifier);
+            var issued=issuer.issueMobileCode("Bearer valid",challenge);
             AtomicInteger succeeded=new AtomicInteger(),rejected=new AtomicInteger();
             parallel(2,i->{
                 try {
-                    var result=tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(issued.code(),null)));
+                    var result=tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(issued.code(),null,verifier)));
                     assertEquals("test-custom-token",result.customToken());succeeded.incrementAndGet();
                 } catch(org.springframework.web.server.ResponseStatusException error) {
                     assertEquals(401,error.getStatusCode().value());rejected.incrementAndGet();
                 }
             });
             assertEquals(1,succeeded.get());assertEquals(1,rejected.get());
-            var expired=issuer.issueMobileCode("Bearer valid");
+            var expired=issuer.issueMobileCode("Bearer valid",challenge);
             db.update("UPDATE mobile_login_codes SET expires_at=DATE_SUB(CURRENT_TIMESTAMP,INTERVAL 1 SECOND)");
-            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(expired.code(),null))));
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(expired.code(),null,verifier))));
+            // 가로챈 코드만으로는(검증값이 없거나 다르면) 토큰을 받을 수 없다. 그래도 원래 앱의 로그인은 막히지 않는다.
+            var intercepted=issuer.issueMobileCode("Bearer valid",challenge);
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(intercepted.code(),null,null))));
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(intercepted.code(),null,"b".repeat(43)))));
+            assertEquals("test-custom-token",tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(intercepted.code(),null,verifier))).customToken());
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx.execute(s->redeemer.exchangeMobileCode(new com.gamestock.backend.auth.AuthService.MobileCodeExchange(intercepted.code(),null,verifier))));
+            // 검증값 없이 만든 코드는 발급하지 않는다.
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,()->issuer.issueMobileCode("Bearer valid",null));
         }
     }
     @Test void sharedCashCannotBeOverspentAcrossSymbolsOrInstances() throws Exception {

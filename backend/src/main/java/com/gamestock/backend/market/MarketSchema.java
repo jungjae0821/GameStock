@@ -56,6 +56,7 @@ final class MarketSchema {
         BillboardService.ensureTables(jdbc);
         StockTalkService.ensureTables(jdbc);
         com.gamestock.backend.openapi.OpenApiSchema.ensureTables(jdbc);
+        OrderRequestLedger.ensureTable(jdbc);
         StockDenominationMigration.ensureTables(jdbc);
         StopOrderService.ensureTables(jdbc);
         AssetHistoryService.ensureTables(jdbc);

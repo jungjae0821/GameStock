@@ -366,6 +366,22 @@ class AdminOperationsIntegrationTest {
         assertThrows(IllegalArgumentException.class,()->tx(()->operations.cash(admin,buyer,new CashChange("negative",-2000000,"오류 차감"))));
         assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM admin_cash_adjustments",Integer.class));
     }
+    @Test void delegatedAdminCannotPayOrRestoreTheirOwnAccount(){
+        // 보상 권한을 위임받은 buyer가 자기 계좌를 대상으로 조치한다.
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx(()->operations.cash(buyer,buyer,new CashChange("self-cash",1_000_000_000L,"자기 지급"))));
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx(()->operations.holding(buyer,buyer,new HoldingChange("self-holding","UMA",1000,10000,"자기 복구"))));
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,()->tx(()->operations.recoverMission(buyer,buyer,new MissionRecovery("watch",java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")),1_000_000,"자기 복구"))));
+        assertEquals(1000000,cash(buyer));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM admin_cash_adjustments",Integer.class));
+        // 일괄 지급은 지급한 위임 관리자 본인을 빼고 나눠 준다.
+        tx(()->operations.rewardAll(buyer,new CashChange("all-self",100,"전체 보상")));
+        assertEquals(1000000,cash(buyer));assertEquals(1000100,cash(seller));
+        // 직접 만든 프로모션 코드도 스스로 받을 수 없다.
+        db.update("DELETE FROM promo_codes WHERE code<>'syuen'");
+        tx(()->promos.create(buyer,new AdminPromoService.Promo("Self-1",100000,List.of(),null,null,null,true,"","자기 코드")));
+        assertThrows(IllegalArgumentException.class,()->titles.redeem(buyer,"self-1"));
+        assertEquals(100000,titles.redeem(seller,"self-1").rewardCash());
+    }
     @Test void concurrentRetriesPayExactlyOnce() throws Exception {
         ExecutorService pool=Executors.newFixedThreadPool(2);
         try{var request=new CashChange("parallel",100,"중복 요청");var a=pool.submit(()->tx(()->operations.cash(admin,buyer,request)));var b=pool.submit(()->tx(()->operations.cash(admin,buyer,request)));a.get(10,TimeUnit.SECONDS);b.get(10,TimeUnit.SECONDS);assertEquals(1000100,cash(buyer));}finally{pool.shutdownNow();}

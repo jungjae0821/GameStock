@@ -66,6 +66,7 @@ public class AdminService {
 
     @Transactional
     public AdminUser liftTradeBan(long adminId, long userId) {
+        com.gamestock.backend.market.AdminSupport.otherAccount(adminId, userId);
         AdminUser before=lockUser(userId);
         jdbc.update("UPDATE users SET trade_banned_until = NULL, trade_ban_reason = NULL WHERE id = ?", userId);
         log(adminId, userId, "TRADE_BAN_LIFT", "");

@@ -32,7 +32,7 @@ public class UserDeletionService {
     private static final int CHUNK = 500;
     private static final int MAX_DEPTH = 32;
     /** 외래 키 없이 user_id만 들고 있는 개인 데이터 표. */
-    private static final List<String> LOOSE_USER_TABLES = List.of("profile_photos", "open_api_requests");
+    private static final List<String> LOOSE_USER_TABLES = List.of("profile_photos", "open_api_requests", "order_requests");
 
     private final JdbcTemplate jdbc;
     private final AdminService admin;

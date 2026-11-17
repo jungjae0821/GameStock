@@ -165,13 +165,19 @@ class AuthServiceTest {
         }
     }
 
+    @Test void pkceChallengeMatchesTheRfc7636Example() {
+        assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", AuthService.pkceChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"));
+        assertEquals("", AuthService.pkceChallenge("short"));
+        assertEquals("", AuthService.pkceChallenge(null));
+    }
+
     @Test void revokedTokenCannotMintANewMobileSession() throws Exception {
         var firebase=mock(com.google.firebase.auth.FirebaseAuth.class);
         when(firebase.verifyIdToken("revoked",true)).thenThrow(new IllegalArgumentException("revoked"));
         try(var mocked=mockStatic(com.google.firebase.auth.FirebaseAuth.class)) {
             mocked.when(com.google.firebase.auth.FirebaseAuth::getInstance).thenReturn(firebase);
             var auth=new AuthService(mock(JdbcTemplate.class),Clock.fixed(NOW,ZoneOffset.UTC));
-            assertThrows(ResponseStatusException.class,()->auth.issueMobileCode("Bearer revoked"));
+            assertThrows(ResponseStatusException.class,()->auth.issueMobileCode("Bearer revoked","a".repeat(43)));
             verify(firebase,never()).createCustomToken(anyString());
         }
     }

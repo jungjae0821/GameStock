@@ -144,6 +144,9 @@ public class TitleService {
             if (rows.isEmpty() || !Boolean.TRUE.equals(asBoolean(rows.get(0).get("active"))))
                 throw new IllegalArgumentException("유효하지 않은 프로모션 코드입니다.");
             var promo = rows.get(0);
+            // 코드를 만든 위임 관리자가 스스로 받아 가면 관리자 지급과 같다.
+            if (promo.get("created_by") instanceof Number creator && creator.longValue() == userId)
+                throw new IllegalArgumentException("직접 만든 프로모션 코드는 사용할 수 없습니다.");
             Instant now = clock.instant();
             if (promo.get("starts_at") instanceof Timestamp starts && now.isBefore(starts.toInstant()))
                 throw new IllegalArgumentException("아직 사용할 수 없는 프로모션 코드입니다.");

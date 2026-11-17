@@ -54,15 +54,38 @@ public class AuthService {
                 CREATE TABLE IF NOT EXISTS mobile_login_codes (
                     code_hash CHAR(64) PRIMARY KEY,
                     custom_token TEXT NOT NULL,
+                    code_challenge CHAR(43) CHARACTER SET ascii COLLATE ascii_bin NULL,
                     expires_at TIMESTAMP(3) NOT NULL,
                     INDEX ix_mobile_code_expiry (expires_at)
                 )
                 """);
+        Integer challengeColumn = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'mobile_login_codes' AND column_name = 'code_challenge'
+                """, Integer.class);
+        if (challengeColumn != null && challengeColumn == 0) {
+            try {
+                jdbc.execute("ALTER TABLE mobile_login_codes ADD COLUMN code_challenge CHAR(43) CHARACTER SET ascii COLLATE ascii_bin NULL AFTER custom_token");
+            } catch (org.springframework.dao.DataAccessException error) {
+                // 다른 인스턴스가 먼저 추가했다.
+            }
+        }
     }
 
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 60_000)
     public void removeExpiredMobileCodes() {
         jdbc.update("DELETE FROM mobile_login_codes WHERE expires_at <= ?", Timestamp.from(clock.instant()));
+    }
+
+    /** RFC 7636 S256: base64url(SHA-256(verifier)), 패딩 없음. 형식이 틀린 검증값은 빈 문자열이 되어 어떤 값과도 맞지 않는다. */
+    public static String pkceChallenge(String verifier) {
+        if (verifier == null || !verifier.matches("[A-Za-z0-9._~-]{43,128}")) return "";
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
 
     private static String codeHash(String code) {
@@ -99,15 +122,22 @@ public class AuthService {
     @Transactional
     public LoginUser login(String authorization) { return requireUserAllowingSuspended(authorization); }
 
-    public MobileCode issueMobileCode(String authorization) {
+    /**
+     * 앱으로 넘길 일회용 로그인 코드를 만든다. 코드는 앱 주소(딥링크)로 전달되므로 다른 앱이 가로챌 수 있다.
+     * 그래서 앱이 만든 code_challenge(검증값의 SHA-256, base64url)를 함께 저장하고, 교환할 때 원래 검증값을
+     * 낸 쪽에만 토큰을 준다(PKCE, RFC 7636 S256).
+     */
+    public MobileCode issueMobileCode(String authorization, String codeChallenge) {
+        if (codeChallenge == null || !codeChallenge.matches("[A-Za-z0-9_-]{43}"))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "앱을 최신 버전으로 업데이트한 뒤 다시 로그인해 주세요.");
         FirebaseToken token = verifyToken(authorization);
         try {
             String customToken = FirebaseAuth.getInstance().createCustomToken(token.getUid());
             String code = UUID.randomUUID().toString().replace("-", "");
             Instant expiresAt = clock.instant().plusSeconds(MOBILE_CODE_TTL_SECONDS);
             jdbc.update("DELETE FROM mobile_login_codes WHERE expires_at <= ?", Timestamp.from(clock.instant()));
-            jdbc.update("INSERT INTO mobile_login_codes (code_hash, custom_token, expires_at) VALUES (?, ?, ?)",
-                    codeHash(code), customToken, Timestamp.from(expiresAt));
+            jdbc.update("INSERT INTO mobile_login_codes (code_hash, custom_token, code_challenge, expires_at) VALUES (?, ?, ?, ?)",
+                    codeHash(code), customToken, codeChallenge, Timestamp.from(expiresAt));
             return new MobileCode(code, expiresAt.toString());
         } catch (Exception error) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "모바일 로그인 코드를 만들지 못했습니다.");
@@ -123,11 +153,15 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "유효하지 않은 로그인 코드입니다.");
         String hash = codeHash(code);
         PendingMobileCode pending = jdbc.query(
-                "SELECT custom_token, expires_at FROM mobile_login_codes WHERE code_hash = ? FOR UPDATE",
-                (rs, row) -> new PendingMobileCode(rs.getString("custom_token"), rs.getTimestamp("expires_at").toInstant()), hash)
+                "SELECT custom_token, code_challenge, expires_at FROM mobile_login_codes WHERE code_hash = ? FOR UPDATE",
+                (rs, row) -> new PendingMobileCode(rs.getString("custom_token"), rs.getString("code_challenge"), rs.getTimestamp("expires_at").toInstant()), hash)
                 .stream().findFirst().orElse(null);
         if (pending == null || !pending.expiresAt().isAfter(clock.instant()))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "만료되었거나 이미 사용한 로그인 코드입니다.");
+        // 검증값이 틀리면 코드를 지우지 않는다. 코드를 가로챈 쪽이 틀린 값을 내서 원래 앱의 로그인을 막지 못하게 한다.
+        // 검증값은 256비트라 코드 유효 시간(2분) 안에 맞혀 볼 수 없다.
+        if (pending.codeChallenge() == null || !pkceChallenge(request.codeVerifier()).equals(pending.codeChallenge()))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인을 시작한 앱에서만 코드를 쓸 수 있습니다. 다시 로그인해 주세요.");
         jdbc.update("DELETE FROM mobile_login_codes WHERE code_hash = ?", hash);
         return new MobileToken(pending.customToken());
     }
@@ -396,7 +430,8 @@ public class AuthService {
     }
     public record ProfileUpdate(String nickname, String profileImageUrl) { }
     public record MobileCode(String code, String expiresAt) { }
-    public record MobileCodeExchange(String code, String state) { }
+    public record MobileCodeIssue(String codeChallenge) { }
+    public record MobileCodeExchange(String code, String state, String codeVerifier) { }
     public record MobileToken(String customToken) { }
-    private record PendingMobileCode(String customToken, Instant expiresAt) { }
+    private record PendingMobileCode(String customToken, String codeChallenge, Instant expiresAt) { }
 }

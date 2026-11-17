@@ -20,8 +20,9 @@ public class AuthController {
     }
 
     @PostMapping("/mobile/issue")
-    public AuthService.MobileCode issueMobileCode(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        return auth.issueMobileCode(authorization);
+    public AuthService.MobileCode issueMobileCode(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                                  @RequestBody(required = false) AuthService.MobileCodeIssue request) {
+        return auth.issueMobileCode(authorization, request == null ? null : request.codeChallenge());
     }
 
     @PostMapping("/mobile/exchange")

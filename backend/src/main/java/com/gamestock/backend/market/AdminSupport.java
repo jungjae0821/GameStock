@@ -28,6 +28,14 @@ public class AdminSupport {
         return user.id();
     }
     public long root(String authorization) { return auth.requireAdmin(authorization).id(); }
+    /**
+     * 위임 관리자는 일반 회원 계정이라 지급·복구 대상에 자기 자신도 들어간다. 감사 기록만으로는
+     * 막지 못하므로 자기 계정을 대상으로 하는 조치는 거절한다. 루트 관리자는 시장 밖 계정이라 대상이 될 수 없다.
+     */
+    public static void otherAccount(long actor, long target) {
+        if (actor == target)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "자기 계정에는 이 조치를 할 수 없습니다. 다른 관리자에게 요청해 주세요.");
+    }
     static String text(String value,int max,String label) {
         if(value==null||value.isBlank()||value.length()>max)throw new IllegalArgumentException(label+"을(를) 1~"+max+"자로 입력해 주세요.");
         return value.trim();
