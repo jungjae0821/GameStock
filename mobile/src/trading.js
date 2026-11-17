@@ -46,3 +46,17 @@ export function affordableQuantity(cash, price, cap = MAX_ORDER_QUANTITY) {
   }
   return low;
 }
+
+/** 지정가가 오늘의 가격 제한폭 밖인가. 웹 src/market/orderSizing.ts와 같은 규칙. 제한폭을 모르면 막지 않는다. */
+export function outsidePriceBand(price, limitDown, limitUp) {
+  return Boolean((limitUp && price > limitUp) || (limitDown && price < limitDown));
+}
+
+/**
+ * 지금 팔 수 있는 수량. 서버가 대기 중인 매도 주문과 미정산분을 뺀 값(availableQuantity)을 주면 그 값을,
+ * 예전 서버 응답이면 보유 수량을 쓴다. 웹 src/market/orderSizing.ts와 같은 규칙.
+ */
+export function sellableQuantity(position, cap = MAX_ORDER_QUANTITY) {
+  const value = position?.availableQuantity ?? position?.quantity ?? 0;
+  return Number.isFinite(value) ? Math.max(0, Math.min(cap, Math.floor(value))) : 0;
+}

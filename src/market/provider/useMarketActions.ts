@@ -133,24 +133,21 @@ export function useMarketActions(snapshot: MarketSnapshot, sync: MarketSync): Ma
       },
       cancelAllOpenOrders: async () => {
         if (!requireSignIn()) return { ok: false, cancelled: 0, message: "로그인 후 주문을 취소할 수 있습니다." };
-        let cancelled = 0;
         try {
-          // /api/orders는 화면용으로 최대 5건만 반환하므로, 남은 주문이 없어질 때까지 반복한다.
-          for (let attempt = 0; attempt < 20; attempt += 1) {
-            const orders = await apiFetch<BackendActiveOrder[]>("/api/orders");
-            if (orders.length === 0) break;
-            await Promise.all(orders.map((order) => apiFetch(`/api/orders/${order.id}`, { method: "DELETE" })));
-            cancelled += orders.length;
-            if (orders.length < 5) break;
-          }
-          if (cancelled > 0) void refreshPortfolio();
+          // 서버가 계정의 미체결 주문을 한 트랜잭션에서 모두 취소한다. 한 건씩 지우면 그사이 체결된 주문 하나 때문에
+          // 전체가 실패로 보이고, 몇 건이 취소됐는지도 틀리게 나왔다.
+          const result = await apiFetch<{ cancelled?: number }>("/api/orders", { method: "DELETE" });
+          const cancelled = result?.cancelled ?? 0;
           return {
             ok: true,
             cancelled,
             message: cancelled > 0 ? `미체결 주문 ${cancelled}건을 모두 취소했습니다.` : "취소할 미체결 주문이 없습니다.",
           };
         } catch (error) {
-          return { ok: false, cancelled, message: error instanceof Error ? error.message : "전체 주문 취소에 실패했습니다." };
+          return { ok: false, cancelled: 0, message: error instanceof Error ? error.message : "전체 주문 취소에 실패했습니다." };
+        } finally {
+          // 성공했든 실패했든 계좌를 다시 받아 화면의 예약금·미체결 수를 서버와 맞춘다.
+          void refreshPortfolio();
         }
       },
       toggleWatch: (code) => {

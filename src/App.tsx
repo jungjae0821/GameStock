@@ -1,6 +1,6 @@
 import { AuthBridge } from "./components/AuthBridge";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef } from "react";
 import { MissionRewardToast } from "./components/MissionRewardToast";
 import { TitleWatcher } from "./components/TitleWatcher";
 import { LoginModal } from "./components/LoginModal";
@@ -18,25 +18,30 @@ import { TradeTerminal } from "./next/TradeTerminal";
 import { HomeBoard } from "./next/HomeBoard";
 import { MarketBoard } from "./next/MarketBoard";
 import { HeatmapBoard } from "./next/HeatmapBoard";
-import { NxAdminPage } from "./next/pages/NxAdminPage";
 import { NxChargePage } from "./next/pages/NxChargePage";
 import { NxCareerPage } from "./next/pages/NxCareerPage";
 import { NxLoanPage } from "./next/pages/NxLoanPage";
-import { NxBillboardPage } from "./next/pages/NxBillboardPage";
 import { NxLoginPage } from "./next/pages/NxLoginPage";
 import { NxMyPage } from "./next/pages/NxMyPage";
 import { NxNewsPage } from "./next/pages/NxNewsPage";
 import { NxRankingPage } from "./next/pages/NxRankingPage";
-import { NxApiDocsPage } from "./next/pages/NxApiDocsPage";
 import { NxSettingsPage } from "./next/pages/NxSettingsPage";
 import { NxTitlesPage } from "./next/pages/NxTitlesPage";
 import { NxAttendancePage } from "./next/pages/NxAttendancePage";
-import { NxQuantPage } from "./next/pages/NxQuantPage";
-import { NxTalkPage } from "./next/pages/NxTalkPage";
-import { NxTapPage } from "./next/pages/NxTapPage";
-import { NxDerivativesPage } from "./next/pages/NxDerivativesPage";
 import type { Route } from "./router";
 import { MarketAlerts, OrderImpactToast } from "./next/engagement/LiveBoards";
+
+/*
+ * 첫 화면(홈·시장·종목)에 필요 없는 무거운 화면은 열 때 받아 온다. 관리자·API 문서·퀀트·파생상품·전광판·
+ * 탭 베팅·종목토론이 처음부터 한 번들에 들어 있어 첫 로딩이 느렸다.
+ */
+const NxAdminPage = lazy(() => import("./next/pages/NxAdminPage").then((module) => ({ default: module.NxAdminPage })));
+const NxApiDocsPage = lazy(() => import("./next/pages/NxApiDocsPage").then((module) => ({ default: module.NxApiDocsPage })));
+const NxQuantPage = lazy(() => import("./next/pages/NxQuantPage").then((module) => ({ default: module.NxQuantPage })));
+const NxDerivativesPage = lazy(() => import("./next/pages/NxDerivativesPage").then((module) => ({ default: module.NxDerivativesPage })));
+const NxBillboardPage = lazy(() => import("./next/pages/NxBillboardPage").then((module) => ({ default: module.NxBillboardPage })));
+const NxTapPage = lazy(() => import("./next/pages/NxTapPage").then((module) => ({ default: module.NxTapPage })));
+const NxTalkPage = lazy(() => import("./next/pages/NxTalkPage").then((module) => ({ default: module.NxTalkPage })));
 
 function titleFor(route: Route): string {
   if (route.name === "market") {
@@ -122,6 +127,7 @@ export default function App() {
       <NxTopbar route={route} />
       <main id="content" className={`content nx-content${terminal ? "" : " nx-page"}`} ref={main} tabIndex={-1}>
         <ErrorBoundary area="screen" resetKey={JSON.stringify(route)}>
+        <Suspense fallback={<p className="nx-empty-state" role="status">화면을 불러오고 있어요.</p>}>
         {suspendedUntil ? <SuspensionNotice until={suspendedUntil} reason={profile?.tradeBanReason} /> : <>
         {route.name === "home" && <HomeBoard />}
         {terminal && <TradeTerminal ticker={route.name === "trade" || route.name === "market" ? route.ticker : null} />}
@@ -167,6 +173,7 @@ export default function App() {
         {route.name === "admin" && auth.user && <NxAdminPage />}
         {route.name === "login" && <NxLoginPage method={route.method} />}
         </>}
+        </Suspense>
         </ErrorBoundary>
       </main>
       <NxTabbar route={route} />

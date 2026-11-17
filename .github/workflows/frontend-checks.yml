@@ -2,9 +2,9 @@ name: Check frontend
 
 on:
   pull_request:
+    # 앱(mobile) 변경도 검사한다. 앱이 웹 계산을 복사해 쓰므로 tests/mobile-parity.test.ts가 함께 돌아야 한다.
     paths-ignore:
       - 'backend/**'
-      - 'mobile/**'
       - 'docs/**'
       - 'anti-slop/**'
       - '**/*.md'
@@ -41,6 +41,9 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Check app sources
+        run: npm run check:mobile
 
       - name: Build
         run: npm run build

@@ -1,12 +1,12 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WEB_APP_URL } from './config';
 import { THEME_KEY, useTheme } from './theme';
-import { authInjection, isTrustedAppUrl } from './web-origin';
+import { authInjection, isTrustedAppUrl, navigationTarget } from './web-origin';
 
 const PRICE_ALERT_PERMISSION_KEY = 'gamestock-price-alert-permission-asked';
 const SIGN_OUT_FLAG = 'gamestock-native-signout';
@@ -134,6 +134,18 @@ export const WebPane = forwardRef(function WebPane({ visible, initialPath, schem
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
         injectedJavaScriptBeforeContentLoaded={beforeLoad(scheme)}
+        onShouldStartLoadWithRequest={request => {
+          const target = navigationTarget(request.url, WEB_APP_URL, request.isTopFrame);
+          if (target === 'external') Linking.openURL(request.url).catch(() => {});
+          return target === 'app';
+        }}
+        // target=_blank·window.open으로 여는 기사 원문 같은 새 창도 같은 규칙을 따른다.
+        onOpenWindow={event => {
+          const url = event.nativeEvent.targetUrl;
+          const target = navigationTarget(url, WEB_APP_URL);
+          if (target === 'external') Linking.openURL(url).catch(() => {});
+          else if (target === 'app') { const inside = new URL(url); navigateNow(inside.pathname + inside.search); }
+        }}
         onNavigationStateChange={state => { canGoBack.current = state.canGoBack; }}
         onLoadStart={() => { ready.current = false; }}
         onLoadEnd={() => {

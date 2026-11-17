@@ -2,11 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { heldQuantity, useAccount } from '../account';
+import { heldQuantity, positionOf, useAccount } from '../account';
 import { ApiError, request } from '../auth';
 import { createOrderKeys } from '../orderKeys';
 import { price, won } from '../format';
-import { MAX_ORDER_QUANTITY, affordableQuantity, nextTickPrice, orderFee, previousTickPrice, roundToTick } from '../trading';
+import { MAX_ORDER_QUANTITY, affordableQuantity, nextTickPrice, orderFee, outsidePriceBand, previousTickPrice, roundToTick, sellableQuantity } from '../trading';
 import { NUMBER_FONT, RADIUS, RADIUS_SM, SPACE, TYPE, Txt, useTheme } from '../theme';
 
 const RATIOS = [
@@ -55,12 +55,14 @@ export function OrderSheet({ visible, stock, orderbook, initialSide, initialLimi
   const bestBid = Math.max(...(orderbook?.bids ?? []).map(level => level.price), -Infinity);
   const parsedLimit = Number(limitPrice);
   const validLimit = Number.isInteger(parsedLimit) && parsedLimit > 0 && roundToTick(parsedLimit) === parsedLimit;
-  const outsideBand = validLimit && ((stock.limitUp && parsedLimit > stock.limitUp) || (stock.limitDown && parsedLimit < stock.limitDown));
+  const outsideBand = validLimit && outsidePriceBand(parsedLimit, stock.limitDown, stock.limitUp);
   // 시장가 매수는 최우선 매도 호가로 체결된다고 보고 금액을 어림한다. 실제 체결가는 서버가 정한다.
   const unitPrice = type === 'LIMIT' ? (validLimit ? parsedLimit : stock.price) : side === 'buy' && Number.isFinite(bestAsk) ? bestAsk : side === 'sell' && Number.isFinite(bestBid) ? bestBid : stock.price;
   const cash = Number(account.portfolio?.cash) || 0;
   const held = heldQuantity(account.portfolio, stock.code);
-  const maxQty = account.portfolio ? (side === 'buy' ? affordableQuantity(cash, unitPrice) : Math.min(MAX_ORDER_QUANTITY, held)) : 0;
+  // 대기 중인 매도 주문과 미정산분은 팔 수 없다. 서버가 거절할 매도를 화면에서 먼저 막는다(웹과 같은 규칙).
+  const sellable = sellableQuantity(positionOf(account.portfolio, stock.code));
+  const maxQty = account.portfolio ? (side === 'buy' ? affordableQuantity(cash, unitPrice) : sellable) : 0;
   const parsedQty = Number(qty);
   const validQty = Number.isInteger(parsedQty) && parsedQty >= 1 && parsedQty <= MAX_ORDER_QUANTITY;
   const gross = validQty ? parsedQty * unitPrice : 0;
@@ -74,7 +76,7 @@ export function OrderSheet({ visible, stock, orderbook, initialSide, initialLimi
     : type === 'LIMIT' && !validLimit ? '단가를 호가 단위에 맞춰 입력해 주세요.'
     : outsideBand ? `오늘 주문할 수 있는 가격은 ${price(stock.limitDown)}~${price(stock.limitUp)}원이에요.`
     : qty !== '' && !validQty ? '수량은 1~1,000주 사이의 정수로 입력해 주세요.'
-    : validQty && account.portfolio && parsedQty > maxQty ? (side === 'buy' ? `수수료를 포함해 최대 ${maxQty.toLocaleString('ko-KR')}주까지 살 수 있어요.` : `보유 수량은 ${held.toLocaleString('ko-KR')}주예요.`)
+    : validQty && account.portfolio && parsedQty > maxQty ? (side === 'buy' ? `수수료를 포함해 최대 ${maxQty.toLocaleString('ko-KR')}주까지 살 수 있어요.` : `지금 팔 수 있는 수량은 ${sellable.toLocaleString('ko-KR')}주예요.`)
     : null;
   const ready = !problem && validQty && Boolean(account.portfolio) && !busy;
 
@@ -160,7 +162,7 @@ export function OrderSheet({ visible, stock, orderbook, initialSide, initialLimi
               <View style={styles.fieldHead}>
                 <Txt variant="caption" tone="inkSoft">수량</Txt>
                 <Txt variant="caption" tone="inkSoft" numeric>
-                  {account.portfolio ? (side === 'buy' ? `최대 ${maxQty.toLocaleString('ko-KR')}주 · 주문 가능 ${won(cash)}` : `보유 ${held.toLocaleString('ko-KR')}주`) : '계좌를 불러오는 중이에요'}
+                  {account.portfolio ? (side === 'buy' ? `최대 ${maxQty.toLocaleString('ko-KR')}주 · 주문 가능 ${won(cash)}` : sellable < held ? `매도 가능 ${sellable.toLocaleString('ko-KR')}주 · 보유 ${held.toLocaleString('ko-KR')}주` : `보유 ${held.toLocaleString('ko-KR')}주`) : '계좌를 불러오는 중이에요'}
                 </Txt>
               </View>
               <View style={[styles.stepper, { borderColor: theme.edge, backgroundColor: theme.raised }]}>
