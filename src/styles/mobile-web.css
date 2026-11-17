@@ -111,10 +111,47 @@ html[data-app-shell="web"] body {
 
   html[data-app-shell="web"][data-nx] .nx-tabbar-link:focus-visible { outline-offset: -4px; }
 
+  /* ───────── 계정 메뉴: 화면 절반 안팎에 들어오게 줄인다 ───────── */
+
+  html[data-app-shell="web"][data-nx] .profile-panel-head { padding: 8px 4px 8px 16px; }
+  html[data-app-shell="web"][data-nx] .profile-panel-avatar { width: 36px; height: 36px; }
+
+  /* 설명 줄을 빼고 한 줄 48px. 라벨만으로 어느 화면인지 알 수 있다. */
+  html[data-app-shell="web"][data-nx] .profile-panel-list { padding: 4px 0; }
+  html[data-app-shell="web"][data-nx] .profile-panel-item {
+    grid-template-rows: auto;
+    min-height: 48px;
+    padding: 6px 16px;
+  }
+  html[data-app-shell="web"][data-nx] .profile-panel-hint { display: none; }
+  html[data-app-shell="web"][data-nx] :is(.profile-panel-icon, .profile-panel-chevron) { grid-row: 1; }
+  html[data-app-shell="web"][data-nx] .profile-panel-icon { padding: 6px; }
+  html[data-app-shell="web"][data-nx] .profile-panel-logout { min-height: 48px; padding: 0 16px; }
+
+  /* 탭바에서 빠진 세 화면은 가로 세 칸 타일로 한 줄에 둔다. */
   html[data-app-shell="web"][data-nx] .profile-panel-list-nav {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px;
     border-bottom: 1px solid var(--rule);
   }
+  html[data-app-shell="web"][data-nx] .profile-panel-list-nav .profile-panel-item {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    justify-items: center;
+    row-gap: 4px;
+    padding: 8px 4px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  html[data-app-shell="web"][data-nx] .profile-panel-list-nav .profile-panel-icon { grid-column: 1; grid-row: 1; }
+  html[data-app-shell="web"][data-nx] .profile-panel-list-nav .profile-panel-label {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 14px;
+  }
+  html[data-app-shell="web"][data-nx] .profile-panel-list-nav .profile-panel-chevron { display: none; }
 
   /* 고정된 탭바 위로 알림을 띄운다. */
   html[data-app-shell="web"][data-nx] .mission-toast {
