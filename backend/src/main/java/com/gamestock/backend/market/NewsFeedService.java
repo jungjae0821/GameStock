@@ -158,9 +158,20 @@ public class NewsFeedService {
         fetchAllFeeds();
     }
 
+    private com.gamestock.backend.config.NetworkJobs networkJobs;
+
+    /** 손으로 만든 테스트에는 없다. 그때는 예전처럼 호출한 스레드에서 바로 실행한다. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureNetworkJobs(com.gamestock.backend.config.NetworkJobs networkJobs) { this.networkJobs = networkJobs; }
+
+    private void runNetworkJob(String name, Runnable job) {
+        if (networkJobs == null) job.run();
+        else networkJobs.submit(name, job);
+    }
+
     @Scheduled(fixedDelayString = "${gamestock.news.refresh-ms:600000}", initialDelayString = "${gamestock.news.initial-delay-ms:30000}")
     public void fetchScheduledFeeds() {
-        fetchAllFeeds();
+        runNetworkJob("news-feeds", this::fetchAllFeeds);
     }
 
     private void fetchAllFeeds() {

@@ -414,6 +414,30 @@ class CareerServiceIntegrationTest {
         assertEquals(2, rankings.ranking().size(), "after it the ranking is read again");
     }
 
+    @Test
+    void wealthRankingIsCachedForAFewSeconds() {
+        var millis = new java.util.concurrent.atomic.AtomicLong(1_000_000L);
+        Clock clock = new Clock() {
+            @Override public java.time.ZoneId getZone() { return java.time.ZoneOffset.UTC; }
+            @Override public Clock withZone(java.time.ZoneId zone) { return this; }
+            @Override public java.time.Instant instant() { return java.time.Instant.ofEpochMilli(millis.get()); }
+        };
+        MarketService market = Mockito.mock(MarketService.class);
+        Mockito.when(market.clock()).thenReturn(clock);
+        var rankings = new MarketRankingMissions(market, db);
+        PersonalWallet.ensureRow(db, alice);
+        PersonalWallet.credit(db, alice, "wealth-cache-1", PersonalWallet.BONUS, 100_000, "성과급");
+        assertEquals(1, rankings.wealthRanking().size());
+
+        long bob = user("bob", "GOOGLE", 1_000_000);
+        PersonalWallet.ensureRow(db, bob);
+        PersonalWallet.credit(db, bob, "wealth-cache-2", PersonalWallet.BONUS, 100_000, "성과급");
+        millis.addAndGet(MarketRankingMissions.RANKING_CACHE_MS - 1);
+        assertEquals(1, rankings.wealthRanking().size(), "within the window the same scan is reused");
+        millis.addAndGet(2);
+        assertEquals(2, rankings.wealthRanking().size(), "after it the ranking is read again");
+    }
+
     /** A DataSource that counts every statement prepared or created on its connections. */
     private static javax.sql.DataSource counting(javax.sql.DataSource target, java.util.concurrent.atomic.AtomicInteger counter) {
         return new org.springframework.jdbc.datasource.DelegatingDataSource(target) {

@@ -77,6 +77,9 @@ final class MarketSchema {
         ensureOrderIndex("ix_orders_live_book", "stock_id,status,side,price,created_at,id");
         ensureOrderIndex("ix_orders_expiry", "status,expires_at");
         ensureOrderIndex("ix_orders_user_live", "user_id,status,stock_id");
+        // 사람 주문마다 "최근 N초 안의 내 주문 수"를 세는 조회(주문 빈도·중복 주문 검사)가 쓴다.
+        // 없으면 그 사용자의 전체 주문 이력을 훑으며 계좌·종목 잠금을 오래 쥔다.
+        ensureOrderIndex("ix_orders_user_time", "user_id,created_at");
         // Batch book loads scan OPEN rows in id order, while expiry cleanup
         // filters one stock by its deadline. Keep both paths selective as the
         // Railway order table grows.

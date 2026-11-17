@@ -14,6 +14,8 @@ spring:
     password: "${DB_PASSWORD:${MYSQLPASSWORD:}}"
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
+      # 매칭·영속화 작업자, 스케줄러, HTTP 요청이 함께 쓴다. DB 접속 한도에 맞춰 GAMESTOCK_DB_POOL_SIZE로 조정한다.
+      maximum-pool-size: ${GAMESTOCK_DB_POOL_SIZE:10}
       connection-timeout: 5000
       validation-timeout: 2000
       keepalive-time: 30000

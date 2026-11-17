@@ -403,11 +403,19 @@ public class MarketService {
         events.publishEvent(new MarketChangedEvent());
     }
 
+    /**
+     * 주문 한 건 취소는 그 종목의 호가만 바꾼다. 예전에는 시장 전체 배타 잠금을 잡고 전 종목 호가 캐시를
+     * 무효화했기 때문에, 취소 하나가 모든 종목의 체결을 멈췄다. 지금은 주문 접수와 같은 순서
+     * (시장 공유 잠금 → 종목 행 잠금)로 그 종목만 잠근다.
+     */
     @Transactional
     public synchronized void cancelOrder(long orderId, long userId) {
-        acquireMarketLock();
-        settleDuePayments();
-        expireOrders();
+        List<Long> stock = jdbc.queryForList("SELECT stock_id FROM orders WHERE id = ? AND user_id = ? AND status = 'OPEN'", Long.class, orderId, userId);
+        if (stock.isEmpty()) throw new IllegalArgumentException("취소할 수 있는 미체결 주문이 없습니다.");
+        long stockId = stock.get(0);
+        newBatchRepository().lock(Set.of(stockId));
+        MarketBookCache.invalidate(jdbc, stockId);
+        expireOrders(stockId, null);
         List<OrderReservation> matches = jdbc.query("""
                 SELECT id, user_id, reserved_cash
                 FROM orders
@@ -422,13 +430,23 @@ public class MarketService {
         events.publishEvent(new UserMarketEvent(userId,"ORDER_CANCELLED",Map.of("orderId",orderId,"portfolio",portfolioUnsafe(userId))));
     }
 
-    /** Cancel the complete account order set under the same admission lock as matching. */
+    /**
+     * 계정의 미체결 주문을 모두 취소한다. 주문이 걸린 종목만 주문 접수와 같은 순서로 잠근다.
+     * 잠근 뒤 다른 종목에 새로 들어온 주문은 이번 취소 대상이 아니다.
+     */
     @Transactional
     public int cancelAllOrders(long userId) {
         requireMatchingOwner();
-        acquireMarketLock();
-        long refund = jdbc.queryForObject("SELECT COALESCE(SUM(reserved_cash), 0) FROM orders WHERE user_id = ? AND status = 'OPEN'", Long.class, userId);
-        int cancelled = jdbc.update("UPDATE orders SET status = 'CANCELLED', remaining_quantity = 0, reserved_cash = 0, reserved_quantity = 0 WHERE user_id = ? AND status = 'OPEN'", userId);
+        Set<Long> stocks = new HashSet<>(jdbc.queryForList("SELECT DISTINCT stock_id FROM orders WHERE user_id = ? AND status = 'OPEN'", Long.class, userId));
+        long refund = 0;
+        int cancelled = 0;
+        if (!stocks.isEmpty()) {
+            newBatchRepository().lock(stocks);
+            for (long stock : stocks) MarketBookCache.invalidate(jdbc, stock);
+            String locked = stocks.stream().sorted().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+            refund = jdbc.queryForObject("SELECT COALESCE(SUM(reserved_cash), 0) FROM orders WHERE user_id = ? AND status = 'OPEN' AND stock_id IN (" + locked + ")", Long.class, userId);
+            cancelled = jdbc.update("UPDATE orders SET status = 'CANCELLED', remaining_quantity = 0, reserved_cash = 0, reserved_quantity = 0 WHERE user_id = ? AND status = 'OPEN' AND stock_id IN (" + locked + ")", userId);
+        }
         if (refund > 0) jdbc.update("UPDATE users SET cash = cash + ? WHERE id = ?", refund, userId);
         events.publishEvent(new MarketChangedEvent());
         events.publishEvent(new UserMarketEvent(userId, "ORDER_CANCELLED", Map.of("cancelled", cancelled, "portfolio", portfolioUnsafe(userId))));

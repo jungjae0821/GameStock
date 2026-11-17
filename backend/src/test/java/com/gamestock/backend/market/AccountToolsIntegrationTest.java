@@ -49,7 +49,7 @@ class AccountToolsIntegrationTest {
         db.execute("CREATE TABLE market_price_metrics (stock_id BIGINT PRIMARY KEY, mark_price BIGINT)");
         db.execute("CREATE TABLE derivative_positions(id BIGINT AUTO_INCREMENT PRIMARY KEY,user_id BIGINT,mark_value BIGINT,status VARCHAR(12))");
         db.execute("CREATE TABLE portfolios (id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT, stock_id BIGINT, quantity INT, settled_quantity INT)");
-        db.execute("CREATE TABLE orders (id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT, stock_id BIGINT, side VARCHAR(4), status VARCHAR(10), reserved_cash BIGINT, reserved_quantity INT)");
+        db.execute("CREATE TABLE orders (id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT, stock_id BIGINT, side VARCHAR(4), status VARCHAR(10), reserved_cash BIGINT, reserved_quantity INT, created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3))");
         db.execute("CREATE TABLE settlements (id BIGINT AUTO_INCREMENT PRIMARY KEY, seller_id BIGINT, gross_amount BIGINT, seller_fee BIGINT, status VARCHAR(10))");
         StopOrderService.ensureTables(db);
         AssetHistoryService.ensureTables(db);
@@ -103,6 +103,28 @@ class AccountToolsIntegrationTest {
         StopOrderService.StopOrder created = stops.create(human, request("STOP_LOSS", 9_000, 10));
         assertEquals("GI", created.stockCode());
         assertEquals("ACTIVE", created.status());
+    }
+
+    @Test
+    void firingLeftByACrashIsReconciledWithTheActualOrders() {
+        long unsent = stops.create(human, request("STOP_LOSS", 9_000, 10)).id();
+        long sent = stops.create(human, request("STOP_LOSS", 8_000, 10)).id();
+        long fresh = stops.create(human, request("TAKE_PROFIT", 12_000, 10)).id();
+        // 두 건은 3분 전에 FIRING으로 바뀐 채 멈췄고, 한 건은 방금 FIRING이 됐다.
+        db.update("UPDATE stop_orders SET status = 'FIRING', triggered_at = CURRENT_TIMESTAMP(3) - INTERVAL 3 MINUTE WHERE id IN (?, ?)", unsent, sent);
+        db.update("UPDATE stop_orders SET status = 'FIRING', triggered_at = CURRENT_TIMESTAMP(3) WHERE id = ?", fresh);
+        // sent는 멈추기 전에 매도 주문까지 나갔다.
+        db.update("INSERT INTO orders (user_id, stock_id, side, status, reserved_cash, reserved_quantity, created_at) VALUES (?, ?, 'SELL', 'FILLED', 0, 0, CURRENT_TIMESTAMP(3) - INTERVAL 170 SECOND)", human, gi);
+        db.update("UPDATE stop_orders SET triggered_at = CURRENT_TIMESTAMP(3) - INTERVAL 171 SECOND WHERE id = ?", sent);
+        // unsent는 그 매도 주문보다 뒤에 FIRING이 됐으므로 그 주문은 unsent의 것이 아니다.
+        db.update("UPDATE stop_orders SET triggered_at = CURRENT_TIMESTAMP(3) - INTERVAL 150 SECOND WHERE id = ?", unsent);
+
+        stops.recoverStuck();
+
+        assertEquals("ACTIVE", status(unsent), "주문이 나가지 않았으면 다시 감시한다");
+        assertEquals("TRIGGERED", status(sent), "주문이 나갔으면 다시 팔지 않는다");
+        assertEquals("FIRING", status(fresh), "아직 접수 중일 수 있는 건은 건드리지 않는다");
+        Mockito.verifyNoInteractions(orders);
     }
 
     @Test

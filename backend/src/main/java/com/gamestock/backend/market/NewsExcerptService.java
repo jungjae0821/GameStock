@@ -105,8 +105,23 @@ public class NewsExcerptService {
     }
 
     /** 수집된 소식 중 아직 본문을 풀지 않은 최신 소식을 미리 풀어 둔다. 앞선 차례가 아직 돌고 있으면 건너뛴다. */
+    private com.gamestock.backend.config.NetworkJobs networkJobs;
+
+    /** 손으로 만든 테스트에는 없다. 그때는 예전처럼 호출한 스레드에서 바로 실행한다. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureNetworkJobs(com.gamestock.backend.config.NetworkJobs networkJobs) { this.networkJobs = networkJobs; }
+
+    private void runNetworkJob(String name, Runnable job) {
+        if (networkJobs == null) job.run();
+        else networkJobs.submit(name, job);
+    }
+
     @Scheduled(fixedDelayString = "${gamestock.news.excerpt-prefetch-ms:60000}",
             initialDelayString = "${gamestock.news.excerpt-initial-delay-ms:45000}")
+    public void prefetchScheduled() {
+        runNetworkJob("news-excerpts", this::prefetchPending);
+    }
+
     public void prefetchPending() {
         if (!prefetching.compareAndSet(false, true)) return;
         try {

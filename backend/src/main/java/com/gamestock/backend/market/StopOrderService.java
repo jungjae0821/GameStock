@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.gamestock.backend.market.MarketModels.OrderRequest;
 import static com.gamestock.backend.market.MarketModels.OrderResult;
@@ -28,6 +30,8 @@ public class StopOrderService {
     private static final Logger log = LoggerFactory.getLogger(StopOrderService.class);
     /** 계정당 동시에 걸어 둘 수 있는 감시 주문 수. */
     static final int ACTIVE_LIMIT = 10;
+    /** FIRING이 이보다 오래 남아 있으면 접수 중에 서버가 멈춘 것으로 보고 실제 주문 기록과 맞춘다. */
+    static final int FIRING_STALE_SECONDS = 120;
     private static final String HUMAN_FILTER = "u.password_hash NOT IN ('BOT', 'TRADER') AND COALESCE(u.role, 'USER') <> 'ADMIN'";
 
     public record StopOrder(long id, String stockCode, String kind, long triggerPrice, int quantity, String status,
@@ -40,6 +44,8 @@ public class StopOrderService {
     private final JdbcTemplate jdbc;
     private final MarketService market;
     private final OrderService orders;
+    /** 이 인스턴스에서 지금 주문을 내고 있는 감시 주문. 접수가 오래 걸려도 복구 작업이 건드리지 않는다. */
+    private final Set<Long> inFlight = ConcurrentHashMap.newKeySet();
 
     public StopOrderService(JdbcTemplate jdbc, MarketService market, OrderService orders) {
         this.jdbc = jdbc;
@@ -129,7 +135,16 @@ public class StopOrderService {
     }
 
     void fire(Due order) {
-        if (jdbc.update("UPDATE stop_orders SET status = 'FIRING', triggered_at = CURRENT_TIMESTAMP(3) WHERE id = ? AND status = 'ACTIVE'", order.id()) == 0) return;
+        inFlight.add(order.id());
+        try {
+            if (jdbc.update("UPDATE stop_orders SET status = 'FIRING', triggered_at = CURRENT_TIMESTAMP(3) WHERE id = ? AND status = 'ACTIVE'", order.id()) == 0) return;
+            submit(order);
+        } finally {
+            inFlight.remove(order.id());
+        }
+    }
+
+    private void submit(Due order) {
         Integer available = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(COALESCE(p.settled_quantity, p.quantity)
                   - COALESCE((SELECT SUM(o.reserved_quantity) FROM orders o WHERE o.user_id = p.user_id AND o.stock_id = p.stock_id AND o.side = 'SELL' AND o.status = 'OPEN'), 0)), 0)
@@ -150,6 +165,39 @@ public class StopOrderService {
             Throwable cause = error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
             String message = cause.getMessage() == null ? "주문이 접수되지 않았습니다." : cause.getMessage();
             finish(order.id(), "FAILED", message.length() > 180 ? message.substring(0, 180) : message);
+        }
+    }
+
+    /**
+     * 상태를 FIRING으로 바꾼 뒤 주문을 내거나 결과를 적기 전에 서버가 멈추거나 재배포되면 감시 주문이 FIRING에
+     * 남는다. 그대로 두면 손절이 다시는 실행되지 않으므로, 오래된 FIRING을 실제 주문 기록과 맞춘다.
+     * <ul>
+     *   <li>FIRING 이후 그 종목의 매도 주문이 있으면 이미 낸 것으로 보고 TRIGGERED로 끝낸다(두 번 팔지 않는다).</li>
+     *   <li>없으면 주문이 나가지 않은 것이므로 ACTIVE로 되돌려 다음 감시에서 다시 실행되게 한다.</li>
+     * </ul>
+     */
+    @Scheduled(fixedDelayString = "${gamestock.stop-orders.recover-ms:60000}", initialDelayString = "${gamestock.stop-orders.initial-delay-ms:30000}")
+    public void recoverStuck() {
+        if (!market.ownerAvailable()) return;
+        try {
+            List<Long> stuck = jdbc.queryForList("SELECT id FROM stop_orders WHERE status = 'FIRING' AND triggered_at < CURRENT_TIMESTAMP(3) - INTERVAL "
+                    + FIRING_STALE_SECONDS + " SECOND ORDER BY id LIMIT 50", Long.class);
+            for (long id : stuck) {
+                if (inFlight.contains(id)) continue;
+                // 주문 시각과 감시 시각을 다른 시계가 적었을 수 있어 몇 초 앞까지 본다. 애매하면 팔지 않는 쪽을 고른다.
+                Integer sent = jdbc.queryForObject("""
+                        SELECT COUNT(*) FROM stop_orders s JOIN orders o
+                          ON o.user_id = s.user_id AND o.stock_id = s.stock_id AND o.side = 'SELL'
+                         AND o.created_at >= s.triggered_at - INTERVAL 5 SECOND
+                        WHERE s.id = ?
+                        """, Integer.class, id);
+                if (sent != null && sent > 0)
+                    jdbc.update("UPDATE stop_orders SET status = 'TRIGGERED', message = '시장가 매도를 냈습니다. 체결 결과는 주문 내역에서 확인해 주세요.' WHERE id = ? AND status = 'FIRING'", id);
+                else
+                    jdbc.update("UPDATE stop_orders SET status = 'ACTIVE', triggered_at = NULL, message = '' WHERE id = ? AND status = 'FIRING'", id);
+            }
+        } catch (RuntimeException error) {
+            log.warn("자동 매도 복구에 실패했습니다.", error);
         }
     }
 

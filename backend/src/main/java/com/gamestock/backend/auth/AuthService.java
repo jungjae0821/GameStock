@@ -48,6 +48,31 @@ public class AuthService {
         this.clock = clock;
     }
 
+    private volatile org.springframework.transaction.support.TransactionTemplate accountTransactions;
+
+    /** 스프링이 쓰는 트랜잭션 관리자. 손으로 만든 테스트에서는 비어 있고, 그때는 JdbcTemplate의 DataSource로 만든다. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureTransactions(org.springframework.transaction.PlatformTransactionManager transactions) {
+        this.accountTransactions = new org.springframework.transaction.support.TransactionTemplate(transactions);
+    }
+
+    /**
+     * 계정 읽기·생성·출석 보상을 한 트랜잭션으로 묶는다. Firebase 토큰 확인은 폐기 여부까지 묻는 네트워크 호출이라
+     * 이 밖에서 먼저 끝낸다. 트랜잭션은 시작할 때 DB 연결을 잡으므로, 안에서 확인하면 Firebase가 느린 동안
+     * 요청마다 연결을 하나씩 쥐고 기다려 풀이 바닥난다.
+     */
+    private <T> T inAccountTransaction(java.util.function.Supplier<T> work) {
+        var transactions = accountTransactions;
+        if (transactions == null) {
+            javax.sql.DataSource source = jdbc.getDataSource();
+            if (source == null) return work.get();
+            transactions = new org.springframework.transaction.support.TransactionTemplate(
+                    new org.springframework.jdbc.datasource.DataSourceTransactionManager(source));
+            accountTransactions = transactions;
+        }
+        return transactions.execute(status -> work.get());
+    }
+
     @jakarta.annotation.PostConstruct
     public void initializeMobileCodes() {
         jdbc.execute("""
@@ -102,9 +127,13 @@ public class AuthService {
      * account propagate as server errors instead of looking like an expired login.
      * 이용 정지된 계정은 정지가 풀릴 때까지 모든 개인 기능에서 403을 받는다.
      */
-    @Transactional
     public LoginUser requireUser(String authorization) {
-        LoginUser user = findOrCreate(verifyToken(authorization));
+        FirebaseToken token = verifyToken(authorization);
+        return inAccountTransaction(() -> activeUser(token));
+    }
+
+    private LoginUser activeUser(FirebaseToken token) {
+        LoginUser user = findOrCreate(token);
         requireNotSuspended(user.id());
         return grantAttendanceReward(user);
     }
@@ -113,13 +142,14 @@ public class AuthService {
      * 로그인과 프로필 조회만 정지된 계정에도 열어 둔다. 화면이 정지 기간과 사유를
      * 받아 안내해야 하기 때문이다. 정지 중에는 출석 보상을 주지 않는다.
      */
-    @Transactional
     public LoginUser requireUserAllowingSuspended(String authorization) {
-        LoginUser user = findOrCreate(verifyToken(authorization));
-        return suspension(user.id()) == null ? grantAttendanceReward(user) : user;
+        FirebaseToken token = verifyToken(authorization);
+        return inAccountTransaction(() -> {
+            LoginUser user = findOrCreate(token);
+            return suspension(user.id()) == null ? grantAttendanceReward(user) : user;
+        });
     }
 
-    @Transactional
     public LoginUser login(String authorization) { return requireUserAllowingSuspended(authorization); }
 
     /**
@@ -166,12 +196,15 @@ public class AuthService {
         return new MobileToken(pending.customToken());
     }
 
-    @Transactional
     public LoginUser requireAdmin(String authorization) {
-        LoginUser user = requireUser(authorization);
-        if (!"ADMIN".equalsIgnoreCase(user.role()))
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다.");
-        return user;
+        FirebaseToken token = verifyToken(authorization);
+        // 권한이 없으면 같은 트랜잭션에서 준 출석 보상까지 되돌린다.
+        return inAccountTransaction(() -> {
+            LoginUser user = activeUser(token);
+            if (!"ADMIN".equalsIgnoreCase(user.role()))
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다.");
+            return user;
+        });
     }
 
     private FirebaseToken verifyToken(String authorization) {
