@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { MockBackend, signIn, TEST_USER } from "./mockBackend";
+import { LISTING_BY_CODE, roundToTick } from "../src/market/universe";
 
 /* 발표 시연에서 끊기면 안 되는 흐름: 시세 보기 → 로그인 → 주문 → 결과 안내. 백엔드는 e2e/mockBackend.ts가 대신한다. */
 
@@ -65,6 +66,67 @@ test.describe("로그인 후 주문", () => {
     await ticket.locator("button[type=submit]").click();
 
     await expect(ticket.getByRole("status").last()).toContainText("주문 요청이 너무 잦습니다");
+  });
+
+  test("지정가 매도는 단가와 함께, 주문마다 중복 방지 키를 붙여 보낸다", async ({ page }) => {
+    const backend = await MockBackend.install(page);
+    // 5주를 갖고 있고 그중 4주를 지금 팔 수 있다(1주는 대기 중인 매도).
+    backend.overrides.set("GET /api/portfolio", {
+      status: 200,
+      body: { cash: 1_000_000, positions: [{ stockCode: "GI", quantity: 5, averagePrice: 200_000, availableQuantity: 4 }], realizedProfitLoss: 0 },
+    });
+    await signIn(page, "/market/GI");
+    await expect(page).toHaveURL(/\/market\/GI/);
+
+    const ticket = page.getByRole("form", { name: "주문 입력" });
+    await ticket.getByRole("button", { name: "매도", exact: true }).click();
+    await ticket.getByRole("button", { name: "지정가" }).click();
+    const price = roundToTick(LISTING_BY_CODE.GI.prevClose);
+    await ticket.getByRole("spinbutton", { name: "단가" }).fill(String(price));
+    await ticket.getByRole("spinbutton", { name: "수량" }).fill("3");
+    await ticket.locator("button[type=submit]").click();
+    await expect(ticket.getByRole("status").last()).toContainText("3주 매도 주문이 접수됐어요");
+
+    await ticket.getByRole("spinbutton", { name: "수량" }).fill("1");
+    await ticket.locator("button[type=submit]").click();
+    await expect.poll(() => backend.orders.length).toBe(2);
+
+    expect(backend.orders[0]).toEqual(expect.objectContaining({ stockCode: "GI", side: "sell", quantity: 3, orderType: "LIMIT", price }));
+    expect(backend.orderKeys[0]).toMatch(/^[0-9a-f-]{36}$/);
+    // 결과가 확정된 뒤의 다음 주문은 새 키를 쓴다.
+    expect(backend.orderKeys[1]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(backend.orderKeys[1]).not.toBe(backend.orderKeys[0]);
+  });
+
+  test("가격 제한폭 밖 지정가는 서버로 보내지 않고 이유를 보여 준다", async ({ page }) => {
+    const backend = await MockBackend.install(page);
+    await signIn(page, "/market/GI");
+    await expect(page).toHaveURL(/\/market\/GI/);
+
+    const ticket = page.getByRole("form", { name: "주문 입력" });
+    await ticket.getByRole("button", { name: "지정가" }).click();
+    await ticket.getByRole("spinbutton", { name: "단가" }).fill(String(roundToTick(LISTING_BY_CODE.GI.prevClose * 2)));
+    await ticket.getByRole("spinbutton", { name: "수량" }).fill("1");
+    await expect(ticket.getByText(/오늘 주문할 수 있는 가격은/).first()).toBeVisible();
+    await ticket.locator("button[type=submit]").click();
+
+    await expect(ticket.getByRole("status").last()).toContainText("오늘 주문할 수 있는 가격은");
+    expect(backend.orders).toEqual([]);
+  });
+});
+
+test.describe("로그인 후 돌아가기", () => {
+  test("로그인이 필요한 화면에서 로그인하면 그 화면으로 돌아간다", async ({ page }) => {
+    await MockBackend.install(page);
+    // 예전에는 허용 목록에 없던 화면이라 로그인 뒤 홈으로 갔다.
+    await signIn(page, "/career");
+    await expect(page).toHaveURL(/\/career$/);
+  });
+
+  test("다른 사이트 주소는 돌아갈 곳으로 받지 않는다", async ({ page }) => {
+    await MockBackend.install(page);
+    await signIn(page, "//evil.example/steal");
+    await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
   });
 });
 
