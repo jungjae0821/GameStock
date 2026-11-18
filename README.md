@@ -599,7 +599,7 @@ Set-Location backend
 mvn verify
 ```
 
-실제 MySQL이 필요한 통합 테스트는 기본으로 건너뜁니다. 버려도 되는 MySQL을 `127.0.0.1:13367`에 띄우고(root, 비밀번호 없음) 아래처럼 실행합니다. 테스트는 매번 임시 스키마를 만들고 끝나면 지웁니다. CI는 여기에 `-Dloan.test.jdbc`, `ADMIN_TEST_JDBC`, `-Dmarket.activity=true`까지 넘겨 통합 테스트를 모두 돌립니다.
+실제 MySQL이 필요한 통합 테스트는 기본으로 건너뜁니다. 버려도 되는 MySQL을 `127.0.0.1:13367`에 띄우고(root, 비밀번호 없음) 아래처럼 실행합니다. 테스트는 매번 임시 스키마를 만들고 끝나면 지웁니다. CI는 여기에 `-Dloan.test.jdbc`, `-Dcareer.test.jdbc`, `ADMIN_TEST_JDBC`, `-Dmarket.activity=true`까지 넘겨 통합 테스트를 모두 돌립니다.
 
 ```powershell
 mvn test "-Dmarket.test.jdbc=jdbc:mysql://127.0.0.1:13367/?useSSL=false&allowPublicKeyRetrieval=true"

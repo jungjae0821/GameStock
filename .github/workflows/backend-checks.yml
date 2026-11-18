@@ -52,7 +52,10 @@ jobs:
           mvn --batch-mode --no-transfer-progress
           '-Dmarket.test.jdbc=jdbc:mysql://127.0.0.1:13367/?allowPublicKeyRetrieval=true&useSSL=false&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true'
           '-Dloan.test.jdbc=jdbc:mysql://127.0.0.1:13367/?allowPublicKeyRetrieval=true&useSSL=false&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true'
-          -Dloan.test.user=root -Dloan.test.password= -Dmarket.activity=true verify
+          -Dloan.test.user=root -Dloan.test.password=
+          '-Dcareer.test.jdbc=jdbc:mysql://127.0.0.1:13367/?allowPublicKeyRetrieval=true&useSSL=false&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true'
+          -Dcareer.test.user=root -Dcareer.test.password=
+          -Dmarket.activity=true verify
 
       - name: Start the built app and pass the readiness check
         # 테스트는 앱 전체를 조립하지 않는다. 운영과 같은 JAR를 실제로 띄워 배포 준비 검사를 미리 통과시킨다.
