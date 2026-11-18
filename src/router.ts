@@ -12,6 +12,8 @@ export type Route =
   | { name: "ranking" }
   | { name: "talk"; code: string | null }
   | { name: "apiDocs" }
+  | { name: "terms" }
+  | { name: "privacy" }
   | { name: "mypage" }
   | { name: "settings" }
   | { name: "charge" }
@@ -72,6 +74,8 @@ function parse(pathname: string): Route {
   if (parts[0] === "tap") return parts.length <= 2 ? { name: "tap", code: parts[1]?.toUpperCase() ?? null } : { name: "notFound" };
   if (parts[0] === "ranking") return { name: "ranking" };
   if (parts[0] === "talk") return parts.length <= 2 ? { name: "talk", code: parts[1]?.toUpperCase() ?? null } : { name: "notFound" };
+  if (parts[0] === "terms") return parts.length === 1 ? { name: "terms" } : { name: "notFound" };
+  if (parts[0] === "privacy") return parts.length === 1 ? { name: "privacy" } : { name: "notFound" };
   if (parts[0] === "api-docs") return parts.length === 1 ? { name: "apiDocs" } : { name: "notFound" };
   if (parts[0] === "mypage") return { name: "mypage" };
   if (parts[0] === "settings") return { name: "settings" };
@@ -132,6 +136,8 @@ export function navigate(to: string, options: { replace?: boolean } = {}): void 
 }
 
 export const API_DOCS_PATH = "/api-docs";
+export const TERMS_PATH = "/terms";
+export const PRIVACY_PATH = "/privacy";
 export const HEATMAP_PATH = "/heatmap";
 export const MARKET_PATH = (ticker: string | null): string => (ticker ? `/market/${ticker}` : "/market");
 export const ETF_PATH = (ticker: string | null = null): string => (ticker ? `/market/etf/${ticker}` : "/market/etf");

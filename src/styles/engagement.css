@@ -209,6 +209,12 @@ p.nx-alert-body { padding-right: 18px; cursor: default; }
   html[data-app-shell="web"][data-nx] .nx-alert-toast.is-impact { bottom: calc(var(--nx-tabbar, 64px) + 76px); }
 }
 
+/* 휴대폰 거래 화면에는 탭바 위에 「주문하기」 막대(버튼 48px + 위아래 12px)가 더 있다. 알림이 그 버튼을 덮지 않게 그만큼 올린다. */
+@media (max-width: 960px) {
+  html[data-app-shell="web"][data-nx]:has(.nx-mobile-order) .nx-alert-toast { bottom: calc(var(--nx-tabbar, 0px) + 84px); }
+  html[data-app-shell="web"][data-nx]:has(.nx-mobile-order) .nx-alert-toast.is-impact { bottom: calc(var(--nx-tabbar, 0px) + 148px); }
+}
+
 /* 제목 아래 설명이 붙는 머리. 기본 머리는 제목과 링크를 한 줄에 둔다. */
 .nx-panel-head.is-stacked { display: grid; justify-content: start; gap: 6px; }
 .nx-panel-head.is-stacked p { margin: 0; font-size: 13px; line-height: 1.6; }

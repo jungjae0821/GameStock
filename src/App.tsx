@@ -28,6 +28,7 @@ import { NxRankingPage } from "./next/pages/NxRankingPage";
 import { NxSettingsPage } from "./next/pages/NxSettingsPage";
 import { NxTitlesPage } from "./next/pages/NxTitlesPage";
 import { NxAttendancePage } from "./next/pages/NxAttendancePage";
+import { LegalFooter } from "./next/LegalFooter";
 import type { Route } from "./router";
 import { MarketAlerts, OrderImpactToast } from "./next/engagement/LiveBoards";
 
@@ -41,6 +42,7 @@ const NxQuantPage = lazy(() => import("./next/pages/NxQuantPage").then((module) 
 const NxDerivativesPage = lazy(() => import("./next/pages/NxDerivativesPage").then((module) => ({ default: module.NxDerivativesPage })));
 const NxBillboardPage = lazy(() => import("./next/pages/NxBillboardPage").then((module) => ({ default: module.NxBillboardPage })));
 const NxTapPage = lazy(() => import("./next/pages/NxTapPage").then((module) => ({ default: module.NxTapPage })));
+const NxLegalPage = lazy(() => import("./next/pages/NxLegalPage").then((module) => ({ default: module.NxLegalPage })));
 const NxTalkPage = lazy(() => import("./next/pages/NxTalkPage").then((module) => ({ default: module.NxTalkPage })));
 
 function titleFor(route: Route): string {
@@ -63,6 +65,8 @@ function titleFor(route: Route): string {
   if (route.name === "ranking") return "투자 랭킹 · 슈엔증권";
   if (route.name === "talk") return `${route.code ? `${LISTING_BY_CODE[route.code]?.name ?? route.code} · ` : ""}종목토론 · 슈엔증권`;
   if (route.name === "apiDocs") return "OpenAPI · 슈엔증권";
+  if (route.name === "terms") return "이용약관 · 슈엔증권";
+  if (route.name === "privacy") return "개인정보처리방침 · 슈엔증권";
   if (route.name === "mypage") return "내 계좌 · 슈엔증권";
   if (route.name === "settings") return "설정 · 슈엔증권";
   if (route.name === "titles") return "칭호 설정 · 슈엔증권";
@@ -140,6 +144,7 @@ export default function App() {
         {route.name === "ranking" && <NxRankingPage />}
         {route.name === "talk" && <NxTalkPage code={route.code} />}
         {route.name === "apiDocs" && <NxApiDocsPage />}
+        {(route.name === "terms" || route.name === "privacy") && <NxLegalPage doc={route.name} />}
         {PRIVATE_ROUTES.has(route.name) && !auth.user && (auth.ready ? (
           /* 로그인 창을 닫아도 이 화면에서 다시 열 수 있게 한다. */
           <section className="nx-gate">
@@ -175,6 +180,8 @@ export default function App() {
         </>}
         </Suspense>
         </ErrorBoundary>
+        {/* 거래 터미널은 화면 높이를 꽉 채우는 작업대라 바닥글을 붙이지 않는다. 앱 안 WebView 화면에는 붙이지 않는다. */}
+        {!terminal && !inAppShell && route.name !== "login" && <LegalFooter />}
       </main>
       <NxTabbar route={route} />
       {/* 알림·토스트·대화상자가 고장 나도 본문까지 지워지지 않게, 이 영역은 조용히 빠진다. */}
