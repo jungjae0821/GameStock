@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -87,9 +88,12 @@ final class MarketRankingMissions {
         return (clock == null ? Clock.systemUTC() : clock).millis();
     }
 
+    private static final int RANKING_LIMIT = 100;
+    private record RankedRow(int gradeLevel, long userId, RankingEntry entry) {}
+
     private List<RankingEntry> loadRanking() {
         Map<Long,Long> externalCash=market.adminRuntime()==null?Map.of():market.adminRuntime().externalCash();
-        List<RankingEntry> entries = jdbc.query("""
+        List<RankedRow> rows = new ArrayList<>(jdbc.query("""
                 SELECT u.id, u.nickname, u.profile_image_url, u.cash, u.loan_balance,
                        COALESCE((SELECT SUM(o.reserved_cash) FROM orders o WHERE o.user_id = u.id AND o.status = 'OPEN'), 0) AS reserved_cash,
                        COALESCE((SELECT SUM(st.gross_amount - st.seller_fee) FROM settlements st WHERE st.seller_id = u.id AND st.status = 'PENDING'), 0) AS unsettled_cash,
@@ -110,11 +114,6 @@ final class MarketRankingMissions {
                 LEFT JOIN market_price_metrics pm ON pm.stock_id = s.id
                 WHERE\s""" + HUMAN_RANKED + """
                 GROUP BY u.id, u.nickname, u.profile_image_url, u.cash, u.loan_balance, c.grade, c.grade_base, c.outside_cash, c.legacy, c.migrated_at, c.personal_cash
-                ORDER BY grade_level DESC,
-                  (u.cash + reserved_cash + unsettled_cash + asset_value + derivative_value - u.loan_balance - COALESCE(c.outside_cash, 0) - COALESCE(c.grade_base, 1000000))
-                    / GREATEST(COALESCE(c.grade_base, 1000000), 1) DESC,
-                  u.id ASC
-                LIMIT 100
                 """, (rs, row) -> {
             long assetValue = rs.getLong("asset_value");
             long cash = rs.getLong("cash");
@@ -136,10 +135,16 @@ final class MarketRankingMissions {
             // Rows saved before image validation may hold arbitrary URLs; never expose them to other viewers.
             String image = com.gamestock.backend.auth.ProfileImages.sanitize(rs.getString("profile_image_url"));
             TitleService.TitleDefinition title = TitleService.definition(rs.getString("equipped_title"));
-            return new RankingEntry(0, rs.getString("nickname"), image.isEmpty() ? null : image, totalAsset, assetValue, cash, changePercent,
+            return new RankedRow(rs.getInt("grade_level"), rs.getLong("id"), new RankingEntry(0, rs.getString("nickname"), image.isEmpty() ? null : image, totalAsset, assetValue, cash, changePercent,
                     title == null ? null : TitleService.displayName(title, rs.getInt("equipped_count")), title != null && title.weekly(),
-                    waiting ? null : grade.name(), waiting ? null : grade.label, rs.getLong("personal_cash"));
-        });
+                    waiting ? null : grade.name(), waiting ? null : grade.label, rs.getLong("personal_cash")));
+        }));
+        // 화면에 보이는 수익률로 줄을 세운다. SQL에서 따로 계산하면 이전 대기 회원의 출석·미션 보상과
+        // 외부 입금이 정렬에만 섞여, 표시된 수익률과 순서가 어긋난다.
+        rows.sort(Comparator.comparingInt(RankedRow::gradeLevel).reversed()
+                .thenComparing(Comparator.comparingDouble((RankedRow r) -> r.entry().changePercent()).reversed())
+                .thenComparingLong(RankedRow::userId));
+        List<RankingEntry> entries = rows.stream().limit(RANKING_LIMIT).map(RankedRow::entry).toList();
         List<RankingEntry> ranked = new ArrayList<>(entries.size());
         for (int index = 0; index < entries.size(); index++) {
             RankingEntry entry = entries.get(index);
