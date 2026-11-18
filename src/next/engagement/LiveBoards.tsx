@@ -6,7 +6,7 @@ import { LISTING_BY_CODE } from "../../market/universe";
 import { compactWon, rate, won } from "../../market/format";
 import { GameIcon } from "../../components/GameIcon";
 import { Link } from "../../components/Link";
-import { MARKET_PATH, NEWS_PATH, navigate } from "../../router";
+import { MARKET_PATH, NEWS_PATH, navigate, useRoute } from "../../router";
 
 const SEEN_ALERTS = "gamestock-alerts-seen";
 const BIG_NEWS = 0.03;
@@ -120,7 +120,7 @@ export function HomeFandoms() {
   );
 }
 
-type Alert = { key: string; tone: "whale" | "news"; title: string; body: string; to: string };
+type Alert = { key: string; code: string; tone: "whale" | "news"; title: string; body: string; to: string };
 
 function readSeen(): Set<string> {
   try { return new Set(JSON.parse(sessionStorage.getItem(SEEN_ALERTS) ?? "[]") as string[]); } catch { return new Set(); }
@@ -132,6 +132,9 @@ function readSeen(): Set<string> {
  */
 export function MarketAlerts() {
   const snapshot = useMarket();
+  const route = useRoute();
+  /* 거래 터미널에서는 다른 종목 알림이 차트·주문 버튼을 가리고 눈을 뺏는다. 보고 있는 종목 알림만 띄운다. */
+  const focusCode = route.name === "trade" || route.name === "market" ? route.ticker : null;
   const feed = useFeed(20_000).data;
   const [queue, setQueue] = useState<Alert[]>([]);
   const seen = useRef<Set<string>>(readSeen());
@@ -142,13 +145,16 @@ export function MarketAlerts() {
     fresh.forEach((alert) => seen.current.add(alert.key));
     try { sessionStorage.setItem(SEEN_ALERTS, JSON.stringify([...seen.current].slice(-200))); } catch { /* 이번 화면에서만 기억 */ }
     if (!primed.current[prime]) { primed.current[prime] = true; return; }
-    if (fresh.length) setQueue((current) => [...current, ...fresh].slice(-3));
+    /* 터미널에서 걸러 낸 다른 종목 알림은 나중에 뒤늦게 뜨지 않게 아예 쌓지 않는다. */
+    const wanted = focusCode ? fresh.filter((alert) => alert.code === focusCode) : fresh;
+    if (wanted.length) setQueue((current) => [...current, ...wanted].slice(-3));
   };
 
   useEffect(() => {
     if (!feed) return;
     push(feed.filter((item) => item.whale).map((item) => ({
       key: `whale:${item.id}:${item.side}`,
+      code: item.stockCode,
       tone: "whale",
       title: "고래 등장",
       body: `${item.nickname ?? "누군가"}님이 ${LISTING_BY_CODE[item.stockCode]?.name ?? item.name}을 ${compactWon(item.amount)}어치 ${item.side === "BUY" ? "샀어요" : "팔았어요"}`,
@@ -161,6 +167,7 @@ export function MarketAlerts() {
     if (!snapshot.news.length) return;
     push(snapshot.news.filter((news) => Math.abs(news.priceChangeRatio ?? 0) >= BIG_NEWS).map((news) => ({
       key: `news:${news.id}`,
+      code: news.code,
       tone: "news",
       title: `${LISTING_BY_CODE[news.code]?.name ?? news.code} ${rate(news.priceChangeRatio ?? 0)}`,
       body: news.title,
@@ -169,21 +176,23 @@ export function MarketAlerts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot.news]);
 
-  const current = queue[0];
+  const visible = focusCode ? queue.filter((alert) => alert.code === focusCode) : queue;
+  const current = visible[0];
+  const dismiss = () => setQueue((list) => list.filter((alert) => alert !== current));
   useEffect(() => {
     if (!current) return;
-    const timer = window.setTimeout(() => setQueue((list) => list.slice(1)), 6_000);
+    const timer = window.setTimeout(() => setQueue((list) => list.filter((alert) => alert !== current)), 6_000);
     return () => window.clearTimeout(timer);
   }, [current]);
 
   if (!current) return null;
   return (
     <div className={`nx-alert-toast is-${current.tone}`} role="status" aria-live="polite">
-      <button type="button" className="nx-alert-body" onClick={() => { navigate(current.to); setQueue((list) => list.slice(1)); }}>
+      <button type="button" className="nx-alert-body" onClick={() => { navigate(current.to); dismiss(); }}>
         <strong>{current.title}</strong>
         <span>{current.body}</span>
       </button>
-      <button type="button" className="nx-alert-close" aria-label="알림 닫기" onClick={() => setQueue((list) => list.slice(1))}>
+      <button type="button" className="nx-alert-close" aria-label="알림 닫기" onClick={dismiss}>
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
       </button>
     </div>
