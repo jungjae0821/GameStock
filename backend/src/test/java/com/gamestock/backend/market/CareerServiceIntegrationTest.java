@@ -370,6 +370,27 @@ class CareerServiceIntegrationTest {
     }
 
     @Test
+    void traderRankingOrdersWaitingMembersByTheReturnItShows() {
+        long bob = user("bob", "GOOGLE", 1_100_000);
+        long carol = user("carol", "GOOGLE", 1_000_000);
+        PersonalWallet.ensureRow(db, bob);
+        PersonalWallet.ensureRow(db, carol);
+        db.update("UPDATE career_state SET legacy = TRUE WHERE user_id IN (?, ?)", bob, carol);
+        // bob의 110만 원 중 15만 원은 출석 보상이라 투자 수익률은 −5%다.
+        db.update("INSERT INTO attendance_rewards (user_id, rewarded_on, streak_day, reward_cash) VALUES (?, '2026-11-01', 3, 150000)", bob);
+        MarketService market = Mockito.mock(MarketService.class);
+        var rankings = new MarketRankingMissions(market, db);
+
+        var waiting = rankings.ranking().stream().filter(entry -> entry.gradeLabel() == null).toList();
+
+        assertEquals(java.util.List.of("carol", "bob"), waiting.stream().map(MarketModels.RankingEntry::nickname).toList(),
+                "a reward-padded balance must not lift a member above one with a better shown return");
+        assertEquals(0.0, waiting.get(0).changePercent(), 1e-9);
+        assertEquals(-5.0, waiting.get(1).changePercent(), 1e-9);
+        assertTrue(waiting.get(0).rank() < waiting.get(1).rank());
+    }
+
+    @Test
     void careerAndReviewStayCheapOnTheHotPaths() {
         staff(alice, 3_000_000);
         fills(alice, 5, 30);
