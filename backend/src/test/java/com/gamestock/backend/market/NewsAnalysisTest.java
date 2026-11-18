@@ -28,6 +28,25 @@ class NewsAnalysisTest {
     }
 
     @Test
+    void personalBlogsAreNotMarketNews() {
+        // 2026-11 실제 피드에 섞여 들어온 블로그 글. 출처 칸과 제목 끝 출처 둘 다 본다.
+        assertTrue(NewsRelevance.isPersonalPublication("티스토리", "오버워치 일리아리, 왜 인기가 없을까? 유저들이 꼽은 장단점 - 티스토리"));
+        assertTrue(NewsRelevance.isPersonalPublication("", "니케 덱 추천 정리 - 네이버 블로그"));
+        assertTrue(NewsRelevance.isPersonalPublication("brunch", "원신 플레이 후기"));
+        assertFalse(NewsRelevance.isPersonalPublication("인벤", "쿠키런: 킹덤, 종언의 천사 업데이트 진행 - 인벤"));
+        // 기사 본문이나 제목에 "블로그"가 나와도 출처가 언론사면 기사다.
+        assertFalse(NewsRelevance.isPersonalPublication("게임메카", "개발자 블로그로 본 명조 2.0 - 게임메카"));
+        assertFalse(NewsRelevance.isPersonalPublication(null, "블루 아카이브 신규 학생 공개"));
+    }
+
+    @Test
+    void localEducationEventsAreNotGameNews() {
+        assertFalse(NewsRelevance.isRelevant("VR",
+                "서산시 청소년 대상 e스포츠 진로특강 'E-Learn 스포츠(발로란트)' 성료 - 충남도민일보", "", "충남도민일보"));
+        assertTrue(NewsRelevance.isRelevant("VR", "발로란트 VCT 퍼시픽 결승 개최", "e스포츠 대회 일정", ""));
+    }
+
+    @Test
     void incidentContextIsSharedWithMajorNewsRule() {
         assertTrue(NewsRelevance.hasIncidentContext("니케 개인정보 유출 사건사고"));
         assertTrue(NewsRelevance.hasIncidentContext("블루 아카이브 서버 장애"));

@@ -34,7 +34,15 @@ final class NewsRelevance {
     // Unrelated sites observed publishing game-keyword SEO articles in RSS.
     private static final List<String> UNRELATED_SOURCES = List.of(
             "calgary roughnecks", "histoire pour tous");
+    /**
+     * 개인 블로그·카페 글. Google News가 기사처럼 섞어 보내지만 개인 의견이라 시장 뉴스로 쓰지 않는다.
+     * 출처 이름(또는 제목 끝의 " - 출처")에만 맞춰 본다. 본문에 "블로그"가 나오는 기사까지 빼면 안 된다.
+     */
+    private static final List<String> PERSONAL_PUBLICATIONS = List.of(
+            "티스토리", "tistory", "블로그", "blog", "브런치", "brunch", "velog", "medium", "카페", "cafe", "포스타입", "postype");
     private static final List<String> OFF_TOPIC_CONTEXT = List.of(
+            // 지역 학교·기관 행사(e스포츠 진로특강 등)는 종목 이름이 들어가도 게임 가치와 무관하다.
+            "진로특강", "진로 특강", "진로체험", "진로 체험", "진로교육", "진로 교육", "교육청", "청소년 대상",
             "부동산", "정치", "선거", "국회", "외교", "야구", "축구", "농구", "배구", "골프",
             "테니스", "경마", "주식", "증시", "주가", "채권", "금리", "코인", "가상자산",
             "보드게임", "보드 게임", "calgary", "roughnecks", "nhl", "nfl", "nba", "mlb");
@@ -105,6 +113,16 @@ final class NewsRelevance {
         // Terms such as "경마" can be valid for one game but require both a
         // general game signal and a title-specific signal to avoid false hits.
         return commonSignals > 0 && specificSignals > 0;
+    }
+
+    /** 출처가 개인 블로그·카페인가. Google News 제목은 끝에 " - 출처"를 붙이므로 출처 칸이 비어도 제목으로 본다. */
+    static boolean isPersonalPublication(String sourceName, String title) {
+        String source = sourceName == null ? "" : sourceName;
+        if (source.isBlank() && title != null) {
+            int dash = title.lastIndexOf(" - ");
+            if (dash >= 0) source = title.substring(dash + 3);
+        }
+        return !source.isBlank() && containsAny(normalize(source), PERSONAL_PUBLICATIONS);
     }
 
     /** Reuses the same incident vocabulary for major-news price shocks. */

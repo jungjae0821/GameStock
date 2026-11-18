@@ -240,6 +240,10 @@ public class NewsFeedService {
         List<NewsItem> items = parseItems(response.body());
         int saved = 0;
         for (NewsItem item : items) {
+            if (NewsRelevance.isPersonalPublication(item.sourceName(), item.title())) {
+                log.debug("개인 블로그·카페 글 제외: 종목={}, 제목={}", stockCode, item.title());
+                continue;
+            }
             if (!NewsRelevance.isRelevant(stockCode, item.title(), item.description(), item.sourceName())) {
                 log.debug("관련성 낮은 뉴스 제외: 종목={}, 제목={}", stockCode, item.title());
                 continue;
