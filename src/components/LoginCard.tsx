@@ -6,7 +6,7 @@ import { firebaseAuth, googleProvider } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
 import { authErrorMessage, loginPath, safeReturnPath, useAuthUser } from "../lib/auth";
 import { mobileReturnTarget } from "../lib/mobileReturn";
-import { MARKET_PATH, navigate, type LoginMethod } from "../router";
+import { MARKET_PATH, PRIVACY_PATH, TERMS_PATH, navigate, type LoginMethod } from "../router";
 
 const TITLES: Record<LoginMethod, string> = {
   choose: "로그인", google: "Google 로그인", email: "이메일 로그인", register: "이메일로 회원가입", reset: "비밀번호 찾기",
@@ -19,6 +19,13 @@ const DESCRIPTIONS: Record<LoginMethod, string> = {
   register: "이메일과 비밀번호로 새 계정을 만듭니다.",
   reset: "가입할 때 사용한 이메일을 입력해 주세요.",
 };
+
+/* 로그인 중인 화면(모달)을 잃지 않게 약관은 새 탭으로 연다. */
+const LegalLinks = () => (
+  <>
+    <a href={TERMS_PATH} target="_blank" rel="noopener">이용약관</a>과 <a href={PRIVACY_PATH} target="_blank" rel="noopener">개인정보처리방침</a>
+  </>
+);
 
 /** Google 브랜드 4색 G 아이콘(장식). */
 function GoogleIcon() {
@@ -50,6 +57,7 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [nativeWaiting, setNativeWaiting] = useState(false);
   const [error, setError] = useState("");
@@ -147,6 +155,10 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
   const submitEmail = async () => {
     setError("");
     setNotice("");
+    if (method === "register" && !agreed) {
+      setError("만 14세 이상인지, 약관에 동의하는지 확인해 주세요.");
+      return;
+    }
     if (method === "register" && password !== confirmPassword) {
       setError("비밀번호 확인이 일치하지 않습니다.");
       return;
@@ -247,8 +259,17 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
                   {method === "register" && <div className="login-field"><label htmlFor="login-password-confirm">비밀번호 확인</label><input id="login-password-confirm" type={showPassword ? "text" : "password"} autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} disabled={busy} /></div>}
                 </>
               )}
+              {method === "register" && (
+                <label className="login-consent">
+                  <input type="checkbox" required checked={agreed} onChange={(event) => setAgreed(event.target.checked)} disabled={busy} />
+                  <span>만 14세 이상이며, <LegalLinks />에 동의합니다. (필수)</span>
+                </label>
+              )}
               <button type="submit" className="login-button is-primary" disabled={busy}>{busy ? "처리 중…" : method === "register" ? "회원가입" : method === "reset" ? "재설정 메일 받기" : "로그인"}</button>
             </form>
+          )}
+          {(method === "choose" || method === "google") && (
+            <p className="login-legal">처음 로그인하면 계정이 만들어져요. 계속하면 만 14세 이상이며 <LegalLinks />에 동의한 것으로 봐요.</p>
           )}
           {method === "email" && <nav className="login-links" aria-label="이메일 계정 도움말">{methodLink("register", "이메일로 회원가입")}{methodLink("reset", "비밀번호 찾기")}</nav>}
           {(method === "register" || method === "reset") && methodLink("email", "이메일 로그인으로 돌아가기", "login-back")}

@@ -707,7 +707,7 @@ endpoints.json             운영 API 주소의 단일 기준
 - [OCI 운영과 복구](docs/oci-operations.md)
 - [Discord 감시](docs/discord-monitoring.md)
 - [관리자 API](backend/ADMIN_API.md)
-- [개인정보처리방침 초안](docs/legal/privacy-policy.md), [이용약관 초안](docs/legal/terms-of-service.md)
+- [개인정보처리방침](docs/legal/privacy-policy.md), [이용약관](docs/legal/terms-of-service.md)
 - [제품 방향](PRODUCT.md), [디자인 시스템](DESIGN.md)
 
 ---
