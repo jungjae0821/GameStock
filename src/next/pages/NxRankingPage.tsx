@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useAuthUser } from "../../lib/auth";
 import { RankingAvatar } from "../../components/RankingAvatar";
 import { titleInkStyle } from "../../lib/titles";
@@ -75,6 +75,9 @@ function Board({ label, changeLabel, valueLabel = "총 자산", children }: { la
   );
 }
 
+/* 직급 코드가 없는 예전 캐시 응답도 몇 초 동안 그려지므로 직급 이름으로도 묶는다. */
+const gradeGroup = (entry: RankingEntry) => entry.grade ?? entry.gradeLabel ?? "TRAINEE";
+
 function TotalBoard() {
   const { data, loading, error } = usePolledRanking<RankingEntry[]>("/api/ranking", RANKING_CACHE_KEY, (() => {
     const cached = readRankingCache();
@@ -87,8 +90,23 @@ function TotalBoard() {
   if (rows.length === 0) return <p className="nx-empty-state">아직 랭킹에 참여한 사용자가 없어요.</p>;
   return (
     <>
-      <Board label="트레이더 랭킹" changeLabel="직급 수익률" valueLabel="운용 자산">
-        {rows.map((entry) => <RankRow key={`${entry.rank}-${entry.nickname}`} entry={entry} percent={entry.changePercent} grade={entry.gradeLabel} />)}
+      <Board label="트레이더 랭킹" changeLabel="직급 내 수익률" valueLabel="운용 자산">
+        {rows.map((entry, index) => {
+          /* 수익률이 높아도 직급이 낮으면 아래에 있어 순서가 틀려 보인다. 직급이 바뀌는 곳마다 구분 줄을 넣는다.
+             커리어 이전을 기다리는 회원은 서버가 수습과 같은 묶음으로 매긴다. */
+          const group = gradeGroup(entry);
+          const opensGroup = index === 0 || gradeGroup(rows[index - 1]) !== group;
+          return (
+            <Fragment key={`${entry.rank}-${entry.nickname}`}>
+              {opensGroup && (
+                <tr className="nx-rank-group">
+                  <th scope="rowgroup" colSpan={4}>{group === "TRAINEE" ? "수습 · 커리어 시작 전" : entry.gradeLabel}</th>
+                </tr>
+              )}
+              <RankRow entry={entry} percent={entry.changePercent} grade={entry.gradeLabel} />
+            </Fragment>
+          );
+        })}
       </Board>
       <p className="nx-rank-note">높은 직급이 먼저이고, 같은 직급끼리는 지금 직급을 시작할 때 자산 대비 수익률로 매겨요. 운용 자산은 회사가 맡긴 돈이라 순위에 쓰지 않아요.</p>
     </>

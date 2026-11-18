@@ -171,6 +171,8 @@ html[data-nx-theme="light"] .has-title-ink[style*="--title-ink"] { color: color-
 .nx-player-me { margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--brand); color: var(--brand-ink); font-size: 11px; vertical-align: 1px; }
 .nx-rank-gap td { height: 24px; }
 .nx-rank-gap span { display: block; border-top: 1px dashed var(--nx-line); }
+.nx-rank-group th { padding: 20px 0 8px; border-bottom: 1px solid var(--nx-line); color: var(--ink-muted); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; text-align: left; }
+.nx-rank-group:first-child th { padding-top: 8px; }
 .nx-week-figures { padding: 20px 0 24px; border-bottom: 1px solid var(--nx-line); }
 .nx-rank-note { margin: 20px 0 0; color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
 .nx-rank-loading { padding: 16px 0; }
