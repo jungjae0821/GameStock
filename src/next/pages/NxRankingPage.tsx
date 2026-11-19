@@ -10,7 +10,6 @@ import {
 import { AnimatedNav } from "../AnimatedNav";
 import { FandomBoard, ProfileButton, PublicProfileDialog, SeasonBoard } from "../engagement/RankingBoards";
 import { usePublicNicknames } from "../../lib/engagement";
-import { AiBadge } from "../engagement/AiBadge";
 
 type Row = Omit<RankingEntry, "changePercent">;
 
@@ -46,7 +45,7 @@ function RankRow({ entry, percent = 0, mine = false, middle, value, grade }: {
             <ProfileButton nickname={entry.nickname} open={publicNames.has(entry.nickname)}>
               <span className="nx-player-name" title={entry.nickname}>
                 {grade && <span className="nx-player-grade">{grade}</span>}
-                {entry.nickname}<AiBadge nickname={entry.nickname} />{mine && <span className="nx-player-me">나</span>}
+                {entry.nickname}{mine && <span className="nx-player-me">나</span>}
               </span>
             </ProfileButton>
           </span>
@@ -76,8 +75,10 @@ function Board({ label, changeLabel, valueLabel = "총 자산", children }: { la
   );
 }
 
-/* 직급 코드가 없는 예전 캐시 응답도 몇 초 동안 그려지므로 직급 이름으로도 묶는다. */
-const gradeGroup = (entry: RankingEntry) => entry.grade ?? entry.gradeLabel ?? "TRAINEE";
+/* 직급 코드가 없는 예전 캐시 응답도 몇 초 동안 그려지므로 직급 이름으로도 묶는다. 직급이 없으면 커리어에 들어오지 않은 회원이다. */
+const NO_CAREER = "NO_CAREER";
+const NO_CAREER_LABEL = "커리어 미참여";
+const gradeGroup = (entry: RankingEntry) => entry.grade ?? entry.gradeLabel ?? NO_CAREER;
 
 function TotalBoard() {
   const { data, loading, error } = usePolledRanking<RankingEntry[]>("/api/ranking", RANKING_CACHE_KEY, (() => {
@@ -94,14 +95,14 @@ function TotalBoard() {
       <Board label="트레이더 랭킹" changeLabel="직급 내 수익률" valueLabel="운용 자산">
         {rows.map((entry, index) => {
           /* 수익률이 높아도 직급이 낮으면 아래에 있어 순서가 틀려 보인다. 직급이 바뀌는 곳마다 구분 줄을 넣는다.
-             커리어 이전을 기다리는 회원은 서버가 수습과 같은 묶음으로 매긴다. */
+             커리어에 들어오지 않은 회원은 서버가 맨 아래 따로 매긴다. */
           const group = gradeGroup(entry);
           const opensGroup = index === 0 || gradeGroup(rows[index - 1]) !== group;
           return (
             <Fragment key={`${entry.rank}-${entry.nickname}`}>
               {opensGroup && (
                 <tr className="nx-rank-group">
-                  <th scope="rowgroup" colSpan={4}>{group === "TRAINEE" ? "수습 · 커리어 시작 전" : entry.gradeLabel}</th>
+                  <th scope="rowgroup" colSpan={4}>{group === NO_CAREER ? NO_CAREER_LABEL : entry.gradeLabel}</th>
                 </tr>
               )}
               <RankRow entry={entry} percent={entry.changePercent} grade={entry.gradeLabel} />
@@ -109,7 +110,7 @@ function TotalBoard() {
           );
         })}
       </Board>
-      <p className="nx-rank-note">높은 직급이 먼저이고, 같은 직급끼리는 지금 직급을 시작할 때 자산 대비 수익률로 매겨요. 운용 자산은 회사가 맡긴 돈이라 순위에 쓰지 않아요.</p>
+      <p className="nx-rank-note">높은 직급이 먼저이고, 같은 직급끼리는 지금 직급을 시작할 때 자산 대비 수익률로 매겨요. 운용 자산은 회사가 맡긴 돈이라 순위에 쓰지 않아요. 커리어에 참여하지 않은 회원은 시작 자금 대비 수익률로 맨 아래에 따로 매겨요.</p>
     </>
   );
 }
@@ -125,7 +126,7 @@ function WealthBoard() {
       <Board label="부자 랭킹" changeLabel="직급" valueLabel="내 지갑">
         {rows.map((entry) => (
           <RankRow key={`${entry.rank}-${entry.nickname}`} entry={entry} value={entry.personalCash}
-            middle={<span className="nx-rank-grade">{entry.gradeLabel ?? "이전 대기"}</span>} />
+            middle={<span className="nx-rank-grade">{entry.gradeLabel ?? NO_CAREER_LABEL}</span>} />
         ))}
       </Board>
       <p className="nx-rank-note">성과급, 출석·미션·예측 보상처럼 내 지갑에 들어온 돈만 세요. 회사가 맡긴 운용계좌는 넣지 않아요.</p>

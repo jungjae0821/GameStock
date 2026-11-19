@@ -12,9 +12,9 @@ export type RankingEntry = {
   /** 사용자가 칭호 페이지에서 장착한 칭호. 없으면 null. */
   equippedTitle?: string | null;
   equippedTitleWeekly?: boolean;
-  /** 트레이더 랭킹의 직급 코드(TRAINEE…EXECUTIVE). 커리어 이전을 기다리는 회원이면 null. */
+  /** 트레이더 랭킹의 직급 코드(TRAINEE…EXECUTIVE). 커리어에 참여하지 않은 회원이면 null. */
   grade?: string | null;
-  /** 트레이더 랭킹의 직급. 커리어 이전을 기다리는 회원이면 null. */
+  /** 트레이더 랭킹의 직급. 커리어에 참여하지 않은 회원이면 null. */
   gradeLabel?: string | null;
 };
 

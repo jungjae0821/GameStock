@@ -391,6 +391,24 @@ class CareerServiceIntegrationTest {
     }
 
     @Test
+    void traderRankingPutsMembersOutsideTheCareerBelowEveryTrainee() {
+        long bob = user("bob", "GOOGLE", 2_000_000);
+        long dave = user("dave", "GOOGLE", 500_000);
+        PersonalWallet.ensureRow(db, bob);
+        PersonalWallet.ensureRow(db, dave);
+        db.update("UPDATE career_state SET legacy = TRUE WHERE user_id = ?", bob);
+        MarketService market = Mockito.mock(MarketService.class);
+        var rankings = new MarketRankingMissions(market, db);
+
+        var shown = rankings.ranking().stream().filter(entry -> java.util.Set.of("bob", "dave").contains(entry.nickname())).toList();
+
+        assertEquals(java.util.List.of("dave", "bob"), shown.stream().map(MarketModels.RankingEntry::nickname).toList(),
+                "a member outside the career goes below a losing trainee, even with a bigger return");
+        assertEquals("TRAINEE", shown.get(0).grade());
+        assertNull(shown.get(1).grade(), "the screen groups members without a grade as outside the career");
+    }
+
+    @Test
     void careerAndReviewStayCheapOnTheHotPaths() {
         staff(alice, 3_000_000);
         fills(alice, 5, 30);

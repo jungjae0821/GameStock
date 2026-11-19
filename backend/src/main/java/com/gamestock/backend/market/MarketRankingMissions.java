@@ -135,7 +135,8 @@ final class MarketRankingMissions {
             // Rows saved before image validation may hold arbitrary URLs; never expose them to other viewers.
             String image = com.gamestock.backend.auth.ProfileImages.sanitize(rs.getString("profile_image_url"));
             TitleService.TitleDefinition title = TitleService.definition(rs.getString("equipped_title"));
-            return new RankedRow(rs.getInt("grade_level"), rs.getLong("id"), new RankingEntry(0, rs.getString("nickname"), image.isEmpty() ? null : image, totalAsset, assetValue, cash, changePercent,
+            // 커리어에 들어오지 않은 기존 회원은 수익률 기준이 달라 수습과 섞지 않고 맨 아래 묶음으로 둔다.
+            return new RankedRow(waiting ? 0 : rs.getInt("grade_level"), rs.getLong("id"), new RankingEntry(0, rs.getString("nickname"), image.isEmpty() ? null : image, totalAsset, assetValue, cash, changePercent,
                     title == null ? null : TitleService.displayName(title, rs.getInt("equipped_count")), title != null && title.weekly(),
                     waiting ? null : grade.name(), waiting ? null : grade.label, rs.getLong("personal_cash")));
         }));
