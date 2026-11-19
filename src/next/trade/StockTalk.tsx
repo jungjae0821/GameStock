@@ -3,6 +3,7 @@ import { openLoginPrompt, useAuthUser } from "../../lib/auth";
 import { deleteTalk, likeTalk, loadTalk, writeTalk, type TalkPage, type TalkPost } from "../../lib/stockTalk";
 import { serverTimestamp, since } from "../../market/format";
 import { TALK_PATH } from "../../router";
+import { AiBadge } from "../engagement/AiBadge";
 
 const MAX_LENGTH = 300;
 
@@ -12,6 +13,9 @@ const length = (text: string) => [...text.trim()].length;
 /** 종목토론 화면의 글 목록. 최신 글부터 보이고, 답글은 한 단계까지만 단다. */
 export function StockTalk({ code, name }: { code: string; name: string }) {
   const { user, ready } = useAuthUser();
+  /* 체험 계정(익명 로그인)은 읽기만 한다. 글·채팅은 가입한 회원만 쓴다. */
+  const guest = Boolean(user?.isAnonymous);
+  const member = guest ? null : user;
   const [page, setPage] = useState<TalkPage | null>(null);
   const [error, setError] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
@@ -65,18 +69,18 @@ export function StockTalk({ code, name }: { code: string; name: string }) {
 
   return (
     <div className="nx-stock-talk">
-      {ready && user ? <TalkComposer code={code} parentId={null} placeholder={`${name}에 대한 생각을 남겨 주세요`} onPosted={posted} />
+      {ready && member ? <TalkComposer code={code} parentId={null} placeholder={`${name}에 대한 생각을 남겨 주세요`} onPosted={posted} />
         : <div className="nx-talk-signin">
-            <p className="nx-muted">로그인하면 글을 쓰고 좋아요를 누를 수 있어요.</p>
-            <button type="button" className="nx-btn" onClick={() => openLoginPrompt(TALK_PATH(code))}>로그인하기</button>
+            <p className="nx-muted">{guest ? "체험 계정은 가입하면 글을 쓰고 좋아요를 누를 수 있어요." : "로그인하면 글을 쓰고 좋아요를 누를 수 있어요."}</p>
+            <button type="button" className="nx-btn" onClick={() => openLoginPrompt(TALK_PATH(code))}>{guest ? "가입하고 이어가기" : "로그인하기"}</button>
           </div>}
       {error && <p className="nx-note is-error" role="alert">{error} <button type="button" className="nx-link-button" onClick={() => reload()}>다시 시도</button></p>}
       {!page ? (!error && <div className="nx-skeleton" role="status" aria-label="토론 글을 불러오는 중"><span /><span /></div>)
-        : page.posts.length === 0 ? <p className="nx-empty-state">{user ? "아직 글이 없어요. 첫 글을 남겨 보세요." : "아직 글이 없어요."}</p> : (
+        : page.posts.length === 0 ? <p className="nx-empty-state">{member ? "아직 글이 없어요. 첫 글을 남겨 보세요." : "아직 글이 없어요."}</p> : (
         <ol className="nx-talk-list">
           {page.posts.map((post) => (
             <li key={post.id}>
-              <TalkItem code={code} post={post} signedIn={!!user} onChange={update} onPosted={posted} />
+              <TalkItem code={code} post={post} signedIn={!!member} onChange={update} onPosted={posted} />
             </li>
           ))}
         </ol>
@@ -175,7 +179,7 @@ function TalkItem({ code, post, signedIn, onChange, onPosted, reply = false }: {
   return (
     <article className={`nx-talk-item${reply ? " is-reply" : ""}`}>
       <header className="nx-talk-meta">
-        <strong>{post.nickname}</strong>
+        <strong>{post.nickname}</strong><AiBadge nickname={post.nickname} />
         {post.mine && <span className="nx-talk-mine">내 글</span>}
         <time dateTime={post.createdAt} className="nx-muted">{since(serverTimestamp(post.createdAt), Date.now())}</time>
       </header>

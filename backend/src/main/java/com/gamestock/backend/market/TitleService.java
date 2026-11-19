@@ -39,7 +39,7 @@ public class TitleService {
     static final ZoneId TITLE_ZONE = ZoneId.of("Asia/Seoul");
     /** Real investors only, the same population as the public ranking. */
     static final String INVESTOR_FILTER = """
-            u.password_hash NOT IN ('BOT', 'TRADER') AND u.username <> 'demo'
+            u.password_hash NOT IN ('BOT', 'TRADER', 'GUEST') AND u.username <> 'demo'
               AND COALESCE(u.role, 'USER') <> 'ADMIN'
             """;
 

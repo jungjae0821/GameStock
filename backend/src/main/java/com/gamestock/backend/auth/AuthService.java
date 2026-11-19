@@ -28,6 +28,13 @@ public class AuthService {
     private static final ZoneId ATTENDANCE_ZONE = ZoneId.of("Asia/Seoul");
     /** Attendance pays this much per consecutive day, up to five days, into the personal wallet. */
     static final long ATTENDANCE_STEP = 10_000L;
+    /**
+     * 로그인 없이 체험하는 계정(Firebase 익명 로그인)의 password_hash 표식. 랭킹·시즌·팬덤·체결 소식에서 빠지고,
+     * 글쓰기처럼 다른 사람에게 보이는 기능은 쓸 수 없다. 같은 브라우저에서 가입하면 Firebase가 익명 계정에
+     * 로그인 수단을 붙여 UID가 그대로이므로, 다음 요청에서 일반 계정으로 바뀌며 자산과 기록을 이어받는다.
+     */
+    public static final String GUEST_PASSWORD = "GUEST";
+    static final String GUEST_NICKNAME_PREFIX = "체험";
     private final JdbcTemplate jdbc;
     private final Clock clock;
     /**
@@ -132,6 +139,27 @@ public class AuthService {
         return inAccountTransaction(() -> activeUser(token));
     }
 
+    /** 가입한 회원만. 체험 계정은 글·채팅·전광판·공개 프로필처럼 다른 사람에게 보이는 기능을 쓸 수 없다. */
+    public LoginUser requireMember(String authorization) {
+        LoginUser user = requireUser(authorization);
+        if (isGuest(user.id()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, GUEST_BLOCKED);
+        return user;
+    }
+
+    public static final String GUEST_BLOCKED = "체험 계정은 가입한 뒤에 쓸 수 있어요. 가입하면 지금 자산과 기록이 그대로 이어져요.";
+
+    public boolean isGuest(long userId) {
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE id = ? AND password_hash = ?", Integer.class, userId, GUEST_PASSWORD);
+        return count != null && count > 0;
+    }
+
+    /** Firebase 익명 로그인 토큰이면 true. 가입 수단을 붙인 뒤의 토큰은 password·google.com 같은 값을 갖는다. */
+    static boolean anonymous(FirebaseToken token) {
+        Object firebase = token.getClaims() == null ? null : token.getClaims().get("firebase");
+        return firebase instanceof Map<?, ?> claims && "anonymous".equals(claims.get("sign_in_provider"));
+    }
+
     private LoginUser activeUser(FirebaseToken token) {
         LoginUser user = findOrCreate(token);
         requireNotSuspended(user.id());
@@ -222,7 +250,7 @@ public class AuthService {
     }
 
     private Profile readProfile(long userId, boolean lock) {
-        return jdbc.queryForObject("SELECT nickname, email, profile_image_url, profile_completed, reset_used_at, nickname_changed_at, role, trade_banned_until, trade_ban_reason FROM users WHERE id = ?" + (lock ? " FOR UPDATE" : ""),
+        return jdbc.queryForObject("SELECT nickname, email, profile_image_url, profile_completed, reset_used_at, nickname_changed_at, role, trade_banned_until, trade_ban_reason, password_hash FROM users WHERE id = ?" + (lock ? " FOR UPDATE" : ""),
                 (rs, row) -> {
                     Timestamp changedAt = rs.getTimestamp("nickname_changed_at");
                     Instant nextChange = changedAt == null ? null : changedAt.toInstant().plus(Duration.ofDays(3));
@@ -234,7 +262,8 @@ public class AuthService {
                             nextChange == null ? null : nextChange.toString(),
                             "ADMIN".equalsIgnoreCase(rs.getString("role")),
                             bannedUntil == null ? null : bannedUntil.toString(),
-                            bannedUntil == null ? null : rs.getString("trade_ban_reason"));
+                            bannedUntil == null ? null : rs.getString("trade_ban_reason"),
+                            GUEST_PASSWORD.equals(rs.getString("password_hash")));
                 }, userId);
     }
 
@@ -309,25 +338,28 @@ public class AuthService {
         // Keep that key so existing Google accounts retain their assets and history.
         var existing = jdbc.query("SELECT id, nickname, email, profile_image_url, profile_completed, role FROM users WHERE google_uid = ?",
                 (rs, row) -> new LoginUser(rs.getLong("id"), rs.getString("nickname"), rs.getString("email"), rs.getString("profile_image_url"), 0, 0, !rs.getBoolean("profile_completed"), rs.getString("role")), token.getUid());
+        boolean guest = anonymous(token);
         LoginUser user;
-        if (!existing.isEmpty()) user = existing.get(0);
-        else {
+        if (!existing.isEmpty()) {
+            user = existing.get(0);
+            if (!guest && isGuest(user.id())) user = upgradeGuest(user, token);
+        } else {
             String email = token.getEmail() == null ? "" : token.getEmail();
             String picture = ProfileImages.sanitize(token.getPicture());
             String username = "firebase_" + token.getUid();
-            String nickname = defaultNickname();
+            String nickname = guest ? guestNickname() : defaultNickname();
             for (int attempt = 0; attempt < 10; attempt++) {
                 try {
                     // 신규 계정은 자동 닉네임으로 바로 생성한다. 사용자는 이후
                     // 마이페이지에서 닉네임을 변경할 수 있다. 변경 후에는 3일간 기다린다.
-                    jdbc.update("INSERT INTO users (username, password_hash, nickname, google_uid, email, profile_image_url, profile_completed, cash) VALUES (?, 'FIREBASE', ?, ?, ?, ?, TRUE, 1000000)",
-                            username, nickname, token.getUid(), email, picture);
+                    jdbc.update("INSERT INTO users (username, password_hash, nickname, google_uid, email, profile_image_url, profile_completed, cash) VALUES (?, ?, ?, ?, ?, ?, TRUE, 1000000)",
+                            username, guest ? GUEST_PASSWORD : "FIREBASE", nickname, token.getUid(), email, picture);
                     break;
                 } catch (DuplicateKeyException error) {
                     // 닉네임 4자리 숫자가 동시에 겹친 경우에만 새 값을 뽑아
                     // 재시도한다. 같은 Firebase UID가 먼저 생성된 경우는 아래
                     // 조회에서 기존 계정을 그대로 사용한다.
-                    if (nicknameExists(nickname)) nickname = defaultNickname();
+                    if (nicknameExists(nickname)) nickname = guest ? guestNickname() : defaultNickname();
                     else break;
                 }
             }
@@ -371,6 +403,35 @@ public class AuthService {
         boolean uidMatches = !uid.isBlank() && uid.equals(token.getUid());
         boolean emailMatches = token.isEmailVerified() && !email.isBlank() && email.equalsIgnoreCase(token.getEmail() == null ? "" : token.getEmail());
         return uidMatches || emailMatches;
+    }
+
+    /**
+     * 체험 계정에 가입 수단이 붙은 첫 요청. 일반 계정 표식과 이메일을 채우고, 체험용 자동 닉네임이면
+     * 신규 가입과 같은 형식으로 바꾼다. 자산·주문·커리어는 같은 계정 그대로라 손대지 않는다.
+     */
+    private LoginUser upgradeGuest(LoginUser user, FirebaseToken token) {
+        String email = token.getEmail() == null ? "" : token.getEmail();
+        String nickname = user.nickname() != null && user.nickname().startsWith(GUEST_NICKNAME_PREFIX) ? defaultNickname() : user.nickname();
+        try {
+            int changed = jdbc.update("UPDATE users SET password_hash = 'FIREBASE', email = ?, nickname = ? WHERE id = ? AND password_hash = ?",
+                    email, nickname, user.id(), GUEST_PASSWORD);
+            if (changed == 0) return user;
+        } catch (DuplicateKeyException collided) {
+            // 새 닉네임이 동시에 겹쳤다. 표식만 바꾸고 닉네임은 나중에 바꿀 수 있게 둔다.
+            jdbc.update("UPDATE users SET password_hash = 'FIREBASE', email = ? WHERE id = ? AND password_hash = ?", email, user.id(), GUEST_PASSWORD);
+            nickname = user.nickname();
+        }
+        log.info("체험 계정 {}이 가입해 일반 계정이 됐습니다.", user.id());
+        return new LoginUser(user.id(), nickname, email, user.profileImageUrl(), user.attendanceReward(), user.attendanceStreak(),
+                user.requiresNickname(), user.role());
+    }
+
+    private String guestNickname() {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            String nickname = String.format("%s%04d", GUEST_NICKNAME_PREFIX, ThreadLocalRandom.current().nextInt(10_000));
+            if (!nicknameExists(nickname)) return nickname;
+        }
+        return GUEST_NICKNAME_PREFIX + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 
     /** 관리자가 부적절한 닉네임을 비울 때도 신규 가입과 같은 형식을 쓴다. */
@@ -456,9 +517,9 @@ public class AuthService {
     }
     public record Profile(String nickname, String email, String profileImageUrl, boolean profileCompleted,
                           boolean resetAvailable, boolean nicknameChangeAvailable, String nicknameChangeAvailableAt,
-                          boolean admin, String tradeBannedUntil, String tradeBanReason) {
+                          boolean admin, String tradeBannedUntil, String tradeBanReason, boolean guest) {
         public Profile(String nickname, String email, String profileImageUrl, boolean profileCompleted) {
-            this(nickname, email, profileImageUrl, profileCompleted, true, true, null, false, null, null);
+            this(nickname, email, profileImageUrl, profileCompleted, true, true, null, false, null, null, false);
         }
     }
     public record ProfileUpdate(String nickname, String profileImageUrl) { }

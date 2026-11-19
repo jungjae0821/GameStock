@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, validatePassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword, EmailAuthProvider, GoogleAuthProvider, linkWithCredential, linkWithPopup, sendPasswordResetEmail,
+  signInWithCredential, signInWithEmailAndPassword, signInWithPopup, validatePassword,
+} from "firebase/auth";
 import { BrandLogo } from "../components/BrandMark";
 import { Link } from "../components/Link";
 import { firebaseAuth, googleProvider } from "../lib/firebase";
 import { apiFetch } from "../lib/api";
-import { authErrorMessage, loginPath, safeReturnPath, useAuthUser } from "../lib/auth";
+import { authErrorMessage, guestModeAvailable, loginPath, safeReturnPath, startGuestSession, useAuthUser } from "../lib/auth";
+import { reloadProfile } from "../lib/profile";
 import { mobileReturnTarget } from "../lib/mobileReturn";
 import { MARKET_PATH, PRIVACY_PATH, TERMS_PATH, navigate, type LoginMethod } from "../router";
 
@@ -52,7 +56,10 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
   onMethodChange?: (method: LoginMethod) => void;
 }) {
   const modal = onDone != null;
-  const { user, ready } = useAuthUser();
+  const { user: authUser, ready } = useAuthUser();
+  /* 체험 계정(익명 로그인)은 아직 가입 전이라 로그인 카드에서는 로그아웃 상태처럼 가입 방법을 보여 준다. */
+  const guest = Boolean(authUser?.isAnonymous);
+  const user = guest ? null : authUser;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -116,7 +123,7 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
     setError("");
     setNotice("");
     setNativeWaiting(false);
-    if (!firebaseAuth.currentUser) setBusy(false);
+    if (!firebaseAuth.currentUser || firebaseAuth.currentUser.isAnonymous) setBusy(false);
   }, [method]);
 
   useEffect(() => {
@@ -135,6 +142,34 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
     };
   }, []);
 
+  /* 체험 계정에 가입 수단을 붙인 뒤. UID가 그대로라 로그인 상태 이벤트가 오지 않으므로, 새 토큰을 받아
+     서버가 일반 계정으로 바꾸게 하고 직접 마무리한다. */
+  const finishUpgrade = async () => {
+    completionStarted.current = true;
+    await firebaseAuth.currentUser?.getIdToken(true);
+    await finishSession();
+    reloadProfile();
+  };
+
+  const startGuest = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await startGuestSession();
+      reloadProfile();
+      if (onDone) {
+        if (next !== "/") navigate(next, { replace: true });
+        onDone();
+      } else {
+        navigate(next === "/" ? "/trade" : next, { replace: true });
+      }
+    } catch (failure) {
+      setError(authErrorMessage(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const googleLogin = async () => {
     setBusy(true);
     setError("");
@@ -144,11 +179,25 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
       return;
     }
     try {
-      await signInWithPopup(firebaseAuth, googleProvider);
+      const current = firebaseAuth.currentUser;
+      if (current?.isAnonymous) {
+        try {
+          await linkWithPopup(current, googleProvider);
+          await finishUpgrade();
+        } catch (failure) {
+          /* 이미 가입한 Google 계정이면 그 계정으로 로그인한다. 체험 기록은 이어지지 않는다. */
+          const credential = typeof failure === "object" && failure !== null && "code" in failure && failure.code === "auth/credential-already-in-use"
+            ? GoogleAuthProvider.credentialFromError(failure as Parameters<typeof GoogleAuthProvider.credentialFromError>[0]) : null;
+          if (!credential) throw failure;
+          await signInWithCredential(firebaseAuth, credential);
+        }
+      } else {
+        await signInWithPopup(firebaseAuth, googleProvider);
+      }
     } catch (failure) {
       setError(authErrorMessage(failure));
     } finally {
-      if (!firebaseAuth.currentUser || mobileReturnUri) setBusy(false);
+      if (!firebaseAuth.currentUser || firebaseAuth.currentUser.isAnonymous || mobileReturnUri) setBusy(false);
     }
   };
 
@@ -182,14 +231,20 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
           setError(missing.length ? `비밀번호 조건을 확인해 주세요: ${missing.join(", ")}` : "비밀번호가 가입 조건에 맞지 않습니다.");
           return;
         }
-        await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password);
+        const current = firebaseAuth.currentUser;
+        if (current?.isAnonymous) {
+          await linkWithCredential(current, EmailAuthProvider.credential(email.trim(), password));
+          await finishUpgrade();
+        } else {
+          await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password);
+        }
       } else {
         await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
       }
     } catch (failure) {
       setError(authErrorMessage(failure));
     } finally {
-      if (method === "reset" || !firebaseAuth.currentUser || mobileReturnUri) setBusy(false);
+      if (method === "reset" || !firebaseAuth.currentUser || firebaseAuth.currentUser.isAnonymous || mobileReturnUri) setBusy(false);
     }
   };
 
@@ -222,7 +277,7 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
         <BrandLogo />
       </div>
       <header className="login-header">
-        <h1 id="login-title">{TITLES[method]}</h1>
+        <h1 id="login-title">{guest && method === "choose" ? "가입하고 이어가기" : TITLES[method]}</h1>
         {DESCRIPTIONS[method] && <p>{DESCRIPTIONS[method]}</p>}
       </header>
       {!ready ? <p className="login-status" role="status">로그인 상태를 확인하고 있어요.</p> : user ? (
@@ -232,13 +287,24 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
         </div>
       ) : (
         <>
+          {guest && (
+            <p className="login-guest-note" role="note">
+              지금은 <strong>체험 중</strong>이에요. 여기서 가입하면 체험하면서 쌓은 자산과 기록이 그대로 이어져요.
+              이미 가입한 계정으로 로그인하면 체험 기록은 이어지지 않아요.
+            </p>
+          )}
           {(method === "choose" || method === "google") && (
             <div className="login-options">
               <button type="button" className="login-button is-google" onClick={() => void googleLogin()} disabled={busy}>
                 <span className="login-google-badge" aria-hidden="true"><GoogleIcon /></span>
-                {nativeWaiting ? "브라우저에서 로그인 중…" : busy ? "로그인 중…" : "Google로 로그인하기"}
+                {nativeWaiting ? "브라우저에서 로그인 중…" : busy ? "로그인 중…" : guest ? "Google로 가입하고 이어가기" : "Google로 로그인하기"}
               </button>
-              {method === "choose" && methodLink("email", "이메일·비밀번호로 로그인", "login-button")}
+              {method === "choose" && methodLink(guest ? "register" : "email", guest ? "이메일로 가입하고 이어가기" : "이메일·비밀번호로 로그인", "login-button")}
+              {method === "choose" && !guest && !mobileReturnUri && guestModeAvailable() && (
+                <button type="button" className="login-button is-guest" onClick={() => void startGuest()} disabled={busy}>
+                  로그인 없이 바로 체험하기
+                </button>
+              )}
             </div>
           )}
           {isEmailForm && (
@@ -270,6 +336,9 @@ export function LoginCard({ method, next: nextProp, onDone, onMethodChange }: {
           )}
           {(method === "choose" || method === "google") && (
             <p className="login-legal">처음 로그인하면 계정이 만들어져요. 계속하면 만 14세 이상이며 <LegalLinks />에 동의한 것으로 봐요.</p>
+          )}
+          {method === "choose" && !guest && !mobileReturnUri && guestModeAvailable() && (
+            <p className="login-legal">체험 계정은 랭킹에 오르지 않고, 글쓰기·채팅은 가입한 뒤에 쓸 수 있어요. 체험하면서 쌓은 기록은 가입할 때 그대로 이어져요.</p>
           )}
           {method === "email" && <nav className="login-links" aria-label="이메일 계정 도움말">{methodLink("register", "이메일로 회원가입")}{methodLink("reset", "비밀번호 찾기")}</nav>}
           {(method === "register" || method === "reset") && methodLink("email", "이메일 로그인으로 돌아가기", "login-back")}

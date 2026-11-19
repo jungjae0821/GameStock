@@ -56,7 +56,7 @@ public class TitleController {
     @PostMapping("/promo")
     public TitleService.PromoResult redeem(@RequestBody PromoRequest request,
                                            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return titles.redeem(auth.requireUser(authorization).id(), request == null ? null : request.code());
+        return titles.redeem(auth.requireMember(authorization).id(), request == null ? null : request.code());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

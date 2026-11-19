@@ -104,7 +104,7 @@ class OpenApiControllerTest {
     }
 
     @Test void keyIssuanceRequiresFirebaseAndAdminCannotCreateTradingKey() throws Exception {
-        when(auth.requireUser("Bearer firebase")).thenReturn(new AuthService.LoginUser(7, "admin", null, null, 0, 0, false, "ADMIN"));
+        when(auth.requireMember("Bearer firebase")).thenReturn(new AuthService.LoginUser(7, "admin", null, null, 0, 0, false, "ADMIN"));
         mvc.perform(post("/api/openapi/keys").header("Authorization", "Bearer firebase")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"bot\",\"permission\":\"TRADE\"}"))
                 .andExpect(status().isForbidden());

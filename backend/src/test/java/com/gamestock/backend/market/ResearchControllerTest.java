@@ -26,6 +26,17 @@ class ResearchControllerTest {
             .addFilters(new ResearchBodyFilter()).setMessageConverters(new MappingJackson2HttpMessageConverter(ResearchWebConfig.strictMapper(new ObjectMapper()))).build();
         when(auth.requireUser("Bearer user")).thenReturn(new AuthService.LoginUser(7,"alice",null,null,0,0,false,"USER"));
         when(auth.requireUser(isNull())).thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED,"로그인이 필요합니다."));
+        when(auth.requireMember("Bearer user")).thenReturn(new AuthService.LoginUser(7,"alice",null,null,0,0,false,"USER"));
+        when(auth.requireMember(isNull())).thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED,"로그인이 필요합니다."));
+        when(auth.requireMember("Bearer guest")).thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN,AuthService.GUEST_BLOCKED));
+    }
+    @Test void guestAccountsReadButCannotWriteTalkOrChat() throws Exception {
+        mvc.perform(post("/api/stocks/GI/talk").header("Authorization","Bearer guest")
+            .contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"hello\"}")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/stocks/GI/community/chat").header("Authorization","Bearer guest")
+            .contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"hello\"}")).andExpect(status().isForbidden());
+        verify(talk,never()).write(anyLong(),any(),anyString(),any());
+        verify(discussions,never()).create(anyLong(),anyString(),any());
     }
     @Test void publicReadsDoNotNeedTokenButWritesDo() throws Exception {
         when(discussions.list("GI",null,0L,50)).thenReturn(new DiscussionService.Page(List.of(),null,false));

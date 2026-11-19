@@ -69,6 +69,7 @@ public class EngagementService {
     private final AtomicReference<Cached<List<Fandom>>> fandomCache = new AtomicReference<>();
     private final AtomicReference<Cached<List<FeedItem>>> feedCache = new AtomicReference<>();
     private final AtomicReference<Cached<List<String>>> publicCache = new AtomicReference<>();
+    private final AtomicReference<Cached<List<String>>> aiCache = new AtomicReference<>();
     private record Cached<T>(Instant at, T value) { }
 
     public EngagementService(JdbcTemplate jdbc, PlatformTransactionManager transactionManager,
@@ -261,6 +262,19 @@ public class EngagementService {
                 (String) row.get("fandom_code"), total == null ? 0 : total, holdings);
     }
 
+    /**
+     * 운영 봇(페르소나)의 닉네임. 화면은 이 이름 옆에 「AI」 표시를 붙여, 랭킹·체결 소식·토론에서
+     * 사람이 아니라는 걸 알 수 있게 한다. 봇 명단은 배포 때만 바뀌므로 길게 캐시한다.
+     */
+    public List<String> aiNicknames() {
+        var cached = aiCache.get();
+        if (cached != null && cached.at().plusSeconds(300).isAfter(clock.instant())) return cached.value();
+        List<String> names = List.copyOf(jdbc.queryForList(
+                "SELECT nickname FROM users WHERE password_hash=? ORDER BY id", String.class, Persona.PASSWORD));
+        aiCache.set(new Cached<>(clock.instant(), names));
+        return names;
+    }
+
     /** Nicknames of members who opened their portfolio, so ranking rows know which names to link. Cached for 30 seconds. */
     public List<String> publicNicknames() {
         var cached = publicCache.get();
@@ -283,7 +297,7 @@ public class EngagementService {
         if (cached != null && cached.at().plusSeconds(5).isAfter(clock.instant())) return cached.value();
         Long maxId = jdbc.queryForObject("SELECT MAX(id) FROM trades", Long.class);
         if (maxId == null) return List.of();
-        String human = "%s.password_hash NOT IN ('BOT','TRADER') AND %s.username <> 'demo' AND COALESCE(%s.role,'USER') <> 'ADMIN'";
+        String human = "%s.password_hash NOT IN ('BOT','TRADER','GUEST') AND %s.username <> 'demo' AND COALESCE(%s.role,'USER') <> 'ADMIN'";
         List<FeedItem> items = new ArrayList<>();
         jdbc.query("SELECT t.id, s.stock_code, g.name, t.quantity, t.price, t.created_at, "
                 + "b.nickname AS buyer, (" + human.formatted("b", "b", "b") + ") AS buyer_human, COALESCE(be.public_profile,FALSE) AS buyer_public, "

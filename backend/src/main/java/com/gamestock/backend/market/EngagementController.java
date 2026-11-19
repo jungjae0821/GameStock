@@ -40,7 +40,7 @@ public class EngagementController {
     @PutMapping("/public")
     public EngagementService.Me publicProfile(@RequestBody EngagementService.PublicRequest request,
                                               @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return engagement.setPublic(auth.requireUser(authorization).id(), request);
+        return engagement.setPublic(auth.requireMember(authorization).id(), request);
     }
 
     @PostMapping("/prediction")
@@ -69,6 +69,11 @@ public class EngagementController {
     @GetMapping("/public-nicknames")
     public List<String> publicNicknames() {
         return engagement.publicNicknames();
+    }
+
+    @GetMapping("/ai-nicknames")
+    public List<String> aiNicknames() {
+        return engagement.aiNicknames();
     }
 
     @GetMapping("/feed")

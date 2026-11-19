@@ -178,3 +178,41 @@ export function usePublicNicknames(): ReadonlySet<string> {
     () => publicNames,
   );
 }
+
+/* 운영 봇(AI 트레이더) 닉네임. 랭킹·체결 소식·토론에서 이름 옆에 「AI」를 붙여 사람과 구분한다. 명단은 배포 때만 바뀐다. */
+let aiNames: ReadonlySet<string> = new Set();
+let aiLoadedAt = 0;
+let aiLoading = false;
+const aiListeners = new Set<() => void>();
+
+function loadAiNames(): void {
+  if (aiLoading || Date.now() - aiLoadedAt < 300_000) return;
+  aiLoading = true;
+  apiFetch<string[]>("/api/engagement/ai-nicknames", { auth: false })
+    .then((names) => {
+      aiNames = new Set(names);
+      aiLoadedAt = Date.now();
+      for (const listener of aiListeners) listener();
+    })
+    .catch(() => { aiLoadedAt = Date.now() - 240_000; /* 1분 뒤 다시 시도한다. */ })
+    .finally(() => { aiLoading = false; });
+}
+
+export function useAiNicknames(): ReadonlySet<string> {
+  return useSyncExternalStore(
+    (listener) => {
+      aiListeners.add(listener);
+      loadAiNames();
+      return () => { aiListeners.delete(listener); };
+    },
+    () => aiNames,
+    () => aiNames,
+  );
+}
+
+/** 화면 밖(알림 문구 등)에서 쓰는 동기 확인. 명단을 아직 못 받았으면 false. */
+export function isAiNickname(nickname: string | null | undefined): boolean {
+  if (!nickname) return false;
+  loadAiNames();
+  return aiNames.has(nickname);
+}

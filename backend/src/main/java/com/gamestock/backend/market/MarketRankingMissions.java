@@ -48,7 +48,7 @@ final class MarketRankingMissions {
     /** Grade order for the trader ranking; members not yet migrated rank with trainees. */
     private static final String GRADE_LEVEL = "FIELD(COALESCE(c.grade, 'TRAINEE'), 'TRAINEE', 'STAFF', 'ASSOCIATE', 'MANAGER', 'SENIOR_MANAGER', 'GENERAL_MANAGER', 'EXECUTIVE')";
     private static final String HUMAN_RANKED = """
-            u.password_hash NOT IN ('BOT', 'TRADER') AND u.username <> 'demo' AND COALESCE(u.role, 'USER') <> 'ADMIN'
+            u.password_hash NOT IN ('BOT', 'TRADER', 'GUEST') AND u.username <> 'demo' AND COALESCE(u.role, 'USER') <> 'ADMIN'
             """;
 
     /**

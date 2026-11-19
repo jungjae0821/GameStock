@@ -169,6 +169,8 @@ html[data-nx-theme="light"] .has-title-ink[style*="--title-ink"] { color: color-
 .nx-player-grade { margin-right: 6px; padding: 0 6px; border: 1px solid var(--nx-line); border-radius: 4px; color: var(--ink-muted); font-size: 11px; font-weight: 600; vertical-align: 1px; }
 .nx-rank-grade { color: var(--ink-muted); font-size: 13px; }
 .nx-player-me { margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--brand); color: var(--brand-ink); font-size: 11px; vertical-align: 1px; }
+/* 운영 봇(AI 트레이더) 표시. "나" 배지와 같은 크기로 두되, 브랜드색 대신 테두리만 써서 눈에 덜 띄게 한다. */
+.nx-ai-badge { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--ink-faint); border-radius: 4px; color: var(--ink-muted); font-size: 11px; font-weight: 700; line-height: 16px; vertical-align: 1px; letter-spacing: 0.02em; }
 .nx-rank-gap td { height: 24px; }
 .nx-rank-gap span { display: block; border-top: 1px dashed var(--nx-line); }
 .nx-rank-group th { padding: 20px 0 8px; border-bottom: 1px solid var(--nx-line); color: var(--ink-muted); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; text-align: left; }
@@ -367,6 +369,11 @@ html[data-nx] .login-close { border-radius: 8px; color: var(--ink-muted); }
 /* 웹에서는 바로 위 상단 바에 같은 로고가 있다. 상단 바가 없는 앱 화면에서만 카드에 로고를 둔다. */
 html[data-app-shell="web"][data-nx] .login-brand { display: none; }
 html[data-nx] .login-message.is-error { color: var(--up-deep); }
+/* 로그인 없이 체험하기: 가입 버튼들과 같은 크기로 두되 점선 테두리로 "가볍게 해 보는" 길임을 구분한다. */
+html[data-nx] .login-button.is-guest { border-style: dashed; color: var(--ink-muted); }
+html[data-nx] .login-button.is-guest:hover { color: var(--ink); }
+html[data-nx] .login-guest-note { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--nx-line); border-radius: 8px; background: var(--nx-tint); color: var(--ink-muted); font-size: 14px; line-height: 1.6; }
+html[data-nx] .login-guest-note strong { color: var(--ink); }
 
 /* ───────── 관리자 ───────── */
 

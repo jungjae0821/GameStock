@@ -9,6 +9,7 @@ import { LISTING_BY_CODE } from "../../market/universe";
 import { won } from "../../market/format";
 import { titleInkStyle } from "../../lib/titles";
 import { useModalDialog } from "../../lib/useModalDialog";
+import { AiBadge } from "./AiBadge";
 
 const signed = (percent: number) => `${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%`;
 const tone = (percent: number) => (percent > 0 ? "is-up" : percent < 0 ? "is-down" : "");
@@ -91,7 +92,7 @@ export function SeasonBoard() {
                     </th>
                     <td className="nx-player-cell">
                       <ProfileButton nickname={entry.nickname} open={entry.publicProfile}>
-                        <span className="nx-player-name" title={entry.nickname}>{entry.nickname}{mine && <span className="nx-player-me">나</span>}</span>
+                        <span className="nx-player-name" title={entry.nickname}>{entry.nickname}<AiBadge nickname={entry.nickname} />{mine && <span className="nx-player-me">나</span>}</span>
                       </ProfileButton>
                     </td>
                     <td className={`nx-num ${tone(entry.returnPercent)}`}>{signed(entry.returnPercent)}</td>
