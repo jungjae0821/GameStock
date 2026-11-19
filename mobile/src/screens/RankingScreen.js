@@ -2,11 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { request, useAuth } from '../auth';
-import { AiBadge } from '../components/AiBadge';
 import { Avatar } from '../components/Avatar';
 import { PublicProfileModal } from '../components/Engagement';
 import { GameIcon } from '../components/GameIcon';
-import { useAiNicknames, useEngagement, usePublicNicknames } from '../engagement';
+import { useEngagement, usePublicNicknames } from '../engagement';
 import { won } from '../format';
 import { titleColor } from '../titles';
 import { RADIUS, RADIUS_SM, RADIUS_XS, SPACE, Txt, mixColor, toneOf, useTheme } from '../theme';
@@ -86,7 +85,6 @@ export function RankingScreen({ market }) {
   const { user, profile } = useAuth();
   const engagement = useEngagement();
   const publicNames = usePublicNicknames();
-  const aiNames = useAiNicknames();
   const [tab, setTabState] = useState(preferredTab);
   const setTab = key => { preferredTab = key; setTabState(key); };
   const [refreshing, setRefreshing] = useState(false);
@@ -122,7 +120,7 @@ export function RankingScreen({ market }) {
     ? entries.flatMap((entry, index) => {
       const group = gradeGroup(entry);
       const opens = index === 0 || gradeGroup(entries[index - 1]) !== group;
-      return opens ? [{ groupHead: true, key: `group-${group}`, label: group === 'TRAINEE' ? '수습 · 커리어 시작 전' : entry.gradeLabel }, entry] : [entry];
+      return opens ? [{ groupHead: true, key: `group-${group}`, label: group === NO_CAREER ? NO_CAREER_LABEL : entry.gradeLabel }, entry] : [entry];
     })
     : entries;
   const rows = me && !entries.some(entry => entry.rank === me.rank) ? [...entries, { gap: true, rank: -1 }, me] : grouped;
@@ -181,7 +179,7 @@ export function RankingScreen({ market }) {
     : wealth ? '성과급, 출석·미션·예측 보상처럼 내 지갑에 들어온 돈만 세요. 회사가 맡긴 운용계좌는 넣지 않아요.'
     : season ? `${data?.status === 'ACTIVE' ? '시즌이 끝나는 순간의 순위로 1~3위에게 시즌 칭호를 줘요. ' : '지난 시즌 최종 순위예요. '}자산은 그대로 두고, 시즌 시작 때 자산과 비교해 수익률을 매겨요. 관리자 지급과 승진 때 회사가 채워 준 운용한도는 빼고 계산해요.`
     : fandom ? `팬은 설정에서 주력 게임으로 고른 사람, 주주는 지금 그 주식을 1주 이상 가진 사람이에요.${engagement && !myFandom ? ' 설정에서 주력 게임을 고르면 내 팬덤 순위에 힘을 보탤 수 있어요.' : ''}`
-    : '높은 직급이 먼저이고, 같은 직급끼리는 직급을 시작할 때 자산 대비 수익률로 매긴 상위 100명이에요. 금액은 회사가 맡긴 운용 자산이에요.';
+    : '높은 직급이 먼저이고, 같은 직급끼리는 직급을 시작할 때 자산 대비 수익률로 매긴 상위 100명이에요. 금액은 회사가 맡긴 운용 자산이에요. 커리어에 참여하지 않은 회원은 시작 자금 대비 수익률로 맨 아래에 따로 매겨요.';
   const footer = rows.length ? (
     <>
       <Txt variant="caption" tone="inkSoft" style={styles.note}>{note}</Txt>
@@ -219,8 +217,8 @@ export function RankingScreen({ market }) {
           const value = wealth ? item.personalCash : season ? item.currentAsset : item.totalAsset;
           const title = item.equippedTitle;
           const open = season ? Boolean(item.publicProfile) : publicNames.has(item.nickname);
-          const label = `${MEDALS[item.rank] ? `${MEDALS[item.rank].label} ` : ''}${item.rank}위 ${title ? `${title} ` : ''}${item.nickname}${aiNames.has(item.nickname) ? ', AI 트레이더' : ''}${mine ? ', 나' : ''}. `
-            + (wealth ? `내 지갑 ${won(value)}, ${item.gradeLabel ?? '이전 대기'}` : `${season ? '자산' : '운용 자산'} ${won(value)}, ${weekly ? '이번 주 ' : season ? '시즌 ' : ''}수익률 ${percentText(percent)}`)
+          const label = `${MEDALS[item.rank] ? `${MEDALS[item.rank].label} ` : ''}${item.rank}위 ${title ? `${title} ` : ''}${item.nickname}${mine ? ', 나' : ''}. `
+            + (wealth ? `내 지갑 ${won(value)}, ${item.gradeLabel ?? NO_CAREER_LABEL}` : `${season ? '자산' : '운용 자산'} ${won(value)}, ${weekly ? '이번 주 ' : season ? '시즌 ' : ''}수익률 ${percentText(percent)}`)
             + (open ? '. 누르면 공개 포트폴리오를 봐요' : '');
           const body = (
             <>
@@ -230,14 +228,13 @@ export function RankingScreen({ market }) {
                 {title ? <Txt variant="micro" numberOfLines={1} style={{ color: titleInk(title, theme) }}>{title}</Txt> : null}
                 <View style={styles.nameLine}>
                   <Txt variant="callout" numberOfLines={1} style={[styles.shrink, open && styles.link]}>{item.nickname}</Txt>
-                  <AiBadge nickname={item.nickname} />
                   {mine ? <View style={[styles.meBadge, { backgroundColor: theme.brand }]}><Txt variant="micro" style={{ color: theme.onBrand }}>나</Txt></View> : null}
                 </View>
               </View>
               <View style={styles.value}>
                 <Txt variant="callout" numeric numberOfLines={1}>{won(value)}</Txt>
                 {wealth
-                  ? <Txt variant="caption" tone="inkSoft" numberOfLines={1}>{item.gradeLabel ?? '이전 대기'}</Txt>
+                  ? <Txt variant="caption" tone="inkSoft" numberOfLines={1}>{item.gradeLabel ?? NO_CAREER_LABEL}</Txt>
                   : <Txt variant="caption" tone={toneOf(percent)} numeric>{percentText(percent)}</Txt>}
               </View>
             </>
@@ -258,8 +255,10 @@ export function RankingScreen({ market }) {
   );
 }
 
-/* 직급 코드가 없는 예전 캐시 응답도 잠깐 그려지므로 직급 이름으로도 묶는다. 커리어 이전을 기다리는 회원은 서버가 수습과 같은 묶음으로 매긴다. */
-const gradeGroup = entry => entry.grade ?? entry.gradeLabel ?? 'TRAINEE';
+/* 직급 코드가 없는 예전 캐시 응답도 잠깐 그려지므로 직급 이름으로도 묶는다. 직급이 없으면 커리어에 들어오지 않은 회원이고, 서버가 맨 아래 따로 매긴다. */
+const NO_CAREER = 'NO_CAREER';
+const NO_CAREER_LABEL = '커리어 미참여';
+const gradeGroup = entry => entry.grade ?? entry.gradeLabel ?? NO_CAREER;
 
 /** 팬덤 대항전 한 줄. 팬 수가 많은 순이고, 이번 주 수익률은 그 팬들의 평균이다. */
 function FandomRow({ item, mine, most, shape }) {
