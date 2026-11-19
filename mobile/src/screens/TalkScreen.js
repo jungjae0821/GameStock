@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, TextInput,
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth';
+import { AiBadge } from '../components/AiBadge';
 import { GameIcon } from '../components/GameIcon';
 import { Button, Card, Empty, FieldError, Segment } from '../components/Kit';
 import { StockChatCard } from '../components/StockChatCard';
@@ -278,6 +279,7 @@ function Post({ code, post, signedIn, divided, reply = false, onChange, onPosted
     <View style={[!reply && styles.post, reply && styles.reply, divided && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }]}>
       <View style={styles.meta}>
         <Txt variant="caption" numberOfLines={1} style={styles.shrink}>{post.nickname}</Txt>
+        <AiBadge nickname={post.nickname} />
         {post.mine ? <View style={[styles.mine, { backgroundColor: theme.raised }]}><Txt variant="micro" tone="inkSoft">내 글</Txt></View> : null}
         <Txt variant="micro" tone="inkSoft">{since(post.createdAt)}</Txt>
       </View>

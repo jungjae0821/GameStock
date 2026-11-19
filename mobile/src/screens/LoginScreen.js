@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authErrorMessage, useAuth } from '../auth';
+import { WEB_APP_URL } from '../config';
 import { FONT_FAMILY, RADIUS, SPACE, TYPE, Txt, useTheme } from '../theme';
 
 const TITLES = { choose: '로그인', email: '이메일 로그인', register: '이메일로 회원가입', reset: '비밀번호 찾기' };
@@ -13,6 +15,20 @@ const DESCRIPTIONS = {
   register: '이메일과 비밀번호로 새 계정을 만들어요.',
   reset: '가입할 때 쓴 이메일을 입력하면 재설정 메일을 보내 드려요.',
 };
+
+/** 로그인 시트를 닫지 않게 약관은 앱 안 브라우저 창으로 연다. 웹 /terms·/privacy 화면과 같은 문서다. */
+const openLegal = path => void WebBrowser.openBrowserAsync(new URL(path, WEB_APP_URL).toString()).catch(() => {});
+
+/** "이용약관과 개인정보처리방침" 문장 안의 두 링크. */
+function LegalLinks() {
+  return (
+    <>
+      <Txt variant="caption" tone="ink" style={styles.underline} accessibilityRole="link" onPress={() => openLegal('/terms')}>이용약관</Txt>
+      과{' '}
+      <Txt variant="caption" tone="ink" style={styles.underline} accessibilityRole="link" onPress={() => openLegal('/privacy')}>개인정보처리방침</Txt>
+    </>
+  );
+}
 
 /** Google 브랜드 4색 G. 웹 LoginCard의 GoogleIcon과 같은 도형이다. */
 function GoogleMark() {
@@ -36,6 +52,7 @@ export function LoginScreen({ visible, onClose }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [waitingGoogle, setWaitingGoogle] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +75,7 @@ export function LoginScreen({ visible, onClose }) {
     setPassword('');
     setConfirm('');
     setShowPassword(false);
+    setAgreed(false);
     setError('');
     setNotice('');
   };
@@ -74,6 +92,7 @@ export function LoginScreen({ visible, onClose }) {
     setNotice('');
     if (!email.trim()) { setError('이메일을 입력해 주세요.'); return; }
     if (method !== 'reset' && !password) { setError('비밀번호를 입력해 주세요.'); return; }
+    if (method === 'register' && !agreed) { setError('만 14세 이상인지, 약관에 동의하는지 확인해 주세요.'); return; }
     if (method === 'register' && password !== confirm) { setError('비밀번호 확인이 일치하지 않아요.'); return; }
     setBusy(true);
     try {
@@ -130,6 +149,9 @@ export function LoginScreen({ visible, onClose }) {
                 <Ionicons name="mail-outline" size={19} color={theme.ink} />
                 <Txt variant="body">이메일로 로그인</Txt>
               </Pressable>
+              <Txt variant="caption" tone="inkSoft" style={styles.help}>
+                처음 로그인하면 계정이 만들어져요. 계속하면 만 14세 이상이며 <LegalLinks />에 동의한 것으로 봐요.
+              </Txt>
               {waitingGoogle && !googleInApp ? <Txt variant="caption" tone="inkSoft" style={styles.help}>로그인 창에서 "앱 로그인 완료하기"를 누르면 이 화면으로 돌아와요.</Txt> : null}
             </View>
           ) : (
@@ -198,6 +220,20 @@ export function LoginScreen({ visible, onClose }) {
                     editable={!busy}
                     accessibilityLabel="비밀번호 확인"
                   />
+                  {/* 웹 가입 화면(LoginCard)과 같은 필수 동의. 체크하지 않으면 가입 요청을 보내지 않는다. */}
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: agreed, disabled: busy }}
+                    accessibilityLabel="만 14세 이상이며, 이용약관과 개인정보처리방침에 동의합니다. 필수"
+                    onPress={() => setAgreed(value => !value)}
+                    disabled={busy}
+                    style={styles.consent}
+                  >
+                    <Ionicons name={agreed ? 'checkbox' : 'square-outline'} size={22} color={agreed ? theme.ink : theme.inkSoft} />
+                    <Txt variant="caption" tone="inkSoft" style={styles.consentText}>
+                      만 14세 이상이며, <LegalLinks />에 동의합니다. (필수)
+                    </Txt>
+                  </Pressable>
                 </>
               ) : null}
               <Pressable accessibilityRole="button" onPress={() => void submit()} disabled={busy} style={({ pressed }) => [styles.button, { backgroundColor: theme.ink, opacity: busy ? 0.6 : pressed ? 0.85 : 1, marginTop: SPACE.sm }]}>
@@ -266,5 +302,7 @@ const styles = StyleSheet.create({
   links: { flexDirection: 'row', justifyContent: 'center', gap: SPACE.xl, marginTop: SPACE.md },
   link: { minHeight: 44, justifyContent: 'center' },
   underline: { textDecorationLine: 'underline' },
+  consent: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACE.sm, minHeight: 44, paddingVertical: SPACE.sm, marginTop: SPACE.xs },
+  consentText: { flex: 1, minWidth: 0, lineHeight: 20 },
   message: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, borderRadius: RADIUS, padding: SPACE.md, marginTop: SPACE.lg },
 });

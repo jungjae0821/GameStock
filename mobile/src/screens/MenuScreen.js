@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RADIUS, RADIUS_SM, SPACE, Txt, useTheme, useThemeMode } from '../theme';
 
-// 웹 계정 메뉴(ProfileMenu)의 항목. 모두 로그인 전용이라, 로그인하지 않았으면 앱이 로그인 시트를 먼저 띄운다.
+// 웹 계정 메뉴(ProfileMenu)의 항목. ITEMS는 모두 로그인 전용이라, 로그인하지 않았으면 앱이 로그인 시트를 먼저 띄운다.
 // 관리자 화면은 관리자 계정에만 보인다. 서버도 모든 관리 요청에서 권한을 다시 확인한다.
 const ACCOUNT = { label: '내 계좌', detail: '보유 종목과 손익, 주문·체결 내역', icon: 'wallet-outline', path: '/mypage' };
 const ITEMS = [
@@ -22,6 +22,18 @@ const ITEMS = [
 ];
 const ADMIN = { label: '관리자', detail: '회원 조치, 주문 조회, 공지, 전광판, 프로모션 코드, 감사 기록', icon: 'shield-checkmark-outline', path: '/admin' };
 
+// 로그인하지 않아도 여는 웹 화면. 탭 베팅은 구경은 누구나 하고, 베팅할 때 웹이 로그인을 요청하면 앱 로그인 시트가 뜬다.
+const PLAY = [
+  { label: '탭 베팅', detail: '5초 뒤 가격 칸 맞히기', icon: 'grid-outline', path: '/tap' },
+];
+// 약관은 웹 바닥글(LegalFooter)과 같은 문서다. 문의는 메일 앱으로 연다.
+const LEGAL = [
+  { label: '이용약관', detail: '서비스 이용 조건과 모의 투자 안내', icon: 'document-text-outline', path: '/terms' },
+  { label: '개인정보처리방침', detail: '수집하는 정보와 보관 기간, 삭제 방법', icon: 'lock-closed-outline', path: '/privacy' },
+];
+const CONTACT = { label: '문의하기', detail: '운영자에게 메일 보내기', icon: 'mail-outline' };
+const CONTACT_EMAIL = 'wizjungjae2@gmail.com';
+
 const API_DOCS = { label: 'OpenAPI 문서', detail: '시세·주문 API 사용법과 API 키 발급. 브라우저에서 열려요', icon: 'code-slash-outline' };
 
 const SCHEMES = [
@@ -29,7 +41,7 @@ const SCHEMES = [
   { key: 'light', label: '밝게', icon: 'sunny' },
 ];
 
-export function MenuScreen({ onOpen, onLogin }) {
+export function MenuScreen({ onOpen, onOpenPublic, onLogin }) {
   const theme = useTheme();
   const { scheme, setScheme } = useThemeMode();
   const insets = useSafeAreaInsets();
@@ -64,6 +76,9 @@ export function MenuScreen({ onOpen, onLogin }) {
         <View style={[styles.card, { backgroundColor: theme.card }]}>
           {ITEMS.map((item, index) => <Row key={item.path} item={item} onOpen={onOpen} divided={index > 0} />)}
         </View>
+        <View style={[styles.card, { backgroundColor: theme.card }]}>
+          {PLAY.map((item, index) => <Row key={item.path} item={item} onOpen={onOpenPublic} divided={index > 0} />)}
+        </View>
         {profile?.admin ? (
           <View style={[styles.card, { backgroundColor: theme.card }]}>
             <Row item={ADMIN} onOpen={onOpen} />
@@ -72,6 +87,10 @@ export function MenuScreen({ onOpen, onLogin }) {
         {/* 개발자용 문서와 API 키 발급은 넓은 화면에서 쓰는 일이라 기본 브라우저의 웹 화면으로 연다. */}
         <View style={[styles.card, { backgroundColor: theme.card }]}>
           <Row item={API_DOCS} onOpen={() => void Linking.openURL(new URL('/api-docs', WEB_APP_URL).toString()).catch(() => {})} trailing="open-outline" />
+        </View>
+        <View style={[styles.card, { backgroundColor: theme.card }]}>
+          {LEGAL.map((item, index) => <Row key={item.path} item={item} onOpen={onOpenPublic} divided={index > 0} />)}
+          <Row item={CONTACT} onOpen={() => void Linking.openURL(`mailto:${CONTACT_EMAIL}`).catch(() => {})} divided trailing="open-outline" />
         </View>
         {/* 로그인 없이도 바꿀 수 있다. 앱 안의 웹 화면도 같은 밝기를 따른다. */}
         <View style={[styles.card, styles.scheme, { backgroundColor: theme.card }]}>

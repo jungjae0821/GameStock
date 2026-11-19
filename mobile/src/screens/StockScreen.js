@@ -16,6 +16,7 @@ import { StockDriversCard } from './stock/StockDriversCard';
 import { StockNewsCard } from './stock/StockNewsCard';
 import { StockOrderBookCard, StockTradesCard } from './stock/StockOrderBook';
 import { StockPicker } from './stock/StockPicker';
+import { StockStopOrdersCard } from './stock/StockStopOrdersCard';
 import { Card, amount, styles as shared } from './stock/parts';
 
 /** 종목 상세. 할 일은 판단 하나다: 가격과 흐름, 움직인 이유, 지금 호가, 그리고 주문. */
@@ -149,6 +150,8 @@ export function StockScreen({ code, market, onBack, onLogin, onSwitch, onOpenTal
         <StockDriversCard drivers={drivers} failed={driversFailed} />
         <StockOrderBookCard stock={stock} tone={tone} orderbook={detail.orderbook} onOrder={startOrder} />
         <StockTradesCard trades={detail.trades} />
+        {/* 손절·익절은 로그인한 사람의 잔고에 거는 주문이라 로그인했을 때만 보인다. */}
+        {user ? <StockStopOrdersCard code={code} current={stock.price} held={held} /> : null}
         <StockNewsCard news={news} sortedNews={sortedNews} failed={newsFailed} />
         {/* 글과 채팅은 토론 탭에만 둔다. 여기서는 그 종목 토론방으로 가는 길만 낸다. */}
         {onOpenTalk ? (

@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { request, useAuth } from '../auth';
+import { AiBadge } from '../components/AiBadge';
 import { Avatar } from '../components/Avatar';
 import { PublicProfileModal } from '../components/Engagement';
 import { GameIcon } from '../components/GameIcon';
-import { useEngagement, usePublicNicknames } from '../engagement';
+import { useAiNicknames, useEngagement, usePublicNicknames } from '../engagement';
 import { won } from '../format';
 import { titleColor } from '../titles';
 import { RADIUS, RADIUS_SM, RADIUS_XS, SPACE, Txt, mixColor, toneOf, useTheme } from '../theme';
@@ -85,6 +86,7 @@ export function RankingScreen({ market }) {
   const { user, profile } = useAuth();
   const engagement = useEngagement();
   const publicNames = usePublicNicknames();
+  const aiNames = useAiNicknames();
   const [tab, setTabState] = useState(preferredTab);
   const setTab = key => { preferredTab = key; setTabState(key); };
   const [refreshing, setRefreshing] = useState(false);
@@ -114,7 +116,16 @@ export function RankingScreen({ market }) {
     : ranked ? Boolean(me) && entry.rank === me.rank
     : Boolean(profile?.nickname) && entry.nickname === profile.nickname);
   // 주간·시즌 표에 내 순위가 없으면 맨 아래에 따로 붙인다.
-  const rows = me && !entries.some(entry => entry.rank === me.rank) ? [...entries, { gap: true, rank: -1 }, me] : entries;
+  // 트레이더 랭킹은 직급이 먼저라, 수익률이 높아도 직급이 낮으면 아래에 있다. 직급이 바뀌는 곳마다 구분 줄을 넣는다(웹과 같다).
+  const total = tab === 'total';
+  const grouped = total
+    ? entries.flatMap((entry, index) => {
+      const group = gradeGroup(entry);
+      const opens = index === 0 || gradeGroup(entries[index - 1]) !== group;
+      return opens ? [{ groupHead: true, key: `group-${group}`, label: group === 'TRAINEE' ? '수습 · 커리어 시작 전' : entry.gradeLabel }, entry] : [entry];
+    })
+    : entries;
+  const rows = me && !entries.some(entry => entry.rank === me.rank) ? [...entries, { gap: true, rank: -1 }, me] : grouped;
   const mostFans = fandom ? Math.max(1, ...entries.map(entry => entry.fans ?? 0)) : 1;
 
   const refresh = async () => {
@@ -182,7 +193,7 @@ export function RankingScreen({ market }) {
     <View style={[styles.fill, { backgroundColor: theme.ground }]}>
       <FlatList
         data={rows}
-        keyExtractor={(item, index) => (item.gap ? 'gap' : `${item.rank}-${item.nickname ?? item.stockCode}-${index}`)}
+        keyExtractor={(item, index) => (item.groupHead ? item.key : item.gap ? 'gap' : `${item.rank}-${item.nickname ?? item.stockCode}-${index}`)}
         contentContainerStyle={{ paddingTop: insets.top + SPACE.sm, paddingBottom: SPACE.xxl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.inkSoft} colors={[theme.ink]} progressBackgroundColor={theme.raised} progressViewOffset={insets.top} />}
         ListHeaderComponent={header}
@@ -192,6 +203,13 @@ export function RankingScreen({ market }) {
           const first = index === 0;
           const last = index === rows.length - 1;
           const shape = [styles.rowBox, { backgroundColor: theme.card }, first && styles.first, last && styles.last, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }];
+          if (item.groupHead) {
+            return (
+              <View style={[...shape, styles.groupHead]} accessibilityRole="header">
+                <Txt variant="caption" tone="inkSoft">{item.label}</Txt>
+              </View>
+            );
+          }
           if (item.gap) {
             return <View style={[...shape, styles.gap]}><Txt variant="caption" tone="inkSoft">내 순위</Txt></View>;
           }
@@ -201,7 +219,7 @@ export function RankingScreen({ market }) {
           const value = wealth ? item.personalCash : season ? item.currentAsset : item.totalAsset;
           const title = item.equippedTitle;
           const open = season ? Boolean(item.publicProfile) : publicNames.has(item.nickname);
-          const label = `${MEDALS[item.rank] ? `${MEDALS[item.rank].label} ` : ''}${item.rank}위 ${title ? `${title} ` : ''}${item.nickname}${mine ? ', 나' : ''}. `
+          const label = `${MEDALS[item.rank] ? `${MEDALS[item.rank].label} ` : ''}${item.rank}위 ${title ? `${title} ` : ''}${item.nickname}${aiNames.has(item.nickname) ? ', AI 트레이더' : ''}${mine ? ', 나' : ''}. `
             + (wealth ? `내 지갑 ${won(value)}, ${item.gradeLabel ?? '이전 대기'}` : `${season ? '자산' : '운용 자산'} ${won(value)}, ${weekly ? '이번 주 ' : season ? '시즌 ' : ''}수익률 ${percentText(percent)}`)
             + (open ? '. 누르면 공개 포트폴리오를 봐요' : '');
           const body = (
@@ -212,6 +230,7 @@ export function RankingScreen({ market }) {
                 {title ? <Txt variant="micro" numberOfLines={1} style={{ color: titleInk(title, theme) }}>{title}</Txt> : null}
                 <View style={styles.nameLine}>
                   <Txt variant="callout" numberOfLines={1} style={[styles.shrink, open && styles.link]}>{item.nickname}</Txt>
+                  <AiBadge nickname={item.nickname} />
                   {mine ? <View style={[styles.meBadge, { backgroundColor: theme.brand }]}><Txt variant="micro" style={{ color: theme.onBrand }}>나</Txt></View> : null}
                 </View>
               </View>
@@ -238,6 +257,9 @@ export function RankingScreen({ market }) {
     </View>
   );
 }
+
+/* 직급 코드가 없는 예전 캐시 응답도 잠깐 그려지므로 직급 이름으로도 묶는다. 커리어 이전을 기다리는 회원은 서버가 수습과 같은 묶음으로 매긴다. */
+const gradeGroup = entry => entry.grade ?? entry.gradeLabel ?? 'TRAINEE';
 
 /** 팬덤 대항전 한 줄. 팬 수가 많은 순이고, 이번 주 수익률은 그 팬들의 평균이다. */
 function FandomRow({ item, mine, most, shape }) {
@@ -318,6 +340,7 @@ const styles = StyleSheet.create({
   last: { borderBottomLeftRadius: RADIUS, borderBottomRightRadius: RADIUS },
   row: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md, minHeight: 68, paddingVertical: SPACE.md },
   gap: { minHeight: 36, justifyContent: 'center' },
+  groupHead: { minHeight: 36, justifyContent: 'flex-end', paddingTop: SPACE.md, paddingBottom: SPACE.xs },
   rank: { width: 28, textAlign: 'center' },
   who: { flex: 1, minWidth: 0, gap: 1 },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -360,7 +360,7 @@ function ShellBody({ web }) {
                 />
               </SwipeBack>
             ) : null}
-            {showingMenu ? <MenuScreen onOpen={openMenuItem} onLogin={() => requestLogin(null)} /> : null}
+            {showingMenu ? <MenuScreen onOpen={openMenuItem} onOpenPublic={path => open('more', path)} onLogin={() => requestLogin(null)} /> : null}
             {AccountScreen ? (
               <SwipeBack key={menuRoot} onBack={() => setMenuRoot(null)}>
                 <AccountScreen market={market} onBack={() => setMenuRoot(null)} onGo={go} onNotify={notify} />

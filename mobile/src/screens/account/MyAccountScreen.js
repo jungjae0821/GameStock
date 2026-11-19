@@ -5,6 +5,7 @@ import { request } from '../../auth';
 import { GameIcon } from '../../components/GameIcon';
 import { AccountFrame, Button, Card, CardHead, Empty, Figure, Notice, Row, SideTag, kit, kstShort } from '../../components/Kit';
 import { ShareResultButton } from '../../components/Engagement';
+import { AssetHistoryCard } from '../../components/AssetHistoryCard';
 import { price, signedPercent, signedWon, won } from '../../format';
 import { sessionRate } from '../../market';
 import { SPACE, Txt, toneOf, useTheme } from '../../theme';
@@ -176,6 +177,8 @@ export function MyAccountScreen({ market, onBack, onGo }) {
       </Card>
 
       <Allocation money={money} />
+
+      <AssetHistoryCard />
 
       {message ? <Notice text={message.text} tone={message.ok ? 'ok' : 'neutral'} /> : null}
 
