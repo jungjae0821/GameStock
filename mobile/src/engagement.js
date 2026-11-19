@@ -100,6 +100,38 @@ export function usePublicNicknames() {
   return names;
 }
 
+/*
+ * 운영 봇(AI 트레이더) 닉네임. 랭킹·체결 소식·토론·채팅에서 이름 옆에 「AI」를 붙여 사람과 구분한다(웹 AiBadge와 같다).
+ * 명단은 배포 때만 바뀌어 5분에 한 번만 받는다. 실패하면 1분 뒤 다시 시도한다.
+ */
+let aiNames = new Set();
+let aiLoadedAt = 0;
+let aiLoading = false;
+const aiListeners = new Set();
+
+function loadAiNames() {
+  if (aiLoading || Date.now() - aiLoadedAt < 300_000) return;
+  aiLoading = true;
+  request('/api/engagement/ai-nicknames', { auth: false })
+    .then(names => {
+      aiNames = new Set(Array.isArray(names) ? names : []);
+      aiLoadedAt = Date.now();
+      for (const listener of aiListeners) listener(aiNames);
+    })
+    .catch(() => { aiLoadedAt = Date.now() - 240_000; })
+    .finally(() => { aiLoading = false; });
+}
+
+export function useAiNicknames() {
+  const [names, setNames] = useState(aiNames);
+  useEffect(() => {
+    aiListeners.add(setNames);
+    loadAiNames();
+    return () => { aiListeners.delete(setNames); };
+  }, []);
+  return names;
+}
+
 /**
  * 주기적으로 다시 읽는 값. 한 번 받은 뒤에는 오류가 나도 마지막 값을 둔다.
  * state: loading · ready · error · missing(서버가 아직 이 기능을 모름, 404)

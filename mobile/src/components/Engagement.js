@@ -3,14 +3,16 @@ import { Modal, Pressable, ScrollView, Share, StyleSheet, Switch, View } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth';
+import { WEB_APP_URL } from '../config';
 import {
-  featureLock, fetchFandoms, fetchFeed, fetchPublicProfile, usePolledValue, useEngagement, useEngagementState,
+  featureLock, fetchFandoms, fetchFeed, fetchPublicProfile, useAiNicknames, useCareer, usePolledValue, useEngagement, useEngagementState,
   withSubject, withTopic,
 } from '../engagement';
 import { signedPercent, signedWon, won } from '../format';
 import { RADIUS, RADIUS_XS, SPACE, Txt, toneOf, useTheme } from '../theme';
 import { Button, Card, CardHead, Chips, Empty, Notice } from './Kit';
 import { GameIcon } from './GameIcon';
+import { AiBadge } from './AiBadge';
 
 // 웹 src/next/engagement/*와 같은 기능을 앱 화면에 맞춰 그린 부품들.
 
@@ -116,6 +118,7 @@ const ago = (iso, now) => {
 
 /** 홈의 실시간 체결 소식. 3천만원 넘는 체결(고래)과 포트폴리오를 공개한 사람의 체결만 온다. */
 export function HomeLiveFeed({ onOpenStock }) {
+  const aiNames = useAiNicknames();
   const theme = useTheme();
   const { data, state } = usePolledValue(fetchFeed, 15_000);
   const [now, setNow] = useState(Date.now());
@@ -135,7 +138,7 @@ export function HomeLiveFeed({ onOpenStock }) {
             <Pressable
               key={`${item.id}-${item.side}`}
               accessibilityRole="button"
-              accessibilityLabel={`${item.whale ? '고래, ' : ''}${who}님이 ${item.name} ${item.quantity.toLocaleString('ko-KR')}주를 ${buy ? '샀어요' : '팔았어요'}. ${compactWon(item.amount)}, ${ago(item.at, now)}`}
+              accessibilityLabel={`${item.whale ? '고래, ' : ''}${aiNames.has(item.nickname) ? 'AI 트레이더 ' : ''}${who}님이 ${item.name} ${item.quantity.toLocaleString('ko-KR')}주를 ${buy ? '샀어요' : '팔았어요'}. ${compactWon(item.amount)}, ${ago(item.at, now)}`}
               onPress={() => onOpenStock?.(item.stockCode)}
               style={({ pressed }) => [styles.feedRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.line }, pressed && { backgroundColor: theme.pressed }]}
             >
@@ -149,6 +152,7 @@ export function HomeLiveFeed({ onOpenStock }) {
                 </Txt>
                 <View style={styles.inline}>
                   <Txt variant="caption" tone="inkSoft">{ago(item.at, now)}</Txt>
+                  <AiBadge nickname={item.nickname} />
                   {item.whale ? <OutlineBadge text="고래" /> : null}
                 </View>
               </View>
@@ -410,20 +414,28 @@ function caption(ratio) {
 
 /**
  * 수익 인증. 웹은 정사각형 이미지를 만들지만, 앱은 이미지 캡처 모듈 없이 휴대폰 공유 창으로 같은 내용을 글로 보낸다.
+ * 문구 끝의 주소로 받는 쪽 앱이 링크 미리보기를 붙인다.
  */
 export function ShareResultButton({ pnl, pnlRate, best, stocks }) {
   const { profile } = useAuth();
   const engagement = useEngagement();
+  const career = useCareer();
   const [message, setMessage] = useState('');
   const share = async () => {
     setMessage('');
+    const nickname = profile?.nickname ?? '익명 투자자';
     const fandom = engagement?.fandomCode ? stocks.find(stock => stock.code === engagement.fandomCode)?.name ?? null : null;
+    // 기존 회원(이전 전)과 운영 예외 계정은 직급이 의미가 없어 적지 않는다(웹과 같은 규칙).
+    const grade = career && !career.legacy && !career.exempt ? career.gradeLabel : null;
+    const tagline = [grade ? `${grade} 트레이더` : null, fandom ? `${fandom} 팬` : null].filter(Boolean).join(' · ');
     const lines = [
-      `[슈엔증권 수익 인증] ${profile?.nickname ?? '익명 투자자'}${fandom ? ` · ${fandom} 팬` : ''}`,
+      `[슈엔증권 수익 인증] ${nickname}${tagline ? ` · ${tagline}` : ''}`,
       `수익률 ${signedPercent(pnlRate)} (${signedWon(pnl)})`,
       caption(pnlRate),
       best ? `가장 많이 번 종목: ${best.name} ${signedPercent(best.pnlRate)}` : null,
       '모의투자 결과예요. 실제 돈은 오가지 않아요.',
+      '좋아하는 게임 주식으로 같이 겨뤄 봐요!',
+      WEB_APP_URL,
     ].filter(Boolean);
     try {
       await Share.share({ message: lines.join('\n') });

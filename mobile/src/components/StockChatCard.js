@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import { CHAT_MAX_LENGTH, deleteChat, failure, loadChat, sendChat, serverTime } from '../research';
 import { FONT_FAMILY, RADIUS, SPACE, TYPE, Txt, useTheme } from '../theme';
 import { Button, Card, CardHead, Empty, FieldError } from './Kit';
+import { AiBadge } from './AiBadge';
 
 // 새 메시지 조회 간격. 서버 이벤트가 없어 after 커서로 따라잡는다(웹 StockChat과 같다).
 const POLL_MS = 2_000;
@@ -191,6 +192,7 @@ function Message({ entry, own, onDelete }) {
     <View style={[styles.message, own && { borderLeftColor: theme.brand }]}>
       <View style={styles.meta}>
         <Txt variant="caption" numberOfLines={1} style={styles.shrink}>{own ? '나' : entry.nickname}</Txt>
+        {own ? null : <AiBadge nickname={entry.nickname} />}
         <Txt variant="micro" tone="inkSoft" numeric>{clock(at)}</Txt>
         {onDelete ? (
           <Pressable accessibilityRole="button" accessibilityLabel={`${clock(at)} 메시지 지우기`} onPress={onDelete} hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }} style={styles.delete}>
