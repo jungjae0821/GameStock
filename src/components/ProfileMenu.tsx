@@ -116,12 +116,15 @@ export function ProfileMenu({ route }: { route: Route }) {
     );
   }
 
-  const nickname = profile?.nickname ?? auth.user.displayName ?? "내 계정";
+  const guest = auth.user.isAnonymous;
+  const nickname = profile?.nickname ?? auth.user.displayName ?? (guest ? "체험 계정" : "내 계정");
   const avatar = profileImageSrc(profile?.profileImageUrl);
   const current = route.name === "mypage" || route.name === "settings" || route.name === "titles" || route.name === "attendance" || route.name === "charge" || route.name === "career" || route.name === "loan" || route.name === "billboard" || route.name === "admin";
   const items = profile?.admin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
 
   const logout = async () => {
+    /* 체험 계정은 로그아웃하면 다시 들어올 방법이 없다. 기록이 사라진다는 걸 먼저 알린다. */
+    if (guest && !window.confirm("체험을 끝내면 지금까지 체험한 자산과 기록으로 돌아올 수 없어요. 이어 가려면 먼저 가입해 주세요. 체험을 끝낼까요?")) return;
     setOpen(false);
     try {
       await signOut(firebaseAuth);
@@ -135,6 +138,11 @@ export function ProfileMenu({ route }: { route: Route }) {
 
   return (
     <div className="profile-menu">
+      {guest && (
+        <button type="button" className="nav-link profile-login profile-join" onClick={() => openLoginPrompt(window.location.pathname)}>
+          가입하고 이어가기
+        </button>
+      )}
       <button
         ref={trigger}
         type="button"
@@ -165,6 +173,7 @@ export function ProfileMenu({ route }: { route: Route }) {
               <img className="profile-panel-avatar" src={avatar} alt="" onError={fallbackAvatar} />
               <div className="profile-panel-who">
                 <p className="profile-panel-name">{nickname}</p>
+                {guest && <p className="profile-panel-guest">체험 중 · 가입하면 기록이 이어져요</p>}
               </div>
               <button type="button" className="profile-panel-close" aria-label="메뉴 닫기" onClick={close}>
                 <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
@@ -181,7 +190,7 @@ export function ProfileMenu({ route }: { route: Route }) {
               </ul>
             </div>
             <button type="button" className="profile-panel-logout" onClick={() => void logout()}>
-              로그아웃
+              {guest ? "체험 끝내기" : "로그아웃"}
             </button>
           </aside>
         </div>,

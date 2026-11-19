@@ -14,6 +14,8 @@ export type Profile = {
   admin?: boolean;
   tradeBannedUntil?: string | null;
   tradeBanReason?: string | null;
+  /** 로그인 없이 체험 중인 계정. 가입하면 false가 된다. */
+  guest?: boolean;
 };
 
 type ProfileState = { uid: string | null; profile: Profile | null };
@@ -59,6 +61,14 @@ export function useProfile(): Profile | null {
     () => state.profile,
     () => state.profile,
   );
+}
+
+/** 체험 계정이 가입한 직후처럼, 같은 로그인 안에서 서버 쪽 프로필(닉네임 등)이 바뀌었을 때 다시 읽는다. */
+export function reloadProfile(): void {
+  const uid = firebaseAuth.currentUser?.uid;
+  if (!uid) return;
+  session += 1;
+  void load(uid, session);
 }
 
 /** 설정 화면에서 저장한 결과를 상단 프로필 버튼에도 바로 반영한다. */

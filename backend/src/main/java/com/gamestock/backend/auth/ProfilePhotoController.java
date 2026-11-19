@@ -25,7 +25,7 @@ public class ProfilePhotoController {
     @PostMapping(value = "/profile/photo", consumes = {MediaType.IMAGE_JPEG_VALUE, MediaType.IMAGE_PNG_VALUE})
     public AuthService.Profile upload(HttpServletRequest request,
                                       @RequestHeader(value = "Authorization", required = false) String authorization) throws IOException {
-        long userId = auth.requireUser(authorization).id();
+        long userId = auth.requireMember(authorization).id();
         // 한도보다 1바이트 더 읽어 큰 파일을 끝까지 받지 않고 거절한다.
         byte[] body = request.getInputStream().readNBytes(ProfilePhotoService.MAX_BYTES + 1);
         return photos.upload(userId, body);

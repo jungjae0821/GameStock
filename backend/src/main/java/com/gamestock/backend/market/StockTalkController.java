@@ -27,7 +27,7 @@ public class StockTalkController {
     @PostMapping("/api/stocks/{code}/talk")
     public StockTalkService.Post write(@PathVariable String code, @RequestBody StockTalkService.Write request,
                                        @RequestHeader(value = "Authorization", required = false) String authorization) {
-        AuthService.LoginUser user = auth.requireUser(authorization);
+        AuthService.LoginUser user = auth.requireMember(authorization);
         return talk.write(user.id(), user.requiresNickname() ? null : user.nickname(), code, request);
     }
 
@@ -38,7 +38,7 @@ public class StockTalkController {
 
     @PostMapping("/api/talk/{id}/like")
     public StockTalkService.Like like(@PathVariable long id, @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return talk.like(auth.requireUser(authorization).id(), id);
+        return talk.like(auth.requireMember(authorization).id(), id);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

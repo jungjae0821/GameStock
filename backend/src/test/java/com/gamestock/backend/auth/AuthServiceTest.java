@@ -331,6 +331,41 @@ class AuthServiceTest {
         }
     }
 
+    @Test void anonymousFirebaseTokensAreGuests() {
+        com.google.firebase.auth.FirebaseToken guest = mock(com.google.firebase.auth.FirebaseToken.class);
+        when(guest.getClaims()).thenReturn(java.util.Map.of("firebase", java.util.Map.of("sign_in_provider", "anonymous")));
+        com.google.firebase.auth.FirebaseToken member = mock(com.google.firebase.auth.FirebaseToken.class);
+        when(member.getClaims()).thenReturn(java.util.Map.of("firebase", java.util.Map.of("sign_in_provider", "google.com")));
+        assertTrue(AuthService.anonymous(guest));
+        assertFalse(AuthService.anonymous(member));
+    }
+
+    @Test void guestAccountBecomesMemberWhenTokenIsNoLongerAnonymous() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.queryForObject(startsWith("SELECT COUNT(*) FROM users WHERE id = ? AND password_hash"), eq(Integer.class), eq(7L), eq(AuthService.GUEST_PASSWORD)))
+                .thenReturn(1);
+        signedIn(jdbc, "USER", null, "user@example.com", auth -> auth.requireUser("Bearer valid"));
+        // 직접 정한 닉네임(체험 자동 닉네임이 아님)은 그대로 두고, 표식과 이메일만 바꾼다.
+        verify(jdbc).update("UPDATE users SET password_hash = 'FIREBASE', email = ?, nickname = ? WHERE id = ? AND password_hash = ?",
+                "user@example.com", "닉네임", 7L, AuthService.GUEST_PASSWORD);
+    }
+
+    @Test void requireMemberRefusesAccountsStillMarkedGuest() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.queryForObject(startsWith("SELECT COUNT(*) FROM users WHERE id = ? AND password_hash"), eq(Integer.class), eq(7L), eq(AuthService.GUEST_PASSWORD)))
+                .thenReturn(1);
+        signedIn(jdbc, "USER", null, "user@example.com", auth -> {
+            var error = assertThrows(ResponseStatusException.class, () -> auth.requireMember("Bearer valid"));
+            assertEquals(403, error.getStatusCode().value());
+        });
+    }
+
+    @Test void membersPassRequireMember() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        signedIn(jdbc, "USER", null, "user@example.com", auth -> assertEquals(7L, auth.requireMember("Bearer valid").id()));
+        verify(jdbc, never()).update(startsWith("UPDATE users SET password_hash = 'FIREBASE'"), any(Object[].class));
+    }
+
     @Test void suspendedAccountIsRefusedEverywhereButLoginAndPaysNoAttendance() throws Exception {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         signedIn(jdbc, "USER", NOW.plus(Duration.ofDays(1)), "user@example.com", auth -> {

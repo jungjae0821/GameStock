@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "../../components/Link";
-import { requireSignIn, useAuthUser } from "../../lib/auth";
+import { authErrorMessage, guestModeAvailable, requireSignIn, startGuestSession, useAuthUser } from "../../lib/auth";
 import { useProfile } from "../../lib/profile";
 import { won } from "../../market/format";
 import { useMarket, useMarketApi } from "../../market/MarketProvider";
@@ -42,6 +42,7 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
   const { user } = useAuthUser();
   const profile = useProfile();
   const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [guestBusy, setGuestBusy] = useState(false);
   const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("LIMIT");
   const [limitPrice, setLimitPrice] = useState(() => String(roundToTick(snapshot.quotes[code]?.asks[0]?.price ?? snapshot.quotes[code]?.price ?? 1)));
   const [qty, setQty] = useState("");
@@ -198,7 +199,21 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
     }
   };
 
-  const statusMessage = result?.message || notice || (!user ? "로그인 후 주문할 수 있습니다."
+  const canStartGuest = !user && guestModeAvailable();
+  const startGuest = async () => {
+    setGuestBusy(true);
+    setResult(null);
+    try {
+      await startGuestSession();
+      setNotice("체험 계정이 만들어졌어요. 모의 자금 100만원으로 바로 주문해 보세요.");
+    } catch (failure) {
+      setResult({ ok: false, message: authErrorMessage(failure) });
+    } finally {
+      setGuestBusy(false);
+    }
+  };
+
+  const statusMessage = result?.message || notice || (!user ? (canStartGuest ? "로그인하거나, 가입 없이 바로 체험해 볼 수 있어요." : "로그인 후 주문할 수 있습니다.")
     : profileLoading ? "계정 권한을 확인하고 있어요."
     : adminTradingBlocked ? "관리자 계정은 모의 주문을 사용할 수 없어요. 일반 계정으로 로그인해 주세요."
     : readyMessage ?? "");
@@ -305,6 +320,11 @@ export function NxOrderTicket({ code, selectedLimitPrice, selectedLimitPriceRevi
       </button>
 
       <p className={`nx-ticket-status${result ? (result.ok ? " is-success" : " is-error") : ""}`} role="status" aria-live="polite">{statusMessage}</p>
+      {canStartGuest && (
+        <button type="button" className="nx-btn nx-ticket-guest" onClick={() => void startGuest()} disabled={guestBusy}>
+          {guestBusy ? "체험 계정 만드는 중…" : "로그인 없이 바로 체험하기"}
+        </button>
+      )}
 
     </form>
   );

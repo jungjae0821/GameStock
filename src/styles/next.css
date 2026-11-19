@@ -249,6 +249,11 @@ html[data-nx] .price {
 /* 로그인은 밝기 버튼과 같은 40px 상자에 글자를 세로 가운데 둔다. 글자 끝은 본문 오른쪽 끝에 맞춘다. */
 .nx-top .profile-login { display: inline-flex; align-items: center; height: 40px; margin-right: -12px; padding: 0 12px; border: 0; border-radius: var(--nx-radius); }
 .nx-top .profile-login:hover { background: var(--nx-tint); }
+/* 체험 중일 때 프로필 사진 앞에 붙는 가입 버튼. 계정 메뉴 버튼과 붙지 않게 오른쪽을 띄운다. */
+.nx-top .profile-menu { display: inline-flex; align-items: center; }
+.nx-top .profile-join { margin-right: 4px; color: var(--brand-deep); font-weight: 700; white-space: nowrap; }
+@media (max-width: 420px) { .nx-top .profile-join { padding: 0 8px; font-size: 13px; } }
+html[data-nx] .profile-panel-guest { margin: 2px 0 0; color: var(--ink-muted); font-size: 13px; }
 /* 라이트의 --sunken(#ffffff)은 패널과 같아 아이콘 원·hover 바탕이 안 보인다. DESIGN.md light-raised(#f3f1f8)와 같은 tint를 쓴다. */
 html[data-nx] .profile-panel { --sunken: var(--nx-tint); }
 

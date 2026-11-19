@@ -33,14 +33,14 @@ public class BillboardController {
     @PostMapping("/api/billboard")
     public BillboardService.ActionResult buy(@RequestBody BillboardService.Purchase request,
                                              @RequestHeader(value = "Authorization", required = false) String authorization) {
-        AuthService.LoginUser user = auth.requireUser(authorization);
+        AuthService.LoginUser user = auth.requireMember(authorization);
         return billboard.buy(user.id(), user.requiresNickname() ? null : user.nickname(), request);
     }
 
     @PostMapping("/api/billboard/{id}/report")
     public Map<String, Object> report(@PathVariable long id, @RequestBody(required = false) BillboardService.ReportRequest request,
                                       @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return billboard.report(auth.requireUser(authorization).id(), id, request);
+        return billboard.report(auth.requireMember(authorization).id(), id, request);
     }
 
     @GetMapping("/api/admin/billboard")

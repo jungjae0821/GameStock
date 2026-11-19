@@ -15,7 +15,8 @@ test.describe("비로그인", () => {
     // 휴대폰 폭에서는 주문 입력이 처음부터 펼쳐져 있지 않다.
     if (isMobile) return;
     await expect(page.getByRole("form", { name: "주문 입력" })).toBeVisible();
-    await expect(page.getByText("로그인 후 주문할 수 있습니다.")).toBeVisible();
+    await expect(page.getByText("로그인하거나, 가입 없이 바로 체험해 볼 수 있어요.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "로그인 없이 바로 체험하기" })).toBeVisible();
   });
 
   test("로그인이 필요한 화면은 안내를 보여 준다", async ({ page }) => {

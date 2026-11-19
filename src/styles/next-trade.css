@@ -73,6 +73,7 @@
 .nx-ticket-status { min-height: 18px; margin: -4px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 1.5; }
 .nx-ticket-status.is-success { color: var(--ink); }
 .nx-ticket-status.is-error { color: var(--up-deep); }
+.nx-ticket-guest { width: 100%; min-height: 44px; border-style: dashed; }
 
 /* ───────── 계좌 내역 ───────── */
 

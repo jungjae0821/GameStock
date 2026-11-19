@@ -1,12 +1,41 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { onIdTokenChanged, signInAnonymously, type User } from "firebase/auth";
+import { apiFetch } from "./api";
 import { firebaseAuth } from "./firebase";
 import { isReturnablePath, navigate, type LoginMethod } from "../router";
 
 export function useAuthUser() {
   const [state, setState] = useState<{ user: User | null; ready: boolean }>({ user: firebaseAuth.currentUser, ready: false });
-  useEffect(() => onAuthStateChanged(firebaseAuth, (user) => setState({ user, ready: true })), []);
+  /* 토큰이 바뀔 때도 다시 그린다. 체험 계정에 가입 수단을 붙이면 같은 사용자 객체가 그대로 남아
+     로그인 상태 이벤트는 오지 않고, 새 토큰을 받을 때에만 isAnonymous가 false로 바뀐 걸 알 수 있다. */
+  useEffect(() => onIdTokenChanged(firebaseAuth, (user) => setState({ user, ready: true })), []);
   return state;
+}
+
+/* ── 로그인 없이 체험하기 ──
+ * Firebase 익명 로그인으로 서버에 체험 계정을 만든다. 같은 브라우저에서 가입하면 익명 계정에 가입 수단을
+ * 붙이므로(LoginCard) 자산과 기록이 그대로 이어진다. 앱(WebView) 셸은 앱 로그인 흐름이 따로 있어 쓰지 않는다. */
+
+export function guestModeAvailable(): boolean {
+  return document.documentElement.dataset.appShell !== "mobile" && !window.ReactNativeWebView;
+}
+
+export function isGuest(user: User | null | undefined): boolean {
+  return Boolean(user?.isAnonymous);
+}
+
+export async function startGuestSession(): Promise<void> {
+  if (firebaseAuth.currentUser) return;
+  await signInAnonymously(firebaseAuth);
+  await apiFetch("/api/auth/login", { method: "POST" });
+}
+
+/** 가입한 회원만 쓰는 기능(글쓰기·채팅·전광판 등) 앞에서 부른다. 체험 중이면 가입 창을 띄우고 false. */
+export function requireMember(next?: string): boolean {
+  const user = firebaseAuth.currentUser;
+  if (user && !user.isAnonymous) return true;
+  openLoginPrompt(next ?? window.location.pathname);
+  return false;
 }
 
 /** Only return to an existing page in this app, never a supplied external URL. */
@@ -96,6 +125,9 @@ export function authErrorMessage(error: unknown): string {
     case "auth/account-exists-with-different-credential": return "같은 이메일로 가입한 다른 로그인 방법을 사용해 주세요.";
     case "auth/too-many-requests": return "요청이 많아 잠시 제한됐습니다. 잠시 후 다시 시도해 주세요.";
     case "auth/user-disabled": return "이 계정은 현재 로그인할 수 없습니다.";
+    case "auth/admin-restricted-operation": return "지금은 로그인 없이 체험하기를 쓸 수 없어요. 로그인해 주세요.";
+    case "auth/credential-already-in-use": return "이미 가입된 계정이에요. 그 계정으로 로그인해 주세요.";
+    case "auth/provider-already-linked": return "이미 이 방법으로 가입했어요.";
     case "auth/network-request-failed": return "연결을 확인한 뒤 다시 시도해 주세요.";
     default: return code ? "로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요." : "계정 정보를 연결하지 못했습니다. 다시 시도해 주세요.";
   }

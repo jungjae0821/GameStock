@@ -13,7 +13,7 @@ import java.util.*;
 @Service
 public class AdminSupport {
     public static final Set<String> PERMISSIONS = Set.of("READ", "USERS", "MARKET", "CONTENT", "REWARDS", "SEASONS");
-    static final String HUMAN = "u.google_uid IS NOT NULL AND u.password_hash NOT IN ('BOT','TRADER') AND u.username <> 'demo' AND u.role <> 'ADMIN'";
+    static final String HUMAN = "u.google_uid IS NOT NULL AND u.password_hash NOT IN ('BOT','TRADER','GUEST') AND u.username <> 'demo' AND u.role <> 'ADMIN'";
     private final JdbcTemplate db;
     private final AuthService auth;
     private final ObjectMapper json;

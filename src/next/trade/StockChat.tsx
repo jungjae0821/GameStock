@@ -4,6 +4,7 @@ import { useProfile } from "../../lib/profile";
 import { CHAT_MAX_LENGTH, deleteChat, failure, isAbort, loadChat, sendChat, type ChatEntry } from "../../lib/research";
 import { clock, kstDateTime, serverTimestamp } from "../../market/format";
 import { TALK_PATH } from "../../router";
+import { AiBadge } from "../engagement/AiBadge";
 
 /** 새 메시지 조회 간격. 서버 이벤트가 없어 커서로 따라잡는다. */
 const POLL_MS = 2_000;
@@ -35,6 +36,9 @@ const length = (text: string) => text.trim().length;
 /** 종목별 실시간 채팅. 짧은 대화용이라 답글·좋아요 없이 시간순으로만 쌓는다. */
 export function StockChat({ code, name }: { code: string; name: string }) {
   const { user, ready } = useAuthUser();
+  /* 체험 계정(익명 로그인)은 읽기만 한다. 글·채팅은 가입한 회원만 쓴다. */
+  const guest = Boolean(user?.isAnonymous);
+  const member = guest ? null : user;
   const profile = useProfile();
   const uid = user?.uid ?? null;
   const [entries, setEntries] = useState<ChatEntry[] | null>(null);
@@ -187,14 +191,14 @@ export function StockChat({ code, name }: { code: string; name: string }) {
             {olderMore && <li className="nx-chat-older">
               <button type="button" className="nx-link-button" disabled={loadingOlder} onClick={() => void older()}>{loadingOlder ? "불러오는 중…" : "이전 메시지 보기"}</button>
             </li>}
-            {entries.length === 0 && <li className="nx-chat-empty nx-muted">아직 대화가 없어요.{user ? " 먼저 말을 걸어 보세요." : ""}</li>}
+            {entries.length === 0 && <li className="nx-chat-empty nx-muted">아직 대화가 없어요.{member ? " 먼저 말을 걸어 보세요." : ""}</li>}
             {entries.map((entry) => {
               const at = serverTimestamp(entry.createdAt);
               const own = mine(entry);
               return (
                 <li key={entry.id} className={`nx-chat-item${own ? " is-mine" : ""}${entry.deleted ? " is-deleted" : ""}`}>
                   <div className="nx-chat-meta">
-                    <strong>{own ? "나" : entry.nickname}</strong>
+                    <strong>{own ? "나" : entry.nickname}</strong>{!own && <AiBadge nickname={entry.nickname} />}
                     <time dateTime={entry.createdAt} title={kstDateTime(at)} className="nx-num">{clock(at)}</time>
                     {canDelete(entry) && <button type="button" className="nx-link-button nx-chat-delete" onClick={() => void removed(entry)}
                       aria-label={`${clock(at)} 메시지 지우기`}>지우기</button>}
@@ -206,10 +210,10 @@ export function StockChat({ code, name }: { code: string; name: string }) {
           </ol>
         )}
       </div>
-      {ready && user ? <ChatComposer code={code} onSent={sent} />
+      {ready && member ? <ChatComposer code={code} onSent={sent} />
         : <div className="nx-talk-signin">
-            <p className="nx-muted">로그인하면 채팅에 참여할 수 있어요.</p>
-            <button type="button" className="nx-btn is-small" onClick={() => openLoginPrompt(TALK_PATH(code))}>로그인하기</button>
+            <p className="nx-muted">{guest ? "체험 계정은 가입하면 채팅에 참여할 수 있어요." : "로그인하면 채팅에 참여할 수 있어요."}</p>
+            <button type="button" className="nx-btn is-small" onClick={() => openLoginPrompt(TALK_PATH(code))}>{guest ? "가입하고 이어가기" : "로그인하기"}</button>
           </div>}
     </section>
   );

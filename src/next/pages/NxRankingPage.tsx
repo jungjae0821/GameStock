@@ -10,6 +10,7 @@ import {
 import { AnimatedNav } from "../AnimatedNav";
 import { FandomBoard, ProfileButton, PublicProfileDialog, SeasonBoard } from "../engagement/RankingBoards";
 import { usePublicNicknames } from "../../lib/engagement";
+import { AiBadge } from "../engagement/AiBadge";
 
 type Row = Omit<RankingEntry, "changePercent">;
 
@@ -45,7 +46,7 @@ function RankRow({ entry, percent = 0, mine = false, middle, value, grade }: {
             <ProfileButton nickname={entry.nickname} open={publicNames.has(entry.nickname)}>
               <span className="nx-player-name" title={entry.nickname}>
                 {grade && <span className="nx-player-grade">{grade}</span>}
-                {entry.nickname}{mine && <span className="nx-player-me">나</span>}
+                {entry.nickname}<AiBadge nickname={entry.nickname} />{mine && <span className="nx-player-me">나</span>}
               </span>
             </ProfileButton>
           </span>

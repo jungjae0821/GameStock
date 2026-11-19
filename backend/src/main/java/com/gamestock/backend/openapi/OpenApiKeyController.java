@@ -30,7 +30,7 @@ public class OpenApiKeyController {
     @ResponseStatus(HttpStatus.CREATED)
     public IssuedKey create(@RequestHeader(value = "Authorization", required = false) String authorization,
                             @Valid @RequestBody CreateKey request) {
-        var user = auth.requireUser(authorization);
+        var user = auth.requireMember(authorization);
         limiter.account(user.id(), false);
         if (request.permission() == Permission.TRADE && "ADMIN".equalsIgnoreCase(user.role()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 계정은 거래용 API 키를 발급할 수 없습니다.");

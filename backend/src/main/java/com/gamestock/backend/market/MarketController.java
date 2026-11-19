@@ -130,7 +130,7 @@ public class MarketController {
     @PatchMapping("/profile")
     public AuthService.Profile updateProfile(@RequestBody AuthService.ProfileUpdate update,
                                              @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return auth.updateProfile(auth.requireUser(authorization).id(), update);
+        return auth.updateProfile(auth.requireMember(authorization).id(), update);
     }
 
     @PostMapping("/orders")
@@ -205,7 +205,7 @@ public class MarketController {
     @ResponseStatus(HttpStatus.CREATED)
     public StockComment addComment(@PathVariable String stockCode, @Valid @RequestBody CommentRequest request,
                                     @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return userFeatures.addComment(auth.requireUser(authorization).id(), stockCode, request);
+        return userFeatures.addComment(auth.requireMember(authorization).id(), stockCode, request);
     }
 
     @GetMapping("/stocks/{stockCode}/tags")
@@ -215,7 +215,7 @@ public class MarketController {
     @ResponseStatus(HttpStatus.CREATED)
     public StockTag addTag(@PathVariable String stockCode, @Valid @RequestBody TagRequest request,
                            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return userFeatures.addTag(auth.requireUser(authorization).id(), stockCode, request);
+        return userFeatures.addTag(auth.requireMember(authorization).id(), stockCode, request);
     }
 
     @ExceptionHandler({IllegalArgumentException.class})

@@ -65,6 +65,11 @@ public class PersonaTraderService {
     private volatile boolean accountsReady;
     private volatile Instant quotesAt;
     private volatile List<Quote> quotes = List.of();
+    private volatile StockTalkService talk;
+
+    /** 종목토론에 한마디씩 남길 때 쓴다. 손으로 만든 테스트에서는 비어 있고, 그때는 글을 쓰지 않는다. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setTalk(StockTalkService talk) { this.talk = talk; }
 
     public PersonaTraderService(JdbcTemplate jdbc, MarketService market, OrderService orders, EngagementService engagement,
                                 TitleService titles, AuthService auth, CareerService career,
@@ -150,9 +155,36 @@ public class PersonaTraderService {
             chores(persona, id, now, random);
             choresDone.put(id, day);
         }
+        maybeTalk(persona, id, now, random);
         if (career.grade(id) == CareerGrade.TRAINEE && finishOjt(persona, id)) return;
         if (random.nextDouble() >= persona.actionChancePerMinute(Persona.dayOf(now))) return;
         trade(persona, id, random);
+    }
+
+    /**
+     * 가끔 크게 움직인 종목의 토론에 한마디 남긴다({@link PersonaTalk}). 하루 글 수 상한과, 같은 종목에 봇 글이
+     * 몰리지 않게 하는 대기 시간을 지킨다. 글쓰기 실패(간격 제한 등)는 다음 기회로 넘긴다.
+     */
+    void maybeTalk(Persona persona, long id, ZonedDateTime now, Random random) {
+        StockTalkService board = talk;
+        if (board == null || random.nextDouble() >= PersonaTalk.CHANCE_PER_MINUTE) return;
+        Timestamp dayStart = Timestamp.from(now.toLocalDate().atStartOfDay(Persona.ZONE).toInstant());
+        Integer written = jdbc.queryForObject("SELECT COUNT(*) FROM stock_talk_posts WHERE user_id=? AND created_at>=?", Integer.class, id, dayStart);
+        if (written != null && written >= PersonaTalk.DAILY_POSTS) return;
+        Optional<Quote> quote = PersonaTalk.pick(persona, quotes());
+        if (quote.isEmpty()) return;
+        Timestamp since = Timestamp.from(now.toInstant().minus(Duration.ofMinutes(PersonaTalk.STOCK_COOLDOWN_MINUTES)));
+        Integer recent = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM stock_talk_posts p JOIN users u ON u.id=p.user_id
+                WHERE p.stock_code=? AND u.password_hash=? AND p.created_at>=?
+                """, Integer.class, quote.get().code(), Persona.PASSWORD, since);
+        if (recent != null && recent > 0) return;
+        PersonaTalk.Line line = PersonaTalk.line(persona, quote.get(), random);
+        try {
+            board.write(id, persona.nickname(), line.code(), new StockTalkService.Write(line.body(), null));
+        } catch (IllegalArgumentException skipped) {
+            log.debug("운영 봇 {} 토론 글 건너뜀: {}", persona.username(), skipped.getMessage());
+        }
     }
 
     /**

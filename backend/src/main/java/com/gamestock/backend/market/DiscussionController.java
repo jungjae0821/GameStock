@@ -23,7 +23,7 @@ public class DiscussionController {
     @PostMapping("/chat") @ResponseStatus(HttpStatus.CREATED)
     public DiscussionService.Entry send(@PathVariable String code,@RequestBody DiscussionService.Write body,
         @RequestHeader(value="Authorization",required=false) String token) {
-        return service.create(auth.requireUser(token).id(),code,body);
+        return service.create(auth.requireMember(token).id(),code,body);
     }
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<Map<String,String>> invalid(IllegalArgumentException e) {return ResponseEntity.badRequest().body(Map.of("message",e.getMessage()));}

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../../lib/api";
-import { fetchFandoms, fetchFeed, useEngagement, type Fandom } from "../../lib/engagement";
+import { fetchFandoms, fetchFeed, isAiNickname, useEngagement, type Fandom } from "../../lib/engagement";
 import { useMarket } from "../../market/provider/context";
 import { LISTING_BY_CODE } from "../../market/universe";
 import { compactWon, rate, won } from "../../market/format";
 import { GameIcon } from "../../components/GameIcon";
 import { Link } from "../../components/Link";
+import { AiBadge } from "./AiBadge";
 import { MARKET_PATH, NEWS_PATH, navigate, useRoute } from "../../router";
 
 const SEEN_ALERTS = "gamestock-alerts-seen";
@@ -61,14 +62,14 @@ export function HomeLiveFeed() {
       ) : !items ? (
         <p className="nx-note is-error" role="status">체결 소식을 불러오지 못했어요. 15초 뒤에 다시 불러와요.</p>
       ) : items.length === 0 ? (
-        <p className="nx-muted nx-live-empty">아직 조용해요. 3천만원이 넘는 체결이나, 포트폴리오를 공개한 사람의 체결이 여기에 떠요.</p>
+        <p className="nx-muted nx-live-empty">아직 조용해요. 3천만원이 넘는 체결이나, 포트폴리오를 공개한 사람·AI 트레이더의 체결이 여기에 떠요.</p>
       ) : (
         <ol className="nx-live-list">
           {items.slice(0, 8).map((item) => (
             <li key={`${item.id}-${item.side}`} className={item.whale ? "is-whale" : undefined}>
               <GameIcon code={item.stockCode} size="table" />
               <p>
-                <strong>{item.nickname ?? "익명"}</strong>님이 {LISTING_BY_CODE[item.stockCode]?.name ?? item.name}{" "}
+                <strong>{item.nickname ?? "익명"}</strong><AiBadge nickname={item.nickname} />님이 {LISTING_BY_CODE[item.stockCode]?.name ?? item.name}{" "}
                 <span className="nx-num">{item.quantity.toLocaleString("ko-KR")}주</span>를{" "}
                 <span className={item.side === "BUY" ? "is-up" : "is-down"}>{item.side === "BUY" ? "샀어요" : "팔았어요"}</span>
                 {item.whale && <span className="nx-whale-badge">고래</span>}
@@ -157,7 +158,7 @@ export function MarketAlerts() {
       code: item.stockCode,
       tone: "whale",
       title: "고래 등장",
-      body: `${item.nickname ?? "누군가"}님이 ${LISTING_BY_CODE[item.stockCode]?.name ?? item.name}을 ${compactWon(item.amount)}어치 ${item.side === "BUY" ? "샀어요" : "팔았어요"}`,
+      body: `${isAiNickname(item.nickname) ? "AI 트레이더 " : ""}${item.nickname ?? "누군가"}님이 ${LISTING_BY_CODE[item.stockCode]?.name ?? item.name}을 ${compactWon(item.amount)}어치 ${item.side === "BUY" ? "샀어요" : "팔았어요"}`,
       to: MARKET_PATH(item.stockCode),
     })), "feed");
     // eslint-disable-next-line react-hooks/exhaustive-deps
