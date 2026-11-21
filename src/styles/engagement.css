@@ -173,9 +173,6 @@
   box-shadow: 0 0 0 1px var(--nx-line), 0 12px 32px rgb(0 0 0 / 0.35);
   animation: nx-alert-in 220ms ease-out;
 }
-/* 알림 왼쪽 띠는 종류를 구분하는 정보다. 고래는 진한 잉크, 뉴스는 옅은 잉크. 색 대신 명도로 나눈다. */
-.nx-alert-toast.is-whale { box-shadow: inset 3px 0 0 var(--ink), 0 0 0 1px var(--nx-line), 0 12px 32px rgb(0 0 0 / 0.35); }
-.nx-alert-toast.is-news { box-shadow: inset 3px 0 0 var(--ink-muted), 0 0 0 1px var(--nx-line), 0 12px 32px rgb(0 0 0 / 0.35); }
 .nx-alert-toast.is-impact { bottom: 84px; }
 .nx-alert-body {
   display: grid; gap: 2px; min-width: 0; margin: 0; padding: 12px 8px 12px 18px; border: 0; background: transparent;
@@ -184,8 +181,6 @@
 p.nx-alert-body { padding-right: 18px; cursor: default; }
 .nx-alert-body strong { font-size: 14px; }
 .nx-alert-body > span { overflow: hidden; color: var(--ink-muted); text-overflow: ellipsis; white-space: nowrap; }
-.nx-alert-close { display: grid; place-items: center; width: 44px; border: 0; background: transparent; color: var(--ink-muted); cursor: pointer; }
-.nx-alert-close svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 @keyframes nx-alert-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @media (prefers-reduced-motion: reduce) { .nx-alert-toast { animation: none; } }
 
