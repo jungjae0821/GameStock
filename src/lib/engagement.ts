@@ -209,10 +209,3 @@ export function useAiNicknames(): ReadonlySet<string> {
     () => aiNames,
   );
 }
-
-/** 화면 밖(알림 문구 등)에서 쓰는 동기 확인. 명단을 아직 못 받았으면 false. */
-export function isAiNickname(nickname: string | null | undefined): boolean {
-  if (!nickname) return false;
-  loadAiNames();
-  return aiNames.has(nickname);
-}

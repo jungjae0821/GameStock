@@ -1,16 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../../lib/api";
-import { fetchFandoms, fetchFeed, isAiNickname, useEngagement, type Fandom } from "../../lib/engagement";
-import { useMarket } from "../../market/provider/context";
+import { fetchFandoms, fetchFeed, useEngagement, type Fandom } from "../../lib/engagement";
 import { LISTING_BY_CODE } from "../../market/universe";
 import { compactWon, rate, won } from "../../market/format";
 import { GameIcon } from "../../components/GameIcon";
 import { Link } from "../../components/Link";
 import { AiBadge } from "./AiBadge";
-import { MARKET_PATH, NEWS_PATH, navigate, useRoute } from "../../router";
-
-const SEEN_ALERTS = "gamestock-alerts-seen";
-const BIG_NEWS = 0.03;
 
 type Load<T> = { data: T | null; state: "loading" | "ready" | "error" | "missing" };
 
@@ -118,85 +113,6 @@ export function HomeFandoms() {
       )}
       {engagement && !mine && <p className="nx-muted nx-fandom-cta"><Link to="/settings">주력 게임 고르기</Link>로 내 게임 순위를 올려 보세요.</p>}
     </section>
-  );
-}
-
-type Alert = { key: string; code: string; tone: "whale" | "news"; title: string; body: string; to: string };
-
-function readSeen(): Set<string> {
-  try { return new Set(JSON.parse(sessionStorage.getItem(SEEN_ALERTS) ?? "[]") as string[]); } catch { return new Set(); }
-}
-
-/**
- * 화면 어디에 있든 아래에 짧게 뜨는 시장 알림. 3천만원 넘는 사람 체결(고래)과,
- * 발행 뒤 시세가 3% 넘게 움직인 뉴스만 띄운다. 처음 열 때 이미 있던 건 알리지 않는다.
- */
-export function MarketAlerts() {
-  const snapshot = useMarket();
-  const route = useRoute();
-  /* 거래 터미널에서는 다른 종목 알림이 차트·주문 버튼을 가리고 눈을 뺏는다. 보고 있는 종목 알림만 띄운다. */
-  const focusCode = route.name === "trade" || route.name === "market" ? route.ticker : null;
-  const feed = useFeed(20_000).data;
-  const [queue, setQueue] = useState<Alert[]>([]);
-  const seen = useRef<Set<string>>(readSeen());
-  const primed = useRef({ feed: false, news: false });
-
-  const push = (alerts: Alert[], prime: "feed" | "news") => {
-    const fresh = alerts.filter((alert) => !seen.current.has(alert.key));
-    fresh.forEach((alert) => seen.current.add(alert.key));
-    try { sessionStorage.setItem(SEEN_ALERTS, JSON.stringify([...seen.current].slice(-200))); } catch { /* 이번 화면에서만 기억 */ }
-    if (!primed.current[prime]) { primed.current[prime] = true; return; }
-    /* 터미널에서 걸러 낸 다른 종목 알림은 나중에 뒤늦게 뜨지 않게 아예 쌓지 않는다. */
-    const wanted = focusCode ? fresh.filter((alert) => alert.code === focusCode) : fresh;
-    if (wanted.length) setQueue((current) => [...current, ...wanted].slice(-3));
-  };
-
-  useEffect(() => {
-    if (!feed) return;
-    push(feed.filter((item) => item.whale).map((item) => ({
-      key: `whale:${item.id}:${item.side}`,
-      code: item.stockCode,
-      tone: "whale",
-      title: "고래 등장",
-      body: `${isAiNickname(item.nickname) ? "AI 트레이더 " : ""}${item.nickname ?? "누군가"}님이 ${LISTING_BY_CODE[item.stockCode]?.name ?? item.name}을 ${compactWon(item.amount)}어치 ${item.side === "BUY" ? "샀어요" : "팔았어요"}`,
-      to: MARKET_PATH(item.stockCode),
-    })), "feed");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feed]);
-
-  useEffect(() => {
-    if (!snapshot.news.length) return;
-    push(snapshot.news.filter((news) => Math.abs(news.priceChangeRatio ?? 0) >= BIG_NEWS).map((news) => ({
-      key: `news:${news.id}`,
-      code: news.code,
-      tone: "news",
-      title: `${LISTING_BY_CODE[news.code]?.name ?? news.code} ${rate(news.priceChangeRatio ?? 0)}`,
-      body: news.title,
-      to: NEWS_PATH(news.id),
-    })), "news");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.news]);
-
-  const visible = focusCode ? queue.filter((alert) => alert.code === focusCode) : queue;
-  const current = visible[0];
-  const dismiss = () => setQueue((list) => list.filter((alert) => alert !== current));
-  useEffect(() => {
-    if (!current) return;
-    const timer = window.setTimeout(() => setQueue((list) => list.filter((alert) => alert !== current)), 6_000);
-    return () => window.clearTimeout(timer);
-  }, [current]);
-
-  if (!current) return null;
-  return (
-    <div className={`nx-alert-toast is-${current.tone}`} role="status" aria-live="polite">
-      <button type="button" className="nx-alert-body" onClick={() => { navigate(current.to); dismiss(); }}>
-        <strong>{current.title}</strong>
-        <span>{current.body}</span>
-      </button>
-      <button type="button" className="nx-alert-close" aria-label="알림 닫기" onClick={dismiss}>
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-      </button>
-    </div>
   );
 }
 

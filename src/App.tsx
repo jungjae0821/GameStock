@@ -30,7 +30,7 @@ import { NxTitlesPage } from "./next/pages/NxTitlesPage";
 import { NxAttendancePage } from "./next/pages/NxAttendancePage";
 import { LegalFooter } from "./next/LegalFooter";
 import type { Route } from "./router";
-import { MarketAlerts, OrderImpactToast } from "./next/engagement/LiveBoards";
+import { OrderImpactToast } from "./next/engagement/LiveBoards";
 
 /*
  * 첫 화면(홈·시장·종목)에 필요 없는 무거운 화면은 열 때 받아 온다. 관리자·API 문서·퀀트·파생상품·전광판·
@@ -189,7 +189,6 @@ export default function App() {
         <MissionRewardToast />
         {/* 앱 안 WebView(app-shell)에서는 시장 알림과 슈엔의 첫 출근·발령·갈구기를 앱이 네이티브로 띄운다.
             숨겨 둔 WebView에서 몰래 떠 버리거나 앱과 두 번 뜨지 않게 웹은 그리지 않는다. 데스크 첫 방문 안내(DeskIntro)는 그대로 둔다. */}
-        {!inAppShell && <MarketAlerts />}
         <OrderImpactToast />
         <TitleWatcher />
         <LoginModal />
