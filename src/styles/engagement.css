@@ -69,6 +69,9 @@
 .nx-career-next { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--nx-line); }
 .nx-career-next h3 { margin: 0; color: var(--ink); font-size: 14px; font-weight: 600; }
 .nx-career-next > p { margin: 12px 0 0; font-size: 12px; line-height: 1.6; }
+.nx-career-week { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--nx-line); }
+.nx-career-week h3 { margin: 0 0 12px; color: var(--ink); font-size: 14px; font-weight: 600; }
+.nx-career-week > p { margin: 12px 0 0; font-size: 12px; line-height: 1.6; }
 .nx-career-steps { max-width: none; }
 .nx-career-steps li { grid-template-columns: minmax(150px, 220px) minmax(60px, 1fr) 72px auto; min-height: 36px; }
 .nx-career-steps li > .nx-btn { justify-self: start; }

@@ -225,7 +225,7 @@ class PersonaTest {
         List<CareerService.Step> steps = java.util.Arrays.stream(left)
                 .map(id -> new CareerService.Step(id, id, "CHECK", 0, 1, false)).toList();
         return new CareerService.Career(false, false, grade.name(), grade.label, grade.ordinal(), grade.allocation, 0, null, null,
-                "2026-11-17T00:00:00Z", grade.allocation, 0, 0, 0, 0, 0, 0, 0, null, null, 0, steps, List.of());
+                "2026-11-17T00:00:00Z", grade.allocation, 0, 0, 0, 0, 0, 0, 0, null, null, 0, steps, List.of(), null);
     }
 
     @Test void aTraineeBotFillsTheOjtStepsTheAppWouldReportAndPromotedBotsAreLeftAlone() {

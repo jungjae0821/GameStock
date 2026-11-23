@@ -83,6 +83,47 @@ final class CareerSchema {
         addColumnIfMissing(jdbc, "career_state", "outside_cash", "BIGINT NOT NULL DEFAULT 0 AFTER grade_base");
         // Settlements in a row that closed at or above the promotion return; any grade change resets it.
         addColumnIfMissing(jdbc, "career_state", "return_streak", "INT NOT NULL DEFAULT 0 AFTER outside_cash");
+        // Weekly ranking points toward the next grade (associate and up); any grade change resets them.
+        addColumnIfMissing(jdbc, "career_state", "promotion_points", "INT NOT NULL DEFAULT 0 AFTER return_streak");
+        // Where this week's ranked return is measured from: the traded confirmed asset and the game index
+        // at the start of the Korean week, or at the grade change if that came later.
+        addColumnIfMissing(jdbc, "career_state", "week_open_at", "TIMESTAMP(3) NULL AFTER promotion_points");
+        addColumnIfMissing(jdbc, "career_state", "week_open_traded", "BIGINT NULL AFTER week_open_at");
+        addColumnIfMissing(jdbc, "career_state", "week_open_index", "DOUBLE NULL AFTER week_open_traded");
+        // One traded mark asset per settled day, for the weekly volatility the ranking divides by.
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS career_daily_marks (
+                  user_id BIGINT NOT NULL,
+                  day DATE NOT NULL,
+                  traded_mark BIGINT NOT NULL,
+                  PRIMARY KEY (user_id, day),
+                  CONSTRAINT fk_career_daily_marks_user FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """);
+        // A week settles once; its rows say who ranked where and who earned a point.
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS career_weeks (
+                  week_start DATE NOT NULL PRIMARY KEY,
+                  settled_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+                )
+                """);
+        jdbc.execute("""
+                CREATE TABLE IF NOT EXISTS career_week_results (
+                  week_start DATE NOT NULL,
+                  user_id BIGINT NOT NULL,
+                  grade VARCHAR(16) NOT NULL,
+                  return_permil INT NOT NULL,
+                  index_permil INT NOT NULL,
+                  volatility_permil INT NOT NULL,
+                  score DOUBLE NOT NULL,
+                  rank_in_grade INT NOT NULL,
+                  ranked_members INT NOT NULL,
+                  awarded BOOLEAN NOT NULL,
+                  PRIMARY KEY (week_start, user_id),
+                  KEY ix_career_week_results_user (user_id, week_start),
+                  CONSTRAINT fk_career_week_results_user FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """);
         addColumnIfMissing(jdbc, "attendance_rewards", "wallet_cash", "BIGINT NOT NULL DEFAULT 0");
         addColumnIfMissing(jdbc, "mission_rewards", "wallet_cash", "BIGINT NOT NULL DEFAULT 0");
         // Bets placed before the wallet existed were paid from trading cash and settle back there.

@@ -52,6 +52,12 @@ public class CareerService {
     static final double MIN_FILL_SHARE = 0.01;
     /** From staff up, one stock may hold at most this share of the grade's base. */
     static final double CONCENTRATION_LIMIT = 0.30;
+    /** Share of a grade's weekly ranking that earns a point (at least one member), if their excess is positive. */
+    static final double RANK_TOP_SHARE = 0.40;
+    /** Days with a sized fill a member needs in the week to be ranked at all. */
+    static final int WEEK_TRADING_DAYS = 2;
+    /** Daily volatility below this counts as this, so a member who barely moved cannot divide by almost nothing. */
+    static final double VOLATILITY_FLOOR = 0.005;
 
     static final String MARK_ASSET = "(" + AccountValuation.GROSS_ASSET + " - u.loan_balance)";
     static final String CONFIRMED_ASSET = """
@@ -72,13 +78,22 @@ public class CareerService {
                          double bonusRate, String nextGrade, String nextGradeLabel, String gradeSince, long gradeBase,
                          long markAsset, long confirmedAsset, long highWaterMark, double returnPercent, long demotionAsset,
                          long dayOpenAsset, long dayLossLimit, String lockedUntil, String lockReason, long personalCash,
-                         List<Step> promotion, List<Event> events) { }
+                         List<Step> promotion, List<Event> events, Week week) { }
+    /**
+     * This week's ranked race for associates and up: the return so far against the game index,
+     * the trading days that make the member eligible and when the week is ranked. {@code last}
+     * is the member's row from the most recent ranked week, if any.
+     */
+    public record Week(String since, String ranksAt, double returnPercent, double indexPercent, double excessPercent,
+                       int tradingDays, int tradingDaysNeeded, double topShare, int points, int pointsNeeded, LastWeek last) { }
+    public record LastWeek(String weekStart, int rank, int members, double excessPercent, boolean awarded) { }
     public record Wallet(long balance, List<PersonalWallet.Entry> entries) { }
 
-    record State(long userId, CareerGrade grade, Instant gradeSince, long gradeBase, long outsideCash, int returnStreak,
+    record State(long userId, CareerGrade grade, Instant gradeSince, long gradeBase, long outsideCash, int promotionPoints,
+                 Instant weekOpenAt, Long weekOpenTraded, Double weekOpenIndex,
                  long highWaterMark, long personalCash,
                  Set<String> ojtSteps, LocalDate dayOpenOn, Long dayOpenAsset, Instant lockedUntil, String lockReason,
-                 LocalDate lastSettledOn, boolean legacy, boolean migrated, boolean exempt) {
+                 LocalDate lastSettledOn, boolean legacy, boolean migrated, boolean exempt, boolean trader) {
         boolean active() { return !exempt && (!legacy || migrated); }
 
         /** What the trading in this grade alone has made of {@code asset}: admin cash is taken back out. */
@@ -130,7 +145,25 @@ public class CareerService {
                 state.gradeSince().toString(), state.gradeBase(), mark, confirmed, state.highWaterMark(), returnPercent,
                 demotionAsset, state.dayOpenAsset() == null ? mark : state.dayOpenAsset(), dayLimit,
                 locked ? state.lockedUntil().toString() : null, locked ? state.lockReason() : null,
-                state.personalCash(), view.steps(), events(userId));
+                state.personalCash(), view.steps(), events(userId), grade.ranked() ? week(state, confirmed, now) : null);
+    }
+
+    /** The live view of this week's race. Costs three reads, only for ranked grades. */
+    private Week week(State state, long confirmed, Instant now) {
+        Instant since = state.weekOpenAt() != null ? state.weekOpenAt() : weekStart(now);
+        double ret = state.weekOpenTraded() == null || state.weekOpenTraded() <= 0 ? 0
+                : (double) state.traded(confirmed) / state.weekOpenTraded() - 1;
+        Double index = indexAt(now);
+        double indexReturn = index == null || state.weekOpenIndex() == null || state.weekOpenIndex() <= 0 ? 0 : index / state.weekOpenIndex() - 1;
+        int days = (int) tradingDays(state.userId(), Timestamp.from(since), minFill(state));
+        var last = jdbc.query("""
+                SELECT week_start, rank_in_grade, ranked_members, return_permil - index_permil AS excess, awarded
+                FROM career_week_results WHERE user_id = ? ORDER BY week_start DESC LIMIT 1
+                """, (rs, row) -> new LastWeek(rs.getDate(1).toLocalDate().toString(), rs.getInt(2), rs.getInt(3),
+                rs.getInt(4) / 10.0, rs.getBoolean(5)), state.userId());
+        return new Week(since.toString(), weekStart(now).plus(Duration.ofDays(7)).toString(), ret * 100, indexReturn * 100,
+                (ret - indexReturn) * 100, days, WEEK_TRADING_DAYS, RANK_TOP_SHARE, state.promotionPoints(),
+                state.grade().promotionPoints, last.isEmpty() ? null : last.get(0));
     }
 
     public Wallet wallet(long userId) {
@@ -282,12 +315,15 @@ public class CareerService {
     }
 
     /**
-     * Whether a promotion could happen now. Past the OJT the return has to have been held for
-     * {@code promotionHold} settlements, so until the streak is long enough no other step matters.
+     * Whether a promotion could happen now. Ranked grades need their weekly points first, so until
+     * then no other step is worth counting; the OJT and staff steps are counted every time.
      */
     private static boolean mayPromote(State state) {
         CareerGrade grade = state.grade();
-        return grade == CareerGrade.TRAINEE || grade.promotionReturn <= 0 || state.returnStreak() >= grade.promotionHold;
+        // AI traders finish the OJT like members but stay staff: the staff steps are only activity, which a
+        // bot meets every day, and they are never settled or ranked, so a higher desk would only hand them more money.
+        if (state.trader() && grade != CareerGrade.TRAINEE) return false;
+        return !grade.ranked() || state.promotionPoints() >= grade.promotionPoints;
     }
 
     private State promote(State state, long mark, Instant now) {
@@ -307,6 +343,7 @@ public class CareerService {
                   day_open_asset = CASE WHEN day_open_asset IS NULL THEN NULL ELSE day_open_asset + ? END,
                   updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?
                 """, to.name(), Timestamp.from(now), mark + topUp, confirmed, topUp, topUp, state.userId());
+        openWeek(state.userId(), now, confirmed + topUp, true);
         event(state.userId(), "PROMOTE", from, to, mark, topUp);
         log.info("직급 승진 user={} {} -> {} 충전={}", state.userId(), from, to, topUp);
         return load(state.userId(), true);
@@ -328,6 +365,7 @@ public class CareerService {
                       day_open_asset = CASE WHEN day_open_asset IS NULL THEN NULL ELSE day_open_asset + ? END,
                       updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?
                     """, Timestamp.from(now), mark + topUp, confirmed, topUp, Timestamp.from(now.plus(RETRAIN)), topUp, state.userId());
+            openWeek(state.userId(), now, confirmed + topUp, true);
             event(state.userId(), "RETRAIN", grade, grade, mark, topUp);
             log.info("재교육 user={} 평가자산={} 충전={}", state.userId(), mark, topUp);
             return load(state.userId(), true);
@@ -344,6 +382,7 @@ public class CareerService {
                   day_open_asset = CASE WHEN day_open_asset IS NULL THEN NULL ELSE day_open_asset + ? END,
                   updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?
                 """, to.name(), Timestamp.from(now), mark + topUp, confirmed, topUp, topUp, state.userId());
+        openWeek(state.userId(), now, confirmed + topUp, true);
         event(state.userId(), "DEMOTE", grade, to, mark, topUp);
         log.info("직급 강등 user={} {} -> {} 충전={}", state.userId(), grade, to, topUp);
         return load(state.userId(), true);
@@ -369,19 +408,20 @@ public class CareerService {
             steps.add(check("RISK", "손실한도·성과급 교육 확인", state.ojtSteps().contains("RISK")));
             return steps;
         }
-        if (grade.promotionReturn > 0) {
-            long permil = returnPermil(state, confirmed);
-            long target = Math.round(grade.promotionReturn * 1000);
-            steps.add(new Step("RETURN", "확정 수익률 +" + Math.round(grade.promotionReturn * 100) + "%", "PERMIL",
-                    Math.max(0, Math.min(permil, target)), target, permil >= target));
-            steps.add(counted("HOLD", "목표 수익률로 마감한 정산(연속)", state.returnStreak(), grade.promotionHold));
-        }
         long minFill = minFill(state);
         String sized = " (" + won(minFill) + " 이상)";
-        if (grade.promotionTradingDays > 0)
+        if (grade == CareerGrade.STAFF) {
             steps.add(counted("DAYS", "거래한 날" + sized, tradingDays(userId, since, minFill), grade.promotionTradingDays));
-        if (grade.promotionFills > 0)
-            steps.add(counted("FILLS", "체결" + sized, fills(userId, since, minFill), grade.promotionFills));
+            steps.add(counted("NEWS", "뉴스 발행 2시간 안에 그 종목 체결" + sized, newsFills(userId, since, minFill), grade.promotionNewsFills));
+            steps.add(check("CLEAN", "이 직급에서 일일 손실한도 위반 없음", dayLimitBreaches(userId, since) == 0));
+            long floor = Math.round(CareerGrade.STAFF_RETURN_FLOOR * 1000);
+            long permil = returnPermil(state, confirmed);
+            steps.add(check("FLOOR", "확정 수익률 " + Math.round(CareerGrade.STAFF_RETURN_FLOOR * 100) + "% 이상 유지", permil >= floor));
+            return steps;
+        }
+        if (grade.ranked())
+            steps.add(counted("POINTS", "주간 순위 상위 " + Math.round(RANK_TOP_SHARE * 100) + "% (게임주 지수보다 나은 수익)",
+                    state.promotionPoints(), grade.promotionPoints));
         switch (grade) {
             case ASSOCIATE -> steps.add(counted("NEWS", "뉴스 발행 2시간 안에 그 종목 체결" + sized, newsFills(userId, since, minFill), NEWS_FILLS));
             // A forced liquidation is not a close the trader chose, so only CLOSE counts.
@@ -392,9 +432,7 @@ public class CareerService {
             case SENIOR_MANAGER -> steps.add(counted("SPREAD", "서로 다른 종목 매도" + sized, count("""
                     SELECT COUNT(DISTINCT stock_id) FROM trades WHERE seller_id = ? AND created_at >= ? AND quantity * price >= ?
                     """, userId, since, minFill), DISTINCT_SELLS));
-            case GENERAL_MANAGER -> steps.add(check("CLEAN", "이 직급에서 일일 손실한도 위반 없음", count("""
-                    SELECT COUNT(*) FROM career_events WHERE user_id = ? AND kind = 'DAY_LIMIT' AND created_at >= ?
-                    """, userId, since) == 0));
+            case GENERAL_MANAGER -> steps.add(check("CLEAN", "이 직급에서 일일 손실한도 위반 없음", dayLimitBreaches(userId, since) == 0));
             default -> { }
         }
         return steps;
@@ -439,12 +477,11 @@ public class CareerService {
                     day + " 성과급 (" + state.grade().label + ")"))
                 notices.add(new UserMarketEvent(userId, "CAREER_BONUS", Map.of("amount", bonus, "day", day.toString())));
             recordMissedDayLimit(state, mark, today);
-            // The promotion return has to be kept to the close of consecutive days, not touched once.
-            CareerGrade grade = state.grade();
-            boolean held = grade.promotionReturn > 0 && state.gradeBase() > 0
-                    && returnPermil(state, confirmed) >= Math.round(grade.promotionReturn * 1000);
-            jdbc.update("UPDATE career_state SET return_streak = CASE WHEN ? THEN return_streak + 1 ELSE 0 END WHERE user_id = ?",
-                    held, userId);
+            // The day's closing mark feeds the weekly volatility. A grade change resets the week, so
+            // marks before it are ignored there.
+            jdbc.update("INSERT IGNORE INTO career_daily_marks (user_id, day, traded_mark) VALUES (?, ?, ?)",
+                    userId, Date.valueOf(day), state.traded(mark));
+            if (state.grade().ranked() && state.weekOpenAt() == null) openWeek(userId, clock.instant(), state.traded(confirmed), false);
             // A buy after midnight may already have opened today; keep that baseline so earlier losses still count.
             boolean opened = today.equals(state.dayOpenOn());
             jdbc.update("""
@@ -456,6 +493,139 @@ public class CareerService {
         });
         notices.forEach(this::publish);
     }
+
+    // ── 주간 순위 ───────────────────────────────────────────
+
+    /** One ranked member's week, as it is stored in {@code career_week_results}. */
+    record Ranked(long userId, CareerGrade grade, double ret, double indexReturn, double volatility, double score) {
+        double excess() { return ret - indexReturn; }
+    }
+
+    /**
+     * Ranks the week that just ended once the Korean Monday has begun. Runs with the daily
+     * settlement's cadence; the {@code career_weeks} row makes it run once per week even with
+     * several instances or a restart in the middle.
+     */
+    @Scheduled(fixedDelayString = "${gamestock.career.settle-ms:600000}", initialDelayString = "${gamestock.career.week-initial-ms:180000}")
+    public void settleWeekDue() {
+        try {
+            settleWeek(weekStart(clock.instant()));
+        } catch (RuntimeException error) {
+            log.warn("커리어 주간 순위 정산 실패: {}", error.getMessage());
+        }
+    }
+
+    /**
+     * Ranks every eligible associate-and-up member for the week ending at {@code end} (a Korean
+     * Monday 0시), gives the top share with a positive excess a point, and starts everyone's next
+     * week from now. Members whose week began at or after {@code end} are not ranked. Returns the
+     * ranked rows; empty if the week was already settled.
+     */
+    List<Ranked> settleWeek(Instant end) {
+        LocalDate weekStart = end.atZone(ZONE).toLocalDate();
+        List<Long> awarded = new ArrayList<>();
+        List<Ranked> ranked = transactions.execute(status -> {
+            if (jdbc.update("INSERT IGNORE INTO career_weeks (week_start) VALUES (?)", Date.valueOf(weekStart.minusDays(7))) == 0)
+                return List.<Ranked>of();
+            Double indexNow = indexAt(end);
+            List<Long> members = jdbc.queryForList("""
+                    SELECT c.user_id FROM career_state c JOIN users u ON u.id = c.user_id
+                    WHERE c.grade IN ('ASSOCIATE', 'MANAGER', 'SENIOR_MANAGER', 'GENERAL_MANAGER')
+                      AND (c.legacy = FALSE OR c.migrated_at IS NOT NULL)
+                      AND u.password_hash NOT IN ('BOT', 'TRADER') AND COALESCE(u.role, 'USER') <> 'ADMIN' AND u.username <> 'demo'
+                    ORDER BY c.user_id FOR UPDATE OF c
+                    """, Long.class);
+            List<Ranked> rows = new ArrayList<>();
+            for (long userId : members) {
+                State state = load(userId, false);
+                long confirmed = confirmedAsset(userId);
+                if (state.weekOpenAt() != null && state.weekOpenAt().isBefore(end) && state.weekOpenTraded() != null && state.weekOpenTraded() > 0
+                        && tradingDays(userId, Timestamp.from(state.weekOpenAt()), minFill(state)) >= WEEK_TRADING_DAYS) {
+                    double ret = (double) state.traded(confirmed) / state.weekOpenTraded() - 1;
+                    double indexReturn = indexNow == null || state.weekOpenIndex() == null || state.weekOpenIndex() <= 0
+                            ? 0 : indexNow / state.weekOpenIndex() - 1;
+                    double volatility = Math.max(VOLATILITY_FLOOR, weekVolatility(state, markAsset(userId)));
+                    rows.add(new Ranked(userId, state.grade(), ret, indexReturn, volatility, (ret - indexReturn) / volatility));
+                }
+                // A member whose week already restarted after Monday 0시 (a grade change) keeps that start.
+                if (state.weekOpenAt() == null || state.weekOpenAt().isBefore(end)) openWeek(userId, end, state.traded(confirmed), false);
+            }
+            for (CareerGrade grade : CareerGrade.values()) {
+                List<Ranked> pool = rows.stream().filter(row -> row.grade() == grade)
+                        .sorted(java.util.Comparator.comparingDouble(Ranked::score).reversed().thenComparingLong(Ranked::userId)).toList();
+                int top = Math.max(1, (int) Math.ceil(pool.size() * RANK_TOP_SHARE));
+                for (int i = 0; i < pool.size(); i++) {
+                    Ranked row = pool.get(i);
+                    boolean point = i < top && row.excess() > 0;
+                    if (point) {
+                        jdbc.update("UPDATE career_state SET promotion_points = promotion_points + 1, updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?",
+                                row.userId());
+                        awarded.add(row.userId());
+                    }
+                    jdbc.update("""
+                            INSERT INTO career_week_results (week_start, user_id, grade, return_permil, index_permil, volatility_permil,
+                              score, rank_in_grade, ranked_members, awarded) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, Date.valueOf(weekStart.minusDays(7)), row.userId(), grade.name(), permil(row.ret()), permil(row.indexReturn()),
+                            permil(row.volatility()), row.score(), i + 1, pool.size(), point);
+                }
+            }
+            log.info("커리어 주간 순위 {}: 순위 {}명, 포인트 {}명", weekStart.minusDays(7), rows.size(), awarded.size());
+            return rows;
+        });
+        // Each point may complete a promotion; review outside the ranking transaction like any other check.
+        for (long userId : awarded) review(userId);
+        return ranked == null ? List.of() : ranked;
+    }
+
+    /** Root-mean-square daily log return of the member's traded mark since the week opened, ending at {@code markNow}. */
+    private double weekVolatility(State state, long markNow) {
+        LocalDate openDay = state.weekOpenAt().atZone(ZONE).toLocalDate();
+        List<Long> marks = new ArrayList<>(jdbc.queryForList(
+                "SELECT traded_mark FROM career_daily_marks WHERE user_id = ? AND day >= ? ORDER BY day", Long.class,
+                state.userId(), Date.valueOf(openDay)));
+        marks.add(state.traded(markNow));
+        double sum = 0;
+        int n = 0;
+        for (int i = 1; i < marks.size(); i++) {
+            if (marks.get(i - 1) <= 0 || marks.get(i) <= 0) continue;
+            double r = Math.log((double) marks.get(i) / marks.get(i - 1));
+            sum += r * r;
+            n++;
+        }
+        return n == 0 ? 0 : Math.sqrt(sum / n);
+    }
+
+    /**
+     * Starts the member's ranked week at {@code at}, from {@code traded} (confirmed asset less outside cash)
+     * and the index then. A grade change also clears the points, which belong to the grade they were won in.
+     */
+    private void openWeek(long userId, Instant at, long traded, boolean resetPoints) {
+        jdbc.update("""
+                UPDATE career_state SET promotion_points = CASE WHEN ? THEN 0 ELSE promotion_points END,
+                  week_open_at = ?, week_open_traded = ?, week_open_index = ?, updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?
+                """, resetPoints, Timestamp.from(at), traded, indexAt(at), userId);
+    }
+
+    /** The game index at or just before {@code at}; null when no observation exists (a fresh install). */
+    Double indexAt(Instant at) {
+        try {
+            List<Double> found = jdbc.queryForList("""
+                    SELECT index_value FROM derivative_index_observations
+                    WHERE observed_at <= ? AND invalidated = FALSE ORDER BY observed_at DESC LIMIT 1
+                    """, Double.class, Timestamp.from(at));
+            return found.isEmpty() ? null : found.get(0);
+        } catch (org.springframework.dao.DataAccessException missing) {
+            return null;
+        }
+    }
+
+    /** The Korean Monday 0시 that starts the week containing {@code now}. */
+    static Instant weekStart(Instant now) {
+        LocalDate day = now.atZone(ZONE).toLocalDate();
+        return day.minusDays(day.getDayOfWeek().getValue() - 1L).atStartOfDay(ZONE).toInstant();
+    }
+
+    private static int permil(double ratio) { return (int) Math.round(ratio * 1000); }
 
     /**
      * A day that ended beyond the loss limit counts as a breach even if the member never
@@ -483,6 +653,7 @@ public class CareerService {
         jdbc.update("DELETE FROM career_events WHERE user_id = ?", userId);
         jdbc.update("""
                 UPDATE career_state SET grade = 'TRAINEE', grade_since = CURRENT_TIMESTAMP(3), grade_base = ?, outside_cash = 0, return_streak = 0, high_water_mark = ?,
+                  promotion_points = 0, week_open_at = NULL, week_open_traded = NULL, week_open_index = NULL,
                   personal_cash = 0, ojt_steps = '', day_open_on = NULL, day_open_asset = NULL, day_locked_until = NULL,
                   lock_reason = NULL, breach_count = 0, last_settled_on = NULL, legacy = FALSE,
                   updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?
@@ -508,6 +679,7 @@ public class CareerService {
     public static void rebase(JdbcTemplate jdbc, long userId, long asset) {
         jdbc.update("""
                 UPDATE career_state SET grade_since = CURRENT_TIMESTAMP(3), grade_base = ?, outside_cash = 0, return_streak = 0, high_water_mark = ?,
+                  week_open_at = NULL, week_open_traded = NULL, week_open_index = NULL,
                   day_open_asset = NULL, day_open_on = NULL, updated_at = CURRENT_TIMESTAMP(3) WHERE user_id = ?
                 """, asset, asset, userId);
     }
@@ -517,20 +689,24 @@ public class CareerService {
     State load(long userId, boolean lock) {
         PersonalWallet.ensureRow(jdbc, userId);
         var row = jdbc.queryForList("""
-                SELECT c.*, u.username, COALESCE(u.role, 'USER') AS role FROM career_state c JOIN users u ON u.id = c.user_id
+                SELECT c.*, u.username, COALESCE(u.role, 'USER') AS role, u.password_hash = 'TRADER' AS trader
+                FROM career_state c JOIN users u ON u.id = c.user_id
                 WHERE c.user_id = ?""" + (lock ? " FOR UPDATE" : ""), userId).get(0);
         Set<String> ojt = new LinkedHashSet<>();
         String raw = (String) row.get("ojt_steps");
         if (raw != null && !raw.isBlank()) ojt.addAll(Arrays.asList(raw.split(",")));
         boolean exempt = "ADMIN".equalsIgnoreCase(String.valueOf(row.get("role"))) || "demo".equals(row.get("username"));
         return new State(userId, CareerGrade.parse((String) row.get("grade")), instant(row.get("grade_since")),
-                number(row.get("grade_base")), number(row.get("outside_cash")), (int) number(row.get("return_streak")),
+                number(row.get("grade_base")), number(row.get("outside_cash")), (int) number(row.get("promotion_points")),
+                row.get("week_open_at") instanceof Timestamp w ? w.toInstant() : null,
+                row.get("week_open_traded") == null ? null : number(row.get("week_open_traded")),
+                row.get("week_open_index") instanceof Number i ? i.doubleValue() : null,
                 number(row.get("high_water_mark")), number(row.get("personal_cash")), ojt,
                 row.get("day_open_on") instanceof Date d ? d.toLocalDate() : null,
                 row.get("day_open_asset") == null ? null : number(row.get("day_open_asset")),
                 row.get("day_locked_until") instanceof Timestamp t ? t.toInstant() : null, (String) row.get("lock_reason"),
                 row.get("last_settled_on") instanceof Date s ? s.toLocalDate() : null,
-                truthy(row.get("legacy")), row.get("migrated_at") != null, exempt);
+                truthy(row.get("legacy")), row.get("migrated_at") != null, exempt, truthy(row.get("trader")));
     }
 
     long markAsset(long userId) {
@@ -603,10 +779,8 @@ public class CareerService {
                 """, userId, since, minFill, userId, since, minFill);
     }
 
-    private long fills(long userId, Timestamp since, long minFill) {
-        return count("SELECT COUNT(*) FROM trades WHERE buyer_id = ? AND created_at >= ? AND quantity * price >= ?", userId, since, minFill)
-                + count("SELECT COUNT(*) FROM trades WHERE seller_id = ? AND created_at >= ? AND buyer_id <> seller_id AND quantity * price >= ?",
-                userId, since, minFill);
+    private long dayLimitBreaches(long userId, Timestamp since) {
+        return count("SELECT COUNT(*) FROM career_events WHERE user_id = ? AND kind = 'DAY_LIMIT' AND created_at >= ?", userId, since);
     }
 
     private long newsFills(long userId, Timestamp since, long minFill) {

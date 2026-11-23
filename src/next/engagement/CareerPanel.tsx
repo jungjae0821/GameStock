@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from "react";
-import { acknowledgeOjt, refreshCareer, useCareer, useCareerFailed, type Career, type CareerStep } from "../../lib/career";
+import { acknowledgeOjt, refreshCareer, useCareer, useCareerFailed, type Career, type CareerStep, type CareerWeek } from "../../lib/career";
 import { won } from "../../market/format";
 import { Link } from "../../components/Link";
 import { ApiError } from "../../lib/api";
@@ -89,10 +89,41 @@ function Steps({ career, onRiskDone }: { career: Career; onRiskDone: () => void 
           </li>
         ))}
       </ol>
-      {!trainee && (
+      {career.grade === "STAFF" && (
         <p className="nx-muted">
-          수익률은 판 뒤 남은 이익으로만 쳐요. 들고 있는 주식은 산 값과 지금 값 중 낮은 쪽으로 계산하고, 목표 수익률은 매일 0시 정산 때
-          연속으로 넘겨야 해요. 체결은 기준자산의 1% 이상인 것만 세고, 한 종목에는 기준자산의 30%까지만 담을 수 있어요.
+          사원은 꾸준히 거래하면 승진해요. 체결은 기준자산의 1% 이상인 것만 세고, 수익률은 판 뒤 남은 이익으로만 쳐요(들고 있는 주식은
+          산 값과 지금 값 중 낮은 쪽). 한 종목에는 기준자산의 30%까지만 담을 수 있어요.
+        </p>
+      )}
+      {career.week && <WeekRace week={career.week} />}
+    </div>
+  );
+}
+
+/**
+ * 대리부터는 매주 같은 직급끼리 겨룬다. 게임주 지수보다 얼마나 더 벌었는지를 계좌 흔들림으로 나눠 줄 세우고,
+ * 상위권이 포인트를 받는다. 이번 주 성적은 지금까지의 값이고 순위는 월요일 0시에 정해진다.
+ */
+function WeekRace({ week }: { week: CareerWeek }) {
+  const eligible = week.tradingDays >= week.tradingDaysNeeded;
+  const top = Math.round(week.topShare * 100);
+  return (
+    <div className="nx-career-week" aria-labelledby="nx-career-week-title">
+      <h3 id="nx-career-week-title">이번 주 순위 경쟁</h3>
+      <dl className="nx-career-stats">
+        <div><dt>내 수익률</dt><dd className="nx-num">{percent(week.returnPercent)}</dd></div>
+        <div><dt>게임주 지수</dt><dd className="nx-num">{percent(week.indexPercent)}</dd></div>
+        <div><dt>지수보다</dt><dd className="nx-num">{percent(week.excessPercent)}</dd></div>
+        <div><dt>이번 주 거래일</dt><dd className="nx-num">{Math.min(week.tradingDays, 99)}/{week.tradingDaysNeeded}</dd></div>
+      </dl>
+      <p className="nx-muted">
+        {kstTime(week.ranksAt)}에 같은 직급끼리 순위를 매겨요. 지수보다 더 번 만큼을 계좌가 흔들린 정도로 나눠 줄 세우고, 상위 {top}% 안에
+        들면서 지수보다 더 벌었으면 포인트 1점을 받아요. {eligible ? "이번 주 순위에 들어갈 수 있어요." : `순위에 들려면 이번 주에 ${week.tradingDaysNeeded}일 이상 거래해야 해요.`}
+      </p>
+      {week.last && (
+        <p className="nx-muted">
+          지난주 {week.last.members}명 중 <span className="nx-num">{week.last.rank}</span>위, 지수보다 <span className="nx-num">{percent(week.last.excessPercent)}</span>
+          {week.last.awarded ? " · 포인트를 받았어요." : "."}
         </p>
       )}
     </div>
