@@ -121,46 +121,146 @@ class CareerServiceIntegrationTest {
     void tinyFillsDoNotCountTowardPromotion() {
         staff(alice, 3_000_000);
         db.update("UPDATE career_state SET grade_since = NOW() - INTERVAL 5 DAY WHERE user_id = ?", alice);
-        // Twenty one-share fills over three days: below 1% of 3,000,000 (30,000) each.
-        fills(alice, 20, 1);
-        db.update("UPDATE users SET cash = 3300000 WHERE id = ?", alice);
-        LocalDate today = LocalDate.now(KST);
-        career.settle(alice, today);
-        career.settle(alice, today.plusDays(1));
-
-        assertEquals(2, db.queryForObject("SELECT return_streak FROM career_state WHERE user_id = ?", Integer.class, alice));
+        news(1);
+        // One-share fills over three days, one right after news: below 1% of 3,000,000 (30,000) each.
+        fills(alice, 6, 1);
+        newsFill(alice, 1);
+        career.review(alice);
         assertEquals(CareerGrade.STAFF, career.grade(alice));
 
-        fills(alice, 20, 30);
+        fills(alice, 3, 30);
+        newsFill(alice, 30);
         career.review(alice);
         assertEquals(CareerGrade.ASSOCIATE, career.grade(alice), "sized fills complete it");
     }
 
     @Test
-    void theReturnMustBeHeldAtTwoSettlementsInARow() {
+    void staffArePromotedOnActivityWithoutAReturnTarget() {
         staff(alice, 3_000_000);
         db.update("UPDATE career_state SET grade_since = NOW() - INTERVAL 5 DAY WHERE user_id = ?", alice);
-        fills(alice, 20, 30);
-        db.update("UPDATE users SET cash = 3300000 WHERE id = ?", alice);
-        LocalDate today = LocalDate.now(KST);
-
-        career.settle(alice, today);
+        news(1);
+        fills(alice, 3, 30);
+        // Down 6%: below the -5% floor.
+        db.update("UPDATE users SET cash = 2820000 WHERE id = ?", alice);
         career.review(alice);
-        assertEquals(CareerGrade.STAFF, career.grade(alice), "touching the target once is not enough");
+        assertEquals(CareerGrade.STAFF, career.grade(alice), "no fill on fresh news yet, and below the floor");
 
-        db.update("UPDATE users SET cash = 3250000 WHERE id = ?", alice);
-        career.settle(alice, today.plusDays(1));
-        assertEquals(0, db.queryForObject("SELECT return_streak FROM career_state WHERE user_id = ?", Integer.class, alice),
-                "closing below the target breaks the streak");
+        newsFill(alice, 30);
+        career.review(alice);
+        assertEquals(CareerGrade.STAFF, career.grade(alice), "still more than 5% down");
+        assertFalse(career.career(alice).promotion().stream().filter(step -> step.id().equals("FLOOR")).findFirst().orElseThrow().done());
 
-        db.update("UPDATE users SET cash = 3300000 WHERE id = ?", alice);
-        career.settle(alice, today.plusDays(2));
-        career.settle(alice, today.plusDays(3));
+        db.update("UPDATE users SET cash = 2860000 WHERE id = ?", alice);
+        CareerService.Career view = career.career(alice);
 
-        assertEquals(CareerGrade.ASSOCIATE, career.grade(alice));
-        assertEquals(30_000L, PersonalWallet.balance(db, alice), "the staff gain paid once at 10%, the top-up never");
+        assertEquals("ASSOCIATE", view.grade(), "trading days, a news fill and a loss within 5% are enough: no return target");
         assertEquals(10_000_000L, cash(alice));
-        assertEquals(0, db.queryForObject("SELECT return_streak FROM career_state WHERE user_id = ?", Integer.class, alice));
+        assertEquals(0L, PersonalWallet.balance(db, alice), "no gain, no bonus");
+        assertNotNull(view.week(), "an associate is in the weekly race");
+        assertEquals(1, view.week().pointsNeeded());
+    }
+
+    @Test
+    void aiTradersMeetTheStaffStepsButStayStaff() {
+        long bot = user("persona-bot", "TRADER", 3_000_000);
+        staff(bot, 3_000_000);
+        db.update("UPDATE career_state SET grade_since = NOW() - INTERVAL 5 DAY WHERE user_id = ?", bot);
+        news(1);
+        fills(bot, 3, 30);
+        newsFill(bot, 30);
+
+        career.career(bot);
+
+        assertEquals(CareerGrade.STAFF, career.grade(bot), "a bot would otherwise climb to a 10,000,000 desk within the hour");
+    }
+
+    @Test
+    void aDailyLossLimitBreachHoldsStaffBack() {
+        staff(alice, 3_000_000);
+        db.update("UPDATE career_state SET grade_since = NOW() - INTERVAL 5 DAY WHERE user_id = ?", alice);
+        news(1);
+        fills(alice, 3, 30);
+        newsFill(alice, 30);
+        db.update("INSERT INTO career_events (user_id, kind, from_grade, to_grade, asset_at, created_at) VALUES (?, 'DAY_LIMIT', 'STAFF', 'STAFF', 2800000, NOW() - INTERVAL 1 DAY)", alice);
+
+        career.review(alice);
+
+        assertEquals(CareerGrade.STAFF, career.grade(alice));
+    }
+
+    @Test
+    void weeklyRankingGivesTheTopShareWithPositiveExcessAPoint() {
+        long bob = user("bob", "GOOGLE", 1_000_000);
+        long carol = user("carol", "GOOGLE", 1_000_000);
+        long dave = user("dave", "GOOGLE", 1_000_000);
+        java.time.Instant end = CareerService.weekStart(java.time.Instant.now());
+        java.time.Instant open = end.minus(java.time.Duration.ofDays(7));
+        // The index rose 2% over the week.
+        db.update("INSERT INTO derivative_index_observations (observed_at, index_value) VALUES (?, 1000), (?, 1020)",
+                java.sql.Timestamp.from(open.minusSeconds(1)), java.sql.Timestamp.from(end.minusSeconds(1)));
+        for (long id : new long[]{alice, bob, carol, dave}) {
+            associate(id, 10_000_000, open);
+            fills(id, 3, 200);
+        }
+        // Weekly returns: alice +8%, bob +5%, carol +1% (below the index), dave +12% but no trading days.
+        db.update("UPDATE users SET cash = 10800000 WHERE id = ?", alice);
+        db.update("UPDATE users SET cash = 10500000 WHERE id = ?", bob);
+        db.update("UPDATE users SET cash = 10100000 WHERE id = ?", carol);
+        db.update("UPDATE users SET cash = 11200000 WHERE id = ?", dave);
+        db.update("DELETE FROM trades WHERE buyer_id = ? OR seller_id = ?", dave, dave);
+
+        var ranked = career.settleWeek(end);
+
+        assertEquals(3, ranked.size(), "dave traded on no day this week and is not ranked");
+        // ceil(3 × 40%) = 2 places: alice and bob. carol is third and below the index anyway.
+        assertEquals(java.util.List.of(true, true, false),
+                java.util.stream.Stream.of(alice, bob, carol).map(id -> db.queryForObject(
+                        "SELECT awarded FROM career_week_results WHERE user_id = ?", Boolean.class, id)).toList());
+        assertEquals(60, db.queryForObject("SELECT return_permil - index_permil FROM career_week_results WHERE user_id = ?", Integer.class, alice));
+        assertEquals(1, db.queryForObject("SELECT rank_in_grade FROM career_week_results WHERE user_id = ?", Integer.class, alice));
+        assertEquals(CareerGrade.ASSOCIATE, career.grade(alice), "the point is there, the associate's news task is not");
+        assertEquals(1, db.queryForObject("SELECT promotion_points FROM career_state WHERE user_id = ?", Integer.class, alice));
+        assertEquals(java.sql.Timestamp.from(end), db.queryForObject("SELECT week_open_at FROM career_state WHERE user_id = ?", java.sql.Timestamp.class, dave),
+                "everyone's next week starts at the boundary");
+        assertEquals(11_200_000L, db.queryForObject("SELECT week_open_traded FROM career_state WHERE user_id = ?", Long.class, dave));
+        assertTrue(career.settleWeek(end).isEmpty(), "a week is ranked once");
+
+        news(5);
+        for (int i = 0; i < 5; i++) newsFill(alice, 200);
+        CareerService.Career view = career.career(alice);
+        assertEquals("MANAGER", view.grade(), "one point and the news task promote an associate");
+        assertEquals(0, db.queryForObject("SELECT promotion_points FROM career_state WHERE user_id = ?", Integer.class, alice),
+                "points belong to the grade they were won in");
+        assertEquals(1, view.week().last().rank());
+    }
+
+    @Test
+    void weeklyRankingDividesByVolatilitySoASteadyGainBeatsASwingyOne() {
+        long bob = user("bob", "GOOGLE", 1_000_000);
+        java.time.Instant end = CareerService.weekStart(java.time.Instant.now());
+        java.time.Instant open = end.minus(java.time.Duration.ofDays(7));
+        LocalDate openDay = open.atZone(KST).toLocalDate();
+        for (long id : new long[]{alice, bob}) {
+            associate(id, 10_000_000, open);
+            fills(id, 3, 200);
+        }
+        // alice ends +4% after a smooth week; bob ends +6% after swinging ±15% a day.
+        long[] steady = {10_000_000, 10_080_000, 10_160_000, 10_240_000, 10_320_000, 10_400_000};
+        long[] swingy = {10_000_000, 11_500_000, 9_800_000, 11_300_000, 9_700_000, 10_600_000};
+        for (int d = 0; d < steady.length; d++) {
+            db.update("INSERT INTO career_daily_marks (user_id, day, traded_mark) VALUES (?, ?, ?)", alice, Date.valueOf(openDay.plusDays(d)), steady[d]);
+            db.update("INSERT INTO career_daily_marks (user_id, day, traded_mark) VALUES (?, ?, ?)", bob, Date.valueOf(openDay.plusDays(d)), swingy[d]);
+        }
+        db.update("UPDATE users SET cash = 10400000 WHERE id = ?", alice);
+        db.update("UPDATE users SET cash = 10600000 WHERE id = ?", bob);
+
+        career.settleWeek(end);
+
+        assertEquals(1, db.queryForObject("SELECT rank_in_grade FROM career_week_results WHERE user_id = ?", Integer.class, alice),
+                "the steadier gain ranks first despite the smaller return");
+        assertTrue(db.queryForObject("SELECT awarded FROM career_week_results WHERE user_id = ?", Boolean.class, alice));
+        assertFalse(db.queryForObject("SELECT awarded FROM career_week_results WHERE user_id = ?", Boolean.class, bob),
+                "ceil(2 × 40%) = 1 place");
     }
 
     @Test
@@ -410,8 +510,8 @@ class CareerServiceIntegrationTest {
 
     @Test
     void careerAndReviewStayCheapOnTheHotPaths() {
-        staff(alice, 3_000_000);
-        fills(alice, 5, 30);
+        associate(alice, 10_000_000, java.time.Instant.now().minus(java.time.Duration.ofDays(1)));
+        fills(alice, 5, 200);
         var counter = new java.util.concurrent.atomic.AtomicInteger();
         javax.sql.DataSource counted = counting(source, counter);
         var countedCareer = new CareerService(new JdbcTemplate(counted), new DataSourceTransactionManager(counted),
@@ -419,12 +519,13 @@ class CareerServiceIntegrationTest {
 
         counter.set(0);
         countedCareer.review(alice);
-        assertTrue(counter.get() <= 3, "a review with no promotion possible reads only the row and the mark: " + counter.get());
+        assertTrue(counter.get() <= 3, "a review with no points yet reads only the row and the mark: " + counter.get());
 
         counter.set(0);
         var view = countedCareer.career(alice);
-        assertTrue(counter.get() <= 9, "the view reuses the review's numbers: " + counter.get());
+        assertTrue(counter.get() <= 12, "the view reuses the review's numbers and adds the week's three reads: " + counter.get());
         assertFalse(view.promotion().isEmpty());
+        assertNotNull(view.week());
 
         counter.set(0);
         assertNull(countedCareer.acknowledge(alice, "MARKET"), "not a trainee: nothing to record");
@@ -514,6 +615,27 @@ class CareerServiceIntegrationTest {
         db.update("UPDATE users SET cash = ? WHERE id = ?", base, userId);
     }
 
+    /** An associate whose grade and ranked week both started at {@code since}, from {@code base}. */
+    private void associate(long userId, long base, java.time.Instant since) {
+        staff(userId, base);
+        db.update("""
+                UPDATE career_state SET grade = 'ASSOCIATE', grade_since = ?, week_open_at = ?, week_open_traded = ?, week_open_index = 1000
+                WHERE user_id = ?""", java.sql.Timestamp.from(since), java.sql.Timestamp.from(since), base, userId);
+    }
+
+    /** {@code count} news items on the test stock published an hour ago. */
+    private void news(int count) {
+        Long last = db.queryForObject("SELECT COALESCE(MAX(news_id), 0) FROM market_news_valuation", Long.class);
+        for (int i = 1; i <= count; i++)
+            db.update("INSERT INTO market_news_valuation (news_id, stock_id, published_at) VALUES (?, ?, NOW() - INTERVAL 1 HOUR)", last + i, stock);
+    }
+
+    /** One fill of {@code quantity} shares at 1,000 made right now, within two hours of the news. */
+    private void newsFill(long userId, int quantity) {
+        db.update("INSERT INTO trades (stock_id, buy_order_id, sell_order_id, buyer_id, seller_id, quantity, price) VALUES (?, 0, 0, ?, ?, ?, 1000)",
+                stock, userId, provider, quantity);
+    }
+
     private long user(String name, String password, long cash) {
         db.update("INSERT INTO users (username, password_hash, nickname, cash) VALUES (?, ?, ?, ?)", name, password, name, cash);
         return db.queryForObject("SELECT id FROM users WHERE username = ?", Long.class, name);
@@ -567,6 +689,10 @@ class CareerServiceIntegrationTest {
                 """);
         db.execute("CREATE TABLE derivative_trades (id BIGINT AUTO_INCREMENT PRIMARY KEY, user_id BIGINT, kind VARCHAR(12), action VARCHAR(12), created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3))");
         db.execute("CREATE TABLE market_news_valuation (news_id BIGINT PRIMARY KEY, stock_id BIGINT, published_at TIMESTAMP(3))");
+        db.execute("""
+                CREATE TABLE derivative_index_observations (observed_at TIMESTAMP(3) PRIMARY KEY, index_value DOUBLE NOT NULL,
+                  invalidated BOOLEAN NOT NULL DEFAULT FALSE, settleable BOOLEAN NOT NULL DEFAULT TRUE)
+                """);
         db.execute("CREATE TABLE user_engagement (user_id BIGINT PRIMARY KEY, fandom_stock_id BIGINT NULL)");
         db.execute("""
                 CREATE TABLE admin_cash_adjustments (id BIGINT AUTO_INCREMENT PRIMARY KEY, request_key VARCHAR(80) NOT NULL UNIQUE, admin_id BIGINT,

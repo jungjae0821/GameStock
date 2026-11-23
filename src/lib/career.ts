@@ -37,6 +37,24 @@ export type Career = {
   personalCash: number;
   promotion: CareerStep[];
   events: CareerEvent[];
+  /** 대리~부장의 이번 주 순위 경쟁. 그 밖의 직급은 null. */
+  week: CareerWeek | null;
+};
+
+/** 매주 월요일 0시(한국시간)에 같은 직급끼리 매기는 순위. 퍼센트 값은 이미 100을 곱한 값이다. */
+export type CareerWeek = {
+  since: string;
+  ranksAt: string;
+  returnPercent: number;
+  indexPercent: number;
+  excessPercent: number;
+  tradingDays: number;
+  tradingDaysNeeded: number;
+  /** 포인트를 받는 상위 비율(0~1). */
+  topShare: number;
+  points: number;
+  pointsNeeded: number;
+  last: { weekStart: string; rank: number; members: number; excessPercent: number; awarded: boolean } | null;
 };
 
 /** failed: 아직 한 번도 읽지 못했고 마지막 요청이 실패했다. */
