@@ -39,7 +39,13 @@ public class EngagementService {
     static final long PREDICTION_REWARD = 10_000L;
     static final int PREDICTION_CUTOFF_HOUR = 22;
     static final Duration FANDOM_COOLDOWN = Duration.ofDays(7);
-    static final long WHALE_AMOUNT = 30_000_000L;
+    /**
+     * 실시간 체결 소식에 이름 없이라도 뜨는 체결 금액. 사원은 한 종목에 운용한도(300만원)의 30%까지만 사므로,
+     * 기준이 그보다 크면 일반 회원의 체결이 피드에 아예 뜨지 않아 화면이 늘 비어 보인다.
+     */
+    static final long FEED_AMOUNT = 500_000L;
+    /** "고래" 배지를 붙이는 체결 금액. 사원 운용한도 전체에 해당한다. */
+    static final long WHALE_AMOUNT = 3_000_000L;
     private static final String NET_ASSET = "(" + AccountValuation.GROSS_ASSET + " - u.loan_balance)";
 
     public record Me(String fandomCode, String fandomChangeAvailableAt, boolean publicProfile, Prediction prediction,
@@ -308,10 +314,11 @@ public class EngagementService {
                 + "WHERE t.id > ? AND t.created_at >= ? ORDER BY t.id DESC LIMIT 400", rs -> {
             long amount = rs.getLong("quantity") * rs.getLong("price");
             boolean whale = amount >= WHALE_AMOUNT;
+            boolean notable = amount >= FEED_AMOUNT;
             for (String side : List.of("buyer", "seller")) {
                 if (!rs.getBoolean(side + "_human")) continue;
                 boolean open = rs.getBoolean(side + "_public");
-                if (!whale && !open) continue;
+                if (!notable && !open) continue;
                 if (items.size() >= 30) return;
                 items.add(new FeedItem(rs.getLong("id"), rs.getString("stock_code"), rs.getString("name"),
                         side.equals("buyer") ? "BUY" : "SELL", rs.getLong("quantity"), rs.getLong("price"), amount,

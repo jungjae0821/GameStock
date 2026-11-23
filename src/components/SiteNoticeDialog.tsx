@@ -11,12 +11,32 @@ function readSeen(): string[] {
   catch { return []; }
 }
 
+const FIRST_VISIT_KEY = "gamestock-first-visit";
+
+/**
+ * 이 브라우저로 처음 들어온 시각. 공지를 하나라도 확인한 기존 방문자는 0(모든 공지 대상)으로 둔다.
+ * 처음 온 사람에게 "화면을 새롭게 다듬었어요" 같은 지난 업데이트 소식을 띄우지 않으려는 기준이다.
+ */
+function readFirstVisit(seen: string[]): number {
+  try {
+    const raw = localStorage.getItem(FIRST_VISIT_KEY);
+    const stored = raw === null ? NaN : Number(raw);
+    if (Number.isFinite(stored) && stored >= 0) return stored;
+    const value = seen.length > 0 ? 0 : Date.now();
+    localStorage.setItem(FIRST_VISIT_KEY, String(value));
+    return value;
+  } catch {
+    return 0;
+  }
+}
+
 export function SiteNoticeDialog() {
   const [seen] = useState(readSeen);
+  const [firstVisit] = useState(() => readFirstVisit(seen));
   // 한 번 들어올 때 공지는 하나만 띄운다. 남은 공지는 다음 접속 때 차례로 뜬다.
   const [closed, setClosed] = useState(false);
   const notices = useSiteNotices();
-  const current = notices?.find((item) => !seen.includes(item.key));
+  const current = notices?.find((item) => !seen.includes(item.key) && (item.postedAt ?? Infinity) >= firstVisit);
   if (closed || !current) return null;
   const dismiss = () => {
     // API가 안 될 때 뜨는 대체 공지도 같은 기록에 남으므로, 지금 목록에 없는 열쇠도 지우지 않고 최근 50개만 둔다.

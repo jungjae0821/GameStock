@@ -226,6 +226,16 @@ final class MarketChartQueries {
         Timestamp compactLatest=jdbc.queryForObject("SELECT MAX(last_trade) FROM bot_ledger_totals WHERE stock_id=?",Timestamp.class,id);
         if(compactLatest!=null&&(latestTrade==null||compactLatest.after(latestTrade)))latestTrade=compactLatest;
         double newsImpact = Math.max(-10.0, Math.min(10.0, impact == null ? 0.0 : impact));
+        // 지표와 같은 방향으로 가장 크게 기여한 뉴스 한 건. 근거 문장이 "어떤 뉴스" 때문인지 말할 수 있게 한다.
+        int direction = newsImpact > 0 ? 1 : -1;
+        List<String> topNews = Math.abs(newsImpact) <= .2 ? List.of() : jdbc.query("""
+                SELECT e.title FROM market_events e
+                WHERE e.stock_id = ? AND e.event_type = 'NEWS' AND e.impact * ? > 0
+                  AND COALESCE(e.published_at, e.created_at) >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 24 HOUR)
+                ORDER BY e.impact * ? * GREATEST(0, LEAST(1,
+                    1 - TIMESTAMPDIFF(SECOND, COALESCE(e.published_at, e.created_at), CURRENT_TIMESTAMP) / 86400.0)) DESC, e.id DESC
+                LIMIT 1
+                """, (rs, row) -> rs.getString("title"), id, direction, direction);
         long userNet = volumes.userBuy() - volumes.userSell();
         long botNet = volumes.botBuy() - volumes.botSell();
         long openNet = openOrders.userBuy() - openOrders.userSell();
@@ -234,7 +244,16 @@ final class MarketChartQueries {
                 volumes.botBuy(), volumes.botSell(), openOrders.userBuy(), openOrders.userSell(),
                 latestNews == null ? null : market.databaseInstant(latestNews).toString(),
                 latestTrade == null ? null : market.databaseInstant(latestTrade).toString(),
-                priceDriversReason(stock.changePercent(), newsImpact, userNet, botNet, openNet));
+                priceDriversReason(stock.changePercent(), newsImpact, userNet, botNet, openNet,
+                        topNews.isEmpty() ? null : topNews.get(0)));
+    }
+
+    /** "기사 제목 - 언론사" 꼴의 RSS 제목에서 언론사 꼬리를 떼고, 너무 길면 줄인다. */
+    static String headline(String title) {
+        if (title == null) return null;
+        String text = title.replaceFirst("\\s+-\\s+[^-]{1,30}$", "").strip();
+        if (text.isEmpty()) return null;
+        return text.length() > 60 ? text.substring(0, 59).strip() + "…" : text;
     }
 
     private long previousPrice(String code) {
@@ -249,6 +268,16 @@ final class MarketChartQueries {
 
     static String priceDriversReason(double changePercent, double newsImpact, long userNet,
                                       long botNet, long openNet) {
+        return priceDriversReason(changePercent, newsImpact, userNet, botNet, openNet, null);
+    }
+
+    static String priceDriversReason(double changePercent, double newsImpact, long userNet,
+                                      long botNet, long openNet, String topNewsTitle) {
+        String top = headline(topNewsTitle);
+        if (top != null && newsImpact > .2)
+            return "최근 뉴스 지표는 긍정적입니다. 가장 큰 재료는 「" + top + "」입니다. 가격은 실제 주문 체결로 결정됩니다.";
+        if (top != null && newsImpact < -.2)
+            return "최근 뉴스 지표는 부정적입니다. 가장 큰 재료는 「" + top + "」입니다. 가격은 실제 주문 체결로 결정됩니다.";
         if (newsImpact > .2) return "최근 뉴스 지표는 긍정적입니다. 가격은 실제 주문 체결로 결정됩니다.";
         if (newsImpact < -.2) return "최근 뉴스 지표는 부정적입니다. 가격은 실제 주문 체결로 결정됩니다.";
         if (openNet > 0) return "현재 미체결 매수 수량이 더 많습니다. 이후 체결 방향을 보장하지 않습니다.";

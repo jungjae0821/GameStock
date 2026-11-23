@@ -15,6 +15,8 @@ export type SiteNoticeItem = {
   /** 오른쪽 강조 버튼. 없으면 닫기 버튼 하나만 둔다. */
   action?: NoticeAction;
   dismissLabel?: string;
+  /** 마지막으로 올리거나 고친 시각(ms). 처음 온 방문자에게 그 전에 올라온 공지를 거르는 데 쓴다. */
+  postedAt?: number;
 };
 
 /**
@@ -63,7 +65,9 @@ export const noticeKey = (row: Pick<NoticeRow, "id" | "updated_at">) => `${row.i
 
 export function noticeItem(row: NoticeRow): SiteNoticeItem {
   const { body, code } = splitNoticeCode(row.body);
+  const postedAt = row.updated_at == null ? NaN : new Date(row.updated_at).getTime();
   return {
+    ...(Number.isFinite(postedAt) ? { postedAt } : {}),
     key: noticeKey(row),
     heading: row.title,
     body,

@@ -67,17 +67,23 @@ final class AdminSchema {
         String syuenBody = "슈엔증권의 화면을 새롭게 다듬었어요. 시세와 차트, 주문 화면을 더 보기 쉽게 정리했어요.\n거래 탭에서 새 화면을 둘러보세요.";
         db.update("""
             INSERT INTO admin_content(kind,title,body,published,seed_key,image_url,action_label,action_url,dismiss_label)
-            SELECT 'NOTICE',?,?,TRUE,'syuen-2.0','/notice/Syuen20.png','시장 둘러보기','/market','나중에 볼래요'
+            SELECT 'NOTICE',?,?,TRUE,'syuen-2.0','/notice/Syuen20.jpg','시장 둘러보기','/market','나중에 볼래요'
             WHERE NOT EXISTS (SELECT 1 FROM admin_content WHERE seed_key='syuen-2.0')
             """, syuenTitle, syuenBody);
         // 앞서 잘못 등록한 기본 문구만 복구하고, 관리자가 편집한 공지는 보존한다.
         db.update("""
-            UPDATE admin_content SET title=?,body=?,image_url='/notice/Syuen20.png',
+            UPDATE admin_content SET title=?,body=?,image_url='/notice/Syuen20.jpg',
               action_label='시장 둘러보기',action_url='/market',dismiss_label='나중에 볼래요',
               updated_at=CURRENT_TIMESTAMP(3)
             WHERE seed_key='syuen-2.0' AND title='슈엔 2.0 공지' AND body=?
               AND image_url IS NULL AND action_label IS NULL AND action_url IS NULL AND dismiss_label IS NULL
             """, syuenTitle, syuenBody, "슈엔 2.0에 오신 것을 환영합니다.\n앞으로의 업데이트와 서비스 소식은 공지를 통해 안내드릴게요.");
+        // 원본 PNG(2.1MB)는 공지 창이 열린 뒤에도 한참 비어 보였다. 같은 그림의 960px JPEG(50KB)로 바꾼다.
+        // updated_at을 그대로 두어 이미 확인한 회원에게 다시 뜨지 않게 한다.
+        db.update("""
+            UPDATE admin_content SET image_url='/notice/Syuen20.jpg', updated_at=updated_at
+            WHERE seed_key='syuen-2.0' AND image_url='/notice/Syuen20.png'
+            """);
         db.execute("""
             CREATE TABLE IF NOT EXISTS admin_mission_config (
               mission_id VARCHAR(40) PRIMARY KEY, enabled BOOLEAN NOT NULL,
