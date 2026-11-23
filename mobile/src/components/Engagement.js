@@ -130,7 +130,7 @@ export function HomeLiveFeed({ onOpenStock }) {
       <SectionHead title="실시간 체결 소식" meta="최근 30분" />
       {state === 'loading' ? <Empty loading text="체결 소식을 불러오는 중이에요" />
         : !data ? <Txt variant="callout" tone="inkSoft" style={styles.pad}>체결 소식을 불러오지 못했어요. 15초 뒤에 다시 불러와요.</Txt>
-        : items.length === 0 ? <Txt variant="callout" tone="inkSoft" style={styles.pad}>아직 조용해요. 3천만원이 넘는 체결이나, 포트폴리오를 공개한 사람의 체결이 여기에 떠요.</Txt>
+        : items.length === 0 ? <Txt variant="callout" tone="inkSoft" style={styles.pad}>아직 조용해요. 50만원이 넘는 체결이나, 포트폴리오를 공개한 사람의 체결이 여기에 떠요.</Txt>
         : items.map((item, index) => {
           const buy = item.side === 'BUY';
           const who = item.nickname ?? '익명';

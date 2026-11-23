@@ -59,4 +59,12 @@ class BackendBoundaryRegressionTest {
         String down=MarketChartQueries.priceDriversReason(-1.0,0.0,10L,-10L,0L);
         assertEquals(up,down);
     }
+    @Test void PriceReasonNamesTheLeadingHeadlineWithoutPublisherTail() {
+        String reason=MarketChartQueries.priceDriversReason(3.0,4.0,0L,0L,0L,"명일방주: 엔드필드, 신규 업데이트 공개 - PNN");
+        assertTrue(reason.contains("「명일방주: 엔드필드, 신규 업데이트 공개」"),reason);
+        assertFalse(reason.contains("PNN"),reason);
+        assertEquals(MarketChartQueries.priceDriversReason(3.0,4.0,0L,0L,0L),
+                MarketChartQueries.priceDriversReason(3.0,4.0,0L,0L,0L,null));
+        assertTrue(MarketChartQueries.headline("가".repeat(80)).endsWith("…"));
+    }
 }

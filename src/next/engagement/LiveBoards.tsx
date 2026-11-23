@@ -57,7 +57,7 @@ export function HomeLiveFeed() {
       ) : !items ? (
         <p className="nx-note is-error" role="status">체결 소식을 불러오지 못했어요. 15초 뒤에 다시 불러와요.</p>
       ) : items.length === 0 ? (
-        <p className="nx-muted nx-live-empty">아직 조용해요. 3천만원이 넘는 체결이나, 포트폴리오를 공개한 사람·AI 트레이더의 체결이 여기에 떠요.</p>
+        <p className="nx-muted nx-live-empty">아직 조용해요. 50만원이 넘는 체결이나, 포트폴리오를 공개한 사람·AI 트레이더의 체결이 여기에 떠요.</p>
       ) : (
         <ol className="nx-live-list">
           {items.slice(0, 8).map((item) => (
