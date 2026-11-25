@@ -132,6 +132,7 @@ function Privacy() {
               <tr><th scope="row">이용자 작성물</th><td>종목 토론 글·댓글, 실시간 대화, 전광판 문구, 신고 내용</td><td>커뮤니티 기능 제공, 신고 처리</td></tr>
               <tr><th scope="row">외부 API 이용 시</th><td>API 키(복원할 수 없게 변환해 저장), 주문 요청 기록</td><td>OpenAPI 제공, 중복 요청 방지</td></tr>
               <tr><th scope="row">운영·보안</th><td>접속 IP(호출 한도 계산에만 쓰고 저장하지 않음), 이용 제한 기록과 사유</td><td>부정 이용 방지</td></tr>
+              <tr><th scope="row">방문 통계</th><td>방문한 화면, 머문 시간, 기기·브라우저 종류, 대략적 지역(국가·도시), 쿠키 식별자. Google Analytics가 자동으로 수집하며 회원 계정과 연결하지 않습니다.</td><td>서비스 이용 현황 분석과 개선</td></tr>
             </tbody>
           </table>
         </div>
@@ -159,6 +160,7 @@ function Privacy() {
             <tbody>
               <tr><th scope="row">Google LLC (Firebase Authentication, Firebase Hosting)</th><td>로그인 처리, 웹 화면 제공</td><td>미국 등 Google 데이터센터 소재국</td><td>이메일, 로그인 식별자, 비밀번호(이메일 가입 시)</td></tr>
               <tr><th scope="row">Oracle (Oracle Cloud Infrastructure)</th><td>서버·데이터베이스 운영</td><td>일본(오사카 리전)</td><td>1항의 모든 항목</td></tr>
+              <tr><th scope="row">Google LLC (Google Analytics)</th><td>방문 통계 분석</td><td>미국 등 Google 데이터센터 소재국</td><td>1항의 방문 통계 항목</td></tr>
             </tbody>
           </table>
         </div>
@@ -188,7 +190,9 @@ function Privacy() {
       </section>
       <section>
         <h2>8. 쿠키 등 자동 수집 장치</h2>
-        <p>서비스는 광고·추적 쿠키를 쓰지 않습니다. 로그인 상태 유지와 화면 설정(밝기, 탭 선택 등)을 위해 브라우저 저장소(localStorage, IndexedDB)를 쓰며, 브라우저 설정에서 지울 수 있습니다.</p>
+        <p>서비스는 광고 쿠키를 쓰지 않습니다. 로그인 상태 유지와 화면 설정(밝기, 탭 선택 등)을 위해 브라우저 저장소(localStorage, IndexedDB)를 쓰며, 브라우저 설정에서 지울 수 있습니다.</p>
+        <p>방문 통계를 위해 Google Analytics 쿠키(_ga 등)를 씁니다. 이 쿠키는 브라우저를 구분하는 임의의 식별자만 담고 이름·이메일 같은 정보는 담지 않으며, 최대 2년간 브라우저에 남습니다. Google Analytics에 모인 통계는 최대 14개월 뒤 삭제됩니다.</p>
+        <p>쿠키 저장을 원하지 않으면 브라우저 설정에서 쿠키를 차단하거나 <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer">Google Analytics 차단 부가기능</a>을 설치하면 됩니다. 쿠키를 막아도 서비스는 그대로 쓸 수 있습니다.</p>
       </section>
       <section>
         <h2>9. 만 14세 미만 아동</h2>

@@ -15,6 +15,7 @@
 | 이용자 작성물 | 종목 토론 글·댓글·태그, 전광판 메시지, 신고 내용 | 커뮤니티 기능 제공, 신고 처리 | `stock_discussions`, `stock_comments`, `stock_talk_posts`, `billboard_messages`, `user_reports` |
 | 외부 API 이용 시 | API 키(해시), 주문 요청 기록 | OpenAPI 제공, 중복 요청 방지 | `open_api_keys`, `open_api_requests` |
 | 운영·보안 | 접속 IP(요청 처리 중 호출 한도 계산에만 사용하고 저장하지 않음), 이용 제한 기록·사유 | 부정 이용 방지 | `users`(trade_banned_until, trade_ban_reason), 관리자 감사 기록 |
+| 방문 통계 | 방문한 화면, 머문 시간, 기기·브라우저 종류, 대략적 지역(국가·도시), 쿠키 식별자. 회원 계정과 연결하지 않음(user_id 미설정) | 서비스 이용 현황 분석과 개선 | Google Analytics 4(`src/lib/firebase.ts`, 운영 빌드에서만 동작) |
 
 서비스는 주민등록번호, 실명, 연락처, 결제 정보를 수집하지 않습니다.
 
@@ -35,6 +36,7 @@
 |---|---|---|
 | Google LLC (Firebase Authentication, Firebase Hosting) | 로그인 처리, 웹 화면 제공 | 미국 등 Google 데이터센터 소재국 |
 | Oracle (Oracle Cloud Infrastructure) | 서버·데이터베이스 운영 | 일본(ap-osaka-1) |
+| Google LLC (Google Analytics) | 방문 통계 분석 | 미국 등 Google 데이터센터 소재국 |
 
 ## 5. 이용자의 권리와 행사 방법
 
@@ -57,7 +59,9 @@
 
 ## 8. 쿠키 등 자동 수집 장치
 
-서비스는 광고·추적 쿠키를 쓰지 않습니다. 로그인 상태 유지와 화면 설정(밝기, 탭 선택 등)을 위해 브라우저 저장소(localStorage, IndexedDB)를 사용하며, 브라우저 설정에서 지울 수 있습니다.
+서비스는 광고 쿠키를 쓰지 않습니다. 로그인 상태 유지와 화면 설정(밝기, 탭 선택 등)을 위해 브라우저 저장소(localStorage, IndexedDB)를 사용하며, 브라우저 설정에서 지울 수 있습니다.
+
+방문 통계를 위해 Google Analytics 쿠키(`_ga`, `_ga_<측정 ID>`)를 씁니다. 브라우저를 구분하는 임의 식별자만 담고, 최대 2년간 브라우저에 남습니다. Google Analytics에 모인 통계는 최대 14개월 뒤 삭제됩니다(GA4 데이터 보관 설정의 최댓값). 이용자는 브라우저의 쿠키 차단이나 [Google Analytics 차단 부가기능](https://tools.google.com/dlpage/gaoptout)으로 거부할 수 있고, 거부해도 서비스 이용에는 지장이 없습니다.
 
 ## 9. 개인정보 보호책임자
 
