@@ -10,6 +10,7 @@ const configuredFirebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 /* Firebase 설정이 없는 개발 환경에서도 공개 시세와 뉴스는 볼 수 있어야 한다.
@@ -21,6 +22,7 @@ const firebaseConfig = {
   storageBucket: configuredFirebaseConfig.storageBucket || "local-development.appspot.com",
   messagingSenderId: configuredFirebaseConfig.messagingSenderId || "000000000000",
   appId: configuredFirebaseConfig.appId || "1:000000000000:web:local-development",
+  measurementId: configuredFirebaseConfig.measurementId || undefined,
 };
 
 export const firebaseApp = getApps()[0] ?? initializeApp(firebaseConfig);
@@ -29,3 +31,16 @@ if (import.meta.env.DEV && import.meta.env.VITE_FIREBASE_EMULATOR === "true") {
   connectAuthEmulator(firebaseAuth, "http://127.0.0.1:9099", { disableWarnings: true });
 }
 export const googleProvider = new GoogleAuthProvider();
+
+/* Google Analytics(GA4)는 운영 빌드에서만 켠다. 개발 중 방문이 통계에 섞이지 않게 하고,
+ * 첫 화면 번들을 키우지 않도록 analytics 모듈은 따로 불러온다.
+ * 화면 이동(pushState)은 GA4 향상된 측정이 페이지뷰로 자동 기록한다. */
+if (import.meta.env.PROD && firebaseConfig.measurementId) {
+  void import("firebase/analytics")
+    .then(async ({ getAnalytics, isSupported }) => {
+      if (await isSupported()) getAnalytics(firebaseApp);
+    })
+    .catch(() => {
+      /* 광고 차단기 등으로 막혀도 앱 동작에는 영향이 없다. */
+    });
+}
