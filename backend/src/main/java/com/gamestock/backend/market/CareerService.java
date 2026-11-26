@@ -204,6 +204,22 @@ public class CareerService {
 
     // ── 주문 전 확인 ────────────────────────────────────────
 
+    /** 체험 계정이 사원 발령 뒤에 거래하려 할 때 돌려주는 안내. 화면도 이 문구를 그대로 보여 준다. */
+    public static final String TRIAL_ENDED = "체험은 수습까지예요. 사원으로 발령받았으니 가입하고 이어가 주세요. 지금 자산과 기록이 그대로 이어져요.";
+
+    /**
+     * Guest (Firebase anonymous) accounts may trade only while they are trainees. Once the OJT
+     * promotes them to staff, every new order, bet or position waits until they sign up; signing up
+     * keeps the same user row, so the promotion and the account carry over.
+     */
+    public void requireTrialOpen(long userId) {
+        List<String> marker = jdbc.queryForList("SELECT password_hash FROM users WHERE id = ?", String.class, userId);
+        if (marker.isEmpty() || !com.gamestock.backend.auth.AuthService.GUEST_PASSWORD.equals(marker.get(0))) return;
+        if (load(userId, false).grade().atLeast(CareerGrade.STAFF))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, TRIAL_ENDED);
+    }
+
+
     /**
      * Called before a buy or a new derivative entry. Demotes first if the loss line is
      * crossed, then refuses while a retraining or daily-loss lock is on. Selling and

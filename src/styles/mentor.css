@@ -5,26 +5,49 @@
  */
 
 .mentor-dialog {
-  position: fixed; inset: 0; margin: auto; width: min(460px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+  position: fixed; inset: 0; margin: auto; width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
   padding: 0; overflow-y: auto; border: 0; border-radius: 20px; background: var(--paper); color: var(--ink);
   box-shadow: var(--shadow-float, 0 18px 44px rgb(0 0 0 / 28%));
 }
 .mentor-dialog::backdrop { background: rgb(25 22 30 / 38%); backdrop-filter: blur(3px); }
 .mentor-dialog.is-scold { border-top: 6px solid var(--notice-ink); }
-.mentor-card { display: flex; flex-direction: column; gap: 18px; padding: 28px; font: 400 var(--step-1)/1.65 var(--font-ui); overflow-wrap: anywhere; }
+.mentor-dialog > .mentor-certificate { margin: 24px 24px 0; }
 
-.mentor-speaker { display: flex; align-items: center; gap: 14px; }
-.mentor-avatar { flex: none; width: 48px; height: 48px; border-radius: 50%; background: var(--sunken); object-fit: contain; }
-.mentor-avatar.is-small { width: 32px; height: 32px; }
+/* 무대: 왼쪽에 슈엔이 서 있고, 오른쪽 말상자가 슈엔 쪽으로 꼬리를 낸다. */
+.mentor-stage {
+  display: grid; grid-template-columns: 196px minmax(0, 1fr); align-items: end; gap: 0;
+  padding: 20px 24px 24px 0; font: 400 var(--step-1)/1.65 var(--font-ui); overflow-wrap: anywhere;
+}
+.mentor-box {
+  position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0;
+  padding: 18px 20px 20px; border-radius: 16px; background: var(--sunken);
+}
+.mentor-box::before {
+  content: ""; position: absolute; left: -9px; bottom: 56px; width: 16px; height: 16px;
+  background: var(--sunken); transform: rotate(45deg);
+}
+.mentor-dialog.is-scold .mentor-box, .mentor-dialog.is-scold .mentor-box::before { background: var(--notice-bg); }
+
+.mentor-nameplate {
+  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin: -32px 0 0; padding: 4px 14px;
+  border-radius: var(--radius-pill); background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 700; line-height: 1.5;
+}
+.mentor-nameplate-tag { padding-left: 8px; border-left: 1px solid color-mix(in srgb, var(--paper) 40%, transparent); font-weight: 600; }
+.mentor-dialog.is-scold .mentor-nameplate { background: var(--notice-ink); color: var(--brand-ink, #12101c); }
+.mentor-box h2 { margin: 0; color: var(--ink); font-size: var(--step-3); font-weight: 700; line-height: 1.35; }
+
+.mentor-line { min-height: calc(1.65em * 4); margin: 0; color: var(--ink); white-space: pre-line; cursor: default; }
+.mentor-caret {
+  display: inline-block; width: 2px; height: 1.05em; margin-left: 2px; vertical-align: -0.15em; background: currentColor;
+  animation: mentor-caret 0.8s steps(1) infinite;
+}
+@keyframes mentor-caret { 50% { opacity: 0; } }
+
 .mentor-kicker { margin: 0; color: var(--ink-muted); font-size: 12px; font-weight: 600; }
-.mentor-dialog.is-scold .mentor-kicker { color: var(--notice-ink); }
-.mentor-speaker h2 { margin: 2px 0 0; color: var(--ink); font-size: var(--step-3); font-weight: 700; line-height: 1.35; }
-
-.mentor-line { margin: 0; padding: 16px 18px; border-radius: 14px; background: var(--sunken); color: var(--ink); white-space: pre-line; }
-.mentor-dialog.is-scold .mentor-line { background: var(--notice-bg); }
 
 .mentor-progress { display: flex; justify-content: center; gap: 6px; margin: 0; }
-.mentor-progress span { width: 6px; height: 6px; border-radius: 50%; background: var(--rule); }
+.mentor-progress span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint, var(--rule)); opacity: 0.5; }
+.mentor-progress span.is-current { opacity: 1; }
 .mentor-progress span.is-current { background: var(--ink); }
 
 .mentor-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
@@ -32,15 +55,30 @@
   display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px;
   border: 0; border-radius: var(--radius-pill); font: inherit; font-weight: 700; cursor: pointer;
 }
-.mentor-button.is-quiet { background: var(--sunken); color: var(--ink); }
+.mentor-button.is-quiet { background: var(--paper); color: var(--ink); }
 .mentor-button.is-strong { background: var(--ink); color: var(--paper); }
 .mentor-button:hover { filter: brightness(1.1); }
 .mentor-button.is-quiet:hover { filter: brightness(0.96); }
-.mentor-button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--focus); }
+.mentor-button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
 
-/* 발령장: 종이 한 장. 겹줄 테두리와 가운데 제목으로 공문 느낌만 낸다. */
+/* 슈엔 일러스트. 전신 그림을 키워서 위쪽만 보이게 자른다. 그림이 없으면 마크를 가운데에 둔다. */
+.mentor-portrait { position: relative; display: block; flex: none; overflow: hidden; pointer-events: none; }
+.mentor-portrait img { position: absolute; left: 50%; display: block; max-width: none; transform: translateX(-50%); }
+.mentor-portrait.is-bust {
+  align-self: end; width: 196px; height: 250px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent); mask-image: linear-gradient(to bottom, #000 78%, transparent);
+}
+.mentor-portrait.is-bust img { top: 0; width: 200%; transform-origin: 50% 0; }
+.mentor-portrait.is-bust.is-talking img { animation: mentor-talk 1.1s ease-in-out infinite; }
+.mentor-portrait.is-face { width: 56px; height: 56px; border-radius: 50%; background: var(--sunken); box-shadow: 0 0 0 1px var(--rule); }
+.mentor-portrait.is-face img { top: -4%; width: 330%; }
+.mentor-portrait.is-fallback img { top: 50%; width: 70%; height: auto; transform: translate(-50%, -50%); animation: none; }
+.mentor-portrait.is-bust.is-fallback { height: 160px; }
+@keyframes mentor-talk { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-3px); } }
+
+/* 발령장: 테두리 없이 면 하나. 가운데 제목으로 공문 느낌만 낸다. */
 .mentor-certificate {
-  padding: 20px 22px; border: 3px double var(--ink); border-radius: 4px; background: var(--paper); color: var(--ink);
+  padding: 20px 22px; border-radius: 16px; background: var(--sunken); color: var(--ink);
   text-align: center;
 }
 .mentor-certificate-head { margin: 0 0 12px; font-size: var(--step-4); font-weight: 700; letter-spacing: 0.6em; padding-left: 0.6em; }
@@ -51,24 +89,43 @@
 .mentor-certificate-body { margin: 14px 0 6px; font-weight: 600; }
 .mentor-certificate-foot { margin: 0; color: var(--ink-muted); font-size: 12px; }
 
-/* OJT 진행 카드: 화면 오른쪽 아래에 붙는다. 휴대폰에서는 아래 탭바 위로 올린다. */
+/* OJT 팝업: 화면 오른쪽 아래. 작은 슈엔 얼굴 옆에 말풍선을 붙인다. 휴대폰에서는 아래 탭바 위로 올린다. */
 .mentor-ojt {
-  position: fixed; right: 16px; bottom: 16px; z-index: 40; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center; gap: 10px; width: min(420px, calc(100vw - 32px)); padding: 12px 12px 12px 14px;
-  border: 1px solid var(--rule); border-radius: 14px; background: var(--paper); color: var(--ink);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+  position: fixed; right: 16px; bottom: 16px; z-index: 40; display: grid; grid-template-columns: 56px minmax(0, 1fr);
+  align-items: end; gap: 12px; width: min(400px, calc(100vw - 32px)); color: var(--ink);
+  animation: mentor-pop 0.28s ease-out both;
 }
-.mentor-ojt-copy p { margin: 0; font-size: 13px; line-height: 1.5; }
-.mentor-ojt-copy .mentor-kicker { font-size: 11px; }
-.mentor-ojt-close { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-muted); cursor: pointer; }
+.mentor-ojt-bubble {
+  position: relative; display: grid; gap: 6px; justify-items: start; padding: 12px 40px 12px 14px;
+  border: 1px solid var(--rule); border-radius: 14px; background: var(--paper); box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+.mentor-ojt-bubble::before {
+  content: ""; position: absolute; left: -7px; bottom: 20px; width: 12px; height: 12px; background: var(--paper);
+  border-left: 1px solid var(--rule); border-bottom: 1px solid var(--rule); transform: rotate(45deg);
+}
+.mentor-ojt-bubble .mentor-kicker { font-size: 11px; }
+.mentor-ojt-line { margin: 0; font-size: 13px; line-height: 1.55; }
+.mentor-ojt-close {
+  position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 32px; height: 32px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--ink-muted); cursor: pointer;
+}
 .mentor-ojt-close:hover { background: var(--sunken); color: var(--ink); }
 .mentor-ojt-close:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
+@keyframes mentor-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 720px) {
   html[data-app-shell="web"][data-nx] .mentor-ojt { bottom: calc(var(--nx-tabbar) + 12px); }
-  .mentor-card { padding: 22px; }
 }
-@media (max-width: 420px) {
-  .mentor-ojt { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .mentor-ojt .nx-btn { grid-column: 2 / 3; justify-self: start; }
+/* 좁은 화면: 슈엔을 말상자 위로 올리고 상반신을 줄인다. */
+@media (max-width: 560px) {
+  .mentor-stage { grid-template-columns: minmax(0, 1fr); padding: 12px 16px 16px; }
+  .mentor-portrait.is-bust { justify-self: start; width: 132px; height: 128px; margin-left: 8px; }
+  .mentor-portrait.is-bust img { width: 180%; }
+  .mentor-portrait.is-bust.is-fallback { height: 96px; }
+  .mentor-box::before { left: 56px; top: -9px; bottom: auto; transform: rotate(135deg); }
+  .mentor-nameplate { margin-top: -30px; align-self: flex-end; }
+  .mentor-dialog > .mentor-certificate { margin: 16px 16px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mentor-portrait.is-bust.is-talking img, .mentor-caret, .mentor-ojt { animation: none; }
 }
