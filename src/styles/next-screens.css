@@ -630,9 +630,11 @@ html[data-nx] .nx-admin .account-form .promo-title-option input { width: 16px; h
   background: var(--nx-raised);
 }
 .nx-billboard-line { display: flex; flex: 1; align-items: baseline; gap: 4px 12px; min-width: 0; margin: 0; }
-/* 홈 띠: 들어오는 줄과 나가는 줄을 한 칸에 겹치고, 띠 밖으로 나간 부분은 자른다. */
-.nx-billboard.is-rotating { display: grid; align-items: center; overflow: hidden; }
-.nx-billboard.is-rotating > .nx-billboard-line { grid-area: 1 / 1; }
+/* 홈 띠: 왼쪽에 슈엔 얼굴, 오른쪽 릴에서 들어오는 줄과 나가는 줄을 한 칸에 겹치고 릴 밖으로 나간 부분은 자른다. */
+.nx-billboard.has-host { gap: 12px; padding-left: 8px; overflow: hidden; }
+.nx-billboard.has-host > .mentor-portrait.is-face { align-self: center; width: 40px; height: 40px; box-shadow: none; }
+.nx-billboard-reel { display: grid; flex: 1; align-items: center; min-width: 0; align-self: stretch; overflow: hidden; }
+.nx-billboard-reel > .nx-billboard-line { grid-area: 1 / 1; }
 .nx-billboard-line.is-entering { animation: nx-billboard-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .nx-billboard-line.is-leaving { animation: nx-billboard-out 520ms cubic-bezier(0.22, 1, 0.36, 1) both; pointer-events: none; }
 @keyframes nx-billboard-in { from { opacity: 0; transform: translateY(160%); } to { opacity: 1; transform: none; } }
@@ -677,6 +679,7 @@ html[data-nx][data-nx-theme="light"] .nx-billboard-hours { box-shadow: none; }
 
 @media (max-width: 520px) {
   .nx-billboard { flex-wrap: wrap; padding: 10px 14px; }
+  .nx-billboard.has-host { flex-wrap: nowrap; padding-left: 8px; }
   .nx-billboard-line { flex-basis: 100%; flex-direction: column; gap: 2px; }
   .nx-home > .nx-billboard-slot { margin-bottom: calc(16px - var(--nx-gap)); }
 }
