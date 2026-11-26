@@ -142,6 +142,8 @@ public class MarketController {
         if ("ADMIN".equalsIgnoreCase(user.role()))
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 계정은 주문할 수 없습니다.");
         if (orderLimits != null) orderLimits.submit(user.id());
+        // 체험 계정은 사원 발령을 받으면 가입한 뒤에야 다시 주문할 수 있다.
+        if (career != null) career.requireTrialOpen(user.id());
         // Buying adds risk and waits out a loss lock; selling never does.
         if (career != null && request != null && "BUY".equalsIgnoreCase(request.side()))
             career.requireNewRisk(user.id(), request.stockCode(), request.quantity(),

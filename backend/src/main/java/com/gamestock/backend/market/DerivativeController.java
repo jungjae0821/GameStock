@@ -67,6 +67,7 @@ public class DerivativeController {
         AuthService.LoginUser user = auth.requireUser(authorization);
         if ("ADMIN".equalsIgnoreCase(user.role()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 계정은 파생상품을 거래할 수 없습니다.");
+        if (career != null) career.requireTrialOpen(user.id());
         if (unlocks != null) unlocks.requireForDerivative(user.id(), request.kind());
         // Selling an ETF here closes a holding, which a loss lock never blocks.
         boolean etfSell = "ETF".equalsIgnoreCase(request.kind()) && "SELL".equalsIgnoreCase(request.side());
@@ -81,6 +82,7 @@ public class DerivativeController {
         AuthService.LoginUser user = auth.requireUser(authorization);
         if ("ADMIN".equalsIgnoreCase(user.role()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 계정은 파생상품을 거래할 수 없습니다.");
+        if (career != null) career.requireTrialOpen(user.id());
         return derivatives.close(user.id(), positionId, request.quantity());
     }
 

@@ -39,6 +39,9 @@ public class StockTalkService {
     public record Page(List<Post> posts, boolean hasMore, int maxLength, int retentionDays) { }
     public record Write(String body, Long parentId) { }
     public record Like(long id, long likes, boolean liked) { }
+    /** 홈 화면에 띄우는 종목 가리지 않은 새 글. 답글은 개수만 센다. */
+    public record Recent(long id, String stockCode, String nickname, String body, String createdAt, long likes, long replies) { }
+    public static final int RECENT_LIMIT = 10;
 
     private final JdbcTemplate db;
     private final TransactionTemplate transaction;
@@ -95,6 +98,18 @@ public class StockTalkService {
         boolean more = roots.size() > PAGE_SIZE;
         if (more) roots = roots.subList(0, PAGE_SIZE);
         return new Page(withReplies(roots, viewer), more, MAX_LENGTH, (int) RETENTION.toDays());
+    }
+
+    /** 모든 종목의 최신 원글. 로그인과 상관없이 같은 목록이라 보는 사람 정보는 채우지 않는다. */
+    public List<Recent> recent(int limit) {
+        int size = Math.max(1, Math.min(RECENT_LIMIT, limit));
+        return db.query("SELECT p.id, p.stock_code, p.body, p.created_at, u.nickname, "
+                        + "(SELECT COUNT(*) FROM stock_talk_likes l WHERE l.post_id = p.id) AS likes, "
+                        + "(SELECT COUNT(*) FROM stock_talk_posts r WHERE r.parent_id = p.id) AS replies "
+                        + "FROM stock_talk_posts p JOIN users u ON u.id = p.user_id WHERE " + HUMAN_AUTHOR
+                        + " AND p.parent_id IS NULL ORDER BY p.id DESC LIMIT ?",
+                (rs, row) -> new Recent(rs.getLong("id"), rs.getString("stock_code"), rs.getString("nickname"), rs.getString("body"),
+                        rs.getTimestamp("created_at").toInstant().toString(), rs.getLong("likes"), rs.getLong("replies")), size);
     }
 
     public Post write(long userId, String nickname, String code, Write request) {

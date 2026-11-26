@@ -85,6 +85,28 @@ html[data-nx] main.nx-content.nx-page .nx-panel.nx-empty-state { padding-block: 
 
 .nx-home { display: flex; flex-direction: column; gap: var(--nx-gap); }
 /* 순위는 왼쪽, 최근 뉴스는 오른쪽. 좁은 화면에서는 순위 아래로 뉴스가 내려간다. */
+/* 지수와 종목토론 새 글. 지수를 넓게, 새 글은 오른쪽 좁은 단에. */
+.nx-home-top { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); align-items: stretch; gap: var(--nx-gap); }
+.nx-home-talk { display: flex; flex-direction: column; min-width: 0; }
+.nx-home-talk .nx-more { margin-block: -13px; }
+.nx-home-talk-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.nx-home-talk-list li { border-bottom: 1px solid var(--rule); }
+.nx-home-talk-list li:last-child { border-bottom: 0; }
+.nx-home-talk-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 10px; row-gap: 2px; align-items: center;
+  padding: 10px 0; color: inherit; text-decoration: none;
+}
+.nx-home-talk-row:hover .nx-home-talk-body { text-decoration: underline; }
+.nx-home-talk-row:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); border-radius: 6px; }
+.nx-home-talk-row > .game-icon { grid-row: 1 / span 3; align-self: start; }
+.nx-home-talk-stock { min-width: 0; overflow: hidden; color: var(--ink-muted); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.nx-home-talk-time { font-size: 12px; }
+.nx-home-talk-body {
+  grid-column: 2 / span 2; display: -webkit-box; overflow: hidden; color: var(--ink); font-size: 14px; line-height: 1.5;
+  -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere;
+}
+.nx-home-talk-meta { grid-column: 2 / span 2; font-size: 12px; }
+.nx-home-talk-empty { margin: 0; font-size: 13px; line-height: 1.6; }
 .nx-home-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: var(--nx-gap); }
 /* '전체 보기'는 누르는 자리 44px을 유지하되 머리 높이는 늘리지 않아, 두 단의 제목 줄이 같은 높이에 선다. */
 .nx-home-split .nx-more { margin-block: -13px; }
@@ -352,6 +374,22 @@ html[data-nx][data-nx-theme="light"] .nx-heat-tile.is-l0 { background: var(--nx-
   .nx-table td { padding: 0 12px; }
   .nx-index-range { gap: 20px; }
   .nx-home-split { grid-template-columns: minmax(0, 1fr); }
+  .nx-home-top { grid-template-columns: minmax(0, 1fr); }
+  .nx-home-top .nx-home-talk { order: -1; }
+  /* 좁은 화면: 지수를 밀어내지 않게 옆으로 넘기는 카드 한 줄로 바꾼다. 본문은 한 줄, 작성자 줄은 뺀다.
+     카드 테두리는 1px 하나, 면은 칠하지 않아 돋움 면인 전광판 띠와 구분된다. */
+  .nx-home-talk .nx-panel-head { margin-bottom: 12px; }
+  .nx-home-talk-list {
+    display: flex; gap: 10px; margin-inline: -16px; padding: 0 16px 4px; overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory; scroll-padding-inline: 16px; scrollbar-width: none;
+  }
+  .nx-home-talk-list::-webkit-scrollbar { display: none; }
+  .nx-home-talk-list li, .nx-home-talk-list li:last-child { flex: 0 0 min(250px, 74vw); border: 1px solid var(--rule); border-radius: 8px; scroll-snap-align: start; }
+  .nx-home-talk-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 6px; padding: 10px 12px; }
+  .nx-home-talk-row > .game-icon { grid-row: 1; align-self: center; }
+  .nx-home-talk-body { grid-column: 1 / -1; -webkit-line-clamp: 1; line-clamp: 1; }
+  .nx-home-talk-meta { display: none; }
+  .nx-home-talk-row:focus-visible { border-radius: 8px; }
   .nx-search { flex: 1; margin-left: 0; }
   .nx-col-open { display: none; }
   /* 좁은 화면에서는 시가를 빼고 그래프만 줄여서 남긴다. */

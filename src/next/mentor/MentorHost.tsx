@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { useAuthUser } from "../../lib/auth";
+import { signOut } from "firebase/auth";
+import { isGuest, openLoginPrompt, useAuthUser, useLoginPrompt } from "../../lib/auth";
+import { firebaseAuth } from "../../lib/firebase";
 import { useCareer, type Career, type CareerEvent } from "../../lib/career";
 import { useProfile } from "../../lib/profile";
-import { useRoute } from "../../router";
+import { navigate, useRoute } from "../../router";
 import { Link } from "../../components/Link";
 import { MentorDialog, type Certificate, type MentorTone } from "./MentorDialog";
-import { DESK_OPENED, fill, introSpeech, OJT_HINT, promotionLine, scoldLines } from "./lines";
+import { DESK_OPENED, fill, introSpeech, OJT_HINT, promotionLine, scoldLines, TRIAL_GATE_SPEECH } from "./lines";
+import { MentorPortrait } from "./MentorPortrait";
 import { readMentor, writeMentor } from "./mentorStore";
 
 type Scene = { tone: MentorTone; title: string; pages: string[]; certificate?: Certificate; primary?: { label: string; to?: string } };
@@ -49,19 +52,21 @@ export function MentorHost() {
   const career = useCareer();
   const profile = useProfile();
   const route = useRoute();
+  const loginPrompt = useLoginPrompt();
   const [scene, setScene] = useState<Scene | null>(null);
   // 정한 장면은 먼저 줄에 세운다. 기억은 줄에 세울 때 남기므로, 띄우기 전에 화면이 바뀌어도 장면이 사라지지 않는다.
   const [queued, setQueued] = useState<Scene | null>(null);
   const [cardHidden, setCardHidden] = useState(false);
   const uid = user?.uid ?? null;
   const nick = profile?.nickname || "신입";
+  const guest = isGuest(user);
 
   useEffect(() => {
     if (!uid || !career || career.exempt || career.legacy || scene || queued) return;
     const saved = readMentor(uid);
     const newest = career.events[0]?.at ?? null;
     if (!saved.intro && career.grade === "TRAINEE") {
-      const speech = introSpeech(career.events.some((event) => event.kind === "MIGRATE"));
+      const speech = introSpeech(career.events.some((event) => event.kind === "MIGRATE"), guest);
       writeMentor(uid, { ...saved, intro: true, lastEventAt: newest });
       setQueued({ tone: "info", title: speech.title, pages: speech.pages.map((text) => fill(text, { nick })), primary: { label: "OJT 시작하기", to: "/career" } });
       return;
@@ -77,7 +82,7 @@ export function MentorHost() {
     const top = [...fresh].sort((left, right) => (PRIORITY[right.kind] ?? 0) - (PRIORITY[left.kind] ?? 0))[0];
     const next = sceneForEvent(top, nick);
     if (next) setQueued(next);
-  }, [uid, career, scene, queued, nick]);
+  }, [uid, career, scene, queued, nick, guest]);
 
   // 공지나 로그인 창이 떠 있으면 닫힐 때까지 기다렸다가 띄운다.
   useEffect(() => {
@@ -93,18 +98,37 @@ export function MentorHost() {
   const ojtCard = career && !career.legacy && !career.exempt && career.grade === "TRAINEE" && !cardHidden
     && route.name !== "career" && route.name !== "login" ? career.promotion.find((step) => !step.done) : undefined;
   const doneCount = career?.promotion.filter((step) => step.done).length ?? 0;
+  /* 체험 계정은 수습까지만. 사원 발령을 받으면 가입할 때까지 이 창이 화면을 막는다(서버도 주문을 막는다).
+     발령장 같은 다른 장면이 먼저 끝나야 띄우고, 가입 창이 열려 있는 동안에는 비켜 준다. */
+  const trialEnded = guest && career !== null && !career.exempt && career.grade !== "TRAINEE"
+    && !scene && !queued && !loginPrompt && route.name !== "login" && route.name !== "terms" && route.name !== "privacy";
+
+  const endTrial = async () => {
+    if (!window.confirm("체험을 끝내면 지금까지 체험한 자산과 기록으로 돌아올 수 없어요. 체험을 끝낼까요?")) return;
+    try {
+      await signOut(firebaseAuth);
+      navigate("/", { replace: true });
+    } catch {
+      window.alert("체험을 끝내지 못했어요. 다시 시도해 주세요.");
+    }
+  };
 
   return (
     <>
       {scene && <MentorDialog {...scene} dismissLabel={scene.tone === "scold" ? "죄송합니다, 사장님" : "네, 사장님"} onClose={() => setScene(null)} />}
+      {trialEnded && (
+        <MentorDialog tone="praise" locked title={TRIAL_GATE_SPEECH.title} pages={TRIAL_GATE_SPEECH.pages.map((text) => fill(text, { nick }))}
+          primary={{ label: "가입하고 이어가기", onSelect: () => openLoginPrompt(window.location.pathname) }}
+          dismissLabel="체험 끝내기" onClose={() => void endTrial()} />
+      )}
       {ojtCard && (
         <aside className="mentor-ojt" aria-label="OJT 진행">
-          <img className="mentor-avatar is-small" src="/brand/shuen-mark.png" alt="" width="32" height="32" />
-          <div className="mentor-ojt-copy">
-            <p className="mentor-kicker">OJT {doneCount}/{career?.promotion.length} · 슈엔 사장</p>
-            <p>{OJT_HINT[ojtCard.id] ?? ojtCard.label}</p>
+          <MentorPortrait variant="face" />
+          <div className="mentor-ojt-bubble">
+            <p className="mentor-kicker">슈엔 사장 · OJT {doneCount}/{career?.promotion.length}</p>
+            <p className="mentor-ojt-line">{OJT_HINT[ojtCard.id] ?? ojtCard.label}</p>
+            <Link className="nx-btn is-small" to="/career">이어서</Link>
           </div>
-          <Link className="nx-btn is-small" to="/career">이어서</Link>
           <button type="button" className="mentor-ojt-close" aria-label="OJT 안내 숨기기" onClick={() => setCardHidden(true)}>
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 3.5l9 9m0-9l-9 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
           </button>

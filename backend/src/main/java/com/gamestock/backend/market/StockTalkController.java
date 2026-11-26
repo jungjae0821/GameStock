@@ -24,6 +24,12 @@ public class StockTalkController {
         return talk.list(code, before, viewer);
     }
 
+    /** 홈 화면용. 모든 종목에서 막 올라온 원글. */
+    @GetMapping("/api/talk/recent")
+    public java.util.List<StockTalkService.Recent> recent(@RequestParam(defaultValue = "6") int limit) {
+        return talk.recent(limit);
+    }
+
     @PostMapping("/api/stocks/{code}/talk")
     public StockTalkService.Post write(@PathVariable String code, @RequestBody StockTalkService.Write request,
                                        @RequestHeader(value = "Authorization", required = false) String authorization) {

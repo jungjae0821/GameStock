@@ -1645,6 +1645,46 @@
         }
       }
     },
+    "/talk/recent": {
+      "get": {
+        "operationId": "listRecentStockTalk",
+        "tags": [
+          "StockTalk"
+        ],
+        "description": "Newest root posts across all stocks for the home screen. Replies are counted, not included.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 6,
+              "minimum": 1,
+              "maximum": 10
+            },
+            "description": "Clamped to 1..10."
+          }
+        ],
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TalkRecent"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/talk/{id}": {
       "delete": {
         "operationId": "deleteStockTalk",
@@ -2846,6 +2886,45 @@
         "required": [
           "id"
         ]
+      },
+      "TalkRecent": {
+        "type": "object",
+        "required": [
+          "id",
+          "stockCode",
+          "nickname",
+          "body",
+          "createdAt",
+          "likes",
+          "replies"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stockCode": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "likes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "replies": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       }
     }
   }

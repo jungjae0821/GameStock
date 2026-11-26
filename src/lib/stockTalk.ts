@@ -31,3 +31,10 @@ export function deleteTalk(id: number) {
 export function likeTalk(id: number) {
   return apiFetch<TalkLike>(`/api/talk/${id}/like`, { method: "POST" });
 }
+
+/** 홈 화면용. 모든 종목에서 막 올라온 원글. 답글은 개수만 온다. */
+export type RecentTalk = { id: number; stockCode: string; nickname: string; body: string; createdAt: string; likes: number; replies: number };
+
+export function loadRecentTalk(limit = 6, signal?: AbortSignal) {
+  return apiFetch<RecentTalk[]>(`/api/talk/recent?limit=${limit}`, { auth: false, signal });
+}

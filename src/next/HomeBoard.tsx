@@ -5,6 +5,7 @@ import { Link } from "../components/Link";
 import { NewsFeed } from "../components/NewsFeed";
 import { PriceCell } from "../components/PriceCell";
 import { apiFetch } from "../lib/api";
+import { loadRecentTalk, type RecentTalk } from "../lib/stockTalk";
 import { useNarrow, useWidth } from "../lib/useWidth";
 import { BUCKET_MS, bucketPrices, kstMidnight, type PricePoint } from "../market/dayHistory";
 import { compactWon, hm, indexValue, rate, signedNumber } from "../market/format";
@@ -13,7 +14,7 @@ import { holdings, sessionRate, totals } from "../market/selectors";
 import { VISIBLE_NEWS_SOURCES, type MarketSnapshot, type NewsSource } from "../market/types";
 import { LISTING_BY_CODE } from "../market/universe";
 import { useSteadySnapshot } from "../market/useSteadySnapshot";
-import { MARKET_PATH } from "../router";
+import { MARKET_PATH, TALK_PATH } from "../router";
 import { AnimatedNav } from "./AnimatedNav";
 import { HomeBillboard } from "./BillboardStrip";
 import { HomeFandoms, HomeLiveFeed } from "./engagement/LiveBoards";
@@ -225,6 +226,68 @@ function RankBoard() {
   );
 }
 
+/** 몇 분 전·몇 시간 전. 하루가 넘으면 날짜로. */
+function talkAgo(iso: string, now: number): string {
+  const minutes = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
+  if (minutes < 1) return "방금";
+  if (minutes < 60) return `${minutes}분 전`;
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}시간 전`;
+  return new Date(iso).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" });
+}
+
+/**
+ * 종목토론에 막 올라온 글. 어느 종목에 무슨 글이 올라왔는지 홈에 들어오자마자 보이게 한다.
+ * 30초마다 다시 받고, 한 번 받은 뒤에는 오류가 나도 마지막 목록을 둔다.
+ */
+function HomeTalk() {
+  const [posts, setPosts] = useState<RecentTalk[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = () => loadRecentTalk(6, controller.signal)
+      .then((items) => { setPosts(items); setFailed(false); setNow(Date.now()); })
+      .catch(() => { if (!controller.signal.aborted) setFailed(true); });
+    void load();
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, 30_000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, []);
+
+  return (
+    <section className="nx-panel nx-home-talk" aria-labelledby="nx-home-talk-title">
+      <header className="nx-panel-head">
+        <h2 id="nx-home-talk-title" className="nx-panel-title">종목토론 새 글</h2>
+        <Link to={TALK_PATH(null)} className="nx-more">토론방 가기</Link>
+      </header>
+      {posts === null ? (
+        failed ? <p className="nx-note is-error" role="status">새 글을 불러오지 못했어요. 30초 뒤에 다시 불러와요.</p>
+          : <div className="nx-skeleton" aria-label="새 글을 불러오는 중"><span /><span /><span /></div>
+      ) : posts.length === 0 ? (
+        <p className="nx-muted nx-home-talk-empty">아직 올라온 글이 없어요. 관심 있는 종목에 첫 글을 남겨 보세요.</p>
+      ) : (
+        <ol className="nx-home-talk-list">
+          {posts.map((post) => (
+            <li key={post.id}>
+              <Link to={TALK_PATH(post.stockCode)} className="nx-home-talk-row">
+                <GameIcon code={post.stockCode} size="table" />
+                <span className="nx-home-talk-stock">{LISTING_BY_CODE[post.stockCode]?.name ?? post.stockCode}</span>
+                <span className="nx-muted nx-home-talk-time">{talkAgo(post.createdAt, now)}</span>
+                <span className="nx-home-talk-body">{post.body}</span>
+                <span className="nx-muted nx-home-talk-meta">
+                  {post.nickname}
+                  {post.replies > 0 && <> · 답글 <span className="nx-num">{post.replies}</span></>}
+                  {post.likes > 0 && <> · 좋아요 <span className="nx-num">{post.likes}</span></>}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
 export function HomeBoard() {
   const snapshot = useMarket();
   const history = useIndexHistory();
@@ -239,6 +302,8 @@ export function HomeBoard() {
     <div className="nx-home">
       <h1 className="vh">슈엔증권 홈</h1>
       <HomeBillboard />
+      {/* 넓은 화면에서는 지수 옆에 종목토론 새 글을 둔다. 좁은 화면에서는 새 글이 지수보다 먼저 보인다. */}
+      <div className="nx-home-top">
       <section className="nx-panel nx-home-index" aria-labelledby="nx-index-title">
         <header className="nx-index-head">
           <div>
@@ -262,6 +327,8 @@ export function HomeBoard() {
         </header>
         <IndexChart points={history.points} live={value} prevClose={prevClose} status={history.status} />
       </section>
+      <HomeTalk />
+      </div>
 
       {/* 넓은 화면에서는 순위를 왼쪽, 뉴스를 오른쪽에 나란히 둔다. 무엇이 움직였고 왜 움직였는지를 한눈에. */}
       <div className="nx-home-split">

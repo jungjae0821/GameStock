@@ -19,6 +19,12 @@ public class TapController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void configureUnlocks(FeatureUnlockService unlocks) { this.unlocks = unlocks; }
 
+    private CareerService career;
+
+    /** Optional for the same reason: hand-built tests run without the guest trial limit. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void configureCareer(CareerService career) { this.career = career; }
+
     public TapController(TapService tap, AuthService auth) {
         this.tap = tap;
         this.auth = auth;
@@ -35,6 +41,7 @@ public class TapController {
     public TapService.PlaceResult place(@RequestBody TapService.PlaceRequest request,
                                         @RequestHeader(value = "Authorization", required = false) String authorization) {
         long userId = auth.requireUser(authorization).id();
+        if (career != null) career.requireTrialOpen(userId);
         if (unlocks != null) unlocks.require(userId, FeatureUnlockService.Feature.TAP);
         return tap.place(userId, request);
     }
