@@ -71,7 +71,8 @@
 .mentor-portrait.is-bust img { top: 0; width: 200%; transform-origin: 50% 0; }
 .mentor-portrait.is-bust.is-talking img { animation: mentor-talk 1.1s ease-in-out infinite; }
 .mentor-portrait.is-face { width: 56px; height: 56px; border-radius: 50%; background: var(--sunken); box-shadow: 0 0 0 1px var(--rule); }
-.mentor-portrait.is-face img { top: -4%; width: 330%; }
+/* 원본 815×1660에서 머리(가로 230~600, 세로 0~335)가 원 안에 다 들어오도록 줄이고, 머리 가운데를 원 가운데에 맞춘다. */
+.mentor-portrait.is-face img { top: 1%; width: 230%; }
 .mentor-portrait.is-fallback img { top: 50%; width: 70%; height: auto; transform: translate(-50%, -50%); animation: none; }
 .mentor-portrait.is-bust.is-fallback { height: 160px; }
 @keyframes mentor-talk { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-3px); } }
@@ -92,8 +93,8 @@
 /* OJT 작은 대화창: 화면 오른쪽 아래. 큰 대화창을 줄인 모양으로, 왼쪽에 슈엔 상반신, 오른쪽에 말상자.
    휴대폰에서는 아래 탭바 위로 올린다. */
 .mentor-ojt {
-  position: fixed; right: 16px; bottom: 16px; z-index: 40; display: grid; grid-template-columns: 104px minmax(0, 1fr);
-  align-items: end; width: min(420px, calc(100vw - 32px)); padding: 14px 14px 14px 0; overflow: hidden;
+  position: fixed; right: 16px; bottom: 16px; z-index: 40; display: grid; grid-template-columns: 104px minmax(0, 1fr); column-gap: 4px;
+  align-items: end; width: min(420px, calc(100vw - 32px)); padding: 14px 14px 14px 10px; overflow: hidden;
   border: 1px solid var(--rule); border-radius: 18px; background: var(--paper); color: var(--ink);
   box-shadow: 0 12px 32px rgb(0 0 0 / 18%); animation: mentor-pop 0.28s ease-out both;
 }
@@ -112,7 +113,8 @@
   align-self: end; width: 104px; height: 136px; margin-bottom: -14px;
   -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent); mask-image: linear-gradient(to bottom, #000 80%, transparent);
 }
-.mentor-portrait.is-mini img { top: 0; width: 200%; }
+/* 머리 양옆 머리카락·리본이 창 모서리에 잘리지 않게 조금 줄이고 위에 여백을 둔다. */
+.mentor-portrait.is-mini img { top: 6px; width: 170%; }
 .mentor-portrait.is-mini.is-talking img { animation: mentor-talk 1.1s ease-in-out infinite; }
 .mentor-portrait.is-mini.is-fallback { height: 88px; margin-bottom: 0; }
 .mentor-ojt-close {
