@@ -34,7 +34,8 @@ public class BillboardService {
     static final List<String> BLOCKED = List.of("시발", "씨발", "ㅅㅂ", "병신", "ㅂㅅ", "좆", "개새끼", "니미", "fuck", "shit");
     private static final Set<String> OPEN = Set.of("BOOKED");
 
-    public record Showing(long id, String nickname, String body, String startsAt, String endsAt) { }
+    /** profileImage는 글쓴이가 정한 프로필사진 주소. 정하지 않았으면 null이고 화면이 기본 프사를 쓴다. */
+    public record Showing(long id, String nickname, String profileImage, String body, String startsAt, String endsAt) { }
     public record Board(List<Showing> live, long pricePerHour, List<Integer> durations, int minLength, int maxLength,
                         int maxLive, String nextOpening) { }
     public record Booking(long id, String body, int hours, long price, String startsAt, String endsAt,
@@ -97,9 +98,10 @@ public class BillboardService {
     public Board board() {
         Instant now = clock.instant();
         List<Showing> live = db.query(
-                "SELECT id, nickname, body, starts_at, ends_at FROM billboard_messages WHERE status = 'BOOKED' AND starts_at <= ? AND ends_at > ? ORDER BY starts_at, id LIMIT 60",
-                (rs, row) -> new Showing(rs.getLong(1), rs.getString(2), rs.getString(3),
-                        rs.getTimestamp(4).toInstant().toString(), rs.getTimestamp(5).toInstant().toString()),
+                "SELECT b.id, b.nickname, u.profile_image_url, b.body, b.starts_at, b.ends_at FROM billboard_messages b JOIN users u ON u.id = b.user_id "
+                        + "WHERE b.status = 'BOOKED' AND b.starts_at <= ? AND b.ends_at > ? ORDER BY b.starts_at, b.id LIMIT 60",
+                (rs, row) -> new Showing(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                        rs.getTimestamp(5).toInstant().toString(), rs.getTimestamp(6).toInstant().toString()),
                 Timestamp.from(now), Timestamp.from(now));
         Instant opening = live.size() < MAX_LIVE ? null : nextOpening(now);
         return new Board(live, PRICE_PER_HOUR, DURATIONS, MIN_LENGTH, MAX_LENGTH, MAX_LIVE, opening == null ? null : opening.toString());
