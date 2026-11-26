@@ -11,6 +11,8 @@ import { useBillboard } from '../billboard';
 import { Chips } from '../components/Kit';
 import { HomeFandoms, HomeLiveFeed } from '../components/Engagement';
 import { OjtCard } from '../components/Mentor';
+import { Avatar } from '../components/Avatar';
+import { BILLBOARD_LINES } from '../mentor';
 import { preferRankingTab } from './RankingScreen';
 import { VISIBLE_NEWS_SOURCES, classifyNewsSource } from '../newsSource';
 import { RADIUS, RADIUS_XS, SPACE, Txt, toneOf, useTheme } from '../theme';
@@ -246,19 +248,47 @@ export function HomeScreen({ market, onOpen }) {
 
 /** 여러 문구가 떠 있을 때 다음 문구로 넘어가는 간격. 웹 홈 띠와 같다. */
 const BILLBOARD_ROTATE_MS = 10_000;
+const BILLBOARD_AVATAR = 40;
+const SHUEN = require('../../assets/characters/shuen.webp');
+// 원본 815×1660. 웹 .mentor-portrait.is-face처럼 230%로 키워 머리 전체가 원 안에 들어오게 가운데 맞춘다.
+const SHUEN_FACE_WIDTH = BILLBOARD_AVATAR * 2.3;
+const SHUEN_FACE_HEIGHT = SHUEN_FACE_WIDTH * (1660 / 815);
+
+/** 슈엔 대사를 섞어 전광판 문구 모양으로 만든다. 투자자 문구와 겹치지 않게 id는 음수다. */
+function shuenReel() {
+  const lines = [...BILLBOARD_LINES];
+  for (let i = lines.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [lines[i], lines[j]] = [lines[j], lines[i]];
+  }
+  return lines.map((body, index) => ({ id: -1 - index, nickname: '슈엔', body, shuen: true }));
+}
+
+/** 띠 왼쪽 동그란 사진. 슈엔 대사면 슈엔 얼굴, 투자자 문구면 그 사람 프로필사진(없으면 기본 프사)이다. */
+function BillboardAvatar({ item }) {
+  const theme = useTheme();
+  if (!item.shuen) return <Avatar url={item.profileImage} size={BILLBOARD_AVATAR} />;
+  return (
+    <View style={[styles.billboardFace, { backgroundColor: theme.line }]}>
+      <Image source={SHUEN} style={styles.billboardFaceImage} accessibilityIgnoresInvertColors />
+    </View>
+  );
+}
 
 /**
- * 홈 맨 위 전광판 한 줄. 보이는 문구가 있을 때만 그려서, 비어 있으면 홈은 띠가 없던 모습 그대로다.
- * 문구는 아래에서 올라오고, 둘 이상이면 10초마다 다음 문구로 바뀐다.
+ * 홈 맨 위 전광판 한 줄. 투자자가 올린 문구가 있으면 그것만 돌리고, 하나도 없거나 받아 오지 못하면 슈엔 한마디를 대신 돌린다.
+ * 그래서 띠는 홈에서 항상 보인다. 왼쪽 사진은 지금 보이는 문구의 주인이다. 문구는 아래에서 올라오고 10초마다 다음 문구로 바뀐다.
  */
 function Billboard() {
   const theme = useTheme();
   const { board } = useBillboard();
+  const shuen = useMemo(shuenReel, []);
   const live = board?.live ?? [];
+  const items = live.length ? live : shuen;
   const [step, setStep] = useState(0);
   const rise = useRef(new Animated.Value(0)).current;
-  const count = live.length;
-  const current = count ? live[step % count] : null;
+  const count = items.length;
+  const current = items[step % count];
 
   useEffect(() => {
     if (count < 2) return undefined;
@@ -267,7 +297,6 @@ function Billboard() {
   }, [count]);
 
   useEffect(() => {
-    if (!current) return undefined;
     let alive = true;
     AccessibilityInfo.isReduceMotionEnabled().then(reduce => {
       if (!alive) return;
@@ -276,16 +305,16 @@ function Billboard() {
       Animated.timing(rise, { toValue: 0, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
     });
     return () => { alive = false; };
-  }, [step, current?.id, rise]);
+  }, [step, current.id, rise]);
 
-  if (!current) return null;
-  const motion = {
-    opacity: rise.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-    transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [0, 28] }) }],
-  };
+  const fade = { opacity: rise.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) };
+  const motion = { ...fade, transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [0, 28] }) }] };
   return (
     <View accessible accessibilityLabel={`전광판, ${current.nickname}: ${current.body}`}
       style={[styles.billboard, styles.billboardRow, { backgroundColor: theme.card }]}>
+      <Animated.View style={fade}>
+        <BillboardAvatar key={current.id} item={current} />
+      </Animated.View>
       <Animated.View style={[styles.billboardText, motion]}>
         <Txt variant="micro" tone="inkSoft">{current.nickname}</Txt>
         <Txt variant="callout" style={{ marginTop: 2 }}>{current.body}</Txt>
@@ -334,8 +363,13 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, minHeight: 48, marginBottom: SPACE.sm },
   logo: { width: 87, height: 22 },
   billboard: { minHeight: 56, borderRadius: RADIUS, marginBottom: SPACE.lg, overflow: 'hidden' },
-  billboardRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md, paddingVertical: SPACE.md, paddingLeft: SPACE.lg + 2, paddingRight: SPACE.md },
+  billboardRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md, paddingVertical: SPACE.md, paddingLeft: SPACE.md, paddingRight: SPACE.md },
   billboardText: { flex: 1, minWidth: 0 },
+  billboardFace: { width: BILLBOARD_AVATAR, height: BILLBOARD_AVATAR, borderRadius: BILLBOARD_AVATAR / 2, overflow: 'hidden' },
+  billboardFaceImage: {
+    position: 'absolute', top: BILLBOARD_AVATAR * 0.01, left: (BILLBOARD_AVATAR - SHUEN_FACE_WIDTH) / 2,
+    width: SHUEN_FACE_WIDTH, height: SHUEN_FACE_HEIGHT,
+  },
   notice: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, borderRadius: RADIUS, borderWidth: 1, paddingVertical: SPACE.md, paddingHorizontal: SPACE.md, marginBottom: SPACE.md },
   card: { borderRadius: RADIUS, marginBottom: SPACE.md, overflow: 'hidden' },
   cardPadded: { padding: SPACE.lg + 2 },
