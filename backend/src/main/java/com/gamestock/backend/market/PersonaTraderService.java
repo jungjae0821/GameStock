@@ -138,7 +138,31 @@ public class PersonaTraderService {
             engagement.setPublic(id, new EngagementService.PublicRequest(true));
             ids.put(persona.username(), id);
         }
+        rewriteOldTalk();
         accountsReady = true;
+    }
+
+    /**
+     * 예전 말투(존댓말, "+4.3%" 표기)로 남아 있는 운영 봇 토론 글을 지금 말투로 바꾼다. 이미 바뀐 글은
+     * 등락률 표기가 달라 다시 건드리지 않는다. 실패해도 봇 활동은 막지 않는다.
+     */
+    void rewriteOldTalk() {
+        int changed = 0;
+        try {
+            for (Persona persona : Persona.ALL) {
+                Long id = ids.get(persona.username());
+                if (id == null) continue;
+                for (Map<String, Object> post : jdbc.queryForList(
+                        "SELECT id, stock_code, body FROM stock_talk_posts WHERE user_id=?", id)) {
+                    long postId = ((Number) post.get("id")).longValue();
+                    Optional<String> body = PersonaTalk.rewrite(persona, (String) post.get("stock_code"), (String) post.get("body"), postId);
+                    if (body.isPresent()) changed += jdbc.update("UPDATE stock_talk_posts SET body=? WHERE id=?", body.get(), postId);
+                }
+            }
+        } catch (RuntimeException error) {
+            log.warn("운영 봇의 예전 토론 글 말투를 바꾸지 못했습니다.", error);
+        }
+        if (changed > 0) log.info("운영 봇의 예전 토론 글 {}개를 지금 말투로 바꿨습니다.", changed);
     }
 
     private Long personaId(Persona persona) {
