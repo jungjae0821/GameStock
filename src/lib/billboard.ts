@@ -6,7 +6,8 @@ import { dayLabel, minutes, serverTimestamp } from "../market/format";
  * 홈 상단 전광판. 투자자가 모의 자금을 내고 올린 한 줄 문구를 정해진 시간 동안 보인다.
  * 홈 띠와 전광판 화면이 같은 값을 쓰도록 한 곳에서 1분마다 받아 나눠 준다.
  */
-export type BillboardShowing = { id: number; nickname: string; body: string; startsAt: string; endsAt: string };
+/** profileImage는 글쓴이가 정한 프로필사진. 없으면 기본 프사를 쓴다. 예전 서버는 이 값을 보내지 않는다. */
+export type BillboardShowing = { id: number; nickname: string; profileImage?: string | null; body: string; startsAt: string; endsAt: string };
 export type BillboardBoard = {
   /** 지금 떠 있는 문구. 홈 띠가 10초마다 번갈아 보여 준다. */
   live: BillboardShowing[];
