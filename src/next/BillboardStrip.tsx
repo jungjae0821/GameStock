@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBillboard } from "../lib/billboard";
+import { DEFAULT_PROFILE_AVATAR, profileImageSrc } from "../lib/profileAvatars";
 import { MentorPortrait } from "./mentor/MentorPortrait";
 import { BILLBOARD_LINES } from "./mentor/lines";
 
@@ -34,7 +35,22 @@ export function BillboardLine({ nickname, body, preview = false }: Props) {
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-type Showing = { id: number; nickname: string; body: string };
+/** shuen이면 슈엔 대사라 슈엔 얼굴을, 아니면 글쓴이 프로필사진을 띄운다. */
+type Showing = { id: number; nickname: string; body: string; profileImage?: string | null; shuen?: boolean };
+
+/** 띠 왼쪽 동그란 사진. 지금 보이는 문구의 주인을 보여 준다. */
+function BillboardAvatar({ item }: { item: Showing }) {
+  if (item.shuen) return <MentorPortrait variant="face" />;
+  return (
+    <span className="nx-billboard-avatar" aria-hidden="true">
+      <img src={profileImageSrc(item.profileImage)} alt="" width={40} height={40} decoding="async"
+        onError={(event) => {
+          if (event.currentTarget.src.endsWith(DEFAULT_PROFILE_AVATAR)) return;
+          event.currentTarget.src = DEFAULT_PROFILE_AVATAR;
+        }} />
+    </span>
+  );
+}
 
 /** 슈엔 대사를 섞어 전광판 문구 모양으로 만든다. 투자자 문구와 겹치지 않게 id는 음수다. */
 function shuenReel(): Showing[] {
@@ -43,12 +59,12 @@ function shuenReel(): Showing[] {
     const j = Math.floor(Math.random() * (i + 1));
     [lines[i], lines[j]] = [lines[j], lines[i]];
   }
-  return lines.map((body, index) => ({ id: -1 - index, nickname: "슈엔", body }));
+  return lines.map((body, index) => ({ id: -1 - index, nickname: "슈엔", body, shuen: true }));
 }
 
 /**
- * 홈 상단 띠. 왼쪽에는 슈엔 얼굴이 늘 걸려 있다. 투자자가 올린 문구가 있으면 그것만 돌리고,
- * 하나도 없거나 받아 오지 못하면 슈엔 한마디를 대신 돌린다. 그래서 띠는 홈에서 항상 보인다.
+ * 홈 상단 띠. 투자자가 올린 문구가 있으면 그것만 돌리고, 하나도 없거나 받아 오지 못하면 슈엔 한마디를 대신 돌린다.
+ * 그래서 띠는 홈에서 항상 보인다. 왼쪽 사진은 지금 보이는 문구의 주인이다(투자자 프로필사진, 슈엔 대사면 슈엔 얼굴).
  * 문구는 아래에서 올라오고, 둘 이상이면 10초마다 위로 밀려나며 다음 문구로 바뀐다. 마우스를 올리면 멈춘다.
  */
 export function HomeBillboard() {
@@ -77,7 +93,7 @@ export function HomeBillboard() {
   return (
     <section className="nx-billboard-slot" aria-label="전광판" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <div className="nx-billboard has-host">
-        <MentorPortrait variant="face" />
+        <BillboardAvatar key={`avatar-${current.id}`} item={current} />
         <div className="nx-billboard-reel">
           {leaving && (
             <BillboardText key={`out-${leaving.step}`} className="is-leaving" nickname={leaving.item.nickname} body={leaving.item.body}
