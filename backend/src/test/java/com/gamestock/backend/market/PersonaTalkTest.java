@@ -36,7 +36,23 @@ class PersonaTalkTest {
                     assertEquals("GI", line.code());
                     // 종목토론의 본문 검사(길이·링크·금칙어)를 그대로 통과해야 실제로 올라간다.
                     assertEquals(line.body(), StockTalkService.cleanBody(line.body()));
-                    assertTrue(line.body().contains(quote.price() > quote.prevClose() ? "+10.0%" : "-10.0%"), line.body());
+                    assertTrue(line.body().contains(quote.price() > quote.prevClose() ? "+10퍼" : "-10퍼"), line.body());
                 }
+    }
+
+    @Test void percentReadsLikeACommunityPost() {
+        assertEquals("+4.3퍼", PersonaTalk.percent(0.043));
+        assertEquals("-10퍼", PersonaTalk.percent(-0.1));
+    }
+
+    @Test void oldPostsAreRewrittenOnceWithTheSameMove() {
+        Persona persona = persona("GI", Persona.Style.LONG);
+        String up = PersonaTalk.rewrite(persona, "GI", "생각보다 빨리 올랐네요(+4.3%). 급하게 따라가진 않으려고요.", 7).orElseThrow();
+        assertTrue(up.contains("+4.3퍼"), up);
+        assertEquals(up, StockTalkService.cleanBody(up));
+        String down = PersonaTalk.rewrite(persona, "BA", "오늘 -12.0%… 흔들리지만 일주일 단위로 보려고요.", 7).orElseThrow();
+        assertTrue(down.contains("-12퍼"), down);
+        // 이미 바뀐 글은 다시 바꾸지 않는다.
+        assertTrue(PersonaTalk.rewrite(persona, "GI", up, 7).isEmpty());
     }
 }

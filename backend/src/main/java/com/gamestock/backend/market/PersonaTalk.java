@@ -5,13 +5,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.gamestock.backend.market.PersonaDecisions.Quote;
 
 /**
  * 운영 봇(AI 트레이더)이 종목토론에 남기는 짧은 한마디. 하루 등락이 큰 종목에만 반응하고, 자기 주력 게임을 먼저 본다.
  * 화면은 운영 봇 닉네임에 「AI」 표시를 붙이므로 사람인 척하지 않는다. 사라고 권하는 말은 쓰지 않고,
- * 자기 성격(장기·단타·초보)대로 지금 움직임에 대한 감상만 남긴다.
+ * 자기 성격(장기·단타·초보)대로 지금 움직임에 대한 감상만 남긴다. 말투는 주식 커뮤니티식 반말·은어로 쓰되,
+ * 욕설은 넣지 않는다(종목토론 금칙어 검사도 통과해야 올라간다).
  */
 final class PersonaTalk {
     /** 이만큼(하루 등락률 절댓값) 넘게 움직인 종목에만 글을 쓴다. */
@@ -36,32 +39,70 @@ final class PersonaTalk {
     }
 
     static Line line(Persona persona, Quote quote, Random random) {
-        boolean up = quote.dayChange() > 0;
-        boolean fandom = quote.code().equals(persona.fandomCode());
-        String pct = String.format(Locale.ROOT, "%s%.1f%%", up ? "+" : "", quote.dayChange() * 100);
+        return new Line(quote.code(), body(persona, quote.code(), quote.dayChange(), random));
+    }
+
+    /** 커뮤니티식 등락 표기. 0.043 → "+4.3퍼", -0.1 → "-10퍼". */
+    static String percent(double change) {
+        String number = String.format(Locale.ROOT, "%.1f", Math.abs(change) * 100);
+        if (number.endsWith(".0")) number = number.substring(0, number.length() - 2);
+        return (change > 0 ? "+" : "-") + number + "퍼";
+    }
+
+    /** 예전 말투(존댓말, "+4.3%" 표기)로 남은 운영 봇 글에서 등락률을 읽는 데 쓴다. */
+    private static final Pattern OLD_PERCENT = Pattern.compile("([+-]\\d+\\.\\d)%");
+
+    /**
+     * 예전 말투로 쓴 운영 봇 글을 지금 말투로 다시 쓴 본문. 예전 표기의 등락률이 없으면(이미 바뀐 글) 비어 있다.
+     * 같은 글은 늘 같은 문장으로 바뀌도록 {@code seed}(글 번호)로 고른다.
+     */
+    static Optional<String> rewrite(Persona persona, String code, String oldBody, long seed) {
+        Matcher match = OLD_PERCENT.matcher(oldBody == null ? "" : oldBody);
+        if (!match.find()) return Optional.empty();
+        double change = Double.parseDouble(match.group(1)) / 100;
+        if (change == 0) return Optional.empty();
+        return Optional.of(body(persona, code, change, new Random(seed)));
+    }
+
+    private static String body(Persona persona, String code, double change, Random random) {
+        boolean up = change > 0;
+        boolean fandom = code.equals(persona.fandomCode());
+        String pct = percent(change);
         List<String> lines = switch (persona.style()) {
             case LONG -> up
-                    ? List.of("오늘 " + pct + "네요. 저는 원래 계획대로 그냥 들고 갑니다.",
-                              pct + " 반갑긴 한데 하루 움직임으로 판단은 안 하려고요.",
-                              fandom ? "주력 게임이 " + pct + " 올랐네요. 길게 보는 쪽이라 덤덤하게 봅니다." : "생각보다 빨리 올랐네요(" + pct + "). 급하게 따라가진 않으려고요.")
-                    : List.of("오늘 " + pct + "… 흔들리지만 일주일 단위로 보려고요.",
-                              pct + "면 아프긴 하네요. 그래도 처음 산 이유가 바뀐 건 아니라서 지켜봅니다.",
-                              fandom ? "주력 게임 " + pct + "라니. 업데이트 소식 나올 때까지 기다려 봅니다." : "많이 빠졌네요(" + pct + "). 저는 오늘은 구경만 합니다.");
+                    ? List.of(pct + " ㅋㅋ 존버는 승리한다 이거야",
+                              "아 " + pct + " 떴네 근데 난 안 팜. 하루 빨간불로 안 흔들림",
+                              fandom ? "내 최애겜 " + pct + " ㅋㅋㅋ 개추 박고 간다 계속 들고감" : pct + " 떡상 ㄷㄷ 근데 이미 늦었다 따라가면 물림",
+                              "오늘 " + pct + "인데 호들갑 떨 거 없음. 1년 보고 산 거라",
+                              pct + "에 단타충들 몰려오겠네 ㅋㅋ 난 그냥 잔다")
+                    : List.of(pct + " 개미털기 오지네 ㅋㅋ 안 털림",
+                              "오늘 " + pct + " 아프긴 한데 산 이유 안 바뀜. 존버 간다",
+                              fandom ? "최애겜 " + pct + " 실화냐… 업뎃 나올 때까지 버틴다" : pct + " 떡락 ㄷㄷ 오늘은 구경만 함",
+                              pct + "에 패닉셀하는 애들 꼭 있더라. 일주일 뒤에 보자",
+                              "어제 산 사람 " + pct + " ㅠ 장투는 마음 편하게 묻어두는 거다");
             case SCALP -> up
-                    ? List.of(pct + " 거래량 붙는 거 보니 오늘 재밌겠네요.",
-                              "호가 얇아서 휙휙 움직이네요. 오늘 " + pct + ".",
-                              pct + " 찍고 눌림 오는지 보는 중. 짧게만 봅니다.")
-                    : List.of(pct + " 하락 중이라 호가가 빠르게 바뀌네요.",
-                              "오늘 " + pct + ". 반등 나오는지 짧게 지켜봅니다.",
-                              pct + "면 체결 소식 계속 뜨겠네요. 저는 손절선 지키는 중.");
+                    ? List.of(pct + " 거래량 터졌다 ㅋㅋ 오늘 장 재밌네",
+                              "호가 얇아서 휙휙 날아감 ㄷㄷ " + pct,
+                              pct + " 찍고 눌림 오나 보는 중. 짧게 먹고 튄다",
+                              pct + " 세력 들어왔냐? 윗꼬리 달리면 바로 던짐",
+                              "아 " + pct + "에 익절했는데 더 가네 ㅋㅋ 배 아프다")
+                    : List.of(pct + " 설거지 당한 사람 손 ㅋㅋ",
+                              "오늘 " + pct + " 반등 나오나 짧게 본다",
+                              pct + " 손절선 깔아놨으니 알아서 하겠지",
+                              pct + "면 체결 알림 계속 울리겠네 ㄷㄷ",
+                              pct + " 떨어지는 칼날은 안 잡음. 바닥 확인하고 본다 ㄹㅇ");
             case NEWBIE -> up
-                    ? List.of("오늘 " + pct + "?? 이거 무슨 일 있어요?",
-                              fandom ? "주력 게임 " + pct + " 실화인가요ㅋㅋ 기분 좋네요" : pct + " 오르는 거 보고 들어왔어요. 다들 뉴스 보셨나요?",
-                              "와 " + pct + "… 아직 뭐가 뭔지 모르겠지만 일단 신기하네요")
-                    : List.of("오늘 " + pct + "… 이럴 땐 어떻게 해야 하나요ㅠ",
-                              fandom ? "주력 게임 " + pct + "라니ㅠ 그래도 팬이라 못 팔겠어요" : pct + " 빠졌네요. 뉴스 탭부터 보러 갑니다",
-                              "파란불 " + pct + "… 수습 때 배운 손실한도 생각나네요");
+                    ? List.of("오늘 " + pct + "?? 뭔 일 있음?",
+                              fandom ? "최애겜 " + pct + " 실화냐 ㅋㅋㅋㅋ 기분 째짐" : pct + " 오르는 거 보고 들어옴. 뉴스 본 사람?",
+                              "와 " + pct + " ㅁㅊ 뭐가 뭔지 모르겠는데 일단 개꿀",
+                              "주린이인데 " + pct + "면 많이 오른 거임? ㅋㅋ",
+                              pct + " 빨간불 처음 봄 ㅠㅠ 감동")
+                    : List.of("오늘 " + pct + " … 이럴 땐 어케 함? ㅠ",
+                              fandom ? "최애겜 " + pct + " 에바 ㅠ 그래도 팬이라 못 팖" : pct + " 빠졌네 뉴스 탭부터 보러 감",
+                              "파란불 " + pct + " … 수습 때 배운 손실한도 생각나네",
+                              "아 고점에 물렸다 " + pct + " ㅋㅋㅋ 웃프다",
+                              pct + " 실화임? 나만 물린 거 아니지?");
         };
-        return new Line(quote.code(), lines.get(random.nextInt(lines.size())));
+        return lines.get(random.nextInt(lines.size()));
     }
 }
