@@ -8,7 +8,7 @@ import { navigate, useRoute } from "../../router";
 import { Link } from "../../components/Link";
 import { MentorDialog, type Certificate, type MentorTone } from "./MentorDialog";
 import { DESK_OPENED, fill, introSpeech, OJT_HINT, promotionLine, scoldLines, TRIAL_GATE_SPEECH } from "./lines";
-import { MentorPortrait } from "./MentorPortrait";
+import { MentorPortrait, useTypewriter } from "./MentorPortrait";
 import { readMentor, writeMentor } from "./mentorStore";
 
 type Scene = { tone: MentorTone; title: string; pages: string[]; certificate?: Certificate; primary?: { label: string; to?: string } };
@@ -122,18 +122,33 @@ export function MentorHost() {
           dismissLabel="체험 끝내기" onClose={() => void endTrial()} />
       )}
       {ojtCard && (
-        <aside className="mentor-ojt" aria-label="OJT 진행">
-          <MentorPortrait variant="face" />
-          <div className="mentor-ojt-bubble">
-            <p className="mentor-kicker">슈엔 사장 · OJT {doneCount}/{career?.promotion.length}</p>
-            <p className="mentor-ojt-line">{OJT_HINT[ojtCard.id] ?? ojtCard.label}</p>
-            <Link className="nx-btn is-small" to="/career">이어서</Link>
-          </div>
-          <button type="button" className="mentor-ojt-close" aria-label="OJT 안내 숨기기" onClick={() => setCardHidden(true)}>
-            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 3.5l9 9m0-9l-9 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-          </button>
-        </aside>
+        <MentorOjtCard line={OJT_HINT[ojtCard.id] ?? ojtCard.label} done={doneCount} total={career?.promotion.length ?? 0}
+          onHide={() => setCardHidden(true)} />
       )}
     </>
+  );
+}
+
+/** OJT 중 화면 구석에 붙는 작은 대화창. 큰 대화창처럼 슈엔이 서 있고, 다음 할 일을 한 글자씩 말한다. */
+function MentorOjtCard({ line, done, total, onHide }: { line: string; done: number; total: number; onHide: () => void }) {
+  const typing = useTypewriter(line);
+  return (
+    <aside className="mentor-ojt" aria-label="OJT 진행">
+      <MentorPortrait variant="mini" talking={!typing.done} />
+      <div className="mentor-ojt-box">
+        <p className="mentor-nameplate">
+          슈엔 사장<span className="mentor-nameplate-tag">OJT {done}/{total}</span>
+        </p>
+        <p className="vh" aria-live="polite">{line}</p>
+        <p className="mentor-ojt-line" aria-hidden="true" onClick={typing.skip}>
+          {typing.shown}
+          {!typing.done && <span className="mentor-caret" />}
+        </p>
+        <Link className="mentor-button is-strong is-small" to="/career">이어서</Link>
+      </div>
+      <button type="button" className="mentor-ojt-close" aria-label="OJT 안내 숨기기" onClick={onHide}>
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 3.5l9 9m0-9l-9 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+      </button>
+    </aside>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 /*
  * 슈엔 일러스트. 전신 그림 한 장(/characters/shuen.webp)을 잘라서 큰 대화창에는 상반신(bust),
- * 작은 OJT 팝업에는 얼굴(face)만 보여 준다. 그림을 못 읽으면 브랜드 마크로 대신하고,
+ * 작은 OJT 대화창에는 작은 상반신(mini), 얼굴만 필요하면 face를 보여 준다. 그림을 못 읽으면 브랜드 마크로 대신하고,
  * 한 번 실패하면 다른 곳에서도 다시 받으려 하지 않는다.
  */
 export const SHUEN_ILLUSTRATION = "/characters/shuen.webp";
@@ -21,7 +21,7 @@ const useMissing = () => useSyncExternalStore(
   () => missing,
 );
 
-type Props = { variant: "bust" | "face"; talking?: boolean };
+type Props = { variant: "bust" | "mini" | "face"; talking?: boolean };
 
 export function MentorPortrait({ variant, talking = false }: Props) {
   const failed = useMissing();
